@@ -13,8 +13,11 @@ import {
   UserCog, 
   ChevronDown,
   X,
-  BarChart3
+  BarChart3,
+  LogOut
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Swal from 'sweetalert2';
 
 interface NavItem {
   name: string;
@@ -59,6 +62,7 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>(['Employees']);
+  const router = useRouter();
 
   const toggleExpanded = (itemName: string) => {
     setExpandedItems(prev => 
@@ -66,6 +70,31 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
         ? prev.filter(name => name !== itemName)
         : [...prev, itemName]
     );
+  };
+
+  const handleLogout = () => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'You will be logged out from the system',
+      icon: 'warning',
+      width: '400px',
+      showCancelButton: true,
+      confirmButtonColor: '#3b3b3b',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, logout!',
+      background: '#fff',
+      customClass: {
+        container: 'bg-opacity-80',
+        popup: 'rounded-lg shadow-xl',
+        title: 'text-gray-800',
+        confirmButton: 'bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white px-4 py-2 rounded-md',
+        cancelButton: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md'
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.push('/');
+      }
+    });
   };
 
   return (
@@ -150,6 +179,18 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
               </ul>
             </ScrollArea>
           </nav>
+
+          {/* Logout Button */}
+          <div className="mt-auto pb-4">
+            <Button
+              variant="ghost"
+              className="w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-white hover:text-[#3b3b3b]"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -244,6 +285,18 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
               </ul>
             </ScrollArea>
           </nav>
+
+          {/* Logout Button */}
+          <div className="mt-auto pb-4">
+            <Button
+              variant="ghost"
+              className="w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-white hover:text-[#3b3b3b]"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
     </>
