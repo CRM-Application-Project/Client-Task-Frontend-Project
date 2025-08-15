@@ -8,39 +8,136 @@ import { Eye, EyeOff, LogIn, Building2, Users, TrendingUp, Shield } from 'lucide
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { loginUser, verifyUser } from '../services/data.service';
+
+
+interface VerifyUserResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    tenantToken: string | null;
+    accessRegion: string;
+    deviceType: string;
+  };
+}
+
+interface LoginRequestData {
+  emailAddress: string;
+  password: string;
+  deviceType: string;
+  accessRegion: string;
+}
+
+interface LoginResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    profileResponse: {
+      firstName: string;
+      lastName: string;
+      emailAddress: string;
+      phoneNumber: string | null;
+      password: string;
+      userRole: string;
+    };
+    authTokenResponse: {
+      token: string | null;
+      refreshToken: string | null;
+    };
+  };
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [accessRegion, setAccessRegion] = useState('public');
   const { toast } = useToast();
   const router = useRouter();
 
-// In your handleLogin function in the login page:
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
-  
-  // Special case for redirect to reset password
-  if (email === 'jayanth@seabed2crest.com' && password === 'pass') {
-    setTimeout(() => {
+  const handleEmailBlur = async () => {
+    if (!email) return;
+    
+    setIsLoading(true);
+    try {
+      const response: VerifyUserResponse = await verifyUser(email, 'web');
+      
+      if (response.isSuccess) {
+        setIsEmailVerified(true);
+        setAccessRegion(response.data.accessRegion);
+        toast({
+          title: "Email verified",
+          description: "Please enter your password to continue",
+          variant: "default",
+        });
+      } else {
+        setIsEmailVerified(false);
+        toast({
+          title: "Verification failed",
+          description: response.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setIsEmailVerified(false);
+      toast({
+        title: "Error",
+        description: "An error occurred while verifying your email",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      router.push('/reset-password');
-    }, 1000);
-    return;
-  }
+    }
+  };
 
-  // Normal login process
-  setTimeout(() => {
-    toast({
-      title: "Welcome to CRM System",
-      description: "Login successful! Redirecting to dashboard...",
-    });
-    setIsLoading(false);
-    router.push('/dashboard');
-  }, 2000);
-};
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isEmailVerified) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const loginData: LoginRequestData = {
+        emailAddress: email,
+        password,
+        deviceType: 'web',
+        accessRegion
+      };
+
+      const response: LoginResponse = await loginUser(loginData);
+      
+      if (response.isSuccess) {
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${response.data.profileResponse.firstName}!`,
+          variant: "default",
+        });
+        
+        // Store tokens and user data in localStorage or context
+        localStorage.setItem('authToken', response.data.authTokenResponse.token || '');
+        localStorage.setItem('refreshToken', response.data.authTokenResponse.refreshToken || '');
+        localStorage.setItem('user', JSON.stringify(response.data.profileResponse));
+        
+        router.push('/dashboard');
+      } else {
+        toast({
+          title: "Login failed",
+          description: response.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred during login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
@@ -59,8 +156,6 @@ const handleLogin = async (e: React.FormEvent) => {
         
         {/* Overlay */}
         <div className="absolute inset-0 bg-primary/10" />
-        
-     
       </div>
 
       {/* Right Side - Login Form */}
@@ -68,7 +163,6 @@ const handleLogin = async (e: React.FormEvent) => {
         <div className="w-full max-w-md space-y-8">
           {/* Logo and Branding */}
           <div className="text-center space-y-4">
-           
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-foreground">
                 Welcome Back
@@ -92,7 +186,11 @@ const handleLogin = async (e: React.FormEvent) => {
                     type="email"
                     placeholder="Enter your email address"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setIsEmailVerified(false);
+                    }}
+                    onBlur={handleEmailBlur}
                     required
                     className="h-12 bg-background border-input focus:border-primary transition-all duration-200"
                   />
@@ -110,12 +208,18 @@ const handleLogin = async (e: React.FormEvent) => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200"
+                      disabled={!isEmailVerified}
+                      className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 ${
+                        !isEmailVerified ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={!isEmailVerified}
+                      className={`absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors ${
+                        !isEmailVerified ? 'cursor-not-allowed' : ''
+                      }`}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -145,7 +249,7 @@ const handleLogin = async (e: React.FormEvent) => {
 
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !isEmailVerified}
                   className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle"
                 >
                   {isLoading ? (

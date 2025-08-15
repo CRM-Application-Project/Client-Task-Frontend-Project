@@ -9,6 +9,7 @@ import { Eye, EyeOff, UserPlus, Building2, Users, TrendingUp, Shield, ChevronDow
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { registerUser } from '../services/data.service';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -38,24 +39,84 @@ export default function RegisterPage() {
     'Non-Profit'
   ];
 
+  const validateForm = () => {
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.emailAddress)) {
+    toast({
+      title: "Invalid Email",
+      description: "Please enter a valid email address",
+      variant: "destructive",
+    });
+    return false;
+  }
+
+  // Password strength check (min 8 chars)
+  if (formData.password.length < 8) {
+    toast({
+      title: "Weak Password",
+      description: "Password must be at least 8 characters long",
+      variant: "destructive",
+    });
+    return false;
+  }
+
+  return true;
+};
+
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate registration process
-    setTimeout(() => {
+const handleRegister = async (e: React.FormEvent) => {
+  e.preventDefault();
+    if (!validateForm()) {
+    return;
+  }
+  
+  setIsLoading(true);
+  
+  try {
+    // Prepare the registration data
+    const registerData: RegisterRequestData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      emailAddress: formData.emailAddress,
+      password: formData.password,
+      companyName: formData.companyName,
+      companyEmailAddress: formData.companyEmailAddress,
+      companyContactNumber: formData.companyContactNumber,
+      gstNumber: formData.gstNumber
+    };
+
+    // Call the registration API
+    const response = await registerUser(registerData);
+
+    if (response.isSuccess) {
       toast({
         title: "Registration Successful",
-        description: "Your account has been created successfully!",
+        description: response.data.message || "Your account has been created successfully!",
       });
-      setIsLoading(false);
       router.push('/login');
-    }, 2000);
-  };
+    } else {
+      toast({
+        title: "Registration Failed",
+        description: response.message || "Please check your information and try again.",
+        variant: "destructive",
+      });
+    }
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "An unexpected error occurred. Please try again later.",
+      variant: "destructive",
+    });
+    console.error("Registration error:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
