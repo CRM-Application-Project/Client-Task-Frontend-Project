@@ -132,8 +132,13 @@ const Index = () => {
     setEditingTask(undefined);
   };
 
+  const handleClearAllFilters = () => {
+    setFilters({});
+    setSearchQuery("");
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-background/95">
+    <div className="min-h-screen ">
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-8">
@@ -148,6 +153,7 @@ const Index = () => {
           onAddTask={() => setIsAddModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          onClearAllFilters={handleClearAllFilters}
         />
 
         {/* Task Board */}

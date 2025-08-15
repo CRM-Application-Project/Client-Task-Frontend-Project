@@ -1,12 +1,11 @@
 "use client";
-import { Search, Calendar, Plus, X } from "lucide-react";
+import { Search, Calendar, Plus, X, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { TaskFilters as TaskFiltersType, TaskPriority } from "../../lib/task";
 import { DateRangePicker } from "./DateRangePicker";
 import { useState } from "react";
+import { TaskFilters as TaskFiltersType, TaskPriority } from "../../lib/task";
 
 interface TaskFiltersProps {
   filters: TaskFiltersType;
@@ -14,6 +13,7 @@ interface TaskFiltersProps {
   onAddTask: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onClearAllFilters: () => void;
 }
 
 export const TaskFilters = ({ 
@@ -21,7 +21,8 @@ export const TaskFilters = ({
   onFiltersChange, 
   onAddTask, 
   searchQuery, 
-  onSearchChange 
+  onSearchChange,
+  onClearAllFilters
 }: TaskFiltersProps) => {
   const priorities: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -35,114 +36,156 @@ export const TaskFilters = ({
   };
 
   return (
-    <>
-      <div className="bg-card p-6 rounded-lg shadow-sm border border-border/50 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Filters */}
-            <div className="flex gap-3 flex-wrap">
-              <Select
-                value={filters.priority || "all"}
-                onValueChange={(value) => 
-                  onFiltersChange({ 
-                    ...filters, 
-                    priority: value === "all" ? undefined : value as TaskPriority 
-                  })
-                }
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  {priorities.map(priority => (
-                    <SelectItem key={priority} value={priority}>
-                      {priority}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filters.createdBy || "all"}
-                onValueChange={(value) => 
-                  onFiltersChange({ 
-                    ...filters, 
-                    createdBy: value === "all" ? undefined : value 
-                  })
-                }
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Created By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Created By</SelectItem>
-                  <SelectItem value="John Doe">John Doe</SelectItem>
-                  <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-                  <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filters.assignedTo || "all"}
-                onValueChange={(value) => 
-                  onFiltersChange({ 
-                    ...filters, 
-                    assignedTo: value === "all" ? undefined : value 
-                  })
-                }
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Assign To" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assign To</SelectItem>
-                  <SelectItem value="John Doe">John Doe</SelectItem>
-                  <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-                  <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Date Range and Add Button */}
-          <div className="flex items-center gap-3">
-            {filters.dateRange && (
-              <Badge variant="secondary" className="flex items-center gap-2">
-                <Calendar className="h-3 w-3" />
-                {filters.dateRange.from.toLocaleDateString()} - {filters.dateRange.to.toLocaleDateString()}
-                <button onClick={clearDateRange} className="hover:text-destructive">
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-
-            <Button 
-              variant="outline" 
-              onClick={() => setIsDatePickerOpen(true)}
-              className="flex items-center gap-2"
+    <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
+      {/* Top Row */}
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
+        {/* Date Range */}
+        {filters.dateRange && (
+          <div className="flex items-center bg-white px-3 py-1.5 rounded-md border border-gray-200 text-sm">
+            <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+            <span className="text-gray-700">
+              {filters.dateRange.from.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} - 
+              {filters.dateRange.to.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+            <button 
+              onClick={clearDateRange} 
+              className="ml-2 text-gray-400 hover:text-gray-600"
             >
-              <Calendar className="h-4 w-4" />
-              Date Range
-            </Button>
-            
-            <Button onClick={onAddTask} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
           </div>
+        )}
+
+    {/* Search Bar */}
+<div className="relative w-64 ml-auto mr-4">
+  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+  <Input
+    placeholder="Search tasks..."
+    value={searchQuery}
+    onChange={(e) => onSearchChange(e.target.value)}
+    className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+  />
+</div>
+
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={onAddTask} 
+            className="bg-gray-900 text-white hover:bg-gray-800 rounded-lg shadow-sm"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsDatePickerOpen(true)}
+            className="border-gray-300 rounded-lg"
+          >
+            <Calendar className="h-4 w-4" />
+          </Button>
         </div>
+      </div>
+
+      {/* Filter Row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select
+          value={filters.priority || "all"}
+          onValueChange={(value) => 
+            onFiltersChange({ 
+              ...filters, 
+              priority: value === "all" ? undefined : value as TaskPriority 
+            })
+          }
+        >
+          <SelectTrigger className="w-40 rounded-lg border-gray-300">
+            <div className="flex items-center">
+              <SelectValue placeholder="All Priority" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Priority</SelectItem>
+            {priorities.map(priority => (
+              <SelectItem key={priority} value={priority}>
+                {priority}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={Array.isArray(filters.labels) ? filters.labels[0] ?? "all" : filters.labels || "all"}
+          onValueChange={(value) => 
+            onFiltersChange({ 
+              ...filters, 
+              labels: value === "all" ? undefined : [value] 
+            })
+          }
+        >
+          <SelectTrigger className="w-40 rounded-lg border-gray-300">
+            <div className="flex items-center">
+              <SelectValue placeholder="All Labels" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Labels</SelectItem>
+            <SelectItem value="Frontend">Frontend</SelectItem>
+            <SelectItem value="Backend">Backend</SelectItem>
+            <SelectItem value="Bug">Bug</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.createdBy || "all"}
+          onValueChange={(value) => 
+            onFiltersChange({ 
+              ...filters, 
+              createdBy: value === "all" ? undefined : value 
+            })
+          }
+        >
+          <SelectTrigger className="w-40 rounded-lg border-gray-300">
+            <div className="flex items-center">
+              <SelectValue placeholder="All Created By" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Created By</SelectItem>
+            <SelectItem value="John Doe">John Doe</SelectItem>
+            <SelectItem value="Jane Smith">Jane Smith</SelectItem>
+            <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.assignedTo || "all"}
+          onValueChange={(value) => 
+            onFiltersChange({ 
+              ...filters, 
+              assignedTo: value === "all" ? undefined : value 
+            })
+          }
+        >
+          <SelectTrigger className="w-40 rounded-lg border-gray-300">
+            <div className="flex items-center">
+              <SelectValue placeholder="All Assigned To" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Assign To</SelectItem>
+            <SelectItem value="John Doe">John Doe</SelectItem>
+            <SelectItem value="Jane Smith">Jane Smith</SelectItem>
+            <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <button 
+          onClick={onClearAllFilters}
+          className="flex items-center text-sm text-gray-500 hover:text-gray-700 ml-2"
+        >
+          <X className="h-4 w-4 mr-1" />
+          Clear all
+        </button>
       </div>
 
       <DateRangePicker
@@ -151,6 +194,6 @@ export const TaskFilters = ({
         onSelect={handleDateRangeSelect}
         initialRange={filters.dateRange}
       />
-    </>
+    </div>
   );
 };

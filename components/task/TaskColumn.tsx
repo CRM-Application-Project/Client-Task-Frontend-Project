@@ -41,8 +41,8 @@ export const TaskColumn = ({ status, tasks, onEditTask }: TaskColumnProps) => {
   const config = statusConfig[status];
   
   return (
-    <div className="flex-1 min-w-[280px]">
-      <div className="mb-4">
+    <div className="flex-1 min-w-[280px] bg-gray-100">
+      <div className="mb-4 ">
         <div className={`${config.color} ${config.textColor} px-4 py-3 rounded-lg flex items-center justify-between shadow-sm`}>
           <h2 className="font-semibold text-sm uppercase tracking-wide">
             {config.title}
@@ -53,7 +53,7 @@ export const TaskColumn = ({ status, tasks, onEditTask }: TaskColumnProps) => {
         </div>
       </div>
       
-      <div className="space-y-3 min-h-[500px]">
+      <div className="space-y-3 min-h-[500px] p-4">
         {tasks.map((task) => (
           <TaskCard
             key={task.id}
