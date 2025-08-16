@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Upload, FileText, CheckCircle, Download } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { importLead } from '@/app/services/data.service';
 
 interface ImportLeadModalProps {
   isOpen: boolean;
@@ -33,6 +35,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
   const [date, setDate] = useState('');
   const [emailAutomation, setEmailAutomation] = useState(false);
   const [whatsappAutomation, setWhatsappAutomation] = useState(false);
+  const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -46,39 +49,39 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
 
     setImporting(true);
     
-    // Simulate file processing
-    setTimeout(() => {
-      // Mock imported leads data
-      const mockImportedLeads = [
-        {
-          name: 'Imported Lead 1',
-          email: 'imported1@example.com',
-          phone: '+1 (555) 111-1111',
-          company: 'Imported Company 1',
-          location: 'Imported City 1',
-          status: 'NEW',
-          priority: 'MEDIUM',
-          source: 'IMPORT',
-          assignedTo: 'John Smith',
-        },
-        {
-          name: 'Imported Lead 2',
-          email: 'imported2@example.com',
-          phone: '+1 (555) 222-2222',
-          company: 'Imported Company 2',
-          location: 'Imported City 2',
-          status: 'NEW',
-          priority: 'LOW',
-          source: 'IMPORT',
-          assignedTo: 'Jane Doe',
-        },
-      ];
-
-      onImportLeads(mockImportedLeads);
+    try {
+      const response = await importLead(selectedFile, status, user);
+      
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Leads imported successfully",
+          variant: "default",
+        });
+        
+        // If you want to update the UI with the imported leads,
+        // you might need to fetch the leads again or use the response data
+        // For now, we'll call the onImportLeads callback with empty array
+        // since the API response structure isn't shown to include the leads
+        onImportLeads([]);
+        handleClose();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to import leads",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error importing leads:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while importing leads",
+        variant: "destructive",
+      });
+    } finally {
       setImporting(false);
-      setSelectedFile(null);
-      onClose();
-    }, 2000);
+    }
   };
 
   const handleClose = () => {

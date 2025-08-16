@@ -36,6 +36,10 @@ export const API_CONSTANTS = {
   DELETE_BY_ID: "/lead/deleteLeadById",
    GET_BY_ID: "/lead/fetchLeadById",
      FILTER: "/lead/filter",
+     IMPORT_LEAD:"/lead/upload",
+    DROPDOWN: "/lead/dropdown",
+    ADD_FOLLOWUP:"/lead/follow-up",
+    LEAD_TRANSFER:"/lead/transfer",
 
   }
     

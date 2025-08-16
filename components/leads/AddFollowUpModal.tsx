@@ -22,10 +22,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Upload, X } from 'lucide-react';
 import { Lead } from '../../lib/leads';
+import { useToast } from '@/hooks/use-toast';
+import { addFollowUp } from '@/app/services/data.service';
 
 const formSchema = z.object({
   nextFollowupDate: z.string().min(1, 'Next followup date is required'),
-  message: z.string().optional(),
+  followUpType: z.string().min(1, 'Follow-up type is required'),
+  comment: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -45,31 +48,69 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
 }) => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       nextFollowupDate: '',
-      message: '',
+      followUpType: 'CALL',
+      comment: '',
     },
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (!lead) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const payload = {
+        leadId: lead.id,
+        nextFollowUpDate: data.nextFollowupDate,
+        followUpType: data.followUpType,
+        comment: data.comment || '',
+      };
 
-    const followUp = {
-      id: Date.now().toString(),
-      nextFollowupDate: data.nextFollowupDate,
-      message: data.message,
-      attachments: attachments.map(file => file.name),
-      completed: false,
-      createdAt: new Date(),
-    };
+      const response = await addFollowUp(payload);
+      
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Follow-up has been successfully scheduled.",
+          variant: "default",
+        });
+        
+        const followUp = {
+          id: Date.now().toString(),
+          nextFollowupDate: data.nextFollowupDate,
+          followUpType: data.followUpType,
+          comment: data.comment,
+          attachments: attachments.map(file => file.name),
+          completed: false,
+          createdAt: new Date(),
+        };
 
-    onAddFollowUp(lead.id, followUp);
-    form.reset();
-    setAttachments([]);
-    onClose();
+        onAddFollowUp(lead.id, followUp);
+        handleClose();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to schedule follow-up",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error scheduling follow-up:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while scheduling follow-up",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -125,7 +166,6 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
           <DialogTitle className="text-base font-medium text-gray-900">
             Add Lead Followup
           </DialogTitle>
-          
         </DialogHeader>
 
         <Form {...form}>
@@ -152,7 +192,32 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
 
             <FormField
               control={form.control}
-              name="message"
+              name="followUpType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-gray-700">
+                    Follow-up Type:
+                  </FormLabel>
+                  <FormControl>
+                    <select
+                      {...field}
+                      className="mt-1 block w-full h-8 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    >
+                      <option value="CALL">Call</option>
+                      <option value="EMAIL">Email</option>
+                      <option value="MEETING">Meeting</option>
+                      <option value="MESSAGE">Message</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="comment"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-gray-700">
@@ -235,14 +300,16 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                 type="submit" 
                 className="px-6 h-9 text-white text-sm"
                 style={{ backgroundColor: '#636363' }}
+                disabled={isLoading}
               >
-                Submit
+                {isLoading ? "Submitting..." : "Submit"}
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={handleClose}
                 className="px-6 h-9 text-sm"
+                disabled={isLoading}
               >
                 Cancel
               </Button>

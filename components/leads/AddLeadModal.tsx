@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { createLead } from '@/app/services/data.service';
+import { useCountryCodes } from '@/hooks/useCountryCodes';
 
 
 const formSchema = z.object({
@@ -57,6 +58,9 @@ interface AddLeadModalProps {
 
 const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead }) => {
   const { toast } = useToast();
+  const { codes, loading } = useCountryCodes();
+  const [selectedCode, setSelectedCode] = useState("+91"); 
+  const [phone, setPhone] = useState("");
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -170,9 +174,30 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+1 (555) 123-4567" {...field} />
-                    </FormControl>
+                    <div className="flex gap-2">
+                      <Select 
+                        value={selectedCode} 
+                        onValueChange={setSelectedCode}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loading ? (
+                            <SelectItem value="loading">Loading...</SelectItem>
+                          ) : (
+                            codes.map((c) => (
+                              <SelectItem key={c.code} value={c.code}>
+                                {c.name} ({c.code})
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormControl>
+                        <Input placeholder="1234567890" {...field} />
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
