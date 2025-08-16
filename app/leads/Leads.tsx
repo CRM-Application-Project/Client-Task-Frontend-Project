@@ -1,13 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DragDropContext, DropResult, Draggable } from "react-beautiful-dnd";
-
+import { Button } from "@/components/ui/button";
+import { LeadFilters } from "@/components/leads/LeadFilters";
+import { LeadColumn } from "@/components/leads/LeadColumn";
+import AddLeadModal from "@/components/leads/AddLeadModal";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Lead, LeadStatus } from "../../lib/leads";
-
-// Define LeadFiltersType with status property
 import { LeadPriority } from "../../lib/leads";
-
 import { LeadSource } from "../../lib/leads";
+import { deleteLeadById, getAllLeads } from "../services/data.service";
 
 type LeadFiltersType = {
   status?: LeadStatus;
@@ -15,134 +17,54 @@ type LeadFiltersType = {
   source?: LeadSource;
   assignedTo?: string;
 };
-import { Button } from "@/components/ui/button";
-import { LeadFilters } from "@/components/leads/LeadFilters";
-import { LeadColumn } from "@/components/leads/LeadColumn";
-
-// Sample leads data
-const sampleLeads: Lead[] = [
-  {
-    id: "1",
-    name: "Alice Johnson",
-    company: "TechCorp Inc.",
-    email: "alice@techcorp.com",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    status: "NEW",
-    priority: "HIGH",
-    source: "WEBSITE",
-    assignedTo: "John Smith",
-    createdAt: new Date("2025-08-10"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "2",
-    name: "Bob Martinez",
-    company: "StartupXYZ",
-    email: "bob@startupxyz.com",
-    phone: "+1 (555) 987-6543",
-    location: "Austin, TX",
-    status: "CONTACTED",
-    priority: "MEDIUM",
-    source: "REFERRAL",
-    assignedTo: "Jane Doe",
-    createdAt: new Date("2025-08-12"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "3",
-    name: "Carol Davis",
-    company: "Enterprise Solutions",
-    email: "carol@enterprise.com",
-    phone: "+1 (555) 456-7890",
-    location: "New York, NY",
-    status: "QUALIFIED",
-    priority: "URGENT",
-    source: "EMAIL",
-    assignedTo: "Mike Johnson",
-    createdAt: new Date("2025-08-13"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "4",
-    name: "David Wilson",
-    company: "Global Systems",
-    email: "david@globalsys.com",
-    phone: "+1 (555) 321-9876",
-    location: "Chicago, IL",
-    status: "PROPOSAL",
-    priority: "HIGH",
-    source: "SOCIAL_MEDIA",
-    assignedTo: "Sarah Wilson",
-    createdAt: new Date("2025-08-11"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "5",
-    name: "Eva Rodriguez",
-    company: "Innovation Labs",
-    email: "eva@innovation.com",
-    phone: "+1 (555) 654-3210",
-    location: "Seattle, WA",
-    status: "DEMO",
-    priority: "MEDIUM",
-    source: "EVENT",
-    assignedTo: "John Smith",
-    createdAt: new Date("2025-08-09"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "6",
-    name: "Frank Thompson",
-    company: "Digital Dynamics",
-    email: "frank@digital.com",
-    phone: "+1 (555) 789-0123",
-    location: "Boston, MA",
-    status: "NEGOTIATIONS",
-    priority: "HIGH",
-    source: "PHONE",
-    assignedTo: "Jane Doe",
-    createdAt: new Date("2025-08-08"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "7",
-    name: "Grace Chen",
-    company: "Future Tech",
-    email: "grace@futuretech.com",
-    phone: "+1 (555) 012-3456",
-    location: "Los Angeles, CA",
-    status: "CLOSED_WON",
-    priority: "URGENT",
-    source: "WEBSITE",
-    assignedTo: "Mike Johnson",
-    createdAt: new Date("2025-08-07"),
-    updatedAt: new Date("2025-08-14")
-  },
-  {
-    id: "8",
-    name: "Henry Brown",
-    company: "Legacy Corp",
-    email: "henry@legacy.com",
-    phone: "+1 (555) 345-6789",
-    location: "Miami, FL",
-    status: "CLOSED_LOST",
-    priority: "LOW",
-    source: "OTHER",
-    assignedTo: "Sarah Wilson",
-    createdAt: new Date("2025-08-06"),
-    updatedAt: new Date("2025-08-14")
-  }
-];
 
 const Leads = () => {
-  const [leads, setLeads] = useState<Lead[]>(sampleLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [filters, setFilters] = useState<LeadFiltersType>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'kanban' | 'grid'>('kanban');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
+
+useEffect(() => {
+  const fetchLeads = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getAllLeads();
+      if (response.isSuccess && response.data) {
+        // Transform API data to match our Lead interface
+        const transformedLeads = response.data.map((apiLead) => ({
+          id: apiLead.leadId,
+          name: apiLead.customerName,
+          company: apiLead.companyEmailAddress, // Using companyEmailAddress as company for now
+          email: apiLead.customerEmailAddress,
+          phone: apiLead.customerMobileNumber,
+          location: apiLead.leadAddress,
+          status: apiLead.leadStatus as LeadStatus,
+          priority: "MEDIUM" as LeadPriority, // Explicitly type as LeadPriority
+          source: apiLead.leadSource as LeadSource,
+          assignedTo: apiLead.leadAddedBy,
+          createdAt: new Date(apiLead.createdAt),
+          updatedAt: new Date(apiLead.updatedAt),
+          comment: apiLead.comment,
+          leadLabel: apiLead.leadLabel,
+          leadReference: apiLead.leadReference,
+        }));
+        setLeads(transformedLeads);
+      }
+    } catch (error) {
+      console.error("Failed to fetch leads:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchLeads();
+}, []);
 
   // Filter leads based on search and filters
   const filteredLeads = leads.filter(lead => {
@@ -181,8 +103,25 @@ const Leads = () => {
     // TODO: Implement edit modal
   };
 
-  const handleDeleteLead = (lead: Lead) => {
-    setLeads(prevLeads => prevLeads.filter(l => l.id !== lead.id));
+  const handleDeleteClick = (lead: Lead) => {
+    setLeadToDelete(lead);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!leadToDelete) return;
+    
+    try {
+      const response = await deleteLeadById(leadToDelete.id);
+      if (response.isSuccess) {
+        setLeads(prevLeads => prevLeads.filter(l => l.id !== leadToDelete.id));
+      }
+    } catch (error) {
+      console.error("Failed to delete lead:", error);
+    } finally {
+      setIsDeleteModalOpen(false);
+      setLeadToDelete(null);
+    }
   };
 
   const handleViewLead = (lead: Lead) => {
@@ -192,9 +131,27 @@ const Leads = () => {
 
   const handleAddLead = () => {
     setIsAddModalOpen(true);
-    console.log('Add new lead');
-    // TODO: Implement add modal
   };
+
+  const handleCreateLead = (newLead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const lead: Lead = {
+      ...newLead,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    setLeads(prevLeads => [...prevLeads, lead]);
+    setIsAddModalOpen(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -220,7 +177,7 @@ const Leads = () => {
                   status={status}
                   leads={filteredLeads.filter(lead => lead.status === status)}
                   onEditLead={handleEditLead}
-                  onDeleteLead={handleDeleteLead}
+                  onDeleteLead={handleDeleteClick}
                   onViewLead={handleViewLead}
                 />
               ))}
@@ -240,7 +197,7 @@ const Leads = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Assigned To</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -307,7 +264,7 @@ const Leads = () => {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteLead(lead)}
+                            onClick={() => handleDeleteClick(lead)}
                             className="text-red-600 hover:text-red-900"
                           >
                             Delete
@@ -326,6 +283,22 @@ const Leads = () => {
             )}
           </div>
         )}
+
+        <AddLeadModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAddLead={handleCreateLead}
+        />
+
+        <ConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Lead"
+          description={`Are you sure you want to delete the lead "${leadToDelete?.name}"? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
       </div>
     </div>
   );

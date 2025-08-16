@@ -31,7 +31,7 @@ const navigation: NavItem[] = [
   {
     name: "Leads",
     icon: Users,
-    href: "/dashboard",
+    href: "/leads",
   },
   {
     name: "Tasks",
