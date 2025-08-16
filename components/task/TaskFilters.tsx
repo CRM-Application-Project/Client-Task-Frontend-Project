@@ -16,6 +16,7 @@ interface TaskFiltersProps {
     createdBy?: string;
     assignedTo?: string;
     dateRange?: { from: Date; to: Date };
+    stageIds?: string;
   };
   onFiltersChange: (filters: {
     priority?: string;
@@ -23,6 +24,7 @@ interface TaskFiltersProps {
     createdBy?: string;
     assignedTo?: string;
     dateRange?: { from: Date; to: Date };
+    stageIds?: string;
   }) => void;
   onAddTask: () => void;
   searchQuery: string;
@@ -38,7 +40,9 @@ export const TaskFilters = ({
   onAddTask, 
   searchQuery, 
   onSearchChange,
-  onClearAllFilters
+  onClearAllFilters,
+  stages = [],
+  users = []
 }: TaskFiltersProps) => {
   const priorities: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -72,17 +76,16 @@ export const TaskFilters = ({
           </div>
         )}
 
-    {/* Search Bar */}
-<div className="relative w-64 ml-auto mr-4">
-  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-  <Input
-    placeholder="Search tasks..."
-    value={searchQuery}
-    onChange={(e) => onSearchChange(e.target.value)}
-    className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
-  />
-</div>
-
+        {/* Search Bar */}
+        <div className="relative w-64 ml-auto mr-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+          />
+        </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
@@ -129,6 +132,31 @@ export const TaskFilters = ({
           </SelectContent>
         </Select>
 
+        {/* Stage Filter */}
+        <Select
+          value={filters.stageIds || "all"}
+          onValueChange={(value) => 
+            onFiltersChange({ 
+              ...filters, 
+              stageIds: value === "all" ? undefined : value
+            })
+          }
+        >
+          <SelectTrigger className="w-40 rounded-lg border-gray-300">
+            <div className="flex items-center">
+              <SelectValue placeholder="All Stages" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stages</SelectItem>
+            {stages.map(stage => (
+              <SelectItem key={stage.id} value={stage.id.toString()}>
+                {stage.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select
           value={Array.isArray(filters.labels) ? filters.labels[0] ?? "all" : filters.labels || "all"}
           onValueChange={(value) => 
@@ -167,9 +195,11 @@ export const TaskFilters = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Created By</SelectItem>
-            <SelectItem value="John Doe">John Doe</SelectItem>
-            <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-            <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
+            {users.map(user => (
+              <SelectItem key={user.userId} value={user.userId}>
+                {`${user.firstName} ${user.lastName}`}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -188,10 +218,12 @@ export const TaskFilters = ({
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Assign To</SelectItem>
-            <SelectItem value="John Doe">John Doe</SelectItem>
-            <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-            <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
+            <SelectItem value="all">All Assigned To</SelectItem>
+            {users.map(user => (
+              <SelectItem key={user.userId} value={user.userId}>
+                {`${user.firstName} ${user.lastName}`}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

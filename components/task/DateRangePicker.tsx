@@ -92,13 +92,24 @@ export const DateRangePicker = ({
       },
     },
   ];
+const [selectedPreset, setSelectedPreset] = useState<{ 
+  label: string; 
+  startDate: Date; 
+  endDate: Date;
+} | null>(null);
 
-  const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
-    const range = preset.value();
-    setSelectedRange(range);
-    setFromDate(range.from);
-    setToDate(range.to);
-  };
+const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
+  const range = preset.value();
+  setSelectedRange(range);
+  setSelectedPreset({
+    label: preset.label,
+    startDate: range.from,
+    endDate: range.to
+  });
+  setFromDate(range.from);
+  setToDate(range.to);
+};
+
 
   const handleSubmit = () => {
     if (fromDate && toDate) {
@@ -128,7 +139,7 @@ export const DateRangePicker = ({
         onInteractOutside={onClose}
         hideCloseButton
       >
-        <div className="bg-primary text-primary-foreground p-4 flex items-center justify-between border-b">
+        <div className="  p-4 flex items-center justify-between border-b">
           <h3 className="text-base font-semibold">Select Date Range</h3>
           <button
             onClick={onClose}
@@ -143,32 +154,37 @@ export const DateRangePicker = ({
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Preset Options */}
             <div className="space-y-1">
-              {presetRanges.map((preset) => (
-                <Button
-                  key={preset.label}
-                  variant="ghost"
-                  className="w-full justify-start text-xs font-normal hover:bg-accent py-1 h-8"
-                  onClick={() => handlePresetSelect(preset)}
-                >
-                  {preset.label}
-                </Button>
-              ))}
+  {presetRanges.map((preset) => {
+    const isActive = selectedPreset?.label === preset.label; // your active condition
+    return (
+      <Button
+        key={preset.label}
+        variant="ghost"
+        className={`w-full justify-start text-xs font-normal py-1 h-8 
+          ${isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent"}`}
+        onClick={() => handlePresetSelect(preset)}
+      >
+        {preset.label}
+      </Button>
+    );
+  })}
 
-              <div className="pt-2 space-y-1">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span className="bg-primary text-primary-foreground rounded px-1 py-0.5 text-[0.65rem]">
-                    1
-                  </span>
-                  days up to today
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span className="bg-primary text-primary-foreground rounded px-1 py-0.5 text-[0.65rem]">
-                    1
-                  </span>
-                  days starting today
-                </div>
-              </div>
-            </div>
+  <div className="pt-2 space-y-1">
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="bg-primary text-primary-foreground rounded px-1 py-0.5 text-[0.65rem]">
+        1
+      </span>
+      days up to today
+    </div>
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="bg-primary text-primary-foreground rounded px-1 py-0.5 text-[0.65rem]">
+        1
+      </span>
+      days starting today
+    </div>
+  </div>
+</div>
+
 
             {/* Date Inputs and Calendars */}
             <div className="lg:col-span-3 space-y-3">

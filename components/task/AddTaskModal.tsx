@@ -12,7 +12,7 @@ import { getTaskStagesDropdown, getUsers, User } from "@/app/services/data.servi
 import { TaskStage } from "@/lib/data";
 
 
-interface AddTaskModalProps {
+interface AddTaskModalProps { 
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (task: CreateTaskRequest) => void;
@@ -31,7 +31,7 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
     taskStageId: editingTask?.taskStageId || 0,
     startTime: editingTask?.startDate || new Date().toISOString(),
     endtime: editingTask?.endDate || "",
-    assignees: editingTask?.assignees.map(a => a.id) || []
+    assignees: editingTask?.assignees?.map(a => a.id) || []
   });
 
   const priorities: Array<CreateTaskRequest['priority']> = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -91,7 +91,7 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
     });
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -99,12 +99,14 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-foreground">
             {editingTask ? 'Edit Task' : 'Add Task'}
+       {!editingTask ?   <p className="text-xs text-[#636363] mt-1">Create a new task for your team</p> : <p className="text-xs text-[#636363] mt-1">Edit the task details</p>}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 border border-gray-200 p-4 rounded-lg">
           {/* Subject */}
-          <div className="space-y-2">
+          <div className="space-y-2 ">
+            <h3 className="text-lg font-semibold mb-2 ">Task Details</h3>
             <Label htmlFor="subject" className="text-sm font-medium text-foreground">
               Subject: *
             </Label>

@@ -67,6 +67,7 @@ interface DeleteTaskResponse {
 
 interface FilterTasksParams {
   searchTerm?: string;
+ 
   priorities?: string; 
   stageIds?: string; 
   assigneeIds?: string; 
@@ -79,6 +80,10 @@ interface FilterTasksParams {
   sortDirection?: string; 
 }
 
-type FilterTasksResponse = CreateTaskResponse[];
+interface FilterTasksResponse {
+  isSuccess: boolean;
+  message: string;
+  data: CreateTaskResponse[];
+}
 
 
