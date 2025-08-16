@@ -10,16 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { getTaskStagesDropdown, getUsers, User } from "@/app/services/data.service";
 import { TaskStage } from "@/lib/data";
-import { ApiTask } from "@/app/tasks/Task";
 
 
-export interface AddTaskModalProps {
+interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (taskData: CreateTaskRequest) => Promise<void>;
-  editingTask?: ApiTask;
-  users: User[];
-  stages: TaskStage[];
+  onSubmit: (task: CreateTaskRequest) => void;
+  editingTask?: GetTaskByIdResponse['data'];
 }
 
 export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTaskModalProps) => {
@@ -64,7 +61,11 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
- 
+    // Validate required fields
+    if (!formData.subject || !formData.taskStageId || formData.assignees.length === 0) {
+      alert("Please fill all required fields");
+      return;
+    }
 
     onSubmit(formData);
     onClose();
