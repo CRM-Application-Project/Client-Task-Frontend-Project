@@ -13,7 +13,6 @@ import {
   X,
   BarChart3,
   LogOut,
-  Building2,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Swal from "sweetalert2";

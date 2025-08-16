@@ -79,3 +79,16 @@ export const postRequestFormData = async <T>(
     throw error;
   }
 };
+
+export const patchRequest = async <T>(
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  try {
+    const res = await http.patch(url, data, config);
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};  
