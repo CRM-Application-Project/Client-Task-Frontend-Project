@@ -99,13 +99,25 @@ export const LeadFilters = ({
   >
     <Settings className="h-4 w-4 text-gray-600" />
   </Button>
-  <Button
-    variant="outline"
-    size="icon"
-    className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
-  >
-    <ArrowUpDown className="h-4 w-4 text-gray-600" />
-  </Button>
+    
+          <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => onViewModeChange('kanban')}
+              className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => onViewModeChange('grid')}
+              className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+          </div>
 </div>
 
         </div>
