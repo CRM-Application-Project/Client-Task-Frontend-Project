@@ -10,6 +10,14 @@ import { Lead, LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
 import { deleteLeadById, getAllLeads } from "../services/data.service";
+import { useToast } from "@/hooks/use-toast";
+import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
+import LeadSortingModal from "@/components/leads/LeadSortingModal";
+import ImportLeadModal from "@/components/leads/ImportLeadModal";
+import ChangeAssignModal from "@/components/leads/ChangeAssignModal";
+import AddFollowUpModal from "@/components/leads/AddFollowUpModal";
+import EditLeadModal from "@/components/leads/EditLeadModal";
+import ViewLeadModal from "@/components/leads/ViewLeadModal";
 
 type LeadFiltersType = {
   status?: LeadStatus;
@@ -27,6 +35,17 @@ const Leads = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [isChangeAssignModalOpen, setIsChangeAssignModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSortingModalOpen, setIsSortingModalOpen] = useState(false);
+  const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ sortBy: string; sortOrder: 'asc' | 'desc' } | undefined>();
+
+  const { toast } = useToast();
 
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
 
@@ -68,9 +87,9 @@ useEffect(() => {
 
   // Filter leads based on search and filters
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesPriority = !filters.priority || lead.priority === filters.priority;
     const matchesStatus = !filters.status || lead.status === filters.status;
@@ -97,11 +116,23 @@ useEffect(() => {
       )
     );
   };
-
-  const handleEditLead = (lead: Lead) => {
-    console.log('Edit lead:', lead);
-    // TODO: Implement edit modal
+ const handleUpdateLead = (updatedLead: Lead) => {
+    setLeads(prevLeads => 
+      prevLeads.map(lead => 
+        lead.id === updatedLead.id ? updatedLead : lead
+      )
+    );
+    toast({
+      title: "Lead updated",
+      description: "Lead information has been successfully updated.",
+    });
   };
+
+   const handleEditLead = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsEditModalOpen(true);
+  };
+
 
   const handleDeleteClick = (lead: Lead) => {
     setLeadToDelete(lead);
@@ -124,10 +155,93 @@ useEffect(() => {
     }
   };
 
-  const handleViewLead = (lead: Lead) => {
-    console.log('View lead:', lead);
-    // TODO: Implement view modal
+ const handleViewLead = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsViewModalOpen(true);
   };
+
+
+  const handleAddFollowUp = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsFollowUpModalOpen(true);
+  };
+
+  const handleCreateFollowUp = (leadId: string, followUp: any) => {
+    toast({
+      title: "Follow-up scheduled",
+      description: "Follow-up has been successfully scheduled.",
+    });
+  };
+
+  const handleChangeAssign = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsChangeAssignModalOpen(true);
+  };
+
+  const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
+    setLeads(prevLeads => 
+      prevLeads.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, assignedTo, updatedAt: new Date() }
+          : lead
+      )
+    );
+    toast({
+      title: "Assignment updated",
+      description: "Lead has been reassigned successfully.",
+    });
+  };
+
+  const handleImportLead = () => {
+    setIsImportModalOpen(true);
+  };
+
+  const handleImportLeads = (importedLeads: any[]) => {
+    const newLeads = importedLeads.map(leadData => ({
+      ...leadData,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    
+    setLeads(prevLeads => [...prevLeads, ...newLeads]);
+    toast({
+      title: "Leads imported",
+      description: `${importedLeads.length} leads have been successfully imported.`,
+    });
+  };
+
+  const handleLeadSorting = () => {
+    setIsSortingModalOpen(true);
+  };
+
+  const handleApplySort = (sortBy: string, sortOrder: 'asc' | 'desc') => {
+    setSortConfig({ sortBy, sortOrder });
+    toast({
+      title: "Sort applied",
+      description: `Leads sorted by ${sortBy} in ${sortOrder}ending order.`,
+    });
+  };
+
+  const handleChangeStatus = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsChangeStatusModalOpen(true);
+  };
+
+  const handleUpdateStatus = (leadId: string, status: LeadStatus, notes?: string) => {
+    setLeads(prevLeads => 
+      prevLeads.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, status, updatedAt: new Date() }
+          : lead
+      )
+    );
+    toast({
+      title: "Status updated",
+      description: "Lead status has been successfully updated.",
+    });
+  };
+
 
   const handleAddLead = () => {
     setIsAddModalOpen(true);
@@ -171,7 +285,6 @@ useEffect(() => {
           }}
         />
 
-        {/* Kanban Board */}
         {viewMode === 'kanban' && (
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 overflow-x-auto pb-6">
@@ -181,8 +294,13 @@ useEffect(() => {
                   status={status}
                   leads={filteredLeads.filter(lead => lead.status === status)}
                   onEditLead={handleEditLead}
-                  onDeleteLead={handleDeleteClick}
+                  onDeleteLead={handleConfirmDelete}
                   onViewLead={handleViewLead}
+                  onAddFollowUp={handleAddFollowUp}
+                  onChangeAssign={handleChangeAssign}
+                  onImportLead={handleImportLead}
+                  onLeadSorting={handleLeadSorting}
+                  onChangeStatus={handleChangeStatus}
                 />
               ))}
             </div>
@@ -302,6 +420,53 @@ useEffect(() => {
           description={`Are you sure you want to delete the lead "${leadToDelete?.name}"? This action cannot be undone.`}
           confirmText="Delete"
           cancelText="Cancel"
+        />
+
+        <ViewLeadModal
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+          lead={selectedLead}
+        />
+        
+        <EditLeadModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onUpdateLead={handleUpdateLead}
+          lead={selectedLead}
+        />
+        
+        <AddFollowUpModal
+          isOpen={isFollowUpModalOpen}
+          onClose={() => setIsFollowUpModalOpen(false)}
+          lead={selectedLead}
+          onAddFollowUp={handleCreateFollowUp}
+        />
+        
+        <ChangeAssignModal
+          isOpen={isChangeAssignModalOpen}
+          onClose={() => setIsChangeAssignModalOpen(false)}
+          lead={selectedLead}
+          onChangeAssign={handleUpdateAssignment}
+        />
+        
+        <ImportLeadModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportLeads={handleImportLeads}
+        />
+        
+        <LeadSortingModal
+          isOpen={isSortingModalOpen}
+          onClose={() => setIsSortingModalOpen(false)}
+          onApplySort={handleApplySort}
+          currentSort={sortConfig}
+        />
+        
+        <ChangeStatusModal
+          isOpen={isChangeStatusModalOpen}
+          onClose={() => setIsChangeStatusModalOpen(false)}
+          lead={selectedLead}
+          onChangeStatus={handleUpdateStatus}
         />
       </div>
     </div>
