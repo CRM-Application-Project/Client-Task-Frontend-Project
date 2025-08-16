@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, CheckCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, Download } from 'lucide-react';
 
 interface ImportLeadModalProps {
   isOpen: boolean;
@@ -26,6 +26,13 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [status, setStatus] = useState('NEW');
+  const [source, setSource] = useState('ONLINE');
+  const [user, setUser] = useState('Umesh G');
+  const [label, setLabel] = useState('');
+  const [date, setDate] = useState('');
+  const [emailAutomation, setEmailAutomation] = useState(false);
+  const [whatsappAutomation, setWhatsappAutomation] = useState(false);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -80,6 +87,24 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
     onClose();
   };
 
+  const downloadSampleFormat = () => {
+    // Create a sample CSV content
+    const csvContent = "Name,Email,Phone,Company,Location,Status,Priority,Source,Assigned To\n" +
+      "John Doe,john@example.com,+1 (555) 123-4567,Acme Inc,New York,NEW,MEDIUM,WEBSITE,Sarah Johnson\n" +
+      "Jane Smith,jane@example.com,+1 (555) 987-6543,Globex Corp,Chicago,NEW,HIGH,REFERRAL,Michael Brown";
+    
+    // Create a blob and download it
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leads_import_sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
@@ -119,6 +144,103 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="status">Status</Label>
+              <select
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="NEW">New</option>
+                <option value="CONTACTED">Contacted</option>
+                <option value="QUALIFIED">Qualified</option>
+                <option value="LOST">Lost</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="source">Source</Label>
+              <select
+                id="source"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="ONLINE">Online</option>
+                <option value="REFERRAL">Referral</option>
+                <option value="WEBSITE">Website</option>
+                <option value="SOCIAL">Social</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="user">User</Label>
+              <select
+                id="user"
+                value={user}
+                onChange={(e) => setUser(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="Umesh G">Umesh G</option>
+                <option value="John Doe">John Doe</option>
+                <option value="Jane Smith">Jane Smith</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="label">Label (Optional)</Label>
+              <select
+                id="label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="">Select...</option>
+                <option value="HOT">Hot</option>
+                <option value="COLD">Cold</option>
+                <option value="VIP">VIP</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Automation</Label>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="email-automation"
+                    checked={emailAutomation}
+                    onChange={(e) => setEmailAutomation(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <Label htmlFor="email-automation">Email</Label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="whatsapp-automation"
+                    checked={whatsappAutomation}
+                    onChange={(e) => setWhatsappAutomation(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <Label htmlFor="whatsapp-automation">WhatsApp</Label>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="text-xs text-gray-500 space-y-1">
             <p><strong>CSV Format:</strong></p>
             <p>Name, Email, Phone, Company, Location, Status, Priority, Source, Assigned To</p>
@@ -126,6 +248,15 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
         </div>
 
         <DialogFooter className="gap-2">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={downloadSampleFormat}
+            className="mr-auto"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Format
+          </Button>
           <Button type="button" variant="outline" onClick={handleClose} disabled={importing}>
             Cancel
           </Button>
