@@ -9,14 +9,17 @@ export interface Lead {
   email: string;
   phone: string;
   location: string;
-  status: LeadStatus;
-  priority: LeadPriority;
-  source: LeadSource;
+  status: LeadStatus;   // or: string if you don't want enums
+  priority: LeadPriority; // or: string
+  source: LeadSource;   // or: string
   assignedTo: string;
+  transferredTo?: string; // <-- added
   assignedToAvatar?: string;
   createdAt: Date;
   updatedAt: Date;
+  
 }
+
 
 export interface LeadFilters {
   priority?: LeadPriority;

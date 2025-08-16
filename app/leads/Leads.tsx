@@ -154,7 +154,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen ">
       <div className="container mx-auto px-6 py-6">
         {/* Filters */}
         <LeadFilters
@@ -165,6 +165,10 @@ useEffect(() => {
           onSearchChange={setSearchQuery}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          onClearAllFilters={() => {
+            setFilters({});
+            setSearchQuery("");
+          }}
         />
 
         {/* Kanban Board */}

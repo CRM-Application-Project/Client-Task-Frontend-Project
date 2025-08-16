@@ -28,7 +28,7 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
     createdBy: editingTask?.createdBy || "Current User",
     startDate: editingTask?.startDate || null,
     endDate: editingTask?.endDate || null,
-    isRecursive: false
+    isRecursive: editingTask?.isRecursive || false
   });
 
   const priorities: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -70,173 +70,187 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-foreground">
-            {editingTask ? 'Edit Task' : 'Add Task'}
-          </DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Subject */}
-          <div className="space-y-2">
-            <Label htmlFor="subject" className="text-sm font-medium text-foreground">
-              Subject: *
-            </Label>
-            <Input
-              id="subject"
-              value={formData.subject}
-              onChange={(e) => setFormData({...formData, subject: e.target.value})}
-              placeholder="Enter Subject"
-              required
-              className="w-full"
-            />
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 pb-3 border-b border-gray-200">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {editingTask ? 'Edit Task' : 'Add New Task'}
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {editingTask ? 'Update the task details' : 'Create a new task for your team'}
+            </p>
           </div>
+        
+        </div>
 
-          {/* Row 1: Priority, Status, Label */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Priority:</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({...formData, priority: value as TaskPriority})}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map(priority => (
-                    <SelectItem key={priority} value={priority}>
-                      {priority}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 border border-[#e3e3e3] rounded-sm ">
+          {/* Task Details Section */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Task Details</h3>
+            
+            {/* Subject */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-700">Subject *</Label>
+              <Input
+                value={formData.subject}
+                onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                placeholder="Enter task subject"
+                required
+                className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Status:</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({...formData, status: value as TaskStatus})}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map(status => (
-                    <SelectItem key={status} value={status}>
-                      {status.replace('_', ' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Priority, Status, Label Row */}
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">Priority</Label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value) => setFormData({...formData, priority: value as TaskPriority})}
+                >
+                  <SelectTrigger className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorities.map(priority => (
+                      <SelectItem key={priority} value={priority} className="text-sm">
+                        {priority}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({...formData, status: value as TaskStatus})}
+                >
+                  <SelectTrigger className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map(status => (
+                      <SelectItem key={status} value={status} className="text-sm">
+                        {status.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">Label (Optional)</Label>
+                <Select>
+                  <SelectTrigger className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bug" className="text-sm">Bug</SelectItem>
+                    <SelectItem value="feature" className="text-sm">Feature</SelectItem>
+                    <SelectItem value="improvement" className="text-sm">Improvement</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Label (Optional):</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bug">Bug</SelectItem>
-                  <SelectItem value="feature">Feature</SelectItem>
-                  <SelectItem value="improvement">Improvement</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Recursive and Dates */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
+            {/* Recursive Toggle */}
+            <div className="flex items-center space-x-2 mt-4">
               <Switch
                 id="recursive"
                 checked={formData.isRecursive}
                 onCheckedChange={(checked) => setFormData({...formData, isRecursive: checked})}
+                className="data-[state=checked]:bg-gray-600"
               />
-              <Label htmlFor="recursive" className="text-sm font-medium text-foreground">
+              <Label htmlFor="recursive" className="text-xs font-medium text-gray-700">
                 Recursive
               </Label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Start Date:</Label>
+            {/* Start Date and End Date */}
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">Start Date</Label>
                 <div className="relative">
                   <Input
-                    type="datetime-local"
-                    value={formData.startDate ? formData.startDate.toISOString().slice(0, 16) : ""}
+                    type="date"
+                    value={formData.startDate ? formData.startDate.toISOString().split('T')[0] : ""}
                     onChange={(e) => setFormData({
                       ...formData, 
                       startDate: e.target.value ? new Date(e.target.value) : null
                     })}
-                    className="w-full"
+                    placeholder="mm/dd/yyyy"
+                    className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500 pr-10"
                   />
+                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">End Date:</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">End Date</Label>
                 <div className="relative">
                   <Input
-                    type="datetime-local"
-                    value={formData.endDate ? formData.endDate.toISOString().slice(0, 16) : ""}
+                    type="date"
+                    value={formData.endDate ? formData.endDate.toISOString().split('T')[0] : ""}
                     onChange={(e) => setFormData({
                       ...formData, 
                       endDate: e.target.value ? new Date(e.target.value) : null
                     })}
-                    className="w-full"
+                    placeholder="mm/dd/yyyy"
+                    className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500 pr-10"
                   />
+                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Assign To */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Assign To: *</Label>
-            <Select
-              value={formData.assignedTo}
-              onValueChange={(value) => setFormData({...formData, assignedTo: value})}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="John Doe">John Doe</SelectItem>
-                <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-                <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Assign To */}
+            <div className="space-y-1.5 mt-4">
+              <Label className="text-xs font-medium text-gray-700">Assign To *</Label>
+              <Select
+                value={formData.assignedTo}
+                onValueChange={(value) => setFormData({...formData, assignedTo: value})}
+              >
+                <SelectTrigger className="text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500">
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="John Doe" className="text-sm">John Doe</SelectItem>
+                  <SelectItem value="Jane Smith" className="text-sm">Jane Smith</SelectItem>
+                  <SelectItem value="Mike Johnson" className="text-sm">Mike Johnson</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Description:</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="Enter Description"
-              rows={4}
-              className="resize-none"
-            />
+            {/* Description */}
+            <div className="space-y-1.5 mt-4">
+              <Label className="text-xs font-medium text-gray-700">Description</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="Enter task description..."
+                rows={3}
+                className="resize-none text-sm border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+              />
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
+              className="text-sm border-gray-300 text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="text-sm bg-gray-800 hover:bg-gray-900 text-white"
             >
-              {editingTask ? 'Update' : 'Submit'}
+              {editingTask ? 'Update Task' : 'Create Task'}
             </Button>
           </div>
         </form>

@@ -143,7 +143,7 @@ const Index = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Task Management</h1>
-          <p className="text-muted-foreground">Organize and track your team's work efficiently</p>
+          <p className="text-muted-foreground">{`Organize and track your team's work efficiently`}</p>
         </div>
 
         {/* Filters */}
