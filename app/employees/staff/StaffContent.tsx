@@ -129,7 +129,7 @@ export default function StaffPage() {
           </div>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-center transition duration-200"
+            className="bg-black hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-center transition duration-200"
           >
             Add Staff
           </button>
