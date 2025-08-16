@@ -14,6 +14,8 @@ export const API_CONSTANTS = {
   STAFF: {
     CREATE_USER: "/tenant/users/",
     GET_USERS: "/tenant/users/",
+    UPDATE_USER: (userId: string) => `/tenant/users/${userId}`,
+    TOGGLE_USER_STATUS: (userId: string) => `/tenant/users/${userId}/status`,
   },
   MODULE: {
     MODULE_DROPDOWN: "/tenant/modules/dropdown",

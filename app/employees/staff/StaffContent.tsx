@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUsers, User } from "@/app/services/data.service";
+import {
+  getUsers,
+  User,
+  updateUser,
+  toggleUserStatus,
+} from "@/app/services/data.service";
 import { CreateStaffModal } from "./createUserModal";
+import { UpdateStaffModal } from "./updateUserModal";
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -10,35 +16,37 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [departments, setDepartments] = useState<
     { id: number; name: string }[]
   >([]);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const response = await getUsers();
-        if (response.isSuccess) {
-          setUsers(response.data);
-          // Extract unique departments from users
-          const uniqueDepartments = Array.from(
-            new Set(
-              response.data.map((user) => ({
-                id: user.departmentId,
-                name: user.departmentName,
-              }))
-            )
-          );
-          setDepartments(uniqueDepartments);
-        }
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      } finally {
-        setLoading(false);
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await getUsers();
+      if (response.isSuccess) {
+        setUsers(response.data);
+        // Extract unique departments from users
+        const uniqueDepartments = Array.from(
+          new Set(
+            response.data.map((user) => ({
+              id: user.departmentId,
+              name: user.departmentName,
+            }))
+          )
+        );
+        setDepartments(uniqueDepartments);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -51,21 +59,33 @@ export default function StaffPage() {
 
   const handleCreateSuccess = () => {
     setIsCreateModalOpen(false);
-    // Refresh the user list
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const response = await getUsers();
-        if (response.isSuccess) {
-          setUsers(response.data);
-        }
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchUsers();
+  };
+
+  const handleUpdateSuccess = () => {
+    setIsUpdateModalOpen(false);
+    fetchUsers();
+  };
+
+  const handleEditClick = (user: User, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedUser(user);
+    setIsUpdateModalOpen(true);
+  };
+
+  const handleToggleStatus = async (userId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setLoading(true);
+      const response = await toggleUserStatus(userId);
+      if (response.isSuccess) {
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error("Error toggling user status:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredUsers = users.filter(
@@ -95,6 +115,15 @@ export default function StaffPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
+        departments={departments}
+      />
+
+      {/* Update Staff Modal */}
+      <UpdateStaffModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        onSuccess={handleUpdateSuccess}
+        user={selectedUser}
         departments={departments}
       />
 
@@ -217,12 +246,22 @@ export default function StaffPage() {
                             {user.isActive ? "Active" : "Inactive"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button className="text-blue-600 hover:text-blue-900 mr-3">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                          <button
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            onClick={(e) => handleEditClick(user, e)}
+                          >
                             Edit
                           </button>
-                          <button className="text-red-600 hover:text-red-900">
-                            Delete
+                          <button
+                            className={
+                              user.isActive
+                                ? "text-red-600 hover:text-red-900"
+                                : "text-green-600 hover:text-green-900"
+                            }
+                            onClick={(e) => handleToggleStatus(user.userId, e)}
+                          >
+                            {user.isActive ? "Deactivate" : "Activate"}
                           </button>
                         </td>
                       </tr>
