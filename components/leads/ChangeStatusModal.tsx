@@ -29,6 +29,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Lead, LeadStatus } from '../../lib/leads';
+import { updateLead } from '@/app/services/data.service';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   status: z.string().min(1, 'Please select a status'),
@@ -50,6 +52,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   lead, 
   onChangeStatus 
 }) => {
+  const { toast } = useToast();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -67,12 +70,46 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
     }
   }, [lead, form]);
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (!lead) return;
 
-    onChangeStatus(lead.id, data.status as LeadStatus, data.notes);
-    form.reset();
-    onClose();
+    try {
+      const payload = {
+        leadId: lead.id,
+        leadStatus: data.status,
+        leadSource: lead.source,
+        leadAddedBy: lead.assignedTo,
+        customerMobileNumber: lead.phone,
+        companyEmailAddress: lead.company,
+        customerName: lead.name,
+        customerEmailAddress: lead.email,
+        leadAddress: lead.location || '',
+        leadLabel: lead.leadLabel || '', // Add default or actual value
+        leadReference: lead.leadReference || '', // Add default or actual value
+        comment: data.notes || '', // Use notes as comment
+      };
+
+      const response = await updateLead(payload);
+      
+      if (response.isSuccess) {
+        onChangeStatus(lead.id, data.status as LeadStatus, data.notes);
+        toast({
+          title: "Status updated",
+          description: "Lead status has been successfully updated.",
+        });
+      } else {
+        throw new Error(response.message || "Failed to update lead status");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update lead status",
+        variant: "destructive",
+      });
+    } finally {
+      form.reset();
+      onClose();
+    }
   };
 
   const handleClose = () => {

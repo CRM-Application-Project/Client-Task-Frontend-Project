@@ -216,24 +216,29 @@ const handleDeleteTask = async (taskId: number) => {
   }
 };
   // Convert filter object to API parameters
-  const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
-    const apiParams: FilterTasksParams = {};
+const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
+  const apiParams: FilterTasksParams = {};
 
-    if (searchQuery) apiParams.searchTerm = searchQuery;
-    if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
-    if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
-    if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
-    
-    // Convert date range to API format
-    if (uiFilters.dateRange) {
-      apiParams.startDateFrom = uiFilters.dateRange.from.toISOString().split('T')[0];
-      apiParams.startDateTo = uiFilters.dateRange.to.toISOString().split('T')[0];
-      apiParams.endDateFrom = uiFilters.dateRange.from.toISOString().split('T')[0];
-      apiParams.endDateTo = uiFilters.dateRange.to.toISOString().split('T')[0];
-    }
+  if (searchQuery) apiParams.searchTerm = searchQuery;
+  if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
+  if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
+  if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
+  
+  // Convert date range to API format with time component
+  if (uiFilters.dateRange) {
+    const formatDateWithTime = (date: Date) => {
+      // Ensure we include time component (00:00:00 by default)
+      return date.toISOString().split('T')[0] + 'T00:00:00';
+    };
 
-    return apiParams;
-  };
+    apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+    apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
+    apiParams.endDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+    apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
+  }
+
+  return apiParams;
+};
 
   // Filter tasks based on search and filters (client-side filtering as backup)
   const filteredTasks = tasks.filter(task => {

@@ -17,7 +17,9 @@ export interface Lead {
   assignedToAvatar?: string;
   createdAt: Date;
   updatedAt: Date;
-  
+
+  leadLabel?: string;
+  leadReference?: string;
 }
 
 
@@ -26,4 +28,49 @@ export interface LeadFilters {
   status?: LeadStatus;
   source?: LeadSource;
   assignedTo?: string;
+}
+
+
+// types/lead.ts
+export interface ImportLeadResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
+}
+
+// interfaces.ts
+export interface AddFollowUpRequest {
+  leadId: string;
+  nextFollowUpDate: string;
+  followUpType: string; // simple string
+  comment: string;
+}
+
+export interface AddFollowUpResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
+}
+
+
+// Lead Transfer Request
+export interface LeadTransferRequest {
+  leadId: string;
+  transferTo: string;
+}
+
+// Lead Transfer Response
+export interface LeadTransferResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
 }

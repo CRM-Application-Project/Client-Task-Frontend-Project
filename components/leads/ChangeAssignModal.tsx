@@ -28,9 +28,11 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Lead } from '../../lib/leads';
+import { useToast } from '@/hooks/use-toast';
+import { leadTransfer } from '@/app/services/data.service';
 
 const formSchema = z.object({
-  assignedTo: z.string().min(1, 'Please select an assignee'),
+  transferTo: z.string().min(1, 'Please select an assignee'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -48,24 +50,60 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   lead, 
   onChangeAssign 
 }) => {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      assignedTo: lead?.assignedTo || '',
+      transferTo: lead?.assignedTo || '',
     },
   });
 
   React.useEffect(() => {
     if (lead) {
-      form.reset({ assignedTo: lead.assignedTo });
+      form.reset({ transferTo: lead.assignedTo });
     }
   }, [lead, form]);
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (!lead) return;
 
-    onChangeAssign(lead.id, data.assignedTo);
-    onClose();
+    setIsSubmitting(true);
+    
+    try {
+      const response = await leadTransfer({
+        leadId: lead.id,
+        transferTo: data.transferTo
+      });
+
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Lead has been transferred successfully",
+          variant: "default",
+        });
+        
+        // Call the parent component's callback to update the UI
+        onChangeAssign(lead.id, data.transferTo);
+        onClose();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to transfer lead",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error transferring lead:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while transferring the lead",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -75,6 +113,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
 
   // Sample team members - in a real app, this would come from an API
   const teamMembers = [
+    'Admin User',
     'John Smith',
     'Jane Doe',
     'Mike Johnson',
@@ -87,9 +126,9 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Change Assignment</DialogTitle>
+          <DialogTitle>Transfer Lead</DialogTitle>
           <DialogDescription>
-            Reassign {lead?.name} to a different team member
+            Transfer {lead?.name} to a different team member
           </DialogDescription>
         </DialogHeader>
 
@@ -97,11 +136,15 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="assignedTo"
+              name="transferTo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Assign To</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <FormLabel>Transfer To</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={isSubmitting}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select team member" />
@@ -121,10 +164,20 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
             />
 
             <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={handleClose}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleClose}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
-              <Button type="submit">Update Assignment</Button>
+              <Button 
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Transferring...' : 'Transfer Lead'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

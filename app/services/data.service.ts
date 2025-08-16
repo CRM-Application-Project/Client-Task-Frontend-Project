@@ -7,6 +7,7 @@ import {
   putRequest,
   patchRequest,
 } from "./httpServices";
+import { AddFollowUpRequest, AddFollowUpResponse, ImportLeadResponse, LeadTransferRequest, LeadTransferResponse } from "@/lib/leads";
 
 export const registerUser = async (
   registerData: RegisterRequestData
@@ -360,3 +361,35 @@ export const deleteLeadById = async (leadId: string): Promise<DeleteLeadResponse
   return res as DeleteLeadResponse;
 };
 
+export const importLead = async (
+  file: File,
+  leadStatus: string,
+  leadAddedBy: string
+): Promise<ImportLeadResponse> => {
+  const formData = new FormData();
+  formData.append("leadStatus", leadStatus);
+  formData.append("leadAddedBy", leadAddedBy);
+  formData.append("file", file);
+
+  const res = await postRequest(API_CONSTANTS.LEAD.IMPORT_LEAD, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return res as ImportLeadResponse;
+};
+
+export const addFollowUp = async (
+  payload: AddFollowUpRequest
+): Promise<AddFollowUpResponse> => {
+  const res = await postRequest(API_CONSTANTS.LEAD.ADD_FOLLOWUP, payload);
+  return res as AddFollowUpResponse;
+};
+
+export const leadTransfer = async (
+  payload: LeadTransferRequest
+): Promise<LeadTransferResponse> => {
+  const res = await postRequest(API_CONSTANTS.LEAD.LEAD_TRANSFER, payload);
+  return res as LeadTransferResponse;
+};
