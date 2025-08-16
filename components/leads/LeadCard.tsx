@@ -1,4 +1,4 @@
-import { Edit, Trash2, Eye, Phone, MoreVertical, UserPlus, Calendar, Upload, ArrowUpDown, RefreshCw } from "lucide-react";
+import { Edit, Trash2, Eye, Phone, MoreVertical, UserPlus, Calendar, Upload, ArrowUpDown, RefreshCw, MapPin, Building2, Mail } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
@@ -62,12 +62,24 @@ export const LeadCard = ({
         </div>
 
         {/* Details section */}
-        <div className="space-y-1 text-sm text-gray-500">
-          <div>{lead.company}</div>
-          <div>{lead.email}</div>
-          <div>{lead.phone}</div>
-          <div>{lead.location}</div>
-        </div>
+      <div className="space-y-1 text-sm text-gray-500">
+  <div className="flex items-center gap-2">
+    <Building2 className="w-4 h-4 text-gray-400" />
+    {lead.company}
+  </div>
+  <div className="flex items-center gap-2">
+    <Mail className="w-4 h-4 text-gray-400" />
+    {lead.email}
+  </div>
+  <div className="flex items-center gap-2">
+    <Phone className="w-4 h-4 text-gray-400" />
+    {lead.phone}
+  </div>
+  <div className="flex items-center gap-2">
+    <MapPin className="w-4 h-4 text-gray-400" />
+    {lead.location}
+  </div>
+</div>
 
         {/* Action bar */}
         <div className="flex items-center justify-between pt-2">

@@ -8,7 +8,9 @@ interface TaskColumnProps {
   status: TaskStatus;
   tasks: ApiTask[];
   onEditTask?: (task: ApiTask) => void;
+  onDeleteTask?: (taskId: number) => void;
 }
+
 
 const statusConfig = {
   BACKLOG: {
@@ -21,12 +23,12 @@ const statusConfig = {
     color: "bg-status-todo",
     textColor: "text-white"
   },
-  IN_PROGRESS: {
+  "IN_PROGRESS": {
     title: "In Progress",
     color: "bg-status-progress",
     textColor: "text-white"
   },
-  IN_REVIEW: {
+  "IN_REVIEW": {
     title: "In Review",
     color: "bg-status-review",
     textColor: "text-white"
@@ -38,15 +40,15 @@ const statusConfig = {
   }
 };
 
-export const TaskColumn = ({ status, tasks, onEditTask }: TaskColumnProps) => {
+export const TaskColumn = ({ status, tasks, onEditTask, onDeleteTask }: TaskColumnProps) => {
   const config = statusConfig[status];
   
   return (
     <div className="flex-1 min-w-[280px] bg-gray-100">
       <div className="mb-4 ">
-        <div className={`${config.color} ${config.textColor} px-4 py-3 rounded-lg flex items-center justify-between shadow-sm`}>
+        <div className={`${config?.color} ${config?.textColor} px-4 py-3 rounded-lg flex items-center justify-between shadow-sm`}>
           <h2 className="font-semibold text-sm uppercase tracking-wide">
-            {config.title}
+            {config?.title}
           </h2>
           <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
             {tasks.length}
@@ -60,6 +62,7 @@ export const TaskColumn = ({ status, tasks, onEditTask }: TaskColumnProps) => {
             key={task.id}
             task={task}
             onEdit={onEditTask}
+             onDelete={onDeleteTask}
           />
         ))}
         
