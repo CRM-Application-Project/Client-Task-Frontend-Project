@@ -91,7 +91,7 @@ export function CreateStaffModal({
           setDepartments(deptRes.data);
           setFormData((prev) => ({
             ...prev,
-            departmentId: deptRes.data[0]?.id || 0, // default to first dept
+            departmentId: deptRes.data[0]?.id || 0,
           }));
         } else {
           toast({
