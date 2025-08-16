@@ -2,11 +2,12 @@
 import { Task, TaskStatus } from "@/lib/task";
 import { TaskCard } from "./TaskCard";
 import { Badge } from "@/components/ui/badge";
+import { ApiTask } from "@/app/tasks/Task";
 
 interface TaskColumnProps {
   status: TaskStatus;
-  tasks: Task[];
-  onEditTask?: (task: Task) => void;
+  tasks: ApiTask[];
+  onEditTask?: (task: ApiTask) => void;
 }
 
 const statusConfig = {

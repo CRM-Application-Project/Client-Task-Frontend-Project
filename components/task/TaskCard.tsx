@@ -3,10 +3,11 @@ import { Calendar, User, Tag } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Task } from "@/lib/task";
+import { ApiTask } from "@/app/tasks/Task";
 
 interface TaskCardProps {
-  task: Task;
-  onEdit?: (task: Task) => void;
+  task: ApiTask;
+  onEdit?: (task: ApiTask) => void;
 }
 
 export const TaskCard = ({ task, onEdit }: TaskCardProps) => {
@@ -60,7 +61,7 @@ export const TaskCard = ({ task, onEdit }: TaskCardProps) => {
           {task.endDate && (
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              <span>{task.endDate.toLocaleDateString()}</span>
+              <span>{new Date(task.endDate).toLocaleDateString()}</span>
             </div>
           )}
         </div>

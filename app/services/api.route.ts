@@ -24,6 +24,7 @@ export const API_CONSTANTS = {
     DELETE: "/tasks/{taskId}",
     GET_BY_ID: "/tasks/{taskId}",
       FILTER: "/tasks/filter",
+      DROPDOWN:"/task/stages/dropdown",
 
   },
   LEAD:{

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,48 +8,65 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Task, TaskPriority, TaskStatus } from "@/lib/task";
+import { getTaskStagesDropdown, getUsers, User } from "@/app/services/data.service";
+import { TaskStage } from "@/lib/data";
+import { ApiTask } from "@/app/tasks/Task";
 
-interface AddTaskModalProps {
+
+export interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  editingTask?: Task;
+  onSubmit: (taskData: CreateTaskRequest) => Promise<void>;
+  editingTask?: ApiTask;
+  users: User[];
+  stages: TaskStage[];
 }
 
 export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTaskModalProps) => {
-  const [formData, setFormData] = useState({
+  const [users, setUsers] = useState<User[]>([]);
+  const [stages, setStages] = useState<TaskStage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [formData, setFormData] = useState<CreateTaskRequest>({
     subject: editingTask?.subject || "",
     description: editingTask?.description || "",
-    priority: editingTask?.priority || "LOW" as TaskPriority,
-    status: editingTask?.status || "BACKLOG" as TaskStatus,
-    labels: editingTask?.labels || [],
-    assignedTo: editingTask?.assignedTo || "",
-    createdBy: editingTask?.createdBy || "Current User",
-    startDate: editingTask?.startDate || null,
-    endDate: editingTask?.endDate || null,
-    isRecursive: false
+    priority: editingTask?.priority || "LOW",
+    taskStageId: editingTask?.taskStageId || 0,
+    startTime: editingTask?.startDate || new Date().toISOString(),
+    endtime: editingTask?.endDate || "",
+    assignees: editingTask?.assignees.map(a => a.id) || []
   });
 
-  const priorities: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-  const statuses: TaskStatus[] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
+  const priorities: Array<CreateTaskRequest['priority']> = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [usersRes, stagesRes] = await Promise.all([
+          getUsers(),
+          getTaskStagesDropdown()
+        ]);
+        
+        if (usersRes.isSuccess) setUsers(usersRes.data);
+        if (stagesRes.isSuccess) setStages(stagesRes.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchData();
+    }
+  }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const taskData = {
-      subject: formData.subject,
-      description: formData.description || undefined,
-      priority: formData.priority,
-      status: formData.status,
-      labels: formData.labels,
-      assignedTo: formData.assignedTo || undefined,
-      createdBy: formData.createdBy,
-      startDate: formData.startDate || undefined,
-      endDate: formData.endDate || undefined
-    };
+ 
 
-    onSubmit(taskData);
+    onSubmit(formData);
     onClose();
     
     // Reset form
@@ -57,15 +74,23 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
       subject: "",
       description: "",
       priority: "LOW",
-      status: "BACKLOG",
-      labels: [],
-      assignedTo: "",
-      createdBy: "Current User",
-      startDate: null,
-      endDate: null,
-      isRecursive: false
+      taskStageId: 0,
+      startTime: new Date().toISOString(),
+      endtime: "",
+      assignees: []
     });
   };
+
+  const handleAssigneeChange = (userId: string) => {
+    setFormData(prev => {
+      const newAssignees = prev.assignees.includes(userId)
+        ? prev.assignees.filter(id => id !== userId)
+        : [...prev.assignees, userId];
+      return { ...prev, assignees: newAssignees };
+    });
+  };
+
+  if (isLoading) return <div>Loading...</div>;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -92,13 +117,13 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
             />
           </div>
 
-          {/* Row 1: Priority, Status, Label */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Row 1: Priority and Stage */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Priority:</Label>
+              <Label className="text-sm font-medium text-foreground">Priority: *</Label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({...formData, priority: value as TaskPriority})}
+                onValueChange={(value) => setFormData({...formData, priority: value as typeof formData.priority})}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -114,101 +139,78 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Status:</Label>
+              <Label className="text-sm font-medium text-foreground">Stage: *</Label>
               <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({...formData, status: value as TaskStatus})}
+                value={formData.taskStageId.toString()}
+                onValueChange={(value) => setFormData({...formData, taskStageId: parseInt(value)})}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select stage" />
                 </SelectTrigger>
                 <SelectContent>
-                  {statuses.map(status => (
-                    <SelectItem key={status} value={status}>
-                      {status.replace('_', ' ')}
+                  {stages.map(stage => (
+                    <SelectItem key={stage.id} value={stage.id.toString()}>
+                      {stage.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Start Date: *</Label>
+              <div className="relative">
+                <Input
+                  type="datetime-local"
+                  value={formData.startTime ? new Date(formData.startTime).toISOString().slice(0, 16) : ""}
+                  onChange={(e) => setFormData({
+                    ...formData, 
+                    startTime: e.target.value ? new Date(e.target.value).toISOString() : ""
+                  })}
+                  className="w-full"
+                  required
+                />
+              </div>
+            </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Label (Optional):</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bug">Bug</SelectItem>
-                  <SelectItem value="feature">Feature</SelectItem>
-                  <SelectItem value="improvement">Improvement</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Recursive and Dates */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="recursive"
-                checked={formData.isRecursive}
-                onCheckedChange={(checked) => setFormData({...formData, isRecursive: checked})}
-              />
-              <Label htmlFor="recursive" className="text-sm font-medium text-foreground">
-                Recursive
-              </Label>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Start Date:</Label>
-                <div className="relative">
-                  <Input
-                    type="datetime-local"
-                    value={formData.startDate ? formData.startDate.toISOString().slice(0, 16) : ""}
-                    onChange={(e) => setFormData({
-                      ...formData, 
-                      startDate: e.target.value ? new Date(e.target.value) : null
-                    })}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">End Date:</Label>
-                <div className="relative">
-                  <Input
-                    type="datetime-local"
-                    value={formData.endDate ? formData.endDate.toISOString().slice(0, 16) : ""}
-                    onChange={(e) => setFormData({
-                      ...formData, 
-                      endDate: e.target.value ? new Date(e.target.value) : null
-                    })}
-                    className="w-full"
-                  />
-                </div>
+              <Label className="text-sm font-medium text-foreground">End Date (Optional):</Label>
+              <div className="relative">
+                <Input
+                  type="datetime-local"
+                  value={formData.endtime ? new Date(formData.endtime).toISOString().slice(0, 16) : ""}
+                  onChange={(e) => setFormData({
+                    ...formData, 
+                    endtime: e.target.value ? new Date(e.target.value).toISOString() : ""
+                  })}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
 
-          {/* Assign To */}
+          {/* Assignees */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Assign To: *</Label>
-            <Select
-              value={formData.assignedTo}
-              onValueChange={(value) => setFormData({...formData, assignedTo: value})}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="John Doe">John Doe</SelectItem>
-                <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-                <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium text-foreground">Assignees: *</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {users.map(user => (
+                <div key={user.userId} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`assignee-${user.userId}`}
+                    checked={formData.assignees.includes(user.userId)}
+                    onChange={() => handleAssigneeChange(user.userId)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor={`assignee-${user.userId}`}>
+                    {user.firstName} {user.lastName}
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Description */}
