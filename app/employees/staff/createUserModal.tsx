@@ -123,6 +123,9 @@ export function CreateStaffModal({
         ...formData,
         dateOfBirth: dateOfBirth ? format(dateOfBirth, "yyyy-MM-dd") : "",
         dateOfJoin: dateOfJoin ? format(dateOfJoin, "yyyy-MM-dd") : "",
+        moduleAccess: formData.moduleAccess.filter(
+          (m) => m.canView || m.canEdit || m.canDelete
+        ),
       };
 
       const response = await createStaffUser(payload);
@@ -290,8 +293,18 @@ export function CreateStaffModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ADMIN">Admin</SelectItem>
-                  <SelectItem value="STAFF">Staff</SelectItem>
-                  <SelectItem value="MANAGER">Manager</SelectItem>
+                  <SelectItem value="TESTER_QA">Tester/QA</SelectItem>
+                  <SelectItem value="SALES_EXECUTIVE">
+                    Sales Executive
+                  </SelectItem>
+                  <SelectItem value="PROJECT_MANAGER">
+                    Project Manager
+                  </SelectItem>
+                  <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
+                  <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                  <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
+                  <SelectItem value="DEVELOPER">Developer</SelectItem>
+                  <SelectItem value="HR">HR</SelectItem>
                 </SelectContent>
               </Select>
             </div>
