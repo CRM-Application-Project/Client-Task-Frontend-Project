@@ -260,6 +260,7 @@ export interface User {
   contactNumber: string;
   dateOfBirth: string;
   dateOfJoin: string;
+  userRole: string;
   departmentId: number;
   departmentName: string;
   isActive: boolean;
@@ -278,6 +279,56 @@ export interface GetUsersResponse {
 export const getUsers = async (): Promise<GetUsersResponse> => {
   const res = await getRequest(API_CONSTANTS.STAFF.GET_USERS);
   return res as GetUsersResponse;
+};
+
+export interface UpdateUserPayload {
+  firstName: string;
+  lastName: string;
+  emailAddress: string;
+  contactNumber: string;
+  userRole: string;
+  dateOfBirth: string; // YYYY-MM-DD
+  departmentId: number;
+  isActive: boolean;
+}
+
+export interface UserResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    emailAddress: string;
+    contactNumber: string;
+    userRole: string;
+    dateOfBirth: string;
+    departmentId: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export const updateUser = async (
+  userId: string,
+  payload: UpdateUserPayload
+): Promise<UserResponse> => {
+  const res = await putRequest(
+    API_CONSTANTS.STAFF.UPDATE_USER(userId),
+    payload
+  );
+  return res as UserResponse;
+};
+
+export const toggleUserStatus = async (
+  userId: string
+): Promise<UserResponse> => {
+  const res = await patchRequest(
+    API_CONSTANTS.STAFF.TOGGLE_USER_STATUS(userId),
+    {}
+  );
+  return res as UserResponse;
 };
 
 
