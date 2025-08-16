@@ -30,6 +30,7 @@ interface CreateTaskResponse {
 }
 
 
+
 interface UpdateTaskRequest {
   assignees: string[];
 }
@@ -79,3 +80,5 @@ interface FilterTasksParams {
 }
 
 type FilterTasksResponse = CreateTaskResponse[];
+
+

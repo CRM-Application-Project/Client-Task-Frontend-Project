@@ -6,14 +6,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DateRangePicker } from "./DateRangePicker";
 import { useState } from "react";
 import { TaskFilters as TaskFiltersType, TaskPriority } from "../../lib/task";
+import { TaskStage } from "@/lib/data";
+import { User } from "@/app/services/data.service";
 
 interface TaskFiltersProps {
-  filters: TaskFiltersType;
-  onFiltersChange: (filters: TaskFiltersType) => void;
+  filters: {
+    priority?: string;
+    labels?: string[];
+    createdBy?: string;
+    assignedTo?: string;
+    dateRange?: { from: Date; to: Date };
+  };
+  onFiltersChange: (filters: {
+    priority?: string;
+    labels?: string[];
+    createdBy?: string;
+    assignedTo?: string;
+    dateRange?: { from: Date; to: Date };
+  }) => void;
   onAddTask: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClearAllFilters: () => void;
+  stages?: TaskStage[];
+  users?: User[];
 }
 
 export const TaskFilters = ({ 

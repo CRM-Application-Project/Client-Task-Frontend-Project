@@ -1,3 +1,4 @@
+import { TaskStagesDropdownResponse } from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
   deleteRequest,
@@ -277,6 +278,12 @@ export interface GetUsersResponse {
 export const getUsers = async (): Promise<GetUsersResponse> => {
   const res = await getRequest(API_CONSTANTS.STAFF.GET_USERS);
   return res as GetUsersResponse;
+};
+
+
+export const getTaskStagesDropdown = async (): Promise<TaskStagesDropdownResponse> => {
+  const res = await getRequest(API_CONSTANTS.TASK.DROPDOWN);
+  return res as TaskStagesDropdownResponse;
 };
 
 export const createLead = async (
