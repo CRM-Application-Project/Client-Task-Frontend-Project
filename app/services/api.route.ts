@@ -35,6 +35,5 @@ export const API_CONSTANTS = {
      FILTER: "/lead/filter",
 
   }
-    FILTER: "/tasks/filter",
-  },
+    
 };
