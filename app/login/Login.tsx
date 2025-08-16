@@ -120,7 +120,7 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', response.data.authTokenResponse.refreshToken || '');
         localStorage.setItem('user', JSON.stringify(response.data.profileResponse));
         
-        router.push('/dashboard');
+        router.push('/leads');
       } else {
         toast({
           title: "Login failed",
