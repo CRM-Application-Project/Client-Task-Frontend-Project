@@ -1,7 +1,13 @@
-"use client";
-import { Edit, Trash2, Eye, Phone } from "lucide-react";
+import { Edit, Trash2, Eye, Phone, MoreVertical, UserPlus, Calendar, Upload, ArrowUpDown, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Lead } from "../../lib/leads";
 
 interface LeadCardProps {
@@ -9,9 +15,24 @@ interface LeadCardProps {
   onEdit?: (lead: Lead) => void;
   onDelete?: (lead: Lead) => void;
   onView?: (lead: Lead) => void;
+  onAddFollowUp?: (lead: Lead) => void;
+  onChangeAssign?: (lead: Lead) => void;
+  onImportLead?: () => void;
+  onLeadSorting?: () => void;
+  onChangeStatus?: (lead: Lead) => void;
 }
 
-export const LeadCard = ({ lead, onEdit, onDelete, onView }: LeadCardProps) => {
+export const LeadCard = ({ 
+  lead, 
+  onEdit, 
+  onDelete, 
+  onView, 
+  onAddFollowUp,
+  onChangeAssign,
+  onImportLead,
+  onLeadSorting,
+  onChangeStatus
+}: LeadCardProps) => {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -49,34 +70,69 @@ export const LeadCard = ({ lead, onEdit, onDelete, onView }: LeadCardProps) => {
         </div>
 
         {/* Action bar */}
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            onClick={() => onView?.(lead)}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-            title="View lead"
-          >
-            <Eye className="h-4 w-4 text-gray-600" />
-          </button>
-          <button
-            onClick={() => onEdit?.(lead)}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-            title="Edit lead"
-          >
-            <Edit className="h-4 w-4 text-gray-600" />
-          </button>
-          <button
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-            title="Call lead"
-          >
-            <Phone className="h-4 w-4 text-gray-600" />
-          </button>
-          <button
-            onClick={() => onDelete?.(lead)}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-100 flex items-center justify-center transition-colors"
-            title="Delete lead"
-          >
-            <Trash2 className="h-4 w-4 text-gray-600 hover:text-red-600" />
-          </button>
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onView?.(lead)}
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              title="View lead"
+            >
+              <Eye className="h-4 w-4 text-gray-600" />
+            </button>
+            <button
+              onClick={() => onEdit?.(lead)}
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              title="Edit lead"
+            >
+              <Edit className="h-4 w-4 text-gray-600" />
+            </button>
+            <button
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              title="Call lead"
+            >
+              <Phone className="h-4 w-4 text-gray-600" />
+            </button>
+          </div>
+          
+          {/* 3-dots menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                <MoreVertical className="h-4 w-4 text-gray-600" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onAddFollowUp?.(lead)}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Add Follow-up
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onChangeAssign?.(lead)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Change Assignment
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onChangeStatus?.(lead)}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Change Status
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onImportLead?.()}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import Leads
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onLeadSorting?.()}>
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                Lead Sorting
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => onDelete?.(lead)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Lead
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </Card>

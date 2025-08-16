@@ -1,8 +1,7 @@
-"use client";
 import { Droppable, Draggable } from "react-beautiful-dnd";
+import { LeadCard } from "./LeadCard";
 import { Lead, LeadStatus } from "../../lib/leads";
 import { Badge } from "@/components/ui/badge";
-import { LeadCard } from "./LeadCard";
 
 interface LeadColumnProps {
   status: LeadStatus;
@@ -10,6 +9,11 @@ interface LeadColumnProps {
   onEditLead?: (lead: Lead) => void;
   onDeleteLead?: (lead: Lead) => void;
   onViewLead?: (lead: Lead) => void;
+  onAddFollowUp?: (lead: Lead) => void;
+  onChangeAssign?: (lead: Lead) => void;
+  onImportLead?: () => void;
+  onLeadSorting?: () => void;
+  onChangeStatus?: (lead: Lead) => void;
 }
 
 const statusConfig = {
@@ -55,7 +59,18 @@ const statusConfig = {
   }
 };
 
-export const LeadColumn = ({ status, leads, onEditLead, onDeleteLead, onViewLead }: LeadColumnProps) => {
+export const LeadColumn = ({ 
+  status, 
+  leads, 
+  onEditLead, 
+  onDeleteLead, 
+  onViewLead,
+  onAddFollowUp,
+  onChangeAssign,
+  onImportLead,
+  onLeadSorting,
+  onChangeStatus
+}: LeadColumnProps) => {
   const config = statusConfig[status];
   
   return (
@@ -94,6 +109,11 @@ export const LeadColumn = ({ status, leads, onEditLead, onDeleteLead, onViewLead
                       onEdit={onEditLead}
                       onDelete={onDeleteLead}
                       onView={onViewLead}
+                      onAddFollowUp={onAddFollowUp}
+                      onChangeAssign={onChangeAssign}
+                      onImportLead={onImportLead}
+                      onLeadSorting={onLeadSorting}
+                      onChangeStatus={onChangeStatus}
                     />
                   </div>
                 )}
