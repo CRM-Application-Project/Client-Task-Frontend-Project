@@ -84,4 +84,26 @@ export const filterTasks = async (
 };
 
 
+export const createLead = async (
+  leadData: CreateLeadRequest
+): Promise<CreateLeadResponse> => {
+  const res = await postRequest(API_CONSTANTS.LEAD.CREATE, leadData);
+  return res as CreateLeadResponse;
+};
+
+export const getAllLeads = async (): Promise<GetAllLeadsResponse> => {
+  const res = await getRequest(API_CONSTANTS.LEAD.GET_ALL);
+  return res as GetAllLeadsResponse;
+};
+
+export const updateLead = async (payload: UpdateLeadRequest): Promise<UpdateLeadResponse> => {
+  const res = await putRequest(API_CONSTANTS.LEAD.UPDATE, payload);
+  return res as UpdateLeadResponse;
+};
+
+export const deleteLeadById = async (leadId: string): Promise<DeleteLeadResponse> => {
+  const url = `${API_CONSTANTS.LEAD.DELETE_BY_ID}?leadId=${leadId}`;
+  const res = await deleteRequest(url);
+  return res as DeleteLeadResponse;
+};
 
