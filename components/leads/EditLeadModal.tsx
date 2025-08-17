@@ -56,11 +56,15 @@ interface EditLeadModalProps {
   lead: Lead | null;
 }
 
-const EditLeadModal: React.FC<EditLeadModalProps> = ({ isOpen, onClose, onUpdateLead, lead }) => {
+const EditLeadModal: React.FC<EditLeadModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onUpdateLead, 
+  lead
+}) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
  
-  
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -73,7 +77,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({ isOpen, onClose, onUpdate
       priority: lead?.priority || '',
       source: lead?.source || '',
       assignedTo: lead?.assignedTo || '',
-    
     },
   });
 
@@ -89,7 +92,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({ isOpen, onClose, onUpdate
         priority: lead.priority,
         source: lead.source,
         assignedTo: lead.assignedTo,
-       
+        leadLabel: lead.leadLabel || '',
+        leadReference: lead.leadReference || '',
+        comment: lead.comment || '',
       });
     }
   }, [lead, form]);
@@ -119,6 +124,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({ isOpen, onClose, onUpdate
       const response = await updateLead(payload);
       
       if (response.isSuccess) {
+        // Create the updated lead object
         const updatedLead: Lead = {
           ...lead,
           name: data.name,
@@ -136,13 +142,18 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({ isOpen, onClose, onUpdate
           updatedAt: new Date(),
         };
 
-        onUpdateLead(updatedLead);
+        // Close modal first
         onClose();
         
+        // Update local state immediately
+        onUpdateLead(updatedLead);
+        
+        // Show success toast
         toast({
           title: "Lead updated",
           description: "Lead information has been successfully updated.",
         });
+
       } else {
         toast({
           title: "Error",
