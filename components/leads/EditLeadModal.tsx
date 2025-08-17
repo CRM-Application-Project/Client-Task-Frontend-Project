@@ -59,6 +59,7 @@ interface EditLeadModalProps {
 const EditLeadModal: React.FC<EditLeadModalProps> = ({ isOpen, onClose, onUpdateLead, lead }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+ 
   
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),

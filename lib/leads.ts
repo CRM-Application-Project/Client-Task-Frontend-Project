@@ -17,7 +17,7 @@ export interface Lead {
   assignedToAvatar?: string;
   createdAt: Date;
   updatedAt: Date;
-
+  comment?: string;
   leadLabel?: string;
   leadReference?: string;
 }

@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LeadFilters as LeadFiltersType, LeadPriority, LeadStatus, LeadSource } from "../../lib/leads";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DateRangePicker } from "../task/DateRangePicker";
+import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
+
 
 interface DateRange {
   from: Date;
@@ -45,8 +46,28 @@ export const LeadFilters = ({
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
   const sources: LeadSource[] = ['WEBSITE', 'REFERRAL', 'SOCIAL_MEDIA', 'EMAIL', 'PHONE', 'EVENT', 'OTHER'];
   const labels = ["Important", "Cold", "Hot", "Warm"];
-  const assignees = ["John Doe", "Jane Smith", "Michael Brown"];
+  const [assignees, setAssignees] = useState<AssignDropdown[]>([]); // State for assignees
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
+
+  // Fetch assignees from API
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      setLoadingAssignees(true);
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data) {
+          setAssignees(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch assignees:", error);
+      } finally {
+        setLoadingAssignees(false);
+      }
+    };
+
+    fetchAssignees();
+  }, []);
 
   const clearDateRange = () => {
     const { dateRange, ...rest } = filters;
@@ -68,7 +89,7 @@ export const LeadFilters = ({
 
         <div className="flex items-center gap-3">
           {/* Date Range Display */}
-        
+         
 
           {/* Search Bar */}
          
@@ -239,15 +260,16 @@ export const LeadFilters = ({
           onValueChange={(value) =>
             onFiltersChange({ ...filters, assignedTo: value === "all" ? undefined : value })
           }
+          disabled={loadingAssignees}
         >
           <SelectTrigger className="w-52 rounded-lg border-gray-300">
-            <SelectValue placeholder="All Assigned To" />
+            <SelectValue placeholder={loadingAssignees ? "Loading..." : "All Assigned To"} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Assigned To</SelectItem>
             {assignees.map((assignee) => (
-              <SelectItem key={assignee} value={assignee}>
-                {assignee}
+              <SelectItem key={assignee.id} value={assignee.id}>
+                {assignee.label}
               </SelectItem>
             ))}
           </SelectContent>

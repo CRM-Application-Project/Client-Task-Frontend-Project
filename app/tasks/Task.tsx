@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
-import { createTask, deleteTask, filterTasks, getTaskStagesDropdown, getUsers, updateTask } from "../services/data.service";
+import { createTask, deleteTask, filterTasks, getTaskStagesDropdown, getUsers, updateTask, User as ServiceUser } from "../services/data.service";
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -19,22 +19,8 @@ interface TaskStage {
   name: string;
 }
 
-interface User {
-  userId: string;
-  firstName: string;
-  lastName: string;
-  emailAddress: string;
-  contactNumber: string;
-  dateOfBirth?: string;
-  dateOfJoin?: string;
-  departmentId?: number;
-  departmentName?: string;
-  isActive?: boolean;
-  isPasswordUpdated?: boolean;
-  modules?: any[];
-  createdAt?: string;
-  updatedAt?: string;
-}
+// Use the imported User type from data.service
+type User = ServiceUser;
 
 interface TaskResponse {
   id: number;
@@ -63,9 +49,24 @@ interface Task {
   endDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  taskStageId: number; // Changed from optional to required
-  taskStageName: string; // Added missing property
-  assignees: Assignee[]; // Added missing property
+  taskStageId: number;
+  taskStageName: string;
+  assignees: Assignee[];
+}
+
+// Updated interface to match actual API response
+interface EditingTaskResponse {
+  id: number;
+  subject: string;
+  description: string;
+  priority: TaskPriority;
+  startDate: string; // Keep as string for modal compatibility
+  endDate: string | null;
+  taskStageId: number;
+  taskStageName: string;
+  createdAt: string;
+  updatedAt: string;
+  assignees: Assignee[];
 }
 
 interface FilterTasksParams {
@@ -102,6 +103,7 @@ interface UpdateTaskRequest {
   assignees: string[];
 }
 
+// Updated to match actual API response structure
 interface ApiTaskResponse {
   isSuccess: boolean;
   message: string;
@@ -120,6 +122,13 @@ interface ApiTaskResponse {
   };
 }
 
+// Alternative interface for different API response structure
+interface FilterTasksResponse {
+  isSuccess: boolean;
+  message: string;
+  data: TaskResponse[] | { content: any[] } | any; // Allow all possible response structures
+}
+
 // ========== MAIN COMPONENT ==========
 const statuses: TaskStatus[] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
@@ -135,35 +144,64 @@ export default function TaskBoard() {
   }>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [editingTask, setEditingTask] = useState<EditingTaskResponse | undefined>();
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Transform API response to flat array of tasks
- const transformTasks = (apiResponse: ApiTaskResponse): Task[] => {
-  if (!apiResponse.isSuccess || !apiResponse.data) return [];
-  
-  return apiResponse.data.content.flatMap(stage => 
-    stage.tasks.map(task => ({
-      id: task.id,
-      subject: task.subject,
-      description: task.description,
-      status: task.taskStageName as TaskStatus,
-      priority: task.priority,
-      labels: [],
-      assignedTo: task.assignees[0]?.label || "Unassigned",
-      createdBy: task.assignees[0]?.label || "Unknown",
-      startDate: new Date(task.startDate),
-      endDate: task.endDate ? new Date(task.endDate) : null,
-      createdAt: new Date(task.createdAt),
-      updatedAt: new Date(task.updatedAt),
-      taskStageId: task.taskStageId,
-      taskStageName: task.taskStageName,
-      assignees: task.assignees
-    }))
-  );
-};
+  // Transform API response to flat array of tasks - handles both response structures
+  const transformTasks = (apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
+    if (!apiResponse.isSuccess || !apiResponse.data) return [];
+    
+    if ('content' in apiResponse.data) {
+      // Define interfaces for API content structure
+      interface StageContent {
+        stageId: number;
+        stageName: string;
+        stageOrder: number;
+        tasks: TaskResponse[];
+      }
+
+      return apiResponse.data.content.flatMap((stage: StageContent) => 
+        stage.tasks.map((task: TaskResponse): Task => ({
+          id: task.id,
+          subject: task.subject,
+          description: task.description,
+          status: task.taskStageName as TaskStatus,
+          priority: task.priority,
+          labels: [],
+          assignedTo: task.assignees[0]?.label || "Unassigned",
+          createdBy: task.assignees[0]?.label || "Unknown",
+          startDate: new Date(task.startDate),
+          endDate: task.endDate ? new Date(task.endDate) : null,
+          createdAt: new Date(task.createdAt),
+          updatedAt: new Date(task.updatedAt),
+          taskStageId: task.taskStageId,
+          taskStageName: task.taskStageName,
+          assignees: task.assignees
+        }))
+      );
+    } else {
+      // Handle simple array structure (FilterTasksResponse)
+      return (apiResponse.data as TaskResponse[]).map(task => ({
+        id: task.id,
+        subject: task.subject,
+        description: task.description,
+        status: task.taskStageName as TaskStatus,
+        priority: task.priority,
+        labels: [],
+        assignedTo: task.assignees[0]?.label || "Unassigned",
+        createdBy: task.assignees[0]?.label || "Unknown",
+        startDate: new Date(task.startDate),
+        endDate: task.endDate ? new Date(task.endDate) : null,
+        createdAt: new Date(task.createdAt),
+        updatedAt: new Date(task.updatedAt),
+        taskStageId: task.taskStageId,
+        taskStageName: task.taskStageName,
+        assignees: task.assignees
+      }));
+    }
+  };
 
   // Fetch initial data
   useEffect(() => {
@@ -176,7 +214,7 @@ export default function TaskBoard() {
         ]);
 
         if (tasksRes.isSuccess) {
-          setTasks(transformTasks(tasksRes));
+          setTasks(transformTasks(tasksRes as unknown as ApiTaskResponse | FilterTasksResponse));
         } else {
           setTasks([]);
         }
@@ -188,7 +226,8 @@ export default function TaskBoard() {
         if (usersRes.isSuccess) {
           setUsers(usersRes.data.map(user => ({
             ...user,
-            contactNumber: user.contactNumber || ''
+            contactNumber: user.contactNumber || '',
+            userRole: user.userRole || 'User' // Provide default userRole
           })));
         }
       } catch (error) {
@@ -200,45 +239,47 @@ export default function TaskBoard() {
 
     fetchData();
   }, []);
-const handleDeleteTask = async (taskId: number) => {
-  try {
-    const response = await deleteTask(taskId);
-    if (response.isSuccess) {
-      // Refresh tasks with current filters
-      const currentApiParams = convertFiltersToApiParams(filters, searchQuery);
-      const updatedTasksRes = await filterTasks(currentApiParams);
-      if (updatedTasksRes.isSuccess) {
-        setTasks(transformTasks(updatedTasksRes));
+
+  const handleDeleteTask = async (taskId: number) => {
+    try {
+      const response = await deleteTask(taskId);
+      if (response.isSuccess) {
+        // Refresh tasks with current filters
+        const currentApiParams = convertFiltersToApiParams(filters, searchQuery);
+        const updatedTasksRes = await filterTasks(currentApiParams);
+        if (updatedTasksRes.isSuccess) {
+          setTasks(transformTasks(updatedTasksRes as unknown as ApiTaskResponse | FilterTasksResponse));
+        }
       }
+    } catch (error) {
+      console.error("Error deleting task:", error);
     }
-  } catch (error) {
-    console.error("Error deleting task:", error);
-  }
-};
+  };
+
   // Convert filter object to API parameters
-const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
-  const apiParams: FilterTasksParams = {};
+  const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
+    const apiParams: FilterTasksParams = {};
 
-  if (searchQuery) apiParams.searchTerm = searchQuery;
-  if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
-  if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
-  if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
-  
-  // Convert date range to API format with time component
-  if (uiFilters.dateRange) {
-    const formatDateWithTime = (date: Date) => {
-      // Ensure we include time component (00:00:00 by default)
-      return date.toISOString().split('T')[0] + 'T00:00:00';
-    };
+    if (searchQuery) apiParams.searchTerm = searchQuery;
+    if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
+    if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
+    if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
+    
+    // Convert date range to API format with time component
+    if (uiFilters.dateRange) {
+      const formatDateWithTime = (date: Date) => {
+        // Ensure we include time component (00:00:00 by default)
+        return date.toISOString().split('T')[0] + 'T00:00:00';
+      };
 
-    apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
-    apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
-    apiParams.endDateFrom = formatDateWithTime(uiFilters.dateRange.from);
-    apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
-  }
+      apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+      apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
+      apiParams.endDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+      apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
+    }
 
-  return apiParams;
-};
+    return apiParams;
+  };
 
   // Filter tasks based on search and filters (client-side filtering as backup)
   const filteredTasks = tasks.filter(task => {
@@ -284,7 +325,7 @@ const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: strin
         const currentApiParams = convertFiltersToApiParams(filters, searchQuery);
         const updatedTasksRes = await filterTasks(currentApiParams);
         if (updatedTasksRes.isSuccess) {
-          setTasks(transformTasks(updatedTasksRes));
+          setTasks(transformTasks(updatedTasksRes as unknown as ApiTaskResponse | FilterTasksResponse));
         }
         handleCloseModal();
       }
@@ -294,7 +335,22 @@ const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: strin
   };
 
   const handleEditTask = (task: Task) => {
-    setEditingTask(task);
+    // Convert Task to EditingTaskResponse format
+    const editingTaskData: EditingTaskResponse = {
+      id: task.id,
+      subject: task.subject,
+      description: task.description,
+      priority: task.priority,
+      startDate: task.startDate.toISOString(), // Convert Date to string
+      endDate: task.endDate ? task.endDate.toISOString() : null,
+      taskStageId: task.taskStageId,
+      taskStageName: task.taskStageName,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+      assignees: task.assignees
+    };
+    
+    setEditingTask(editingTaskData);
     setIsAddModalOpen(true);
   };
 
@@ -309,7 +365,7 @@ const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: strin
     // Fetch all tasks without filters
     filterTasks({}).then(response => {
       if (response.isSuccess) {
-        setTasks(transformTasks(response));
+        setTasks(transformTasks(response as ApiTaskResponse | FilterTasksResponse));
       }
     });
   };
@@ -320,7 +376,7 @@ const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: strin
       const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
       const filtered = await filterTasks(apiParams);
       if (filtered.isSuccess) {
-        setTasks(transformTasks(filtered));
+        setTasks(transformTasks(filtered as ApiTaskResponse | FilterTasksResponse));
       }
     } catch (error) {
       console.error("Error filtering tasks:", error);
@@ -334,7 +390,7 @@ const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: strin
         const apiParams = convertFiltersToApiParams(filters, searchQuery);
         const filtered = await filterTasks(apiParams);
         if (filtered.isSuccess) {
-          setTasks(transformTasks(filtered));
+          setTasks(transformTasks(filtered as ApiTaskResponse | FilterTasksResponse));
         }
       } catch (error) {
         console.error("Error searching tasks:", error);
@@ -382,7 +438,7 @@ const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: strin
               status={status}
               tasks={filteredTasks.filter(task => task.status === status)}
               onEditTask={handleEditTask}
-               onDeleteTask={handleDeleteTask}
+              onDeleteTask={handleDeleteTask}
             />
           ))}
         </div>

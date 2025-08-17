@@ -29,7 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Lead } from '../../lib/leads';
 import { useToast } from '@/hooks/use-toast';
-import { leadTransfer } from '@/app/services/data.service';
+import { leadTransfer, getAssignDropdown, AssignDropdown } from '@/app/services/data.service';
 
 const formSchema = z.object({
   transferTo: z.string().min(1, 'Please select an assignee'),
@@ -52,6 +52,8 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
 }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [assignees, setAssignees] = React.useState<AssignDropdown[]>([]);
+  const [loadingAssignees, setLoadingAssignees] = React.useState(false);
   
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -60,6 +62,33 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     },
   });
 
+  // Fetch assignees when modal opens
+  React.useEffect(() => {
+    const fetchAssignees = async () => {
+      if (!isOpen) return;
+      
+      setLoadingAssignees(true);
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data) {
+          setAssignees(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch assignees:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load assignees",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingAssignees(false);
+      }
+    };
+
+    fetchAssignees();
+  }, [isOpen, toast]);
+
+  // Reset form when lead changes
   React.useEffect(() => {
     if (lead) {
       form.reset({ transferTo: lead.assignedTo });
@@ -111,17 +140,6 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     onClose();
   };
 
-  // Sample team members - in a real app, this would come from an API
-  const teamMembers = [
-    'Admin User',
-    'John Smith',
-    'Jane Doe',
-    'Mike Johnson',
-    'Sarah Wilson',
-    'Alex Brown',
-    'Emily Davis',
-  ];
-
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
@@ -143,17 +161,17 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
                   <Select 
                     onValueChange={field.onChange} 
                     value={field.value}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || loadingAssignees}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select team member" />
+                        <SelectValue placeholder={loadingAssignees ? "Loading assignees..." : "Select team member"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member} value={member}>
-                          {member}
+                      {assignees.map((assignee) => (
+                        <SelectItem key={assignee.id} value={assignee.id}>
+                          {assignee.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -174,7 +192,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
               </Button>
               <Button 
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || loadingAssignees}
               >
                 {isSubmitting ? 'Transferring...' : 'Transfer Lead'}
               </Button>
