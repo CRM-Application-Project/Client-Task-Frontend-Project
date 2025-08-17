@@ -54,16 +54,24 @@ type FormData = z.infer<typeof formSchema>;
 interface AddLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddLead: (lead: any) => void; // Update this type according to your needs
+  onAddLead: (lead: any) => void;
+  onNewLeadCreated: (apiLeadData: any) => void; // New prop for immediate state update
 }
 
-const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead }) => {
+const AddLeadModal: React.FC<AddLeadModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onAddLead, 
+  onNewLeadCreated 
+}) => {
   const { toast } = useToast();
   const { codes, loading } = useCountryCodes();
   const [selectedCode, setSelectedCode] = useState("+91"); 
   const [phone, setPhone] = useState("");
-    const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
+  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -81,83 +89,101 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
     },
   });
 
+// In your AddLeadModal component, update the onSubmit function:
+
+
+// 1. First, let's update the AddLeadModal with debugging:
+
 const onSubmit = async (data: FormData) => {
-    try {
-         const selectedAssignee = assignees.find(
+  setIsSubmitting(true);
+  
+  try {
+    const selectedAssignee = assignees.find(
       (assignee) => assignee.id === data.leadAddedBy
     );
-      const leadData: CreateLeadRequest = {
-        leadStatus: data.leadStatus as LeadStatus,
-        leadSource: data.leadSource as LeadSource,
-   leadAddedBy: selectedAssignee?.label || "",
-   customerMobileNumber: `${selectedCode.replace('+', '')}${data.customerMobileNumber.trim()}`,
-        companyEmailAddress: data.companyEmailAddress,
-        customerName: data.customerName,
-        customerEmailAddress: data.customerEmailAddress,
-        leadLabel: data.leadLabel,
-        leadReference: data.leadReference,
-        leadAddress: data.leadAddress,
-        comment: data.comment || '',
-      };
+    
+    const leadData: CreateLeadRequest = {
+      leadStatus: data.leadStatus as LeadStatus,
+      leadSource: data.leadSource as LeadSource,
+      leadAddedBy: selectedAssignee?.label || "",
+      customerMobileNumber: `${selectedCode.replace('+', '')}${data.customerMobileNumber.trim()}`,
+      companyEmailAddress: data.companyEmailAddress,
+      customerName: data.customerName,
+      customerEmailAddress: data.customerEmailAddress,
+      leadLabel: data.leadLabel,
+      leadReference: data.leadReference,
+      leadAddress: data.leadAddress,
+      comment: data.comment || '',
+    };
 
-      const response = await createLead(leadData);
+    console.log("Creating lead with data:", leadData);
+    const response = await createLead(leadData);
+    console.log("API response:", response);
 
-      if (response.isSuccess) {
-        toast({
-          title: "Success",
-          description: "Lead created successfully",
-          variant: "default",
-        });
-        
-       
-        const allLeadsResponse = await getAllLeads();
-        if (allLeadsResponse.isSuccess) {
-          onAddLead(allLeadsResponse.data);
-        }
-        
-        form.reset();
-        onClose();
+    if (response.isSuccess) {
+      toast({
+        title: "Success",
+        description: "Lead created successfully",
+        variant: "default",
+      });
+       onAddLead(data);
+      // Reset form and close modal first
+      form.reset();
+      onClose();
+      
+      // Call the callback with the API response data
+      if (response.data) {
+        console.log("Calling onNewLeadCreated with:", response.data);
+        onNewLeadCreated(response.data);
       } else {
-        toast({
-          title: "Error",
-          description: response.message || "Failed to create lead",
-          variant: "destructive",
-        });
+        console.error("No data in API response:", response);
       }
-    } catch (error) {
+      
+    } else {
+      console.error("API returned error:", response);
       toast({
         title: "Error",
-        description: "An error occurred while creating the lead",
+        description: response.message || "Failed to create lead",
         variant: "destructive",
       });
-      console.error("Error creating lead:", error);
     }
-  };
+  } catch (error) {
+    console.error("Error creating lead:", error);
+    toast({
+      title: "Error",
+      description: "An error occurred while creating the lead",
+      variant: "destructive",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
-   useEffect(() => {
-      const fetchAssignees = async () => {
-        if (!isOpen) return;
-        
-        setLoadingAssignees(true);
-        try {
-          const response = await getAssignDropdown();
-          if (response.isSuccess && response.data) {
-            setAssignees(response.data);
-          }
-        } catch (error) {
-          console.error("Failed to fetch assignees:", error);
-          toast({
-            title: "Error",
-            description: "Failed to load assignees",
-            variant: "destructive",
-          });
-        } finally {
-          setLoadingAssignees(false);
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      if (!isOpen) return;
+      
+      setLoadingAssignees(true);
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data) {
+          setAssignees(response.data);
         }
-      };
-  
-      fetchAssignees();
-    }, [isOpen, toast]);
+      } catch (error) {
+        console.error("Failed to fetch assignees:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load assignees",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingAssignees(false);
+      }
+    };
+
+    fetchAssignees();
+  }, [isOpen, toast]);
+
   const handleClose = () => {
     form.reset();
     onClose();
@@ -337,7 +363,6 @@ const onSubmit = async (data: FormData) => {
                 )}
               />
 
-
               <FormField
                 control={form.control}
                 name="leadLabel"
@@ -403,7 +428,9 @@ const onSubmit = async (data: FormData) => {
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="submit">Add Lead</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Add Lead"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

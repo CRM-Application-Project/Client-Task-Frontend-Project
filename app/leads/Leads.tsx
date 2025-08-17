@@ -66,39 +66,113 @@ const Leads = () => {
     "CLOSED_LOST",
   ];
 
-  useEffect(() => {
-    const fetchLeads = async () => {
-      try {
-        setIsLoading(true);
-        const response = await getAllLeads();
-        if (response.isSuccess && response.data) {
-          // Transform API data to match our Lead interface
-          const transformedLeads = response.data.map((apiLead) => ({
-            id: apiLead.leadId,
-            name: apiLead.customerName,
-            company: apiLead.companyEmailAddress, // Using companyEmailAddress as company for now
-            email: apiLead.customerEmailAddress,
-            phone: apiLead.customerMobileNumber,
-            location: apiLead.leadAddress,
-            status: apiLead.leadStatus as LeadStatus,
-            priority: "MEDIUM" as LeadPriority, // Explicitly type as LeadPriority
-            source: apiLead.leadSource as LeadSource,
-            assignedTo: apiLead.leadAddedBy,
-            createdAt: new Date(apiLead.createdAt),
-            updatedAt: new Date(apiLead.updatedAt),
-            comment: apiLead.comment,
-            leadLabel: apiLead.leadLabel,
-            leadReference: apiLead.leadReference,
-          }));
-          setLeads(transformedLeads);
-        }
-      } catch (error) {
-        console.error("Failed to fetch leads:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Transform API lead data to Lead interface
+ const transformApiLead = (apiLead: any): Lead => {
+  console.log("Transforming API lead:", apiLead);
+  
+  const transformed = {
+    id: apiLead.leadId,
+    name: apiLead.customerName,
+    company: apiLead.companyEmailAddress,
+    email: apiLead.customerEmailAddress,
+    phone: apiLead.customerMobileNumber,
+    location: apiLead.leadAddress,
+    status: apiLead.leadStatus as LeadStatus,
+    priority: "MEDIUM" as LeadPriority,
+    source: apiLead.leadSource as LeadSource,
+    assignedTo: apiLead.leadAddedBy,
+    createdAt: new Date(apiLead.createdAt),
+    updatedAt: new Date(apiLead.updatedAt),
+    comment: apiLead.comment,
+    leadLabel: apiLead.leadLabel,
+    leadReference: apiLead.leadReference,
+  };
+  
+  console.log("Transformed lead:", transformed);
+  return transformed;
+};
 
+// Add new lead to local state with debugging
+const handleAddNewLead = (apiLeadData: any) => {
+  console.log("handleAddNewLead called with:", apiLeadData);
+  
+  if (!apiLeadData) {
+    console.error("No API lead data provided");
+    return;
+  }
+  
+  const newLead = transformApiLead(apiLeadData);
+  console.log("Adding new lead to state:", newLead);
+  
+  setLeads((prevLeads) => {
+    console.log("Previous leads count:", prevLeads.length);
+    const updatedLeads = [newLead, ...prevLeads];
+    console.log("Updated leads count:", updatedLeads.length);
+    return updatedLeads;
+  });
+};
+
+// Simplified handleAddLead
+const handleAddLead = () => {
+  setIsAddModalOpen(true);
+};
+
+// 3. Alternative approach - if the above doesn't work, try this:
+// Instead of relying on the API response, create the lead optimistically:
+
+const handleAddNewLeadOptimistic = (formData: any) => {
+  console.log("Creating lead optimistically with form data:", formData);
+  
+  // Create lead with temporary ID and current timestamp
+  const newLead: Lead = {
+    id: `temp-${Date.now()}`, // Temporary ID
+    name: formData.customerName,
+    company: formData.companyEmailAddress,
+    email: formData.customerEmailAddress,
+    phone: formData.customerMobileNumber,
+    location: formData.leadAddress,
+    status: formData.leadStatus as LeadStatus,
+    priority: "MEDIUM" as LeadPriority,
+    source: formData.leadSource as LeadSource,
+    assignedTo: formData.leadAddedBy,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    comment: formData.comment || '',
+    leadLabel: formData.leadLabel,
+    leadReference: formData.leadReference,
+  };
+  
+  console.log("Adding optimistic lead:", newLead);
+  
+  setLeads((prevLeads) => {
+    const updatedLeads = [newLead, ...prevLeads];
+    console.log("Leads updated optimistically, count:", updatedLeads.length);
+    return updatedLeads;
+  });
+};
+
+  // Fetch leads only on initial load
+  const fetchLeads = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getAllLeads();
+      if (response.isSuccess && response.data) {
+        const transformedLeads = response.data.map(transformApiLead);
+        setLeads(transformedLeads);
+      }
+    } catch (error) {
+      console.error("Failed to fetch leads:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch leads",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLeads();
   }, []);
 
@@ -142,14 +216,15 @@ const Leads = () => {
       )
     );
   };
+
+  // Add new lead to local state
+ 
+
+  // Update existing lead in local state
   const handleUpdateLead = (updatedLead: Lead) => {
     setLeads((prevLeads) =>
       prevLeads.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
     );
-    toast({
-      title: "Lead updated",
-      description: "Lead information has been successfully updated.",
-    });
   };
 
   const handleEditLead = (lead: Lead) => {
@@ -168,9 +243,14 @@ const Leads = () => {
     try {
       const response = await deleteLeadById(leadToDelete.id);
       if (response.isSuccess) {
+        // Remove from local state immediately
         setLeads((prevLeads) =>
           prevLeads.filter((l) => l.id !== leadToDelete.id)
         );
+        toast({
+          title: "Lead deleted",
+          description: "Lead has been successfully deleted.",
+        });
       }
     } catch (error) {
       console.error("Failed to delete lead:", error);
@@ -276,27 +356,7 @@ const Leads = () => {
     });
   };
 
-  const handleAddLead = () => {
-    setIsAddModalOpen(true);
-  };
 
-  const handleCreateLead = (
-    newLead: Omit<Lead, "id" | "createdAt" | "updatedAt">
-  ) => {
-    const lead: Lead = {
-      ...newLead,
-      id: `LD-ID${Math.floor(1000 + Math.random() * 9000)}`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    setLeads((prevLeads) => [...prevLeads, lead]);
-    setIsAddModalOpen(false);
-    toast({
-      title: "Lead created",
-      description: "New lead has been successfully created.",
-    });
-  };
 
   if (isLoading) {
     return (
@@ -488,11 +548,12 @@ const Leads = () => {
           </div>
         )}
 
-        <AddLeadModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onAddLead={handleCreateLead}
-        />
+      <AddLeadModal
+  isOpen={isAddModalOpen}
+  onClose={() => setIsAddModalOpen(false)}
+  onAddLead={handleAddNewLeadOptimistic} // Try this if the API response method doesn't work
+  onNewLeadCreated={handleAddNewLead} // Keep this for API response method
+/>
 
         <ConfirmationModal
           isOpen={isDeleteModalOpen}
