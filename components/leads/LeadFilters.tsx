@@ -79,7 +79,7 @@ export const LeadFilters = ({
   };
 
   return (
-    <div className=" p-4 rounded-lg shadow-sm mb-6  ">
+    <div className="rounded-lg shadow-sm mb-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
         <div>

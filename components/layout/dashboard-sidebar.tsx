@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -61,12 +61,24 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const toggleExpanded = (itemName: string) => {
-    setExpandedItems((prev) =>
-      prev.includes(itemName)
-        ? prev.filter((name) => name !== itemName)
-        : [...prev, itemName]
+    setExpandedItems(
+      (prev) =>
+        prev.includes(itemName)
+          ? prev.filter((name) => name !== itemName) // close
+          : [...prev, itemName] // open
     );
   };
+
+  useEffect(() => {
+  navigation.forEach((item) => {
+    if (item.children?.some((child) => pathname === child.href)) {
+      // auto-open if on a child route
+      if (!expandedItems.includes(item.name)) {
+        setExpandedItems((prev) => [...prev, item.name]);
+      }
+    }
+  });
+}, [pathname]);
 
   const handleLogout = () => {
     Swal.fire({
@@ -120,18 +132,21 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
         <ScrollArea className="h-full">
           <div className="space-y-1">
             {navigation.map((item) => {
-              const isActive = pathname.startsWith(item.href);
               const hasChildren = item.children && item.children.length > 0;
+              const isChildActive = item.children?.some(
+                (child) => pathname === child.href
+              );
               const isExpanded = expandedItems.includes(item.name);
 
               if (hasChildren) {
                 return (
                   <div key={item.name} className="space-y-1">
+                    {/* Parent */}
                     <Button
                       variant="ghost"
                       className={cn(
                         "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                        isActive
+                        isChildActive || isExpanded
                           ? "bg-white text-[#3b3b3b] shadow-sm"
                           : "text-white hover:bg-white hover:text-[#3b3b3b]"
                       )}
@@ -149,8 +164,9 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                       />
                     </Button>
 
+                    {/* Children */}
                     {isExpanded && (
-                      <div className="space-y-1 pl-6 pt-1">
+                      <div className="space-y-1 pl-6 pt-1 w-full justify-start rounded-lg px-3 py-2 text-sm transition-all duration-200">
                         {item.children?.map((child) => {
                           const isChildActive = pathname === child.href;
                           return (
@@ -163,7 +179,10 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                                   ? "bg-white text-[#3b3b3b] shadow-sm"
                                   : "text-gray-300 hover:bg-white hover:text-[#3b3b3b]"
                               )}
-                              onClick={() => router.push(child.href)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // ✅ don’t close parent
+                                router.push(child.href);
+                              }}
                             >
                               {child.name}
                             </Button>
@@ -175,13 +194,14 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                 );
               }
 
+              // Normal nav items
               return (
                 <Button
                   key={item.href}
                   variant="ghost"
                   className={cn(
                     "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                    isActive
+                    pathname === item.href
                       ? "bg-white text-[#3b3b3b] shadow-sm"
                       : "text-white hover:bg-white hover:text-[#3b3b3b]"
                   )}

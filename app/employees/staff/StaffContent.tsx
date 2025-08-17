@@ -4,11 +4,19 @@ import { useState, useEffect } from "react";
 import {
   getUsers,
   User,
-  updateUser,
   toggleUserStatus,
+  getModuleDropdown,
+  grantModuleAccess,
+  updateModuleAccess,
+  removeModuleAccess,
+  GrantModuleAccessPayload,
+  UpdateModuleAccessPayload,
 } from "@/app/services/data.service";
 import { CreateStaffModal } from "./createUserModal";
 import { UpdateStaffModal } from "./updateUserModal";
+import { useToast } from "@/hooks/use-toast";
+import { Pencil, Trash2, Plus, Search, Check, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,6 +29,28 @@ export default function StaffPage() {
   const [departments, setDepartments] = useState<
     { id: number; name: string }[]
   >([]);
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [availableModules, setAvailableModules] = useState<
+    { id: number; name: string }[]
+  >([]);
+  const [selectedModuleToGrant, setSelectedModuleToGrant] = useState<
+    number | null
+  >(null);
+  const [moduleAccessLoading, setModuleAccessLoading] = useState<
+    Record<string, boolean>
+  >({});
+  const [isEditingModule, setIsEditingModule] = useState<string | null>(null);
+  const [editPermissions, setEditPermissions] = useState({
+    canView: false,
+    canEdit: false,
+    canDelete: false,
+  });
+  const [newModulePermissions, setNewModulePermissions] = useState({
+    canView: true,
+    canEdit: false,
+    canDelete: false,
+  });
+  const { toast } = useToast();
 
   const fetchUsers = async () => {
     try {
@@ -28,26 +58,60 @@ export default function StaffPage() {
       const response = await getUsers();
       if (response.isSuccess) {
         setUsers(response.data);
-        // Extract unique departments from users
         const uniqueDepartments = Array.from(
           new Set(
             response.data.map((user) => ({
               id: user.departmentId,
               name: user.departmentName,
+              role: user.userRole,
             }))
           )
         );
         setDepartments(uniqueDepartments);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.message || "Failed to fetch users",
+        });
       }
     } catch (error) {
       console.error("Error fetching users:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch users",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchAvailableModules = async () => {
+    try {
+      const response = await getModuleDropdown();
+      if (response.isSuccess) {
+        setAvailableModules(response.data);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.message || "Failed to fetch available modules",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching modules:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch available modules",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchAvailableModules();
   }, []);
 
   const toggleRow = (userId: string) => {
@@ -59,11 +123,19 @@ export default function StaffPage() {
 
   const handleCreateSuccess = () => {
     setIsCreateModalOpen(false);
+    toast({
+      title: "Success",
+      description: "Staff member created successfully",
+    });
     fetchUsers();
   };
 
   const handleUpdateSuccess = () => {
     setIsUpdateModalOpen(false);
+    toast({
+      title: "Success",
+      description: "Staff member updated successfully",
+    });
     fetchUsers();
   };
 
@@ -73,19 +145,198 @@ export default function StaffPage() {
     setIsUpdateModalOpen(true);
   };
 
-  const handleToggleStatus = async (userId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleStatus = async (userId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     try {
-      setLoading(true);
+      // Optimistically update the UI
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.userId === userId ? { ...user, isActive: !user.isActive } : user
+        )
+      );
+
       const response = await toggleUserStatus(userId);
-      if (response.isSuccess) {
-        fetchUsers();
+      if (!response.isSuccess) {
+        // Revert if API call fails
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.userId === userId
+              ? { ...user, isActive: !user.isActive }
+              : user
+          )
+        );
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.message || "Failed to update user status",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "User status updated successfully",
+        });
       }
     } catch (error) {
       console.error("Error toggling user status:", error);
-    } finally {
-      setLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update user status",
+      });
     }
+  };
+
+  const handleGrantModuleAccess = async (userId: string) => {
+    if (!selectedModuleToGrant) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select a module first",
+      });
+      return;
+    }
+
+    try {
+      setModuleAccessLoading((prev) => ({
+        ...prev,
+        [`grant-${userId}`]: true,
+      }));
+      const payload: GrantModuleAccessPayload = {
+        moduleAccess: [
+          {
+            moduleId: selectedModuleToGrant,
+            canView: newModulePermissions.canView,
+            canEdit: newModulePermissions.canEdit,
+            canDelete: newModulePermissions.canDelete,
+          },
+        ],
+      };
+
+      const response = await grantModuleAccess(userId, payload);
+      if (response.isSuccess) {
+        fetchUsers();
+        setSelectedModuleToGrant(null);
+        // Reset permissions after granting
+        setNewModulePermissions({
+          canView: true,
+          canEdit: false,
+          canDelete: false,
+        });
+        toast({
+          title: "Success",
+          description: "Module access granted successfully",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.message || "Failed to grant module access",
+        });
+      }
+    } catch (error) {
+      console.error("Error granting module access:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to grant module access",
+      });
+    } finally {
+      setModuleAccessLoading((prev) => ({
+        ...prev,
+        [`grant-${userId}`]: false,
+      }));
+    }
+  };
+
+  const handleUpdateModuleAccess = async (moduleAccessId: string) => {
+    try {
+      setModuleAccessLoading((prev) => ({
+        ...prev,
+        [`update-${moduleAccessId}`]: true,
+      }));
+      const payload: UpdateModuleAccessPayload = {
+        canView: editPermissions.canView,
+        canEdit: editPermissions.canEdit,
+        canDelete: editPermissions.canDelete,
+      };
+
+      const response = await updateModuleAccess(moduleAccessId, payload);
+      if (response.isSuccess) {
+        fetchUsers();
+        setIsEditingModule(null);
+        toast({
+          title: "Success",
+          description: "Module permissions updated successfully",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description:
+            response.message || "Failed to update module permissions",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating module access:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update module permissions",
+      });
+    } finally {
+      setModuleAccessLoading((prev) => ({
+        ...prev,
+        [`update-${moduleAccessId}`]: false,
+      }));
+    }
+  };
+
+  const handleRemoveModuleAccess = async (moduleAccessId: string) => {
+    try {
+      setModuleAccessLoading((prev) => ({
+        ...prev,
+        [`remove-${moduleAccessId}`]: true,
+      }));
+      const response = await removeModuleAccess(moduleAccessId);
+      if (response.isSuccess) {
+        fetchUsers();
+        toast({
+          title: "Success",
+          description: "Module access removed successfully",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.message || "Failed to remove module access",
+        });
+      }
+    } catch (error) {
+      console.error("Error removing module access:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to remove module access",
+      });
+    } finally {
+      setModuleAccessLoading((prev) => ({
+        ...prev,
+        [`remove-${moduleAccessId}`]: false,
+      }));
+    }
+  };
+
+  const startEditingModule = (module: any) => {
+    setIsEditingModule(module.id.toString());
+    setEditPermissions({
+      canView: module.canView,
+      canEdit: module.canEdit,
+      canDelete: module.canDelete,
+    });
+  };
+
+  const cancelEditing = () => {
+    setIsEditingModule(null);
   };
 
   const filteredUsers = users.filter(
@@ -93,7 +344,8 @@ export default function StaffPage() {
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.emailAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.departmentName.toLowerCase().includes(searchTerm.toLowerCase())
+      user.departmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.userRole.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (isActive: boolean) => {
@@ -108,9 +360,16 @@ export default function StaffPage() {
     });
   };
 
+  const getAvailableModulesForUser = (user: User) => {
+    if (!user.modules || user.modules.length === 0) return availableModules;
+    return availableModules.filter(
+      (module) =>
+        !user.modules.some((userModule) => userModule.moduleId === module.id)
+    );
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Create Staff Modal */}
+    <>
       <CreateStaffModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -118,7 +377,6 @@ export default function StaffPage() {
         departments={departments}
       />
 
-      {/* Update Staff Modal */}
       <UpdateStaffModal
         isOpen={isUpdateModalOpen}
         onClose={() => setIsUpdateModalOpen(false)}
@@ -127,254 +385,736 @@ export default function StaffPage() {
         departments={departments}
       />
 
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">
-          Staff Management
-        </h1>
-
-        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-          <div className="relative flex-grow">
-            <input
-              type="text"
-              placeholder="Search staff..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <svg
-              className="absolute right-3 top-3 h-5 w-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              ></path>
-            </svg>
+      <div className="flex flex-col space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              Staff Management
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Manage your staff members and their module permissions
+            </p>
           </div>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-black hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-center transition duration-200"
-          >
-            Add Staff
-          </button>
-        </div>
-      </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="relative flex-grow max-w-md">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by name, email or department..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all duration-200"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <Plus className="h-4 w-4" />
+              Add Staff
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Department
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Join Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <>
-                      <tr
-                        key={user.userId}
-                        className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => toggleRow(user.userId)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-medium">
-                                {user.firstName[0]}
-                                {user.lastName[0]}
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Department
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Join Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((user) => (
+                      <>
+                        <tr
+                          key={user.userId}
+                          className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                          onClick={() => toggleRow(user.userId)}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center shadow-inner">
+                                <span className="text-blue-600 font-medium">
+                                  {user.firstName[0]}
+                                  {user.lastName[0]}
+                                </span>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {user.firstName} {user.lastName}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {user.contactNumber}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {user.emailAddress}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {user.departmentName}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {user.userRole || "N/A"}
+                              {/* If you want to add some styling based on role: */}
+                              {/* <span className={`px-2 py-1 text-xs rounded-full ${
+      user.role === 'Admin' ? 'bg-purple-100 text-purple-800' :
+      user.role === 'Manager' ? 'bg-blue-100 text-blue-800' :
+      'bg-gray-100 text-gray-800'
+    }`}>
+      {user.role}
+    </span> */}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {formatDate(user.dateOfJoin)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                                  user.isActive
+                                )}`}
+                              >
+                                {user.isActive ? "Active" : "Inactive"}
                               </span>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={user.isActive}
+                                  onChange={() =>
+                                    handleToggleStatus(user.userId)
+                                  }
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                              </label>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {user.firstName} {user.lastName}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {user.contactNumber}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {user.emailAddress}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {user.departmentName}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatDate(user.dateOfJoin)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                              user.isActive
-                            )}`}
-                          >
-                            {user.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                          <button
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                            onClick={(e) => handleEditClick(user, e)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className={
-                              user.isActive
-                                ? "text-red-600 hover:text-red-900"
-                                : "text-green-600 hover:text-green-900"
-                            }
-                            onClick={(e) => handleToggleStatus(user.userId, e)}
-                          >
-                            {user.isActive ? "Deactivate" : "Activate"}
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedRows[user.userId] && (
-                        <tr className="bg-gray-50">
-                          <td colSpan={6} className="px-6 py-4">
-                            <div className="mb-2">
-                              <h4 className="font-medium text-gray-900">
-                                Additional Information
-                              </h4>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
-                                <div>
-                                  <p className="text-sm text-gray-500">
-                                    Date of Birth
-                                  </p>
-                                  <p className="text-sm font-medium">
-                                    {formatDate(user.dateOfBirth)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">
-                                    Password Updated
-                                  </p>
-                                  <p className="text-sm font-medium">
-                                    {user.isPasswordUpdated ? "Yes" : "No"}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">
-                                    Created At
-                                  </p>
-                                  <p className="text-sm font-medium">
-                                    {formatDate(user.createdAt)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-500">
-                                    Updated At
-                                  </p>
-                                  <p className="text-sm font-medium">
-                                    {formatDate(user.updatedAt)}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {user.modules.length > 0 && (
-                              <div>
-                                <h4 className="font-medium text-gray-900 mb-2">
-                                  Module Access
-                                </h4>
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Module
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          View
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Edit
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Delete
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {user.modules.map((module) => (
-                                        <tr
-                                          key={`${user.userId}-${module.moduleId}`}
-                                        >
-                                          <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {module.moduleName}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                            {module.canView ? "✅" : "❌"}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                            {module.canEdit ? "✅" : "❌"}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                            {module.canDelete ? "✅" : "❌"}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              className="text-blue-600 hover:text-blue-900 mr-3 flex items-center gap-1 p-1 rounded hover:bg-blue-50 transition-colors"
+                              onClick={(e) => handleEditClick(user, e)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </button>
                           </td>
                         </tr>
-                      )}
-                    </>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-4 text-center text-sm text-gray-500"
-                    >
-                      No staff members found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        <AnimatePresence>
+                          {expandedRows[user.userId] && (
+                            <motion.tr
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{
+                                opacity: 1,
+                                height: "auto",
+                                transition: {
+                                  opacity: { duration: 0.2 },
+                                  height: { duration: 0.3 },
+                                },
+                              }}
+                              exit={{
+                                opacity: 0,
+                                height: 0,
+                                transition: {
+                                  opacity: { duration: 0.1 },
+                                  height: { duration: 0.2 },
+                                },
+                              }}
+                              className="bg-gray-50"
+                            >
+                              <td colSpan={7} className="px-6 py-4">
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                    transition: { delay: 0.2, duration: 0.2 },
+                                  }}
+                                  exit={{
+                                    opacity: 0,
+                                    y: -10,
+                                    transition: { duration: 0.1 },
+                                  }}
+                                  className="space-y-6"
+                                >
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs">
+                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Date of Birth
+                                      </p>
+                                      <p className="text-sm font-medium mt-1">
+                                        {formatDate(user.dateOfBirth)}
+                                      </p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs">
+                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Password Updated
+                                      </p>
+                                      <p className="text-sm font-medium mt-1">
+                                        {user.isPasswordUpdated ? (
+                                          <span className="text-green-600">
+                                            Yes
+                                          </span>
+                                        ) : (
+                                          <span className="text-amber-600">
+                                            No
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs">
+                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Created At
+                                      </p>
+                                      <p className="text-sm font-medium mt-1">
+                                        {formatDate(user.createdAt)}
+                                      </p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs">
+                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Updated At
+                                      </p>
+                                      <p className="text-sm font-medium mt-1">
+                                        {formatDate(user.updatedAt)}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Premium Module Access Table */}
+                                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    <div className="px-5 py-3 border-b border-gray-200 bg-gray-50">
+                                      <h4 className="font-medium text-gray-800 flex items-center">
+                                        Module Access
+                                        <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                          {user.modules.length} modules
+                                        </span>
+                                      </h4>
+                                    </div>
+
+                                    {user.modules.length > 0 ? (
+                                      <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                          <thead className="bg-gray-50">
+                                            <tr>
+                                              <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Module
+                                              </th>
+                                              <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Permissions
+                                              </th>
+                                              <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Actions
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-gray-200">
+                                            {user.modules.map((module) => (
+                                              <tr
+                                                key={`${user.userId}-${module.moduleId}`}
+                                                className="hover:bg-gray-50 transition-colors"
+                                              >
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                  <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-9 w-9 rounded-md bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+                                                      <span className="text-blue-600 font-medium text-sm">
+                                                        {module.moduleName[0]}
+                                                      </span>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                      <div className="text-sm font-medium text-gray-900">
+                                                        {module.moduleName}
+                                                      </div>
+                                                      <div className="text-xs text-gray-500">
+                                                        Granted on{" "}
+                                                        {formatDate(
+                                                          module.createdAt
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </td>
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                  {isEditingModule ===
+                                                  module.id.toString() ? (
+                                                    <div className="flex justify-center space-x-6">
+                                                      <label className="inline-flex items-center">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={
+                                                            editPermissions.canView
+                                                          }
+                                                          onChange={(e) =>
+                                                            setEditPermissions(
+                                                              (prev) => ({
+                                                                ...prev,
+                                                                canView:
+                                                                  e.target
+                                                                    .checked,
+                                                              })
+                                                            )
+                                                          }
+                                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                        />
+                                                        <span className="ml-2 text-sm text-gray-700">
+                                                          View
+                                                        </span>
+                                                      </label>
+                                                      <label className="inline-flex items-center">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={
+                                                            editPermissions.canEdit
+                                                          }
+                                                          onChange={(e) =>
+                                                            setEditPermissions(
+                                                              (prev) => ({
+                                                                ...prev,
+                                                                canEdit:
+                                                                  e.target
+                                                                    .checked,
+                                                              })
+                                                            )
+                                                          }
+                                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                        />
+                                                        <span className="ml-2 text-sm text-gray-700">
+                                                          Edit
+                                                        </span>
+                                                      </label>
+                                                      <label className="inline-flex items-center">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={
+                                                            editPermissions.canDelete
+                                                          }
+                                                          onChange={(e) =>
+                                                            setEditPermissions(
+                                                              (prev) => ({
+                                                                ...prev,
+                                                                canDelete:
+                                                                  e.target
+                                                                    .checked,
+                                                              })
+                                                            )
+                                                          }
+                                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                        />
+                                                        <span className="ml-2 text-sm text-gray-700">
+                                                          Delete
+                                                        </span>
+                                                      </label>
+                                                    </div>
+                                                  ) : (
+                                                    <div className="flex justify-center space-x-6">
+                                                      <span
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                          module.canView
+                                                            ? "bg-green-100 text-green-800"
+                                                            : "bg-gray-100 text-gray-800"
+                                                        }`}
+                                                      >
+                                                        {module.canView
+                                                          ? "Can view"
+                                                          : "No view"}
+                                                      </span>
+                                                      <span
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                          module.canEdit
+                                                            ? "bg-blue-100 text-blue-800"
+                                                            : "bg-gray-100 text-gray-800"
+                                                        }`}
+                                                      >
+                                                        {module.canEdit
+                                                          ? "Can edit"
+                                                          : "No edit"}
+                                                      </span>
+                                                      <span
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                          module.canDelete
+                                                            ? "bg-purple-100 text-purple-800"
+                                                            : "bg-gray-100 text-gray-800"
+                                                        }`}
+                                                      >
+                                                        {module.canDelete
+                                                          ? "Can delete"
+                                                          : "No delete"}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                </td>
+                                                <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                  {isEditingModule ===
+                                                  module.id.toString() ? (
+                                                    <div className="flex justify-end space-x-2">
+                                                      <button
+                                                        onClick={cancelEditing}
+                                                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                      >
+                                                        Cancel
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          handleUpdateModuleAccess(
+                                                            module.id.toString()
+                                                          )
+                                                        }
+                                                        disabled={
+                                                          moduleAccessLoading[
+                                                            `update-${module.id}`
+                                                          ]
+                                                        }
+                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                                      >
+                                                        {moduleAccessLoading[
+                                                          `update-${module.id}`
+                                                        ]
+                                                          ? "Saving..."
+                                                          : "Save Changes"}
+                                                      </button>
+                                                    </div>
+                                                  ) : (
+                                                    <div className="flex justify-end space-x-2">
+                                                      <button
+                                                        onClick={() =>
+                                                          startEditingModule(
+                                                            module
+                                                          )
+                                                        }
+                                                        className="inline-flex items-center p-1.5 border border-gray-300 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                                        title="Edit permissions"
+                                                      >
+                                                        <Pencil className="h-4 w-4" />
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          handleRemoveModuleAccess(
+                                                            module.id.toString()
+                                                          )
+                                                        }
+                                                        disabled={
+                                                          moduleAccessLoading[
+                                                            `remove-${module.id}`
+                                                          ]
+                                                        }
+                                                        className="inline-flex items-center p-1.5 border border-gray-300 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50"
+                                                        title="Remove access"
+                                                      >
+                                                        {moduleAccessLoading[
+                                                          `remove-${module.id}`
+                                                        ] ? (
+                                                          <svg
+                                                            className="animate-spin h-4 w-4 text-gray-400"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                          >
+                                                            <circle
+                                                              className="opacity-25"
+                                                              cx="12"
+                                                              cy="12"
+                                                              r="10"
+                                                              stroke="currentColor"
+                                                              strokeWidth="4"
+                                                            ></circle>
+                                                            <path
+                                                              className="opacity-75"
+                                                              fill="currentColor"
+                                                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                            ></path>
+                                                          </svg>
+                                                        ) : (
+                                                          <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    ) : (
+                                      <div className="px-5 py-8 text-center">
+                                        <div className="text-gray-400 mb-2">
+                                          <svg
+                                            className="mx-auto h-12 w-12"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={1}
+                                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                            />
+                                          </svg>
+                                        </div>
+                                        <h5 className="text-gray-500 font-medium">
+                                          No module access granted
+                                        </h5>
+                                        <p className="text-gray-400 text-sm mt-1">
+                                          Grant access to modules below
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Grant New Module Access Section */}
+                                    <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
+                                      <h5 className="text-sm font-medium text-gray-700 mb-3">
+                                        Grant New Module Access
+                                      </h5>
+                                      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                                        <div className="flex-grow">
+                                          <label
+                                            htmlFor="module-select"
+                                            className="block text-xs font-medium text-gray-700 mb-1"
+                                          >
+                                            Select Module
+                                          </label>
+                                          <select
+                                            id="module-select"
+                                            value={selectedModuleToGrant || ""}
+                                            onChange={(e) => {
+                                              setSelectedModuleToGrant(
+                                                Number(e.target.value)
+                                              );
+                                              setNewModulePermissions({
+                                                canView: true,
+                                                canEdit: false,
+                                                canDelete: false,
+                                              });
+                                            }}
+                                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                          >
+                                            <option value="">
+                                              Select a module...
+                                            </option>
+                                            {getAvailableModulesForUser(
+                                              user
+                                            ).map((module) => (
+                                              <option
+                                                key={module.id}
+                                                value={module.id}
+                                              >
+                                                {module.name}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {selectedModuleToGrant && (
+                                          <div className="w-full sm:w-auto">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                              Permissions
+                                            </label>
+                                            <div className="flex items-center space-x-4">
+                                              <label className="inline-flex items-center">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={
+                                                    newModulePermissions.canView
+                                                  }
+                                                  onChange={(e) =>
+                                                    setNewModulePermissions(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        canView:
+                                                          e.target.checked,
+                                                      })
+                                                    )
+                                                  }
+                                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">
+                                                  View
+                                                </span>
+                                              </label>
+                                              <label className="inline-flex items-center">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={
+                                                    newModulePermissions.canEdit
+                                                  }
+                                                  onChange={(e) =>
+                                                    setNewModulePermissions(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        canEdit:
+                                                          e.target.checked,
+                                                      })
+                                                    )
+                                                  }
+                                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">
+                                                  Edit
+                                                </span>
+                                              </label>
+                                              <label className="inline-flex items-center">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={
+                                                    newModulePermissions.canDelete
+                                                  }
+                                                  onChange={(e) =>
+                                                    setNewModulePermissions(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        canDelete:
+                                                          e.target.checked,
+                                                      })
+                                                    )
+                                                  }
+                                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">
+                                                  Delete
+                                                </span>
+                                              </label>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <button
+                                          onClick={() =>
+                                            handleGrantModuleAccess(user.userId)
+                                          }
+                                          disabled={
+                                            !selectedModuleToGrant ||
+                                            moduleAccessLoading[
+                                              `grant-${user.userId}`
+                                            ]
+                                          }
+                                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                                        >
+                                          {moduleAccessLoading[
+                                            `grant-${user.userId}`
+                                          ] ? (
+                                            <>
+                                              <svg
+                                                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                              >
+                                                <circle
+                                                  className="opacity-25"
+                                                  cx="12"
+                                                  cy="12"
+                                                  r="10"
+                                                  stroke="currentColor"
+                                                  strokeWidth="4"
+                                                ></circle>
+                                                <path
+                                                  className="opacity-75"
+                                                  fill="currentColor"
+                                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                ></path>
+                                              </svg>
+                                              Granting...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus className="-ml-1 mr-2 h-4 w-4" />
+                                              Grant Access
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              </td>
+                            </motion.tr>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center">
+                        <div className="text-gray-400 mb-3">
+                          <svg
+                            className="mx-auto h-12 w-12"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1}
+                              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                            />
+                          </svg>
+                        </div>
+                        <h5 className="text-gray-500 font-medium">
+                          No staff members found
+                        </h5>
+                        <p className="text-gray-400 text-sm mt-1">
+                          {searchTerm
+                            ? "Try a different search term"
+                            : "Add a new staff member to get started"}
+                        </p>
+                        {!searchTerm && (
+                          <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            <Plus className="-ml-1 mr-2 h-4 w-4" />
+                            Add Staff Member
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
