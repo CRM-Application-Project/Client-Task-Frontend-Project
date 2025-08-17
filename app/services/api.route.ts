@@ -16,6 +16,11 @@ export const API_CONSTANTS = {
     GET_USERS: "/tenant/users/",
     UPDATE_USER: (userId: string) => `/tenant/users/${userId}`,
     TOGGLE_USER_STATUS: (userId: string) => `/tenant/users/${userId}/status`,
+    GRANT_MODULE_ACCESS: (userId: string) => `/tenant/users/${userId}/module`,
+    UPDATE_MODULES_ACCESS: (moduleAccessId: string) =>
+      `/tenant/users/module/${moduleAccessId}`,
+    REMOVE_MODULE_ACCESS: (moduleAccessId: string) =>
+      `/tenant/users/module/${moduleAccessId}`,
   },
   MODULE: {
     MODULE_DROPDOWN: "/tenant/modules/dropdown",
@@ -25,23 +30,21 @@ export const API_CONSTANTS = {
     UPDATE: "/tasks/{taskId}",
     DELETE: "/tasks/{taskId}",
     GET_BY_ID: "/tasks/{taskId}",
-      FILTER: "/tasks/filter",
-      DROPDOWN:"/task/stages/dropdown",
-
+    FILTER: "/tasks/filter",
+    DROPDOWN: "/task/stages/dropdown",
   },
-  LEAD:{
+  LEAD: {
     CREATE: "/lead/create",
-    GET_ALL:"/lead/leads",
+    GET_ALL: "/lead/leads",
     UPDATE: "/lead/update",
-  DELETE_BY_ID: "/lead/deleteLeadById",
-   GET_BY_ID: "/lead/fetchLeadById",
-     IMPORT_LEAD:"/lead/upload",
+    DELETE_BY_ID: "/lead/deleteLeadById",
+    GET_BY_ID: "/lead/fetchLeadById",
+    FILTER: "/lead/filter",
+    IMPORT_LEAD: "/lead/upload",
     DROPDOWN: "/lead/dropdown",
-    ADD_FOLLOWUP:"/lead/follow-up",
-    LEAD_TRANSFER:"/lead/transfer",
+    ADD_FOLLOWUP: "/lead/follow-up",
+    LEAD_TRANSFER: "/lead/transfer",
     GET_ALL_WITH_FILTERS: "/lead/leads",
-    ASSIGN_DROPDOWN:"/tenant/users/dropdown"
-
-  }
-    
+    ASSIGN_DROPDOWN: "/tenant/users/dropdown",
+  },
 };

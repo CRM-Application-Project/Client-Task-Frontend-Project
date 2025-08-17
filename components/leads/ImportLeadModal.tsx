@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,13 +7,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Upload, FileText, CheckCircle, Download } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { getAllLeads, importLead } from '@/app/services/data.service';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload, FileText, CheckCircle, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { getAllLeads, importLead } from "@/app/services/data.service";
 
 interface ImportLeadModalProps {
   isOpen: boolean;
@@ -21,18 +21,18 @@ interface ImportLeadModalProps {
   onImportLeads: (leads: any[]) => void;
 }
 
-const ImportLeadModal: React.FC<ImportLeadModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onImportLeads 
+const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
+  isOpen,
+  onClose,
+  onImportLeads,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [status, setStatus] = useState('NEW');
-  const [source, setSource] = useState('ONLINE');
-  const [user, setUser] = useState('Umesh G');
-  const [label, setLabel] = useState('');
-  const [date, setDate] = useState('');
+  const [status, setStatus] = useState("NEW");
+  const [source, setSource] = useState("ONLINE");
+  const [user, setUser] = useState("Umesh G");
+  const [label, setLabel] = useState("");
+  const [date, setDate] = useState("");
   const [emailAutomation, setEmailAutomation] = useState(false);
   const [whatsappAutomation, setWhatsappAutomation] = useState(false);
   const { toast } = useToast();
@@ -44,55 +44,49 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
     }
   };
 
-const handleImport = async () => {
-  if (!selectedFile) return;
-
-  setImporting(true);
-  
-  try {
-    const response = await importLead(selectedFile, status, user);
-    
-    if (response.isSuccess) {
-      toast({
-        title: "Success",
-        description: "Leads imported successfully",
-        variant: "default",
-      });
-      
-      // Fetch all leads after successful import
-      try {
-        const leadsResponse = await getAllLeads();
-        if (leadsResponse.isSuccess) {
-          onImportLeads(leadsResponse.data); // Pass the fetched leads to the parent component
-        }
-      } catch (fetchError) {
-        console.error("Error fetching leads:", fetchError);
+  const handleImport = async () => {
+    if (!selectedFile) return;
+    setImporting(true);
+    try {
+      const response = await importLead(selectedFile, status, user);
+      if (response.isSuccess) {
         toast({
-          title: "Warning",
-          description: "Leads imported but couldn't refresh the list",
+          title: "Success",
+          description: "Leads imported successfully",
           variant: "default",
         });
+        try {
+          const leadsResponse = await getAllLeads();
+          if (leadsResponse.isSuccess) {
+            onImportLeads(leadsResponse.data);
+          }
+        } catch (fetchError) {
+          console.error("Error fetching leads:", fetchError);
+          toast({
+            title: "Warning",
+            description: "Leads imported but couldn't refresh the list",
+            variant: "default",
+          });
+        }
+        handleClose();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to import leads",
+          variant: "destructive",
+        });
       }
-      
-      handleClose();
-    } else {
+    } catch (error) {
+      console.error("Error importing leads:", error);
       toast({
         title: "Error",
-        description: response.message || "Failed to import leads",
+        description: "An unexpected error occurred while importing leads",
         variant: "destructive",
       });
+    } finally {
+      setImporting(false);
     }
-  } catch (error) {
-    console.error("Error importing leads:", error);
-    toast({
-      title: "Error",
-      description: "An unexpected error occurred while importing leads",
-      variant: "destructive",
-    });
-  } finally {
-    setImporting(false);
-  }
-};
+  };
 
   const handleClose = () => {
     setSelectedFile(null);
@@ -101,17 +95,15 @@ const handleImport = async () => {
   };
 
   const downloadSampleFormat = () => {
-    // Create a sample CSV content
-    const csvContent = "Name,Email,Phone,Company,Location,Status,Priority,Source,Assigned To\n" +
+    const csvContent =
+      "Name,Email,Phone,Company,Location,Status,Priority,Source,Assigned To\n" +
       "John Doe,john@example.com,+1 (555) 123-4567,Acme Inc,New York,NEW,MEDIUM,WEBSITE,Sarah Johnson\n" +
       "Jane Smith,jane@example.com,+1 (555) 987-6543,Globex Corp,Chicago,NEW,HIGH,REFERRAL,Michael Brown";
-    
-    // Create a blob and download it
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'leads_import_sample.csv';
+    a.download = "leads_import_sample.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -120,51 +112,58 @@ const handleImport = async () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Import Leads</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-xl p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-base font-semibold">
+            Import Leads
+          </DialogTitle>
+          <DialogDescription className="text-sm">
             Upload a CSV file to import multiple leads at once
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+        <div className="space-y-3">
+          {/* File Upload */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
             {!selectedFile ? (
               <div className="space-y-2">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto" />
+                <Upload className="h-6 w-6 text-gray-400 mx-auto" />
                 <div className="text-sm text-gray-600">
-                  <Label htmlFor="file-upload" className="cursor-pointer text-blue-600 hover:text-blue-500">
+                  <Label
+                    htmlFor="file-upload"
+                    className="cursor-pointer text-blue-600 hover:text-blue-500"
+                  >
                     Click to upload
                   </Label>
                   <span> or drag and drop</span>
                 </div>
                 <p className="text-xs text-gray-500">CSV files up to 10MB</p>
-            <Input
-  id="file-upload"
-  type="file"
-  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-  onChange={handleFileSelect}
-  className="hidden"
-/>
+                <Input
+                  id="file-upload"
+                  type="file"
+                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               </div>
             ) : (
               <div className="flex items-center gap-2 justify-center">
                 <FileText className="h-5 w-5 text-green-600" />
-                <span className="text-sm text-gray-900">{selectedFile.name}</span>
+                <span className="text-sm">{selectedFile.name}</span>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
+          {/* Form Fields */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
               <Label htmlFor="status">Status</Label>
               <select
                 id="status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border rounded-md text-sm"
               >
                 <option value="NEW">New</option>
                 <option value="CONTACTED">Contacted</option>
@@ -173,13 +172,13 @@ const handleImport = async () => {
               </select>
             </div>
 
-            <div className="space-y-1">
+            <div>
               <Label htmlFor="source">Source</Label>
               <select
                 id="source"
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border rounded-md text-sm"
               >
                 <option value="ONLINE">Online</option>
                 <option value="REFERRAL">Referral</option>
@@ -188,13 +187,13 @@ const handleImport = async () => {
               </select>
             </div>
 
-            <div className="space-y-1">
+            <div>
               <Label htmlFor="user">User</Label>
               <select
                 id="user"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border rounded-md text-sm"
               >
                 <option value="Umesh G">Umesh G</option>
                 <option value="John Doe">John Doe</option>
@@ -202,13 +201,13 @@ const handleImport = async () => {
               </select>
             </div>
 
-            <div className="space-y-1">
+            <div>
               <Label htmlFor="label">Label (Optional)</Label>
               <select
                 id="label"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border rounded-md text-sm"
               >
                 <option value="">Select...</option>
                 <option value="HOT">Hot</option>
@@ -217,28 +216,31 @@ const handleImport = async () => {
               </select>
             </div>
 
-            <div className="space-y-1">
+            <div>
               <Label htmlFor="date">Date</Label>
               <Input
                 id="date"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                className="h-9 text-sm"
               />
             </div>
 
-            <div className="space-y-1">
+            <div>
               <Label>Automation</Label>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
                     id="email-automation"
                     checked={emailAutomation}
                     onChange={(e) => setEmailAutomation(e.target.checked)}
-                    className="mr-2"
+                    className="mr-1"
                   />
-                  <Label htmlFor="email-automation">Email</Label>
+                  <Label htmlFor="email-automation" className="text-sm">
+                    Email
+                  </Label>
                 </div>
                 <div className="flex items-center">
                   <input
@@ -246,38 +248,54 @@ const handleImport = async () => {
                     id="whatsapp-automation"
                     checked={whatsappAutomation}
                     onChange={(e) => setWhatsappAutomation(e.target.checked)}
-                    className="mr-2"
+                    className="mr-1"
                   />
-                  <Label htmlFor="whatsapp-automation">WhatsApp</Label>
+                  <Label htmlFor="whatsapp-automation" className="text-sm">
+                    WhatsApp
+                  </Label>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* CSV Format Hint */}
           <div className="text-xs text-gray-500 space-y-1">
-            <p><strong>CSV Format:</strong></p>
-            <p>Name, Email, Phone, Company, Location, Status, Priority, Source, Assigned To</p>
+            <p>
+              <strong>CSV Format:</strong>
+            </p>
+            <p>
+              Name, Email, Phone, Company, Location, Status, Priority, Source,
+              Assigned To
+            </p>
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button 
-            type="button" 
-            variant="outline" 
+        {/* Footer */}
+        <DialogFooter className="gap-1 pt-3">
+          <Button
+            type="button"
+            variant="outline"
             onClick={downloadSampleFormat}
-            className="mr-auto"
+            className="mr-auto h-9 px-3 text-sm"
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4 mr-1" />
             Download Format
           </Button>
-          <Button type="button" variant="outline" onClick={handleClose} disabled={importing}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={importing}
+            className="h-9 px-3 text-sm"
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={handleImport} 
+          <Button
+            onClick={handleImport}
             disabled={!selectedFile || importing}
+            className="h-9 px-3 text-sm"
           >
-            {importing ? 'Importing...' : 'Import Leads'}
+            {importing ? "Importing..." : "Import"}
           </Button>
         </DialogFooter>
       </DialogContent>

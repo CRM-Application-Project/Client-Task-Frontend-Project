@@ -411,7 +411,7 @@ export default function TaskBoard() {
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-6">
+      <>
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Task Management</h1>
@@ -451,7 +451,7 @@ export default function TaskBoard() {
           editingTask={editingTask}
           users={users}
         />
-      </div>
+      </>
     </div>
   );
 }

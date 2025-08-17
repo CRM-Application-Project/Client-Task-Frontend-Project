@@ -349,11 +349,11 @@ export const toggleUserStatus = async (
   return res as UserResponse;
 };
 
-
-export const getTaskStagesDropdown = async (): Promise<TaskStagesDropdownResponse> => {
-  const res = await getRequest(API_CONSTANTS.TASK.DROPDOWN);
-  return res as TaskStagesDropdownResponse;
-};
+export const getTaskStagesDropdown =
+  async (): Promise<TaskStagesDropdownResponse> => {
+    const res = await getRequest(API_CONSTANTS.TASK.DROPDOWN);
+    return res as TaskStagesDropdownResponse;
+  };
 
 export const createLead = async (
   leadData: CreateLeadRequest
@@ -367,12 +367,16 @@ export const getAllLeads = async (): Promise<GetAllLeadsResponse> => {
   return res as GetAllLeadsResponse;
 };
 
-export const updateLead = async (payload: UpdateLeadRequest): Promise<UpdateLeadResponse> => {
+export const updateLead = async (
+  payload: UpdateLeadRequest
+): Promise<UpdateLeadResponse> => {
   const res = await putRequest(API_CONSTANTS.LEAD.UPDATE, payload);
   return res as UpdateLeadResponse;
 };
 
-export const deleteLeadById = async (leadId: string): Promise<DeleteLeadResponse> => {
+export const deleteLeadById = async (
+  leadId: string
+): Promise<DeleteLeadResponse> => {
   const url = `${API_CONSTANTS.LEAD.DELETE_BY_ID}?leadId=${leadId}`;
   const res = await deleteRequest(url);
   return res as DeleteLeadResponse;
@@ -410,7 +414,86 @@ export const leadTransfer = async (
   const res = await postRequest(API_CONSTANTS.LEAD.LEAD_TRANSFER, payload);
   return res as LeadTransferResponse;
 };
+export interface GrantModuleAccessPayload {
+  moduleAccess: ModuleAccess[];
+}
 
+export interface GrantModuleAccessResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    emailAddress: string;
+    contactNumber: string;
+    userRole: string;
+    dateOfBirth: string;
+    dateOfJoin: string;
+    departmentId: number;
+    isActive: boolean;
+    modules: ModuleAccesses[];
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export const grantModuleAccess = async (
+  userId: string,
+  payload: GrantModuleAccessPayload
+): Promise<GrantModuleAccessResponse> => {
+  const res = await postRequest(
+    API_CONSTANTS.STAFF.GRANT_MODULE_ACCESS(userId),
+    payload
+  );
+  return res as GrantModuleAccessResponse;
+};
+
+export interface UpdateModuleAccessPayload {
+  canView: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface UpdateModuleAccessResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: number;
+    moduleId: number;
+    moduleName: string;
+    canView: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export const updateModuleAccess = async (
+  moduleAccessId: string,
+  payload: UpdateModuleAccessPayload
+): Promise<UpdateModuleAccessResponse> => {
+  const res = await putRequest(
+    API_CONSTANTS.STAFF.UPDATE_MODULES_ACCESS(moduleAccessId),
+    payload
+  );
+  return res as UpdateModuleAccessResponse;
+};
+
+export interface RemoveModuleAccessResponse {
+  isSuccess: boolean;
+  message: string;
+}
+
+export const removeModuleAccess = async (
+  moduleAccessId: string
+): Promise<RemoveModuleAccessResponse> => {
+  const res = await deleteRequest(
+    API_CONSTANTS.STAFF.REMOVE_MODULE_ACCESS(moduleAccessId)
+  );
+  return res as RemoveModuleAccessResponse;
+};
 
 export interface AssignDropdown {
   id: string;
