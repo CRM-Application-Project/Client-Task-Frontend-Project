@@ -1,4 +1,4 @@
-import { TaskStagesDropdownResponse } from "@/lib/data";
+import { FilterLeadsParams, FilterLeadsResponse, TaskStagesDropdownResponse } from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
   deleteRequest,
@@ -90,6 +90,23 @@ export const filterTasks = async (
   return res as FilterTasksResponse;
 };
 
+export const filterLeads = async (
+  params: FilterLeadsParams
+): Promise<FilterLeadsResponse> => {
+  const query = new URLSearchParams();
+
+  if (params.startDate) query.append("startDate", params.startDate);
+  if (params.endDate) query.append("endDate", params.endDate);
+  if (params.leadLabel) query.append("leadLabel", params.leadLabel);
+  if (params.leadSource) query.append("leadSource", params.leadSource);
+  if (params.assignedTo) query.append("assignedTo", params.assignedTo);
+  if (params.sortBy) query.append("sortBy", params.sortBy);
+  if (params.direction) query.append("direction", params.direction);
+
+  const url = `${API_CONSTANTS.LEAD.GET_ALL_WITH_FILTERS}?${query.toString()}`;
+  const res = await getRequest(url);
+  return res as FilterLeadsResponse;
+};
 export interface Department {
   id: number;
   name: string;
