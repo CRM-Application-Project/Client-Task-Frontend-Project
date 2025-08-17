@@ -2,7 +2,6 @@
 import { Calendar, User, Tag, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Task, TaskStatus } from "@/lib/task";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,13 +14,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 
-// Define the ApiTask interface locally if it's not available from the import
-interface Assignee {
-  id: string;
-  label: string;
-}
-type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-interface ApiTask {
+// Define the Task type to match the one from Task.tsx
+type TaskStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
+
+interface Task {
   id: number;
   subject: string;
   description: string;
@@ -36,20 +32,25 @@ interface ApiTask {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignees: Assignee[];
+  assignees: Array<{
+    id: string;
+    label: string;
+  }>;
 }
 
 interface TaskCardProps {
-  task: ApiTask;
-  onEdit?: (task: ApiTask) => void;
+  task: Task;
+  onEdit?: (task: Task) => void;
   onDelete?: (taskId: number) => void;
 }
+
+type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export const TaskCard = ({ task, onEdit, onDelete }: TaskCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const priorityColors = {
+  const priorityColors: Record<TaskPriority, string> = {
     LOW: "bg-muted text-muted-foreground",
     MEDIUM: "bg-status-todo/20 text-status-todo",
     HIGH: "bg-status-progress/20 text-status-progress",

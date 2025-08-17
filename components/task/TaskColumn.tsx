@@ -1,15 +1,12 @@
 "use client";
-import { Task, TaskStatus } from "@/lib/task";
+import {  TaskStatus } from "@/lib/task";
 import { TaskCard } from "./TaskCard";
 import { Badge } from "@/components/ui/badge";
 
-
-interface Assignee {
-  id: string;
-  label: string;
-}
+// Define the Task type to match the one from Task.tsx
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-interface ApiTask {
+
+interface Task {
   id: number;
   subject: string;
   description: string;
@@ -24,15 +21,18 @@ interface ApiTask {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignees: Assignee[];
-}
-interface TaskColumnProps {
-  status: TaskStatus;
-  tasks: ApiTask[];
-  onEditTask?: (task: ApiTask) => void;
-  onDeleteTask?: (taskId: number) => void;
+  assignees: Array<{
+    id: string;
+    label: string;
+  }>;
 }
 
+interface TaskColumnProps {
+  status: TaskStatus;
+  tasks: Task[];
+  onEditTask?: (task: Task) => void;
+  onDeleteTask?: (taskId: number) => void;
+}
 
 const statusConfig = {
   BACKLOG: {
@@ -84,7 +84,7 @@ export const TaskColumn = ({ status, tasks, onEditTask, onDeleteTask }: TaskColu
             key={task.id}
             task={task}
             onEdit={onEditTask}
-             onDelete={onDeleteTask}
+            onDelete={onDeleteTask}
           />
         ))}
         
