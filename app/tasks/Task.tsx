@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
@@ -19,7 +19,6 @@ interface TaskStage {
   name: string;
 }
 
-// Use the imported User type from data.service
 type User = ServiceUser;
 
 interface TaskResponse {
@@ -54,13 +53,12 @@ interface Task {
   assignees: Assignee[];
 }
 
-// Updated interface to match actual API response
 interface EditingTaskResponse {
   id: number;
   subject: string;
   description: string;
   priority: TaskPriority;
-  startDate: string; // Keep as string for modal compatibility
+  startDate: string;
   endDate: string | null;
   taskStageId: number;
   taskStageName: string;
@@ -103,7 +101,6 @@ interface UpdateTaskRequest {
   assignees: string[];
 }
 
-// Updated to match actual API response structure
 interface ApiTaskResponse {
   isSuccess: boolean;
   message: string;
@@ -122,11 +119,10 @@ interface ApiTaskResponse {
   };
 }
 
-// Alternative interface for different API response structure
 interface FilterTasksResponse {
   isSuccess: boolean;
   message: string;
-  data: TaskResponse[] | { content: any[] } | any; // Allow all possible response structures
+  data: TaskResponse[] | { content: any[] } | any;
 }
 
 // ========== MAIN COMPONENT ==========
@@ -148,13 +144,18 @@ export default function TaskBoard() {
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Transform API response to flat array of tasks - handles both response structures
-  const transformTasks = (apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
+  // Refs to track if we're already fetching to prevent duplicate calls
+  const isInitialLoadingRef = useRef(false);
+  const isFilteringRef = useRef(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Transform API response to flat array of tasks
+  const transformTasks = useCallback((apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
     if (!apiResponse.isSuccess || !apiResponse.data) return [];
     
     if ('content' in apiResponse.data) {
-      // Define interfaces for API content structure
       interface StageContent {
         stageId: number;
         stageName: string;
@@ -182,7 +183,6 @@ export default function TaskBoard() {
         }))
       );
     } else {
-      // Handle simple array structure (FilterTasksResponse)
       return (apiResponse.data as TaskResponse[]).map(task => ({
         id: task.id,
         subject: task.subject,
@@ -201,74 +201,19 @@ export default function TaskBoard() {
         assignees: task.assignees
       }));
     }
-  };
-
-  // Fetch initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [tasksRes, stagesRes, usersRes] = await Promise.all([
-          filterTasks({}),
-          getTaskStagesDropdown(),
-          getUsers()
-        ]);
-
-        if (tasksRes.isSuccess) {
-          setTasks(transformTasks(tasksRes as unknown as ApiTaskResponse | FilterTasksResponse));
-        } else {
-          setTasks([]);
-        }
-
-        // Handle stages response
-        if (stagesRes.isSuccess) setStages(stagesRes.data);
-        
-        // Handle users response
-        if (usersRes.isSuccess) {
-          setUsers(usersRes.data.map(user => ({
-            ...user,
-            contactNumber: user.contactNumber || '',
-            userRole: user.userRole || 'User' // Provide default userRole
-          })));
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
   }, []);
 
-  const handleDeleteTask = async (taskId: number) => {
-    try {
-      const response = await deleteTask(taskId);
-      if (response.isSuccess) {
-        // Refresh tasks with current filters
-        const currentApiParams = convertFiltersToApiParams(filters, searchQuery);
-        const updatedTasksRes = await filterTasks(currentApiParams);
-        if (updatedTasksRes.isSuccess) {
-          setTasks(transformTasks(updatedTasksRes as unknown as ApiTaskResponse | FilterTasksResponse));
-        }
-      }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-    }
-  };
-
   // Convert filter object to API parameters
-  const convertFiltersToApiParams = (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
+  const convertFiltersToApiParams = useCallback((uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
     const apiParams: FilterTasksParams = {};
 
-    if (searchQuery) apiParams.searchTerm = searchQuery;
+    if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
     if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
     if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
     if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
     
-    // Convert date range to API format with time component
     if (uiFilters.dateRange) {
       const formatDateWithTime = (date: Date) => {
-        // Ensure we include time component (00:00:00 by default)
         return date.toISOString().split('T')[0] + 'T00:00:00';
       };
 
@@ -279,29 +224,123 @@ export default function TaskBoard() {
     }
 
     return apiParams;
-  };
+  }, []);
 
-  // Filter tasks based on search and filters (client-side filtering as backup)
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = searchQuery === "" || 
-                         task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Optimized task fetching function
+  const fetchTasks = useCallback(async (filterParams?: FilterTasksParams, showLoading = false) => {
+    // Prevent duplicate API calls
+    if (isFilteringRef.current) return;
     
-    const matchesPriority = !filters.priority || task.priority === filters.priority;
-    const matchesStage = !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
-    const matchesAssignee = !filters.assignedTo || 
-      task.assignedTo.toLowerCase().includes(filters.assignedTo.toLowerCase());
-    
-    // Date range filtering (for start date)
-    const matchesDateRange = !filters.dateRange || (
-      task.startDate >= filters.dateRange.from && 
-      task.startDate <= filters.dateRange.to
-    );
-    
-    return matchesSearch && matchesPriority && matchesStage && matchesAssignee && matchesDateRange;
-  });
+    isFilteringRef.current = true;
+    if (showLoading) setIsRefreshing(true);
 
-  const handleAddTask = async (taskData: CreateTaskRequest) => {
+    try {
+      const apiParams = filterParams || convertFiltersToApiParams(filters, searchQuery);
+      const response = await filterTasks(apiParams);
+      
+      if (response.isSuccess) {
+        const transformedTasks = transformTasks(response as ApiTaskResponse | FilterTasksResponse);
+        setTasks(transformedTasks);
+      } else {
+        console.error("Failed to fetch tasks:", response.message);
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setTasks([]);
+    } finally {
+      isFilteringRef.current = false;
+      if (showLoading) setIsRefreshing(false);
+    }
+  }, [filters, searchQuery, convertFiltersToApiParams, transformTasks]);
+
+  // Fetch initial data only once
+  useEffect(() => {
+    if (isInitialLoadingRef.current) return;
+    
+    const fetchInitialData = async () => {
+      isInitialLoadingRef.current = true;
+      
+      try {
+        // Fetch all data in parallel, but only once
+        const [stagesRes, usersRes] = await Promise.all([
+          getTaskStagesDropdown(),
+          getUsers()
+        ]);
+
+        // Handle stages response
+        if (stagesRes.isSuccess) {
+          setStages(stagesRes.data);
+        }
+        
+        // Handle users response
+        if (usersRes.isSuccess) {
+          setUsers(usersRes.data.map(user => ({
+            ...user,
+            contactNumber: user.contactNumber || '',
+            userRole: user.userRole || 'User'
+          })));
+        }
+
+        // Fetch initial tasks
+        await fetchTasks({}, false);
+        
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []); // Empty dependency array - only run once
+
+  // Debounced search effect
+  useEffect(() => {
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Don't trigger search during initial load
+    if (isInitialLoadingRef.current) return;
+
+    // Set new timeout for search
+    searchTimeoutRef.current = setTimeout(() => {
+      const apiParams = convertFiltersToApiParams(filters, searchQuery);
+      fetchTasks(apiParams, true);
+    }, 300);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]); // Only depend on searchQuery
+
+  // Handle filter changes
+  const handleFilterChange = useCallback(async (newFilters: typeof filters) => {
+    setFilters(newFilters);
+    
+    // Immediately fetch with new filters
+    const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
+    await fetchTasks(apiParams, true);
+  }, [searchQuery, convertFiltersToApiParams, fetchTasks]);
+
+  const handleDeleteTask = useCallback(async (taskId: number) => {
+    try {
+      const response = await deleteTask(taskId);
+      if (response.isSuccess) {
+        // Simply refresh with current filters
+        await fetchTasks(undefined, true);
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
+  }, [fetchTasks]);
+
+  const handleAddTask = useCallback(async (taskData: CreateTaskRequest) => {
     try {
       let response;
       
@@ -321,27 +360,22 @@ export default function TaskBoard() {
       }
 
       if (response.isSuccess) {
-        // Refresh tasks with current filters
-        const currentApiParams = convertFiltersToApiParams(filters, searchQuery);
-        const updatedTasksRes = await filterTasks(currentApiParams);
-        if (updatedTasksRes.isSuccess) {
-          setTasks(transformTasks(updatedTasksRes as unknown as ApiTaskResponse | FilterTasksResponse));
-        }
+        // Refresh tasks and close modal
+        await fetchTasks(undefined, true);
         handleCloseModal();
       }
     } catch (error) {
       console.error("Error saving task:", error);
     }
-  };
+  }, [editingTask, fetchTasks]);
 
-  const handleEditTask = (task: Task) => {
-    // Convert Task to EditingTaskResponse format
+  const handleEditTask = useCallback((task: Task) => {
     const editingTaskData: EditingTaskResponse = {
       id: task.id,
       subject: task.subject,
       description: task.description,
       priority: task.priority,
-      startDate: task.startDate.toISOString(), // Convert Date to string
+      startDate: task.startDate.toISOString(),
       endDate: task.endDate ? task.endDate.toISOString() : null,
       taskStageId: task.taskStageId,
       taskStageName: task.taskStageName,
@@ -352,54 +386,38 @@ export default function TaskBoard() {
     
     setEditingTask(editingTaskData);
     setIsAddModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsAddModalOpen(false);
     setEditingTask(undefined);
-  };
+  }, []);
 
-  const handleClearAllFilters = () => {
+  const handleClearAllFilters = useCallback(async () => {
     setFilters({});
     setSearchQuery("");
-    // Fetch all tasks without filters
-    filterTasks({}).then(response => {
-      if (response.isSuccess) {
-        setTasks(transformTasks(response as ApiTaskResponse | FilterTasksResponse));
-      }
-    });
-  };
+    // Fetch all tasks without any filters
+    await fetchTasks({}, true);
+  }, [fetchTasks]);
 
-  const handleFilterChange = async (newFilters: typeof filters) => {
-    setFilters(newFilters);
-    try {
-      const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
-      const filtered = await filterTasks(apiParams);
-      if (filtered.isSuccess) {
-        setTasks(transformTasks(filtered as ApiTaskResponse | FilterTasksResponse));
-      }
-    } catch (error) {
-      console.error("Error filtering tasks:", error);
-    }
-  };
-
-  // Handle search changes
-  useEffect(() => {
-    const handleSearch = async () => {
-      try {
-        const apiParams = convertFiltersToApiParams(filters, searchQuery);
-        const filtered = await filterTasks(apiParams);
-        if (filtered.isSuccess) {
-          setTasks(transformTasks(filtered as ApiTaskResponse | FilterTasksResponse));
-        }
-      } catch (error) {
-        console.error("Error searching tasks:", error);
-      }
-    };
-
-    const debounceTimer = setTimeout(handleSearch, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery, filters]);
+  // Client-side filtering for immediate UI response
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = searchQuery === "" || 
+                         task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesPriority = !filters.priority || task.priority === filters.priority;
+    const matchesStage = !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
+    const matchesAssignee = !filters.assignedTo || 
+      task.assignedTo.toLowerCase().includes(filters.assignedTo.toLowerCase());
+    
+    const matchesDateRange = !filters.dateRange || (
+      task.startDate >= filters.dateRange.from && 
+      task.startDate <= filters.dateRange.to
+    );
+    
+    return matchesSearch && matchesPriority && matchesStage && matchesAssignee && matchesDateRange;
+  });
 
   if (isLoading) {
     return (
@@ -417,6 +435,13 @@ export default function TaskBoard() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Task Management</h1>
           <p className="text-muted-foreground">{`Organize and track your team's work efficiently`}</p>
         </div>
+
+        {/* Loading indicator for refreshing */}
+        {isRefreshing && (
+          <div className="mb-4 flex items-center justify-center">
+            <div className="text-sm text-muted-foreground">Updating tasks...</div>
+          </div>
+        )}
 
         {/* Filters */}
         <TaskFilters
