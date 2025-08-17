@@ -83,11 +83,14 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
 
 const onSubmit = async (data: FormData) => {
     try {
+         const selectedAssignee = assignees.find(
+      (assignee) => assignee.id === data.leadAddedBy
+    );
       const leadData: CreateLeadRequest = {
         leadStatus: data.leadStatus as LeadStatus,
         leadSource: data.leadSource as LeadSource,
-        leadAddedBy: data.leadAddedBy,
-customerMobileNumber: `${selectedCode}${data.customerMobileNumber}`,
+   leadAddedBy: selectedAssignee?.label || "",
+   customerMobileNumber: `${selectedCode.replace('+', '')}${data.customerMobileNumber.trim()}`,
         companyEmailAddress: data.companyEmailAddress,
         customerName: data.customerName,
         customerEmailAddress: data.customerEmailAddress,
