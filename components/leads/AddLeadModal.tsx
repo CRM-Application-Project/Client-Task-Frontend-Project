@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -30,8 +30,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { createLead } from '@/app/services/data.service';
+import { AssignDropdown, createLead, getAllLeads, getAssignDropdown } from '@/app/services/data.service';
 import { useCountryCodes } from '@/hooks/useCountryCodes';
+import { CreateLeadRequest } from '@/lib/data';
 
 
 const formSchema = z.object({
@@ -61,6 +62,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
   const { codes, loading } = useCountryCodes();
   const [selectedCode, setSelectedCode] = useState("+91"); 
   const [phone, setPhone] = useState("");
+    const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -78,13 +81,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
     },
   });
 
-  const onSubmit = async (data: FormData) => {
+const onSubmit = async (data: FormData) => {
     try {
-      const leadData = {
-        leadStatus: data.leadStatus,
-        leadSource: data.leadSource,
+      const leadData: CreateLeadRequest = {
+        leadStatus: data.leadStatus as LeadStatus,
+        leadSource: data.leadSource as LeadSource,
         leadAddedBy: data.leadAddedBy,
-        customerMobileNumber: data.customerMobileNumber,
+customerMobileNumber: `${selectedCode}${data.customerMobileNumber}`,
         companyEmailAddress: data.companyEmailAddress,
         customerName: data.customerName,
         customerEmailAddress: data.customerEmailAddress,
@@ -102,7 +105,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
           description: "Lead created successfully",
           variant: "default",
         });
-        onAddLead(leadData);
+        
+       
+        const allLeadsResponse = await getAllLeads();
+        if (allLeadsResponse.isSuccess) {
+          onAddLead(allLeadsResponse.data);
+        }
+        
         form.reset();
         onClose();
       } else {
@@ -122,6 +131,30 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
     }
   };
 
+   useEffect(() => {
+      const fetchAssignees = async () => {
+        if (!isOpen) return;
+        
+        setLoadingAssignees(true);
+        try {
+          const response = await getAssignDropdown();
+          if (response.isSuccess && response.data) {
+            setAssignees(response.data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch assignees:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load assignees",
+            variant: "destructive",
+          });
+        } finally {
+          setLoadingAssignees(false);
+        }
+      };
+  
+      fetchAssignees();
+    }, [isOpen, toast]);
   const handleClose = () => {
     form.reset();
     onClose();
@@ -272,19 +305,35 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onAddLead 
                 )}
               />
 
-              <FormField
+               <FormField
                 control={form.control}
                 name="leadAddedBy"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Assigned To</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter assignee name" {...field} />
-                    </FormControl>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={loadingAssignees}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingAssignees ? "Loading assignees..." : "Select assignee"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {assignees.map((assignee) => (
+                          <SelectItem key={assignee.id} value={assignee.id}>
+                            {assignee.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
 
               <FormField
                 control={form.control}

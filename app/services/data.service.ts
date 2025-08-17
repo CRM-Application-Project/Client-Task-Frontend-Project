@@ -410,3 +410,20 @@ export const leadTransfer = async (
   const res = await postRequest(API_CONSTANTS.LEAD.LEAD_TRANSFER, payload);
   return res as LeadTransferResponse;
 };
+
+
+export interface AssignDropdown {
+  id: string;
+  label: string;
+}
+
+export interface GetAssignDropdownResponse {
+  isSuccess: boolean;
+  message: string;
+  data: AssignDropdown[];
+}
+
+export const getAssignDropdown = async (): Promise<GetAssignDropdownResponse> => {
+  const res = await getRequest(API_CONSTANTS.LEAD.ASSIGN_DROPDOWN);
+  return res as GetAssignDropdownResponse;
+};

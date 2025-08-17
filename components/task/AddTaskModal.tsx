@@ -17,6 +17,7 @@ interface AddTaskModalProps {
   onClose: () => void;
   onSubmit: (task: CreateTaskRequest) => void;
   editingTask?: GetTaskByIdResponse['data'];
+  users: User[];
 }
 
 export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTaskModalProps) => {
