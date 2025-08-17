@@ -11,7 +11,6 @@ import { Switch } from "@/components/ui/switch";
 import { getTaskStagesDropdown, getUsers, User } from "@/app/services/data.service";
 import { TaskStage } from "@/lib/data";
 
-
 interface AddTaskModalProps { 
   isOpen: boolean;
   onClose: () => void;
@@ -26,16 +25,46 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
   const [isLoading, setIsLoading] = useState(true);
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
-    subject: editingTask?.subject || "",
-    description: editingTask?.description || "",
-    priority: editingTask?.priority || "LOW",
-    taskStageId: editingTask?.taskStageId || 0,
-    startTime: editingTask?.startDate || new Date().toISOString(),
-    endtime: editingTask?.endDate || "",
-    assignees: editingTask?.assignees?.map(a => a.id) || []
+    subject: "",
+    description: "",
+    priority: "LOW",
+    taskStageId: 0,
+    startTime: new Date().toISOString(),
+    endtime: "",
+    assignees: []
   });
 
   const priorities: Array<CreateTaskRequest['priority']> = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+  // Initialize form data when editingTask changes
+  useEffect(() => {
+    if (editingTask) {
+      setFormData({
+        subject: editingTask.subject || "",
+        description: editingTask.description || "",
+        priority: editingTask.priority || "LOW",
+        taskStageId: editingTask.taskStageId || 0,
+        startTime: editingTask.startDate 
+          ? new Date(editingTask.startDate).toISOString() 
+          : new Date().toISOString(),
+        endtime: editingTask.endDate 
+          ? new Date(editingTask.endDate).toISOString() 
+          : "",
+        assignees: editingTask.assignees?.map(a => a.id) || []
+      });
+    } else {
+      // Reset form for new task
+      setFormData({
+        subject: "",
+        description: "",
+        priority: "LOW",
+        taskStageId: 0,
+        startTime: new Date().toISOString(),
+        endtime: "",
+        assignees: []
+      });
+    }
+  }, [editingTask]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,17 +99,6 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
 
     onSubmit(formData);
     onClose();
-    
-    // Reset form
-    setFormData({
-      subject: "",
-      description: "",
-      priority: "LOW",
-      taskStageId: 0,
-      startTime: new Date().toISOString(),
-      endtime: "",
-      assignees: []
-    });
   };
 
   const handleAssigneeChange = (userId: string) => {
@@ -92,7 +110,12 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
     });
   };
 
-  
+  // Helper function to format date for datetime-local input
+  const formatDateForInput = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toISOString().slice(0, 16);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -100,14 +123,18 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-foreground">
             {editingTask ? 'Edit Task' : 'Add Task'}
-       {!editingTask ?   <p className="text-xs text-[#636363] mt-1">Create a new task for your team</p> : <p className="text-xs text-[#636363] mt-1">Edit the task details</p>}
+            {!editingTask ? (
+              <p className="text-xs text-[#636363] mt-1">Create a new task for your team</p>
+            ) : (
+              <p className="text-xs text-[#636363] mt-1">Edit the task details</p>
+            )}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 border border-gray-200 p-4 rounded-lg">
           {/* Subject */}
-          <div className="space-y-2 ">
-            <h3 className="text-lg font-semibold mb-2 ">Task Details</h3>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold mb-2">Task Details</h3>
             <Label htmlFor="subject" className="text-sm font-medium text-foreground">
               Subject: *
             </Label>
@@ -169,7 +196,7 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
               <div className="relative">
                 <Input
                   type="datetime-local"
-                  value={formData.startTime ? new Date(formData.startTime).toISOString().slice(0, 16) : ""}
+                  value={formatDateForInput(formData.startTime)}
                   onChange={(e) => setFormData({
                     ...formData, 
                     startTime: e.target.value ? new Date(e.target.value).toISOString() : ""
@@ -185,7 +212,7 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
               <div className="relative">
                 <Input
                   type="datetime-local"
-                  value={formData.endtime ? new Date(formData.endtime).toISOString().slice(0, 16) : ""}
+                  value={formatDateForInput(formData.endtime)}
                   onChange={(e) => setFormData({
                     ...formData, 
                     endtime: e.target.value ? new Date(e.target.value).toISOString() : ""

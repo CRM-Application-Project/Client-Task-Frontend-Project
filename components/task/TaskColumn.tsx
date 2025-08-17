@@ -2,8 +2,30 @@
 import { Task, TaskStatus } from "@/lib/task";
 import { TaskCard } from "./TaskCard";
 import { Badge } from "@/components/ui/badge";
-import { ApiTask } from "@/app/tasks/Task";
 
+
+interface Assignee {
+  id: string;
+  label: string;
+}
+type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+interface ApiTask {
+  id: number;
+  subject: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  labels: string[];
+  assignedTo: string;
+  createdBy: string;
+  startDate: Date;
+  endDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  taskStageId: number;
+  taskStageName: string;
+  assignees: Assignee[];
+}
 interface TaskColumnProps {
   status: TaskStatus;
   tasks: ApiTask[];
