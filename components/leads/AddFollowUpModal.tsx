@@ -1,14 +1,14 @@
 "use client";
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -16,18 +16,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Upload, X } from 'lucide-react';
-import { Lead } from '../../lib/leads';
-import { useToast } from '@/hooks/use-toast';
-import { addFollowUp } from '@/app/services/data.service';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Upload, X } from "lucide-react";
+import { Lead } from "../../lib/leads";
+import { useToast } from "@/hooks/use-toast";
+import { addFollowUp } from "@/app/services/data.service";
 
 const formSchema = z.object({
-  nextFollowupDate: z.string().min(1, 'Next followup date is required'),
-  followUpType: z.string().min(1, 'Follow-up type is required'),
+  nextFollowupDate: z.string().min(1, "Next followup date is required"),
+  followUpType: z.string().min(1, "Follow-up type is required"),
   comment: z.string().optional(),
 });
 
@@ -40,11 +40,11 @@ interface AddFollowUpModalProps {
   onAddFollowUp: (leadId: string, followUp: any) => void;
 }
 
-const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  lead, 
-  onAddFollowUp 
+const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
+  isOpen,
+  onClose,
+  lead,
+  onAddFollowUp,
 }) => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -54,40 +54,40 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      nextFollowupDate: '',
-      followUpType: 'CALL',
-      comment: '',
+      nextFollowupDate: "",
+      followUpType: "CALL",
+      comment: "",
     },
   });
 
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       const payload = {
         leadId: lead.id,
         nextFollowUpDate: data.nextFollowupDate,
         followUpType: data.followUpType,
-        comment: data.comment || '',
+        comment: data.comment || "",
       };
 
       const response = await addFollowUp(payload);
-      
+
       if (response.isSuccess) {
         toast({
           title: "Success",
           description: "Follow-up has been successfully scheduled.",
           variant: "default",
         });
-        
+
         const followUp = {
           id: Date.now().toString(),
           nextFollowupDate: data.nextFollowupDate,
           followUpType: data.followUpType,
           comment: data.comment,
-          attachments: attachments.map(file => file.name),
+          attachments: attachments.map((file) => file.name),
           completed: false,
           createdAt: new Date(),
         };
@@ -133,136 +133,140 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const files = Array.from(e.dataTransfer.files);
-      setAttachments(prev => [...prev, ...files]);
+      setAttachments((prev) => [...prev, ...files]);
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setAttachments(prev => [...prev, ...files]);
+      setAttachments((prev) => [...prev, ...files]);
     }
   };
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[500px] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between pb-2">
-          <DialogTitle className="text-base font-medium text-gray-900">
-            Add Lead Followup
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg font-semibold text-gray-900">
+            Schedule New Follow-up
           </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="nextFollowupDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium text-gray-700">
-                    Next Followup Date:
-                  </FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="datetime-local" 
-                      {...field}
-                      className="mt-1 h-8"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="nextFollowupDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block text-sm font-medium text-gray-700">
+                      Next Follow-up Date *
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        {...field}
+                        className="w-full h-10"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="followUpType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium text-gray-700">
-                    Follow-up Type:
-                  </FormLabel>
-                  <FormControl>
-                    <select
-                      {...field}
-                      className="mt-1 block w-full h-8 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                    >
-                      <option value="CALL">Call</option>
-                      <option value="EMAIL">Email</option>
-                      <option value="MEETING">Meeting</option>
-                      <option value="MESSAGE">Message</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="followUpType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block text-sm font-medium text-gray-700">
+                      Follow-up Type *
+                    </FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                      >
+                        <option value="CALL">Call</option>
+                        <option value="EMAIL">Email</option>
+                        <option value="MEETING">Meeting</option>
+                        <option value="MESSAGE">Message</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
               name="comment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-gray-700">
-                    Comment/message:
+                  <FormLabel className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
                   </FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Enter Message"
-                      className="min-h-[80px] mt-1 resize-none text-sm"
+                    <Textarea
+                      placeholder="Enter any additional notes about this follow-up..."
+                      className="min-h-[100px] text-sm"
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
 
             <div>
-              <FormLabel className="text-sm font-medium text-gray-700 mb-2 block">
-                Attachment: (Optional)
+              <FormLabel className="block text-sm font-medium text-gray-700 mb-2">
+                Attachments (Optional)
               </FormLabel>
-              
+
               <div
-                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors relative ${
-                  dragActive 
-                    ? 'border-blue-400 bg-blue-50' 
-                    : 'border-gray-300 hover:border-gray-400'
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors relative ${
+                  dragActive
+                    ? "border-blue-400 bg-blue-50"
+                    : "border-gray-300 hover:border-gray-400"
                 }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
-                onClick={() => document.getElementById('file-input')?.click()}
-                style={{ cursor: 'pointer' }}
+                onClick={() => document.getElementById("file-input")?.click()}
+                style={{ cursor: "pointer" }}
               >
-                <Upload className="mx-auto h-6 w-6 text-gray-400 mb-2 pointer-events-none" />
-                <p className="text-sm text-gray-600 font-medium mb-1 pointer-events-none">
-                  Drop Files here or click to upload
-                </p>
-                <p className="text-xs text-gray-500 mb-1 pointer-events-none">
-                  Allowed IMAGES, VIDEOS, PDF, DOCS, EXCEL, PPT, TEXT
-                </p>
-                <p className="text-xs text-gray-400 pointer-events-none">
-                  max size of 5 MB
-                </p>
+                <div className="flex flex-col items-center justify-center space-y-2">
+                  <Upload className="h-8 w-8 text-gray-400" />
+                  <p className="text-sm text-gray-600 font-medium">
+                    Drag and drop files here, or click to browse
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Supported formats: JPG, PNG, GIF, PDF, DOC, XLS, PPT, TXT
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Maximum file size: 5MB
+                  </p>
+                </div>
                 <input
                   id="file-input"
                   type="file"
@@ -274,44 +278,89 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
               </div>
 
               {attachments.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {attachments.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <span className="text-sm text-gray-700 truncate flex-1">
-                        {file.name} ({formatFileSize(file.size)})
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeAttachment(index)}
-                        className="h-6 w-6 p-0 hover:bg-gray-200"
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs text-gray-500 mb-1">
+                    {attachments.length} file
+                    {attachments.length !== 1 ? "s" : ""} attached
+                  </p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {attachments.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between bg-gray-50 p-3 rounded-md"
                       >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="bg-gray-200 p-1 rounded">
+                            <Upload className="h-4 w-4 text-gray-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-700 truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeAttachment(index)}
+                          className="h-8 w-8 p-0 hover:bg-gray-200"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button 
-                type="submit" 
-                className="px-6 h-9 text-white text-sm"
-                style={{ backgroundColor: '#636363' }}
-                disabled={isLoading}
-              >
-                {isLoading ? "Submitting..." : "Submit"}
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
+            <div className="flex justify-end space-x-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleClose}
-                className="px-6 h-9 text-sm"
+                className="px-4 h-9 text-sm"
                 disabled={isLoading}
               >
                 Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="px-4 h-9 text-white text-sm"
+                style={{ backgroundColor: "#636363" }}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Scheduling...
+                  </span>
+                ) : (
+                  "Schedule Follow-up"
+                )}
               </Button>
             </div>
           </form>

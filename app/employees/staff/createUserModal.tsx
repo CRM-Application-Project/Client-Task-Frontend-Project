@@ -258,6 +258,9 @@ export function CreateStaffModal({
                   onChange={(date) =>
                     setDateOfBirth(date ? date.toDate() : undefined)
                   }
+                  disabledDate={(current) =>
+                    current && current > dayjs().endOf("day")
+                  }
                   format="YYYY-MM-DD"
                   getPopupContainer={(trigger) => trigger.parentElement!}
                 />

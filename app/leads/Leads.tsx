@@ -36,7 +36,7 @@ const Leads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filters, setFilters] = useState<LeadFiltersType>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<'kanban' | 'grid'>('kanban');
+  const [viewMode, setViewMode] = useState<"kanban" | "grid">("kanban");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
@@ -49,11 +49,22 @@ const Leads = () => {
   const [isSortingModalOpen, setIsSortingModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [sortConfig, setSortConfig] = useState<{ sortBy: string; sortOrder: 'asc' | 'desc' } | undefined>();
+  const [sortConfig, setSortConfig] = useState<
+    { sortBy: string; sortOrder: "asc" | "desc" } | undefined
+  >();
 
   const { toast } = useToast();
 
-  const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
+  const statuses: LeadStatus[] = [
+    "NEW",
+    "CONTACTED",
+    "QUALIFIED",
+    "PROPOSAL",
+    "DEMO",
+    "NEGOTIATIONS",
+    "CLOSED_WON",
+    "CLOSED_LOST",
+  ];
 
   useEffect(() => {
     const fetchLeads = async () => {
@@ -61,32 +72,28 @@ const Leads = () => {
         setIsLoading(true);
         const response = await getAllLeads();
         if (response.isSuccess && response.data) {
+          // Transform API data to match our Lead interface
           const transformedLeads = response.data.map((apiLead) => ({
             id: apiLead.leadId,
             name: apiLead.customerName,
+            company: apiLead.companyEmailAddress, // Using companyEmailAddress as company for now
             email: apiLead.customerEmailAddress,
             phone: apiLead.customerMobileNumber,
-            location: apiLead.leadAddress || '',
-            status: (apiLead.leadStatus?.toUpperCase().replace(' ', '_') || 'NEW') as LeadStatus,
-            source: (apiLead.leadSource?.toUpperCase().replace(' ', '_') || 'OTHER') as LeadSource,
-            assignedTo: apiLead.leadAddedBy || '',
+            location: apiLead.leadAddress,
+            status: apiLead.leadStatus as LeadStatus,
+            priority: "MEDIUM" as LeadPriority, // Explicitly type as LeadPriority
+            source: apiLead.leadSource as LeadSource,
+            assignedTo: apiLead.leadAddedBy,
             createdAt: new Date(apiLead.createdAt),
             updatedAt: new Date(apiLead.updatedAt),
-            comment: apiLead.comment || '',
-            leadLabel: apiLead.leadLabel || '',
-            leadReference: apiLead.leadReference || '',
-            company: apiLead.company || '', // Add company property
-            priority: (apiLead.priority?.toUpperCase() || 'MEDIUM') as LeadPriority, // Add priority property
+            comment: apiLead.comment,
+            leadLabel: apiLead.leadLabel,
+            leadReference: apiLead.leadReference,
           }));
           setLeads(transformedLeads);
         }
       } catch (error) {
         console.error("Failed to fetch leads:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch leads",
-          variant: "destructive",
-        });
       } finally {
         setIsLoading(false);
       }
@@ -95,90 +102,49 @@ const Leads = () => {
     fetchLeads();
   }, []);
 
-  useEffect(() => {
-    const applyFilters = async () => {
-      try {
-        setIsLoading(true);
-        const params = {
-          startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : null,
-          endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : null,
-          leadLabel: filters.label || null,
-          leadSource: filters.source || null,
-          assignedTo: filters.assignedTo || null,
-          sortBy: sortConfig?.sortBy || null,
-          direction: sortConfig?.sortOrder || null,
-        };
+  // Filter leads based on search and filters
+  const filteredLeads = leads.filter((lead) => {
+    const matchesSearch =
+      lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const response = await filterLeads(params);
-        if (response.isSuccess && response.data) {
-          const transformedLeads = response.data.map((apiLead) => ({
-            id: apiLead.leadId,
-            name: apiLead.customerName,
-            email: apiLead.customerEmailAddress,
-            phone: apiLead.customerMobileNumber,
-            location: apiLead.leadAddress || '',
-            status: (apiLead.leadStatus?.toUpperCase().replace(' ', '_') || 'NEW') as LeadStatus,
-            source: (apiLead.leadSource?.toUpperCase().replace(' ', '_') || 'OTHER') as LeadSource,
-            assignedTo: apiLead.leadAddedBy || '',
-            createdAt: new Date(apiLead.createdAt),
-            updatedAt: new Date(apiLead.updatedAt),
-            comment: apiLead.comment || '',
-            leadLabel: apiLead.leadLabel || '',
-            leadReference: apiLead.leadReference || '',
-            company: apiLead.company || '',
-            priority: (apiLead.priority?.toUpperCase() || 'MEDIUM') as LeadPriority,
-          }));
-          setLeads(transformedLeads);
-        }
-      } catch (error) {
-        console.error("Failed to filter leads:", error);
-        toast({
-          title: "Error",
-          description: "Failed to filter leads",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    const matchesPriority =
+      !filters.priority || lead.priority === filters.priority;
+    const matchesStatus = !filters.status || lead.status === filters.status;
+    const matchesSource = !filters.source || lead.source === filters.source;
+    const matchesAssignedTo =
+      !filters.assignedTo || lead.assignedTo === filters.assignedTo;
 
-    if (filters.dateRange || filters.label || filters.source || filters.assignedTo || sortConfig) {
-      applyFilters();
-    }
-  }, [filters, sortConfig]);
-
-  // Filter leads based on search
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesSearch;
+    return (
+      matchesSearch &&
+      matchesPriority &&
+      matchesStatus &&
+      matchesSource &&
+      matchesAssignedTo
+    );
   });
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-    
+
     if (source.droppableId === destination.droppableId) return;
 
     const newStatus = destination.droppableId as LeadStatus;
-    
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
+
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
         lead.id === draggableId
           ? { ...lead, status: newStatus, updatedAt: new Date() }
           : lead
       )
     );
   };
-
   const handleUpdateLead = (updatedLead: Lead) => {
-    setLeads(prevLeads => 
-      prevLeads.map(lead => 
-        lead.id === updatedLead.id ? updatedLead : lead
-      )
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
     );
     toast({
       title: "Lead updated",
@@ -198,15 +164,13 @@ const Leads = () => {
 
   const handleConfirmDelete = async () => {
     if (!leadToDelete) return;
-    
+
     try {
       const response = await deleteLeadById(leadToDelete.id);
       if (response.isSuccess) {
-        setLeads(prevLeads => prevLeads.filter(l => l.id !== leadToDelete.id));
-        toast({
-          title: "Lead deleted",
-          description: "Lead has been successfully deleted.",
-        });
+        setLeads((prevLeads) =>
+          prevLeads.filter((l) => l.id !== leadToDelete.id)
+        );
       }
     } catch (error) {
       console.error("Failed to delete lead:", error);
@@ -251,9 +215,9 @@ const Leads = () => {
   };
 
   const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
-    setLeads(prevLeads => 
-      prevLeads.map(lead => 
-        lead.id === leadId 
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.id === leadId
           ? { ...lead, assignedTo, updatedAt: new Date() }
           : lead
       )
@@ -269,14 +233,14 @@ const Leads = () => {
   };
 
   const handleImportLeads = (importedLeads: any[]) => {
-    const newLeads = importedLeads.map(leadData => ({
+    const newLeads = importedLeads.map((leadData) => ({
       ...leadData,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
-    
-    setLeads(prevLeads => [...prevLeads, ...newLeads]);
+
+    setLeads((prevLeads) => [...prevLeads, ...newLeads]);
     toast({
       title: "Leads imported",
       description: `${importedLeads.length} leads have been successfully imported.`,
@@ -287,7 +251,7 @@ const Leads = () => {
     setIsSortingModalOpen(true);
   };
 
-  const handleApplySort = (sortBy: string, sortOrder: 'asc' | 'desc') => {
+  const handleApplySort = (sortBy: string, sortOrder: "asc" | "desc") => {
     setSortConfig({ sortBy, sortOrder });
   };
 
@@ -296,12 +260,14 @@ const Leads = () => {
     setIsChangeStatusModalOpen(true);
   };
 
-  const handleUpdateStatus = (leadId: string, status: LeadStatus, notes?: string) => {
-    setLeads(prevLeads => 
-      prevLeads.map(lead => 
-        lead.id === leadId 
-          ? { ...lead, status, updatedAt: new Date(), comment: notes  }
-          : lead
+  const handleUpdateStatus = (
+    leadId: string,
+    status: LeadStatus,
+    notes?: string
+  ) => {
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.id === leadId ? { ...lead, status, updatedAt: new Date() } : lead
       )
     );
     toast({
@@ -314,15 +280,17 @@ const Leads = () => {
     setIsAddModalOpen(true);
   };
 
-  const handleCreateLead = (newLead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleCreateLead = (
+    newLead: Omit<Lead, "id" | "createdAt" | "updatedAt">
+  ) => {
     const lead: Lead = {
       ...newLead,
       id: `LD-ID${Math.floor(1000 + Math.random() * 9000)}`,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    
-    setLeads(prevLeads => [...prevLeads, lead]);
+
+    setLeads((prevLeads) => [...prevLeads, lead]);
     setIsAddModalOpen(false);
     toast({
       title: "Lead created",
@@ -356,14 +324,14 @@ const Leads = () => {
           }}
         />
 
-        {viewMode === 'kanban' && (
+        {viewMode === "kanban" && (
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 overflow-x-auto pb-6">
-              {statuses.map(status => (
+              {statuses.map((status) => (
                 <LeadColumn
                   key={status}
                   status={status}
-                  leads={filteredLeads.filter(lead => lead.status === status)}
+                  leads={filteredLeads.filter((lead) => lead.status === status)}
                   onEditLead={handleEditLead}
                   onDeleteLead={handleDeleteClick}
                   onViewLead={handleViewLead}
@@ -378,20 +346,37 @@ const Leads = () => {
           </DragDropContext>
         )}
 
-        {viewMode === 'grid' && (
+        {/* Grid View */}
+        {viewMode === "grid" && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Assigned To</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Lead
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Company
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Priority
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Source
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Assigned To
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -400,43 +385,68 @@ const Leads = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {lead.name?.split(' ').map(n => n[0]).join('')}
+                            {lead.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
                           </div>
                           <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{lead.name}</div>
-                            <div className="text-sm text-gray-500">{lead.location}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {lead.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {lead.location}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.company}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {lead.company}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          lead.status === 'NEW' ? 'bg-blue-100 text-blue-800' :
-                          lead.status === 'CONTACTED' ? 'bg-indigo-100 text-indigo-800' :
-                          lead.status === 'QUALIFIED' ? 'bg-green-100 text-green-800' :
-                          lead.status === 'PROPOSAL' ? 'bg-teal-100 text-teal-800' :
-                          lead.status === 'DEMO' ? 'bg-yellow-100 text-yellow-800' :
-                          lead.status === 'NEGOTIATIONS' ? 'bg-orange-100 text-orange-800' :
-                          lead.status === 'CLOSED_WON' ? 'bg-emerald-100 text-emerald-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {lead.status.replace('_', ' ')}
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            lead.status === "NEW"
+                              ? "bg-blue-100 text-blue-800"
+                              : lead.status === "CONTACTED"
+                              ? "bg-indigo-100 text-indigo-800"
+                              : lead.status === "QUALIFIED"
+                              ? "bg-green-100 text-green-800"
+                              : lead.status === "PROPOSAL"
+                              ? "bg-teal-100 text-teal-800"
+                              : lead.status === "DEMO"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : lead.status === "NEGOTIATIONS"
+                              ? "bg-orange-100 text-orange-800"
+                              : lead.status === "CLOSED_WON"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {lead.status.replace("_", " ")}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          lead.priority === 'LOW' ? 'bg-gray-100 text-gray-800' :
-                          lead.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-800' :
-                          lead.priority === 'HIGH' ? 'bg-orange-100 text-orange-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            lead.priority === "LOW"
+                              ? "bg-gray-100 text-gray-800"
+                              : lead.priority === "MEDIUM"
+                              ? "bg-blue-100 text-blue-800"
+                              : lead.priority === "HIGH"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
                           {lead.priority}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {lead.source.replace('_', ' ')}
+                        {lead.source.replace("_", " ")}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.assignedTo}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {lead.assignedTo}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div>{lead.email}</div>
                         <div>{lead.phone}</div>
@@ -470,7 +480,9 @@ const Leads = () => {
             </div>
             {filteredLeads.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500">No leads found matching your filters.</p>
+                <p className="text-gray-500">
+                  No leads found matching your filters.
+                </p>
               </div>
             )}
           </div>
@@ -497,41 +509,41 @@ const Leads = () => {
           onClose={() => setIsViewModalOpen(false)}
           lead={selectedLead}
         />
-        
+
         <EditLeadModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           onUpdateLead={handleUpdateLead}
           lead={selectedLead}
         />
-        
+
         <AddFollowUpModal
           isOpen={isFollowUpModalOpen}
           onClose={() => setIsFollowUpModalOpen(false)}
           lead={selectedLead}
           onAddFollowUp={handleCreateFollowUp}
         />
-        
+
         <ChangeAssignModal
           isOpen={isChangeAssignModalOpen}
           onClose={() => setIsChangeAssignModalOpen(false)}
           lead={selectedLead}
           onChangeAssign={handleUpdateAssignment}
         />
-        
+
         <ImportLeadModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
           onImportLeads={handleImportLeads}
         />
-        
+
         <LeadSortingModal
           isOpen={isSortingModalOpen}
           onClose={() => setIsSortingModalOpen(false)}
           onApplySort={handleApplySort}
           currentSort={sortConfig}
         />
-        
+
         <ChangeStatusModal
           isOpen={isChangeStatusModalOpen}
           onClose={() => setIsChangeStatusModalOpen(false)}

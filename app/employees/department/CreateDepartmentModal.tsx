@@ -73,8 +73,8 @@ export default function CreateDepartmentModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="name">Department Name</Label>
+          <div className="space-y-2">
+            <Label htmlFor="name" className="mb-6">Department Name</Label>
             <Input
               id="name"
               value={name}
