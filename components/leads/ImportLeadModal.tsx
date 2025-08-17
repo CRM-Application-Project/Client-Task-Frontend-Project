@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Upload, FileText, CheckCircle, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { importLead } from '@/app/services/data.service';
+import { getAllLeads, importLead } from '@/app/services/data.service';
 
 interface ImportLeadModalProps {
   isOpen: boolean;
@@ -44,45 +44,55 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
     }
   };
 
-  const handleImport = async () => {
-    if (!selectedFile) return;
+const handleImport = async () => {
+  if (!selectedFile) return;
 
-    setImporting(true);
+  setImporting(true);
+  
+  try {
+    const response = await importLead(selectedFile, status, user);
     
-    try {
-      const response = await importLead(selectedFile, status, user);
+    if (response.isSuccess) {
+      toast({
+        title: "Success",
+        description: "Leads imported successfully",
+        variant: "default",
+      });
       
-      if (response.isSuccess) {
+      // Fetch all leads after successful import
+      try {
+        const leadsResponse = await getAllLeads();
+        if (leadsResponse.isSuccess) {
+          onImportLeads(leadsResponse.data); // Pass the fetched leads to the parent component
+        }
+      } catch (fetchError) {
+        console.error("Error fetching leads:", fetchError);
         toast({
-          title: "Success",
-          description: "Leads imported successfully",
+          title: "Warning",
+          description: "Leads imported but couldn't refresh the list",
           variant: "default",
         });
-        
-        // If you want to update the UI with the imported leads,
-        // you might need to fetch the leads again or use the response data
-        // For now, we'll call the onImportLeads callback with empty array
-        // since the API response structure isn't shown to include the leads
-        onImportLeads([]);
-        handleClose();
-      } else {
-        toast({
-          title: "Error",
-          description: response.message || "Failed to import leads",
-          variant: "destructive",
-        });
       }
-    } catch (error) {
-      console.error("Error importing leads:", error);
+      
+      handleClose();
+    } else {
       toast({
         title: "Error",
-        description: "An unexpected error occurred while importing leads",
+        description: response.message || "Failed to import leads",
         variant: "destructive",
       });
-    } finally {
-      setImporting(false);
     }
-  };
+  } catch (error) {
+    console.error("Error importing leads:", error);
+    toast({
+      title: "Error",
+      description: "An unexpected error occurred while importing leads",
+      variant: "destructive",
+    });
+  } finally {
+    setImporting(false);
+  }
+};
 
   const handleClose = () => {
     setSelectedFile(null);
@@ -130,13 +140,13 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
                   <span> or drag and drop</span>
                 </div>
                 <p className="text-xs text-gray-500">CSV files up to 10MB</p>
-                <Input
-                  id="file-upload"
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
+            <Input
+  id="file-upload"
+  type="file"
+  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+  onChange={handleFileSelect}
+  className="hidden"
+/>
               </div>
             ) : (
               <div className="flex items-center gap-2 justify-center">

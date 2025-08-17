@@ -9,7 +9,7 @@ import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Lead, LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
-import { deleteLeadById, getAllLeads } from "../services/data.service";
+import { deleteLeadById, getAllLeads, filterLeads } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
 import LeadSortingModal from "@/components/leads/LeadSortingModal";
@@ -18,12 +18,18 @@ import ChangeAssignModal from "@/components/leads/ChangeAssignModal";
 import AddFollowUpModal from "@/components/leads/AddFollowUpModal";
 import EditLeadModal from "@/components/leads/EditLeadModal";
 import ViewLeadModal from "@/components/leads/ViewLeadModal";
+import { format } from "date-fns";
 
 type LeadFiltersType = {
   status?: LeadStatus;
   priority?: LeadPriority;
   source?: LeadSource;
   assignedTo?: string;
+  label?: string;
+  dateRange?: {
+    from: Date;
+    to: Date;
+  };
 };
 
 const Leads = () => {
@@ -35,7 +41,7 @@ const Leads = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isChangeAssignModalOpen, setIsChangeAssignModalOpen] = useState(false);
@@ -43,60 +49,111 @@ const Leads = () => {
   const [isSortingModalOpen, setIsSortingModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-    const [sortConfig, setSortConfig] = useState<{ sortBy: string; sortOrder: 'asc' | 'desc' } | undefined>();
+  const [sortConfig, setSortConfig] = useState<{ sortBy: string; sortOrder: 'asc' | 'desc' } | undefined>();
 
   const { toast } = useToast();
 
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
 
-useEffect(() => {
-  const fetchLeads = async () => {
-    try {
-      setIsLoading(true);
-      const response = await getAllLeads();
-      if (response.isSuccess && response.data) {
-        // Transform API data to match our Lead interface
-        const transformedLeads = response.data.map((apiLead) => ({
-          id: apiLead.leadId,
-          name: apiLead.customerName,
-          company: apiLead.companyEmailAddress, // Using companyEmailAddress as company for now
-          email: apiLead.customerEmailAddress,
-          phone: apiLead.customerMobileNumber,
-          location: apiLead.leadAddress,
-          status: apiLead.leadStatus as LeadStatus,
-          priority: "MEDIUM" as LeadPriority, // Explicitly type as LeadPriority
-          source: apiLead.leadSource as LeadSource,
-          assignedTo: apiLead.leadAddedBy,
-          createdAt: new Date(apiLead.createdAt),
-          updatedAt: new Date(apiLead.updatedAt),
-          comment: apiLead.comment,
-          leadLabel: apiLead.leadLabel,
-          leadReference: apiLead.leadReference,
-        }));
-        setLeads(transformedLeads);
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        setIsLoading(true);
+        const response = await getAllLeads();
+        if (response.isSuccess && response.data) {
+          const transformedLeads = response.data.map((apiLead) => ({
+            id: apiLead.leadId,
+            name: apiLead.customerName,
+            email: apiLead.customerEmailAddress,
+            phone: apiLead.customerMobileNumber,
+            location: apiLead.leadAddress || '',
+            status: (apiLead.leadStatus?.toUpperCase().replace(' ', '_') || 'NEW') as LeadStatus,
+            source: (apiLead.leadSource?.toUpperCase().replace(' ', '_') || 'OTHER') as LeadSource,
+            assignedTo: apiLead.leadAddedBy || '',
+            createdAt: new Date(apiLead.createdAt),
+            updatedAt: new Date(apiLead.updatedAt),
+            comment: apiLead.comment || '',
+            leadLabel: apiLead.leadLabel || '',
+            leadReference: apiLead.leadReference || '',
+            company: apiLead.company || '', // Add company property
+            priority: (apiLead.priority?.toUpperCase() || 'MEDIUM') as LeadPriority, // Add priority property
+          }));
+          setLeads(transformedLeads);
+        }
+      } catch (error) {
+        console.error("Failed to fetch leads:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch leads",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch leads:", error);
-    } finally {
-      setIsLoading(false);
+    };
+
+    fetchLeads();
+  }, []);
+
+  useEffect(() => {
+    const applyFilters = async () => {
+      try {
+        setIsLoading(true);
+        const params = {
+          startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : null,
+          endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : null,
+          leadLabel: filters.label || null,
+          leadSource: filters.source || null,
+          assignedTo: filters.assignedTo || null,
+          sortBy: sortConfig?.sortBy || null,
+          direction: sortConfig?.sortOrder || null,
+        };
+
+        const response = await filterLeads(params);
+        if (response.isSuccess && response.data) {
+          const transformedLeads = response.data.map((apiLead) => ({
+            id: apiLead.leadId,
+            name: apiLead.customerName,
+            email: apiLead.customerEmailAddress,
+            phone: apiLead.customerMobileNumber,
+            location: apiLead.leadAddress || '',
+            status: (apiLead.leadStatus?.toUpperCase().replace(' ', '_') || 'NEW') as LeadStatus,
+            source: (apiLead.leadSource?.toUpperCase().replace(' ', '_') || 'OTHER') as LeadSource,
+            assignedTo: apiLead.leadAddedBy || '',
+            createdAt: new Date(apiLead.createdAt),
+            updatedAt: new Date(apiLead.updatedAt),
+            comment: apiLead.comment || '',
+            leadLabel: apiLead.leadLabel || '',
+            leadReference: apiLead.leadReference || '',
+            company: apiLead.company || '',
+            priority: (apiLead.priority?.toUpperCase() || 'MEDIUM') as LeadPriority,
+          }));
+          setLeads(transformedLeads);
+        }
+      } catch (error) {
+        console.error("Failed to filter leads:", error);
+        toast({
+          title: "Error",
+          description: "Failed to filter leads",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (filters.dateRange || filters.label || filters.source || filters.assignedTo || sortConfig) {
+      applyFilters();
     }
-  };
+  }, [filters, sortConfig]);
 
-  fetchLeads();
-}, []);
-
-  // Filter leads based on search and filters
+  // Filter leads based on search
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesPriority = !filters.priority || lead.priority === filters.priority;
-    const matchesStatus = !filters.status || lead.status === filters.status;
-    const matchesSource = !filters.source || lead.source === filters.source;
-    const matchesAssignedTo = !filters.assignedTo || lead.assignedTo === filters.assignedTo;
-    
-    return matchesSearch && matchesPriority && matchesStatus && matchesSource && matchesAssignedTo;
+    return matchesSearch;
   });
 
   const handleDragEnd = (result: DropResult) => {
@@ -116,7 +173,8 @@ useEffect(() => {
       )
     );
   };
- const handleUpdateLead = (updatedLead: Lead) => {
+
+  const handleUpdateLead = (updatedLead: Lead) => {
     setLeads(prevLeads => 
       prevLeads.map(lead => 
         lead.id === updatedLead.id ? updatedLead : lead
@@ -128,11 +186,10 @@ useEffect(() => {
     });
   };
 
-   const handleEditLead = (lead: Lead) => {
+  const handleEditLead = (lead: Lead) => {
     setSelectedLead(lead);
     setIsEditModalOpen(true);
   };
-
 
   const handleDeleteClick = (lead: Lead) => {
     setLeadToDelete(lead);
@@ -146,20 +203,28 @@ useEffect(() => {
       const response = await deleteLeadById(leadToDelete.id);
       if (response.isSuccess) {
         setLeads(prevLeads => prevLeads.filter(l => l.id !== leadToDelete.id));
+        toast({
+          title: "Lead deleted",
+          description: "Lead has been successfully deleted.",
+        });
       }
     } catch (error) {
       console.error("Failed to delete lead:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete lead",
+        variant: "destructive",
+      });
     } finally {
       setIsDeleteModalOpen(false);
       setLeadToDelete(null);
     }
   };
 
- const handleViewLead = (lead: Lead) => {
+  const handleViewLead = (lead: Lead) => {
     setSelectedLead(lead);
     setIsViewModalOpen(true);
   };
-
 
   const handleAddFollowUp = (lead: Lead) => {
     setSelectedLead(lead);
@@ -167,6 +232,13 @@ useEffect(() => {
   };
 
   const handleCreateFollowUp = (leadId: string, followUp: any) => {
+    setLeads(prevLeads =>
+      prevLeads.map(lead =>
+        lead.id === leadId
+          ? { ...lead, leadFollowUp: followUp.notes, nextFollowUpDate: new Date(followUp.date) }
+          : lead
+      )
+    );
     toast({
       title: "Follow-up scheduled",
       description: "Follow-up has been successfully scheduled.",
@@ -217,10 +289,6 @@ useEffect(() => {
 
   const handleApplySort = (sortBy: string, sortOrder: 'asc' | 'desc') => {
     setSortConfig({ sortBy, sortOrder });
-    toast({
-      title: "Sort applied",
-      description: `Leads sorted by ${sortBy} in ${sortOrder}ending order.`,
-    });
   };
 
   const handleChangeStatus = (lead: Lead) => {
@@ -232,7 +300,7 @@ useEffect(() => {
     setLeads(prevLeads => 
       prevLeads.map(lead => 
         lead.id === leadId 
-          ? { ...lead, status, updatedAt: new Date() }
+          ? { ...lead, status, updatedAt: new Date(), comment: notes  }
           : lead
       )
     );
@@ -242,7 +310,6 @@ useEffect(() => {
     });
   };
 
-
   const handleAddLead = () => {
     setIsAddModalOpen(true);
   };
@@ -250,13 +317,17 @@ useEffect(() => {
   const handleCreateLead = (newLead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => {
     const lead: Lead = {
       ...newLead,
-      id: Date.now().toString(),
+      id: `LD-ID${Math.floor(1000 + Math.random() * 9000)}`,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     
     setLeads(prevLeads => [...prevLeads, lead]);
     setIsAddModalOpen(false);
+    toast({
+      title: "Lead created",
+      description: "New lead has been successfully created.",
+    });
   };
 
   if (isLoading) {
@@ -268,9 +339,8 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen">
       <div className="container mx-auto px-6 py-6">
-        {/* Filters */}
         <LeadFilters
           filters={filters}
           onFiltersChange={setFilters}
@@ -282,6 +352,7 @@ useEffect(() => {
           onClearAllFilters={() => {
             setFilters({});
             setSearchQuery("");
+            setSortConfig(undefined);
           }}
         />
 
@@ -294,7 +365,7 @@ useEffect(() => {
                   status={status}
                   leads={filteredLeads.filter(lead => lead.status === status)}
                   onEditLead={handleEditLead}
-                  onDeleteLead={handleConfirmDelete}
+                  onDeleteLead={handleDeleteClick}
                   onViewLead={handleViewLead}
                   onAddFollowUp={handleAddFollowUp}
                   onChangeAssign={handleChangeAssign}
@@ -307,7 +378,6 @@ useEffect(() => {
           </DragDropContext>
         )}
 
-        {/* Grid View */}
         {viewMode === 'grid' && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -330,7 +400,7 @@ useEffect(() => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {lead.name.split(' ').map(n => n[0]).join('')}
+                            {lead.name?.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">{lead.name}</div>

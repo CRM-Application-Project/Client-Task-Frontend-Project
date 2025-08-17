@@ -31,15 +31,16 @@ export const API_CONSTANTS = {
   },
   LEAD:{
     CREATE: "/lead/create",
-    GET_ALL:"/lead/fetch",
+    GET_ALL:"/lead/leads",
     UPDATE: "/lead/update",
   DELETE_BY_ID: "/lead/deleteLeadById",
    GET_BY_ID: "/lead/fetchLeadById",
-     FILTER: "/lead/filter",
      IMPORT_LEAD:"/lead/upload",
     DROPDOWN: "/lead/dropdown",
     ADD_FOLLOWUP:"/lead/follow-up",
     LEAD_TRANSFER:"/lead/transfer",
+    GET_ALL_WITH_FILTERS: "/lead/leads",
+    ASSIGN_DROPDOWN:"/tenant/users/dropdown"
 
   }
     
