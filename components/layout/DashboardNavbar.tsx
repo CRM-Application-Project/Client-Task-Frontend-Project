@@ -2,16 +2,34 @@
 
 import { Bell, Moon, Menu } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
 
-interface DashboardNavbarProps {
-  user: {
-    name: string;
-    role: string;
-  };
-  onMenuClick?: () => void; // new prop
+interface UserData {
+  firstName: string;
+  lastName: string;
+  userRole: string;
 }
 
-export function DashboardNavbar({ user, onMenuClick }: DashboardNavbarProps) {
+export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
+  const [user, setUser] = useState<UserData | null>(null);
+
+  useEffect(() => {
+    // Get user data from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Failed to parse user data', error);
+      }
+    }
+  }, []);
+
+  if (!user) {
+    return null; // or a loading state
+  }
+
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
       {/* Left side */}
@@ -44,11 +62,19 @@ export function DashboardNavbar({ user, onMenuClick }: DashboardNavbarProps) {
         {/* User Info */}
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-sm font-medium text-gray-900">{user.name}</div>
-            <div className="text-xs text-gray-500">{user.role}</div>
+            <div className="text-sm font-medium text-gray-900">
+              {user.firstName} {user.lastName}
+            </div>
+           <div className="text-xs text-gray-500 capitalize">
+  {user.userRole.replace(/_/g, " ").toLowerCase()}
+</div>
+
           </div>
           <Avatar className="h-8 w-8">
-            <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>
+              {user.firstName.charAt(0).toUpperCase()}
+              {user.lastName.charAt(0).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
         </div>
       </div>

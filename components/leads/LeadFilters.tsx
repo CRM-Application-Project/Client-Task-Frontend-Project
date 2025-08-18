@@ -30,6 +30,7 @@ interface LeadFiltersProps {
   viewMode: 'kanban' | 'grid';
   onViewModeChange: (mode: 'kanban' | 'grid') => void;
   onClearAllFilters: () => void;
+   onImportLead: () => void;
 }
 
 export const LeadFilters = ({
@@ -40,7 +41,8 @@ export const LeadFilters = ({
   onSearchChange,
   viewMode,
   onViewModeChange,
-  onClearAllFilters
+  onClearAllFilters,
+  onImportLead
 }: LeadFiltersProps) => {
   const priorities: LeadPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
@@ -109,6 +111,7 @@ export const LeadFilters = ({
   <Button
     variant="outline"
     size="icon"
+    onClick={onImportLead}
     className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
   >
     <UploadCloud className="h-4 w-4 text-gray-600" />
