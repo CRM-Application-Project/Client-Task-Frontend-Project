@@ -44,7 +44,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
         const response = await getAssignDropdown();
         if (response.isSuccess && response.data.length > 0) {
           setUsers(response.data);
-          setUser(response.data[0].id); // Set the first user as default
+          setUser(response.data[0].label); // Set the first user as default
         }
       } catch (error) {
         console.error("Error fetching users:", error);
@@ -68,49 +68,58 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
     }
   };
 
-  const handleImport = async () => {
-    if (!selectedFile || !user) return;
-    setImporting(true);
-    try {
-      const response = await importLead(selectedFile, status, user);
-      if (response.isSuccess) {
-        toast({
-          title: "Success",
-          description: "Leads imported successfully",
-          variant: "default",
-        });
-        try {
-          const leadsResponse = await getAllLeads();
-          if (leadsResponse.isSuccess) {
-            onImportLeads(leadsResponse.data);
-          }
-        } catch (fetchError) {
-          console.error("Error fetching leads:", fetchError);
-          toast({
-            title: "Warning",
-            description: "Leads imported but couldn't refresh the list",
-            variant: "default",
-          });
-        }
-        handleClose();
+const handleImport = async () => {
+  if (!selectedFile || !user) return;
+  setImporting(true);
+  
+  try {
+    // Find the selected user to get their label
+    const selectedUser = users.find(u => u.id === user);
+    if (!selectedUser) {
+      throw new Error("Selected user not found");
+    }
+
+    const response = await importLead(
+      selectedFile, 
+      status, 
+      selectedUser.label // Pass the label instead of ID
+    );
+    
+    if (response.isSuccess) {
+      toast({
+        title: "Success",
+        description: "Leads imported successfully",
+        variant: "default",
+      });
+      
+      // FIXED: Only pass the imported leads, not all leads
+      if (response.data && Array.isArray(response.data)) {
+        onImportLeads(response.data);
       } else {
-        toast({
-          title: "Error",
-          description: response.message || "Failed to import leads",
-          variant: "destructive",
-        });
+        // FIXED: Don't fetch all leads, just refresh the parent component
+        console.warn("No imported leads data returned from API");
+        onImportLeads([]);
       }
-    } catch (error) {
-      console.error("Error importing leads:", error);
+      
+      handleClose();
+    } else {
       toast({
         title: "Error",
-        description: "An unexpected error occurred while importing leads",
+        description: response.message || "Failed to import leads",
         variant: "destructive",
       });
-    } finally {
-      setImporting(false);
     }
-  };
+  } catch (error) {
+    console.error("Error importing leads:", error);
+    toast({
+      title: "Error",
+      description: "An unexpected error occurred while importing leads",
+      variant: "destructive",
+    });
+  } finally {
+    setImporting(false);
+  }
+};
 
   const handleClose = () => {
     setSelectedFile(null);
