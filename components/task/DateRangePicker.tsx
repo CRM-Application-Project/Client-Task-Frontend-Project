@@ -92,24 +92,23 @@ export const DateRangePicker = ({
       },
     },
   ];
-const [selectedPreset, setSelectedPreset] = useState<{ 
-  label: string; 
-  startDate: Date; 
-  endDate: Date;
-} | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<{
+    label: string;
+    startDate: Date;
+    endDate: Date;
+  } | null>(null);
 
-const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
-  const range = preset.value();
-  setSelectedRange(range);
-  setSelectedPreset({
-    label: preset.label,
-    startDate: range.from,
-    endDate: range.to
-  });
-  setFromDate(range.from);
-  setToDate(range.to);
-};
-
+  const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
+    const range = preset.value();
+    setSelectedRange(range);
+    setSelectedPreset({
+      label: preset.label,
+      startDate: range.from,
+      endDate: range.to,
+    });
+    setFromDate(range.from);
+    setToDate(range.to);
+  };
 
   const handleSubmit = () => {
     if (fromDate && toDate) {
@@ -154,37 +153,21 @@ const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Preset Options */}
             <div className="space-y-1">
-  {presetRanges.map((preset) => {
-    const isActive = selectedPreset?.label === preset.label; // your active condition
-    return (
-      <Button
-        key={preset.label}
-        variant="ghost"
-        className={`w-full justify-start text-xs font-normal py-1 h-8 
+              {presetRanges.map((preset) => {
+                const isActive = selectedPreset?.label === preset.label; // your active condition
+                return (
+                  <Button
+                    key={preset.label}
+                    variant="ghost"
+                    className={`w-full justify-start text-xs font-normal py-1 h-8 border rounded-md transition-colors 
           ${isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent"}`}
-        onClick={() => handlePresetSelect(preset)}
-      >
-        {preset.label}
-      </Button>
-    );
-  })}
-
-  <div className="pt-2 space-y-1">
-    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <span className="bg-primary text-primary-foreground rounded px-1 py-0.5 text-[0.65rem]">
-        1
-      </span>
-      days up to today
-    </div>
-    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <span className="bg-primary text-primary-foreground rounded px-1 py-0.5 text-[0.65rem]">
-        1
-      </span>
-      days starting today
-    </div>
-  </div>
-</div>
-
+                    onClick={() => handlePresetSelect(preset)}
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+            </div>
 
             {/* Date Inputs and Calendars */}
             <div className="lg:col-span-3 space-y-3">
@@ -230,11 +213,14 @@ const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
                       "w-full p-1 pointer-events-auto border rounded-md"
                     )}
                     classNames={{
-                      day: "h-6 w-6 text-xs",
+                      day: "h-8 w-8 text-xs rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors",
+                      day_selected: "bg-primary text-white rounded-full",
+                      day_today:
+                        "border border-primary text-primary font-semibold",
                       caption: "flex justify-center pt-1 relative items-center",
                       nav_button: "h-6 w-6",
                       head_cell:
-                        "text-muted-foreground rounded-md w-6 font-normal text-[0.8rem]",
+                        "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
                     }}
                   />
                 </div>
@@ -248,11 +234,14 @@ const handlePresetSelect = (preset: (typeof presetRanges)[0]) => {
                       "w-full p-1 pointer-events-auto border rounded-md"
                     )}
                     classNames={{
-                      day: "h-6 w-6 text-xs",
+                      day: "h-8 w-8 text-xs rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors",
+                      day_selected: "bg-primary text-white rounded-full",
+                      day_today:
+                        "border border-primary text-primary font-semibold",
                       caption: "flex justify-center pt-1 relative items-center",
                       nav_button: "h-6 w-6",
                       head_cell:
-                        "text-muted-foreground rounded-md w-6 font-normal text-[0.8rem]",
+                        "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
                     }}
                   />
                 </div>

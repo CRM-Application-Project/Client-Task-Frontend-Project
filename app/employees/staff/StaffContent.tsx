@@ -15,9 +15,10 @@ import {
 import { CreateStaffModal } from "./createUserModal";
 import { UpdateStaffModal } from "./updateUserModal";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Select } from "antd";
+import { Select, Checkbox, Button } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -342,11 +343,11 @@ export default function StaffPage() {
 
   const filteredUsers = users.filter(
     (user) =>
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.emailAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.departmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.userRole.toLowerCase().includes(searchTerm.toLowerCase())
+      user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.emailAddress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.departmentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.userRole?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (isActive: boolean) => {
@@ -405,14 +406,14 @@ export default function StaffPage() {
               <input
                 type="text"
                 placeholder="Search by name, email or department..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all duration-200"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white transition-all duration-200"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#3b3b3b] text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
             >
               <Plus className="h-4 w-4" />
               Add Staff
@@ -466,8 +467,8 @@ export default function StaffPage() {
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center shadow-inner">
                                 <span className="text-blue-600 font-medium">
-                                  {user.firstName[0]}
-                                  {user.lastName[0]}
+                                  {user.firstName[0].toUpperCase()}
+                                  {user.lastName[0].toUpperCase()}
                                 </span>
                               </div>
                               <div className="ml-4">
@@ -493,14 +494,6 @@ export default function StaffPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               {user.userRole || "N/A"}
-                              {/* If you want to add some styling based on role: */}
-                              {/* <span className={`px-2 py-1 text-xs rounded-full ${
-      user.role === 'Admin' ? 'bg-purple-100 text-purple-800' :
-      user.role === 'Manager' ? 'bg-blue-100 text-blue-800' :
-      'bg-gray-100 text-gray-800'
-    }`}>
-      {user.role}
-    </span> */}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -526,7 +519,7 @@ export default function StaffPage() {
                                   }
                                   className="sr-only peer"
                                 />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3b3b3b]"></div>
                               </label>
                             </div>
                           </td>
@@ -626,7 +619,7 @@ export default function StaffPage() {
                                       <h4 className="font-medium text-gray-800 flex items-center">
                                         Module Access
                                         <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                          {user.modules.length} modules
+                                          {user.modules.length} module(s)
                                         </span>
                                       </h4>
                                     </div>
@@ -901,168 +894,127 @@ export default function StaffPage() {
                                     )}
 
                                     {/* Grant New Module Access Section */}
-                                    <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-                                      <h5 className="text-sm font-medium text-gray-700 mb-3">
-                                        Grant New Module Access
-                                      </h5>
-                                      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-                                        <div className="flex-grow">
-                                          <Select
-                                            showSearch
-                                            placeholder="Select a module..."
-                                            value={
-                                              selectedModuleToGrant || undefined
-                                            }
-                                            onChange={(value) => {
-                                              setSelectedModuleToGrant(value);
-                                              setNewModulePermissions({
-                                                canView: true,
-                                                canEdit: false,
-                                                canDelete: false,
-                                              });
-                                            }}
-                                            className="w-full"
-                                            size="middle"
-                                            optionFilterProp="children"
-                                            filterOption={(input, option) =>
-                                              typeof option?.children === "string"
-                                                ? (option.children as string).toLowerCase().includes(input.toLowerCase())
-                                                : false
-                                            }
-                                          >
-                                            {getAvailableModulesForUser(
-                                              user
-                                            ).map((module) => (
-                                              <Select.Option
-                                                key={module.id}
-                                                value={module.id}
-                                              >
-                                                {module.name}
-                                              </Select.Option>
-                                            ))}
-                                          </Select>
-                                        </div>
+                                    {getAvailableModulesForUser(user).length >
+                                      0 && (
+                                      <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
+                                        <h5 className="text-sm font-medium text-gray-700 mb-3">
+                                          Grant New Module Access
+                                        </h5>
 
-                                        {selectedModuleToGrant && (
-                                          <div className="w-full sm:w-auto">
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                              Permissions
-                                            </label>
-                                            <div className="flex items-center space-x-4">
-                                              <label className="inline-flex items-center">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={
-                                                    newModulePermissions.canView
-                                                  }
-                                                  onChange={(e) =>
-                                                    setNewModulePermissions(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        canView:
-                                                          e.target.checked,
-                                                      })
-                                                    )
-                                                  }
-                                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700">
-                                                  View
-                                                </span>
-                                              </label>
-                                              <label className="inline-flex items-center">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={
-                                                    newModulePermissions.canEdit
-                                                  }
-                                                  onChange={(e) =>
-                                                    setNewModulePermissions(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        canEdit:
-                                                          e.target.checked,
-                                                      })
-                                                    )
-                                                  }
-                                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700">
-                                                  Edit
-                                                </span>
-                                              </label>
-                                              <label className="inline-flex items-center">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={
-                                                    newModulePermissions.canDelete
-                                                  }
-                                                  onChange={(e) =>
-                                                    setNewModulePermissions(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        canDelete:
-                                                          e.target.checked,
-                                                      })
-                                                    )
-                                                  }
-                                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                />
-                                                <span className="ml-2 text-sm text-gray-700">
-                                                  Delete
-                                                </span>
-                                              </label>
-                                            </div>
+                                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                                          {/* Module Select */}
+                                          <div className="flex-grow">
+                                            <Select
+                                              showSearch
+                                              placeholder="Select a module..."
+                                              value={
+                                                selectedModuleToGrant ||
+                                                undefined
+                                              }
+                                              onChange={(value) => {
+                                                setSelectedModuleToGrant(value);
+                                                setNewModulePermissions({
+                                                  canView: true,
+                                                  canEdit: false,
+                                                  canDelete: false,
+                                                });
+                                              }}
+                                              className="w-full"
+                                              optionFilterProp="label"
+                                              filterOption={(input, option) =>
+                                                (option?.label as string)
+                                                  .toLowerCase()
+                                                  .includes(input.toLowerCase())
+                                              }
+                                              options={getAvailableModulesForUser(
+                                                user
+                                              ).map((module) => ({
+                                                value: module.id,
+                                                label: module.name,
+                                              }))}
+                                            />
                                           </div>
-                                        )}
 
-                                        <button
-                                          onClick={() =>
-                                            handleGrantModuleAccess(user.userId)
-                                          }
-                                          disabled={
-                                            !selectedModuleToGrant ||
-                                            moduleAccessLoading[
-                                              `grant-${user.userId}`
-                                            ]
-                                          }
-                                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#3b3b3b] hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-                                        >
-                                          {moduleAccessLoading[
-                                            `grant-${user.userId}`
-                                          ] ? (
-                                            <>
-                                              <svg
-                                                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                              >
-                                                <circle
-                                                  className="opacity-25"
-                                                  cx="12"
-                                                  cy="12"
-                                                  r="10"
-                                                  stroke="currentColor"
-                                                  strokeWidth="4"
-                                                ></circle>
-                                                <path
-                                                  className="opacity-75"
-                                                  fill="currentColor"
-                                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                ></path>
-                                              </svg>
-                                              Granting...
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Plus className="-ml-1 mr-2 h-4 w-4" />
-                                              Grant Access
-                                            </>
+                                          {/* Permissions */}
+                                          {selectedModuleToGrant && (
+                                            <div className="w-full sm:w-auto">
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Permissions
+                                              </label>
+                                              <Checkbox.Group
+                                                value={Object.keys(
+                                                  newModulePermissions
+                                                ).filter(
+                                                  (key) =>
+                                                    newModulePermissions[
+                                                      key as keyof typeof newModulePermissions
+                                                    ]
+                                                )}
+                                                onChange={(checkedValues) => {
+                                                  setNewModulePermissions({
+                                                    canView:
+                                                      checkedValues.includes(
+                                                        "canView"
+                                                      ),
+                                                    canEdit:
+                                                      checkedValues.includes(
+                                                        "canEdit"
+                                                      ),
+                                                    canDelete:
+                                                      checkedValues.includes(
+                                                        "canDelete"
+                                                      ),
+                                                  });
+                                                }}
+                                                options={[
+                                                  {
+                                                    label: "View",
+                                                    value: "canView",
+                                                  },
+                                                  {
+                                                    label: "Edit",
+                                                    value: "canEdit",
+                                                  },
+                                                  {
+                                                    label: "Delete",
+                                                    value: "canDelete",
+                                                  },
+                                                ]}
+                                              />
+                                            </div>
                                           )}
-                                        </button>
+
+                                          {/* Grant Button */}
+                                          <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            loading={
+                                              moduleAccessLoading[
+                                                `grant-${user.userId}`
+                                              ]
+                                            }
+                                            onClick={() =>
+                                              handleGrantModuleAccess(
+                                                user.userId
+                                              )
+                                            }
+                                            disabled={!selectedModuleToGrant}
+                                            className="w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed"
+                                            style={{
+                                              background: selectedModuleToGrant
+                                                ? "#3b3b3b"
+                                                : "#9ca3af",
+                                              borderColor: selectedModuleToGrant
+                                                ? "#3b3b3b"
+                                                : "#9ca3af",
+                                              color: "#fff",
+                                            }}
+                                          >
+                                            Grant Access
+                                          </Button>
+                                        </div>
                                       </div>
-                                    </div>
+                                    )}
                                   </div>
                                 </motion.div>
                               </td>
