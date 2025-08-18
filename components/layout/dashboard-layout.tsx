@@ -33,7 +33,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="lg:pl-64">
         {/* Navbar for all screens */}
         <DashboardNavbar
-          user={{ name: "Jayanth", role: "Staff" }}
           onMenuClick={() => setSidebarOpen(true)}
         />
 
