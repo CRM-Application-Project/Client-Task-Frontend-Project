@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Department,
@@ -126,21 +126,31 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Departments</h1>
-      </div>
-      <div className="flex items-center gap-4 justify-between">
-        <Input
-          placeholder="Search departments..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="max-w-sm"
-        />
-        <CreateDepartmentModal onSuccess={fetchDepartments} />
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Departments</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Centralized control to add, edit, or delete departmental records
+          </p>
+        </div>
+        <div className="flex items-center gap-4 justify-end">
+          <div className="relative flex-grow max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <Input
+              placeholder="Search departments..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="max-w-sm pl-10 bg-gray-50 focus:bg-white"
+            />
+          </div>
+          <CreateDepartmentModal onSuccess={fetchDepartments} />
+        </div>
       </div>
       <div className="rounded-sm border shadow-sm">
         <Table>
@@ -184,7 +194,7 @@ export default function DepartmentsPage() {
               ))
             ) : paginatedData.length > 0 ? (
               paginatedData.map((dept) => (
-                <TableRow key={dept.id} className="hover:bg-gray-50">
+                <TableRow key={dept.id} className="bg-white hover:bg-white">
                   <TableCell className="font-medium">{dept.id}</TableCell>
                   <TableCell className="font-medium text-blue-600">
                     {dept.name}

@@ -90,7 +90,7 @@ export default function UpdateDepartmentModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="name">Department Name</Label>
             <Input
               id="name"

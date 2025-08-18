@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { Plus } from "lucide-react";
 
 export default function CreateDepartmentModal({
   onSuccess,
@@ -65,7 +66,7 @@ export default function CreateDepartmentModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Add Department</Button>
+        <Button className="gap-2"><Plus className="h-4 w-4" />Add Department</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
