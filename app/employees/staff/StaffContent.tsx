@@ -15,8 +15,9 @@ import {
 import { CreateStaffModal } from "./createUserModal";
 import { UpdateStaffModal } from "./updateUserModal";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Check, X } from "lucide-react";
+import { Pencil, Trash2, Plus, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Select } from "antd";
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -411,7 +412,7 @@ export default function StaffPage() {
             </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#3b3b3b] text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
             >
               <Plus className="h-4 w-4" />
               Add Staff
@@ -906,41 +907,40 @@ export default function StaffPage() {
                                       </h5>
                                       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
                                         <div className="flex-grow">
-                                          <label
-                                            htmlFor="module-select"
-                                            className="block text-xs font-medium text-gray-700 mb-1"
-                                          >
-                                            Select Module
-                                          </label>
-                                          <select
-                                            id="module-select"
-                                            value={selectedModuleToGrant || ""}
-                                            onChange={(e) => {
-                                              setSelectedModuleToGrant(
-                                                Number(e.target.value)
-                                              );
+                                          <Select
+                                            showSearch
+                                            placeholder="Select a module..."
+                                            value={
+                                              selectedModuleToGrant || undefined
+                                            }
+                                            onChange={(value) => {
+                                              setSelectedModuleToGrant(value);
                                               setNewModulePermissions({
                                                 canView: true,
                                                 canEdit: false,
                                                 canDelete: false,
                                               });
                                             }}
-                                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                            className="w-full"
+                                            size="middle"
+                                            optionFilterProp="children"
+                                            filterOption={(input, option) =>
+                                              typeof option?.children === "string"
+                                                ? (option.children as string).toLowerCase().includes(input.toLowerCase())
+                                                : false
+                                            }
                                           >
-                                            <option value="">
-                                              Select a module...
-                                            </option>
                                             {getAvailableModulesForUser(
                                               user
                                             ).map((module) => (
-                                              <option
+                                              <Select.Option
                                                 key={module.id}
                                                 value={module.id}
                                               >
                                                 {module.name}
-                                              </option>
+                                              </Select.Option>
                                             ))}
-                                          </select>
+                                          </Select>
                                         </div>
 
                                         {selectedModuleToGrant && (
@@ -1026,7 +1026,7 @@ export default function StaffPage() {
                                               `grant-${user.userId}`
                                             ]
                                           }
-                                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#3b3b3b] hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
                                         >
                                           {moduleAccessLoading[
                                             `grant-${user.userId}`
