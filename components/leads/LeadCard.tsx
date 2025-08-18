@@ -211,10 +211,7 @@ export const LeadCard = ({
                 Change Status
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onImportLead?.()}>
-                <Upload className="h-4 w-4 mr-2" />
-                Import Leads
-              </DropdownMenuItem>
+        
               <DropdownMenuItem onClick={() => onLeadSorting?.()}>
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Lead Sorting

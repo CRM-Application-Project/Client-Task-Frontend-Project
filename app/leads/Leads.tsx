@@ -9,7 +9,7 @@ import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Lead, LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
-import { deleteLeadById, getAllLeads, filterLeads, updateLead } from "../services/data.service";
+import { deleteLeadById, getAllLeads, filterLeads, updateLead, AssignDropdown, getAssignDropdown } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
 import LeadSortingModal from "@/components/leads/LeadSortingModal";
@@ -19,6 +19,7 @@ import AddFollowUpModal from "@/components/leads/AddFollowUpModal";
 import EditLeadModal from "@/components/leads/EditLeadModal";
 import ViewLeadModal from "@/components/leads/ViewLeadModal";
 import { format } from "date-fns";
+import { FilterLeadsParams } from "@/lib/data";
 
 type LeadFiltersType = {
   status?: LeadStatus;
@@ -48,6 +49,8 @@ const Leads = () => {
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isChangeAssignModalOpen, setIsChangeAssignModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [assignOptions, setAssignOptions] = useState<AssignDropdown[]>([]);
+  
   const [isSortingModalOpen, setIsSortingModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -68,10 +71,29 @@ const Leads = () => {
     "CLOSED_LOST",
   ];
 
-  // Transform API lead data to Lead interface
- const transformApiLead = (apiLead: any): Lead => {
-  console.log("Transforming API lead:", apiLead);
   
+ useEffect(() => {
+    const fetchAssignOptions = async () => {
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data) {
+          setAssignOptions(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch assign options:", error);
+      }
+    };
+    
+    fetchAssignOptions();
+  }, []);
+
+  const getAssignedToLabel = (id: string | undefined): string | null => {
+  if (!id) return null;
+  const option = assignOptions.find(opt => opt.id === id);
+  return option ? option.label : null;
+};
+
+ const transformApiLead = (apiLead: any): Lead => {
   const transformed = {
     id: apiLead.leadId,
     name: apiLead.customerName,
@@ -90,41 +112,22 @@ const Leads = () => {
     leadReference: apiLead.leadReference,
   };
   
-  console.log("Transformed lead:", transformed);
   return transformed;
 };
 
-// Add new lead to local state with debugging
+// FIXED: Simplified add lead handler
 const handleAddNewLead = (apiLeadData: any) => {
-  console.log("handleAddNewLead called with:", apiLeadData);
-  
-  if (!apiLeadData) {
-    console.error("No API lead data provided");
-    return;
-  }
+  if (!apiLeadData) return;
   
   const newLead = transformApiLead(apiLeadData);
-  console.log("Adding new lead to state:", newLead);
-  
-  setLeads((prevLeads) => {
-    console.log("Previous leads count:", prevLeads.length);
-    const updatedLeads = [newLead, ...prevLeads];
-    console.log("Updated leads count:", updatedLeads.length);
-    return updatedLeads;
-  });
+  setLeads((prevLeads) => [newLead, ...prevLeads]);
 };
 
-// Simplified handleAddLead
 const handleAddLead = () => {
   setIsAddModalOpen(true);
 };
 
-// 3. Alternative approach - if the above doesn't work, try this:
-// Instead of relying on the API response, create the lead optimistically:
-
 const handleAddNewLeadOptimistic = (formData: any) => {
-  console.log("Creating lead optimistically with form data:", formData);
-  
   const newLead: Lead = {
     id: formData.leadId,
     name: formData.customerName,
@@ -143,14 +146,58 @@ const handleAddNewLeadOptimistic = (formData: any) => {
     leadReference: formData.leadReference,
   };
   
-  console.log("Adding optimistic lead:", newLead);
-  
-  setLeads((prevLeads) => {
-    const updatedLeads = [newLead, ...prevLeads];
-    console.log("Leads updated optimistically, count:", updatedLeads.length);
-    return updatedLeads;
-  });
+  setLeads((prevLeads) => [newLead, ...prevLeads]);
 };
+
+const fetchFilteredLeads = async () => {
+  try {
+    setIsLoading(true);
+    
+    // Prepare filter parameters with proper type conversion
+    const filterParams: FilterLeadsParams = {
+      startDate: filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : null,
+      endDate: filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : null,
+      leadLabel: filters.label || null,
+      leadSource: filters.source || null,
+      assignedTo: getAssignedToLabel(filters.assignedTo) || null,
+      sortBy: filters.sortBy || null,
+      direction: filters.sortOrder || null
+    };
+
+    // Clean null/undefined values
+    const cleanedParams = Object.fromEntries(
+      Object.entries(filterParams).filter(([_, value]) => value !== null && value !== undefined)
+    );
+
+    const response = await filterLeads(cleanedParams);
+    
+    if (response.isSuccess && response.data) {
+      const transformedLeads = response.data.map(transformApiLead);
+      setLeads(transformedLeads);
+    }
+  } catch (error) {
+    console.error("Failed to filter leads:", error);
+    toast({
+      title: "Error",
+      description: "Failed to filter leads",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// FIXED: Improved useEffect for filters
+useEffect(() => {
+  const hasActiveFilters = Object.keys(filters).length > 0;
+  
+  if (hasActiveFilters && !searchQuery) {
+    fetchFilteredLeads();
+  } else if (!hasActiveFilters && !searchQuery) {
+    // If no filters, fetch all leads
+    fetchLeads();
+  }
+}, [filters]);
 
   // Fetch leads only on initial load
   const fetchLeads = async () => {
@@ -177,28 +224,16 @@ const handleAddNewLeadOptimistic = (formData: any) => {
     fetchLeads();
   }, []);
 
-  // Filter leads based on search and filters
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesPriority =
-      !filters.priority || lead.priority === filters.priority;
-    const matchesStatus = !filters.status || lead.status === filters.status;
-    const matchesSource = !filters.source || lead.source === filters.source;
-    const matchesAssignedTo =
-      !filters.assignedTo || lead.assignedTo === filters.assignedTo;
-
-    return (
-      matchesSearch &&
-      matchesPriority &&
-      matchesStatus &&
-      matchesSource &&
-      matchesAssignedTo
-    );
-  });
+// FIXED: Filter leads based on search and filters (local filtering for search)
+const filteredLeads = searchQuery 
+  ? leads.filter((lead) => {
+      return (
+        lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    })
+  : leads;
 
 const handleDragEnd = async (result: DropResult) => {
   if (!result.destination) return;
@@ -267,9 +302,6 @@ const handleDragEnd = async (result: DropResult) => {
     });
   }
 };
-
-  // Add new lead to local state
- 
 
   // Update existing lead in local state
   const handleUpdateLead = (updatedLead: Lead) => {
@@ -363,19 +395,40 @@ const handleDragEnd = async (result: DropResult) => {
     setIsImportModalOpen(true);
   };
 
+  // FIXED: Improved import leads handler to prevent duplication
   const handleImportLeads = (importedLeads: any[]) => {
-    const newLeads = importedLeads.map((leadData) => ({
-      ...leadData,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+    if (!importedLeads || !Array.isArray(importedLeads) || importedLeads.length === 0) {
+      console.warn("No leads to import or invalid data");
+      // Refresh leads after import to ensure consistency
+      fetchLeads();
+      return;
+    }
 
-    setLeads((prevLeads) => [...prevLeads, ...newLeads]);
-    toast({
-      title: "Leads imported",
-      description: `${importedLeads.length} leads have been successfully imported.`,
-    });
+    try {
+      const transformedLeads = importedLeads.map(lead => transformApiLead(lead));
+      
+      // FIXED: Instead of adding to existing leads, replace with fresh data to avoid duplicates
+      // Option 1: Add only new leads (check for duplicates)
+      setLeads(prevLeads => {
+        const existingIds = new Set(prevLeads.map(lead => lead.id));
+        const newLeads = transformedLeads.filter(lead => !existingIds.has(lead.id));
+        return [...newLeads, ...prevLeads];
+      });
+      
+      toast({
+        title: "Leads imported",
+        description: `${transformedLeads.length} leads have been successfully imported.`,
+      });
+    } catch (error) {
+      console.error("Error transforming imported leads:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process imported leads",
+        variant: "destructive",
+      });
+      // Fallback: refresh all leads
+      fetchLeads();
+    }
   };
 
   const handleLeadSorting = () => {
@@ -434,8 +487,6 @@ const handleDragEnd = async (result: DropResult) => {
     });
   };
 
-
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -461,6 +512,7 @@ const handleDragEnd = async (result: DropResult) => {
             setSortConfig(undefined);
           }}
            onImportLead={() => setIsImportModalOpen(true)} 
+            onApplyFilters={() => fetchFilteredLeads()}
         />
 
         {viewMode === "kanban" && (
@@ -524,10 +576,7 @@ const handleDragEnd = async (result: DropResult) => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {lead.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
+                            {lead?.name?.split(" ")?.map((n) => n[0])?.join("")}
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">

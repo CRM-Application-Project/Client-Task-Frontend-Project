@@ -32,7 +32,8 @@ import { useToast } from '@/hooks/use-toast';
 import { leadTransfer, getAssignDropdown, AssignDropdown } from '@/app/services/data.service';
 
 const formSchema = z.object({
-  transferTo: z.string().min(1, 'Please select an assignee'),
+  transferToId: z.string().min(1, 'Please select an assignee'),
+  transferToLabel: z.string().optional(), // Will be set programmatically
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -41,7 +42,7 @@ interface ChangeAssignModalProps {
   isOpen: boolean;
   onClose: () => void;
   lead: Lead | null;
-  onChangeAssign: (leadId: string, assignedTo: string) => void;
+  onChangeAssign: (leadId: string, assignedToLabel: string) => void;
 }
 
 const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({ 
@@ -58,7 +59,8 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      transferTo: lead?.assignedTo || '',
+      transferToId: '',
+      transferToLabel: '',
     },
   });
 
@@ -91,19 +93,34 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   // Reset form when lead changes
   React.useEffect(() => {
     if (lead) {
-      form.reset({ transferTo: lead.assignedTo });
+      const currentAssignee = assignees.find(a => a.label === lead.assignedTo);
+      form.reset({ 
+        transferToId: currentAssignee?.id || '',
+        transferToLabel: lead.assignedTo 
+      });
     }
-  }, [lead, form]);
+  }, [lead, assignees, form]);
 
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
+
+    // Find the selected assignee to get the label
+    const selectedAssignee = assignees.find(a => a.id === data.transferToId);
+    if (!selectedAssignee) {
+      toast({
+        title: "Error",
+        description: "Selected assignee not found",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     
     try {
       const response = await leadTransfer({
         leadId: lead.id,
-        transferTo: data.transferTo
+        transferTo: selectedAssignee.label // Send label instead of ID
       });
 
       if (response.isSuccess) {
@@ -113,8 +130,8 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
           variant: "default",
         });
         
-        // Call the parent component's callback to update the UI
-        onChangeAssign(lead.id, data.transferTo);
+        // Call the parent component's callback with the label
+        onChangeAssign(lead.id, selectedAssignee.label);
         onClose();
       } else {
         toast({
@@ -154,12 +171,17 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="transferTo"
+              name="transferToId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Transfer To</FormLabel>
                   <Select 
-                    onValueChange={field.onChange} 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Update the label when selection changes
+                      const selected = assignees.find(a => a.id === value);
+                      form.setValue('transferToLabel', selected?.label || '');
+                    }}
                     value={field.value}
                     disabled={isSubmitting || loadingAssignees}
                   >

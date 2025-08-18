@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import { DateRangePicker } from "../task/DateRangePicker";
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 
-
 interface DateRange {
   from: Date;
   to: Date;
@@ -30,7 +29,8 @@ interface LeadFiltersProps {
   viewMode: 'kanban' | 'grid';
   onViewModeChange: (mode: 'kanban' | 'grid') => void;
   onClearAllFilters: () => void;
-   onImportLead: () => void;
+  onImportLead: () => void;
+  onApplyFilters: () => void; // New prop for applying filters
 }
 
 export const LeadFilters = ({
@@ -42,15 +42,22 @@ export const LeadFilters = ({
   viewMode,
   onViewModeChange,
   onClearAllFilters,
-  onImportLead
+  onImportLead,
+  onApplyFilters, // New prop
 }: LeadFiltersProps) => {
   const priorities: LeadPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
   const sources: LeadSource[] = ['WEBSITE', 'REFERRAL', 'SOCIAL_MEDIA', 'EMAIL', 'PHONE', 'EVENT', 'OTHER'];
   const labels = ["Important", "Cold", "Hot", "Warm"];
-  const [assignees, setAssignees] = useState<AssignDropdown[]>([]); // State for assignees
+  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
+  const [localFilters, setLocalFilters] = useState<ExtendedLeadFilters>(filters); // Local state for filters
+
+  // Initialize local filters when props change
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   // Fetch assignees from API
   useEffect(() => {
@@ -72,12 +79,26 @@ export const LeadFilters = ({
   }, []);
 
   const clearDateRange = () => {
-    const { dateRange, ...rest } = filters;
-    onFiltersChange(rest);
+    const { dateRange, ...rest } = localFilters;
+    setLocalFilters(rest);
   };
 
   const handleDateRangeSelect = (range: DateRange) => {
-    onFiltersChange({ ...filters, dateRange: range });
+    setLocalFilters({ ...localFilters, dateRange: range });
+  };
+
+  const handleApply = () => {
+    // Update the parent filters state which will trigger the API call
+    onFiltersChange(localFilters);
+    // Call the apply filters function
+    onApplyFilters();
+  };
+
+  const handleClear = () => {
+    // Reset local filters
+    setLocalFilters({});
+    // Call parent clear function
+    onClearAllFilters();
   };
 
   return (
@@ -90,71 +111,63 @@ export const LeadFilters = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Date Range Display */}
-         
-
-          {/* Search Bar */}
-         
-
-          {/* Action Buttons */}
-       <div className="flex items-center gap-2">
-  {/* Add Lead Button */}
-  <Button
-    onClick={onAddLead}
-    className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
-  >
-    <Plus className="h-4 w-4 mr-2" />
-    Add Lead
-  </Button>
-
-  {/* Icon Buttons */}
-  <Button
-    variant="outline"
-    size="icon"
-    onClick={onImportLead}
-    className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
-  >
-    <UploadCloud className="h-4 w-4 text-gray-600" />
-  </Button>
-  <Button
-    variant="outline"
-    size="icon"
-    className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
-  >
-    <Settings className="h-4 w-4 text-gray-600" />
-  </Button>
-    
-          <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+          <div className="flex items-center gap-2">
+            {/* Add Lead Button */}
             <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onViewModeChange('kanban')}
-              className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
+              onClick={onAddLead}
+              className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
             >
-              <LayoutGrid className="h-4 w-4" />
+              <Plus className="h-4 w-4 mr-2" />
+              Add Lead
+            </Button>
+
+            {/* Icon Buttons */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onImportLead}
+              className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
+            >
+              <UploadCloud className="h-4 w-4 text-gray-600" />
             </Button>
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onViewModeChange('grid')}
-              className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
+              variant="outline"
+              size="icon"
+              className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
             >
-              <Grid className="h-4 w-4" />
+              <Settings className="h-4 w-4 text-gray-600" />
             </Button>
+            
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => onViewModeChange('kanban')}
+                className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => onViewModeChange('grid')}
+                className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-</div>
-
         </div>
       </div>
+      
       <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
-
-<div className="flex justify-end gap-4 p-3">
-    {filters.dateRange && (
-            <div className="flex items-center bg-white px-3 py-1.5 rounded-md  text-sm mr-5">
+        <div className="flex justify-end gap-4 p-3">
+          {localFilters.dateRange && (
+            <div className="flex items-center bg-white px-3 py-1.5 rounded-md text-sm mr-5">
               <Calendar className="h-4 w-4 text-gray-500 mr-2" />
               <span className="text-gray-700">
-                {filters.dateRange.from.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} - 
-                {filters.dateRange.to.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {localFilters.dateRange.from.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} - 
+                {localFilters.dateRange.to.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
               <button 
                 onClick={clearDateRange} 
@@ -164,7 +177,8 @@ export const LeadFilters = ({
               </button>
             </div>
           )}
-   <div className="relative w-64">
+          
+          <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search leads..."
@@ -173,7 +187,8 @@ export const LeadFilters = ({
               className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
             />
           </div>
-           <div className="relative w-64">
+          
+          <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search by follow-up date..."
@@ -182,117 +197,145 @@ export const LeadFilters = ({
               className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
             />
           </div>
+          
           <div>
-           <Button 
+            <Button 
               variant="outline" 
               onClick={() => setIsDatePickerOpen(true)}
               className="border-gray-300 rounded-lg"
             >
               <Calendar className="h-4 w-4" />
             </Button>
-            </div>
-</div>
-      {/* Filters Row */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Priority Filter */}
-        <Select
-          value={filters.priority || "all"}
-          onValueChange={(value) =>
-            onFiltersChange({ ...filters, priority: value === "all" ? undefined : value as LeadPriority })
-          }
-        >
-          <SelectTrigger className="w-52 rounded-lg border-gray-300">
-            <SelectValue placeholder="All Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Priority</SelectItem>
-            {priorities.map((priority) => (
-              <SelectItem key={priority} value={priority}>
-                {priority}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          </div>
+        </div>
 
-        {/* Status Filter */}
-       
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Priority Filter */}
+          <Select
+            value={localFilters.priority || "all"}
+            onValueChange={(value) =>
+              setLocalFilters({ ...localFilters, priority: value === "all" ? undefined : value as LeadPriority })
+            }
+          >
+            <SelectTrigger className="w-52 rounded-lg border-gray-300">
+              <SelectValue placeholder="All Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priority</SelectItem>
+              {priorities.map((priority) => (
+                <SelectItem key={priority} value={priority}>
+                  {priority}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Labels Filter */}
-        <Select
-          value={filters.label || "all"}
-          onValueChange={(value) =>
-            onFiltersChange({ ...filters, label: value === "all" ? undefined : value })
-          }
-        >
-          <SelectTrigger className="w-52 rounded-lg border-gray-300">
-            <SelectValue placeholder="All Labels" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Labels</SelectItem>
-            {labels.map((label) => (
-              <SelectItem key={label} value={label}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Status Filter */}
+          <Select
+            value={localFilters.status || "all"}
+            onValueChange={(value) =>
+              setLocalFilters({ ...localFilters, status: value === "all" ? undefined : value as LeadStatus })
+            }
+          >
+            <SelectTrigger className="w-52 rounded-lg border-gray-300">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              {statuses.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status.replace('_', ' ')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Sources Filter */}
-        <Select
-          value={filters.source || "all"}
-          onValueChange={(value) =>
-            onFiltersChange({ ...filters, source: value === "all" ? undefined : value as LeadSource })
-          }
-        >
-          <SelectTrigger className="w-52 rounded-lg border-gray-300">
-            <SelectValue placeholder="All Sources" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Sources</SelectItem>
-            {sources.map((source) => (
-              <SelectItem key={source} value={source}>
-                {source.replace('_', ' ')}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Labels Filter */}
+          <Select
+            value={localFilters.label || "all"}
+            onValueChange={(value) =>
+              setLocalFilters({ ...localFilters, label: value === "all" ? undefined : value })
+            }
+          >
+            <SelectTrigger className="w-52 rounded-lg border-gray-300">
+              <SelectValue placeholder="All Labels" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Labels</SelectItem>
+              {labels.map((label) => (
+                <SelectItem key={label} value={label}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Assigned To Filter */}
-        <Select
-          value={filters.assignedTo || "all"}
-          onValueChange={(value) =>
-            onFiltersChange({ ...filters, assignedTo: value === "all" ? undefined : value })
-          }
-          disabled={loadingAssignees}
-        >
-          <SelectTrigger className="w-52 rounded-lg border-gray-300">
-            <SelectValue placeholder={loadingAssignees ? "Loading..." : "All Assigned To"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Assigned To</SelectItem>
-            {assignees.map((assignee) => (
-              <SelectItem key={assignee.id} value={assignee.id}>
-                {assignee.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Sources Filter */}
+          <Select
+            value={localFilters.source || "all"}
+            onValueChange={(value) =>
+              setLocalFilters({ ...localFilters, source: value === "all" ? undefined : value as LeadSource })
+            }
+          >
+            <SelectTrigger className="w-52 rounded-lg border-gray-300">
+              <SelectValue placeholder="All Sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              {sources.map((source) => (
+                <SelectItem key={source} value={source}>
+                  {source.replace('_', ' ')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-      <button 
-  onClick={onClearAllFilters}
-  className="flex items-center text-sm text-gray-500 hover:text-gray-700 ml-2 group cursor-pointer z-10"
->
-  <X className="h-4 w-4 cursor-pointer" />
-  <span className="hidden group-hover:inline ml-1">Clear all</span>
-</button>
-      </div>
+          {/* Assigned To Filter */}
+          <Select
+            value={localFilters.assignedTo || "all"}
+            onValueChange={(value) =>
+              setLocalFilters({ ...localFilters, assignedTo: value === "all" ? undefined : value })
+            }
+            disabled={loadingAssignees}
+          >
+            <SelectTrigger className="w-52 rounded-lg border-gray-300">
+              <SelectValue placeholder={loadingAssignees ? "Loading..." : "All Assigned To"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assigned To</SelectItem>
+              {assignees.map((assignee) => (
+                <SelectItem key={assignee.id} value={assignee.id}>
+                  {assignee.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 ml-auto">
+            <Button
+              variant="outline"
+              onClick={handleClear}
+              className="border-gray-300"
+            >
+              Clear Filters
+            </Button>
+            <Button
+              onClick={handleApply}
+              className="bg-gray-800 hover:bg-gray-700 text-white"
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
       </div>
 
       <DateRangePicker
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
         onSelect={handleDateRangeSelect}
-        initialRange={filters.dateRange}
+        initialRange={localFilters.dateRange}
       />
     </div>
   );

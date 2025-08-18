@@ -95,15 +95,15 @@ export const filterLeads = async (
 ): Promise<FilterLeadsResponse> => {
   const query = new URLSearchParams();
 
-  if (params.startDate) query.append("startDate", params.startDate);
-  if (params.endDate) query.append("endDate", params.endDate);
-  if (params.leadLabel) query.append("leadLabel", params.leadLabel);
-  if (params.leadSource) query.append("leadSource", params.leadSource);
-  if (params.assignedTo) query.append("assignedTo", params.assignedTo);
-  if (params.sortBy) query.append("sortBy", params.sortBy);
-  if (params.direction) query.append("direction", params.direction);
+  // Only append parameters that have values
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      query.append(key, value.toString());
+    }
+  });
 
   const url = `${API_CONSTANTS.LEAD.GET_ALL_WITH_FILTERS}?${query.toString()}`;
+  console.log("Filter API URL:", url);
   const res = await getRequest(url);
   return res as FilterLeadsResponse;
 };
