@@ -1,4 +1,4 @@
-import { FilterLeadsParams, FilterLeadsResponse, TaskStagesDropdownResponse } from "@/lib/data";
+import { ChangePasswordRequest, ChangePasswordResponse, FilterLeadsParams, FilterLeadsResponse, TaskStagesDropdownResponse } from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
   deleteRequest,
@@ -509,4 +509,14 @@ export interface GetAssignDropdownResponse {
 export const getAssignDropdown = async (): Promise<GetAssignDropdownResponse> => {
   const res = await getRequest(API_CONSTANTS.LEAD.ASSIGN_DROPDOWN);
   return res as GetAssignDropdownResponse;
+};
+
+
+export const changePassword = async (
+  userId: string,
+  payload: ChangePasswordRequest
+): Promise<ChangePasswordResponse> => {
+  const endpoint = API_CONSTANTS.LEAD.CHANGE_PASSWORD.replace(":userId", userId);
+  const res = await postRequest(endpoint, payload);
+  return res as ChangePasswordResponse;
 };

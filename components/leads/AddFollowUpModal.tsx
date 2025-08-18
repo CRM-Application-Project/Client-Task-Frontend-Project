@@ -24,6 +24,9 @@ import { Upload, X } from "lucide-react";
 import { Lead } from "../../lib/leads";
 import { useToast } from "@/hooks/use-toast";
 import { addFollowUp } from "@/app/services/data.service";
+import { DatePicker } from "antd";
+import type { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 
 const formSchema = z.object({
   nextFollowupDate: z.string().min(1, "Next followup date is required"),
@@ -159,6 +162,10 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const handleDateChange = (date: Dayjs | null, dateString: string | string[]) => {
+    form.setValue("nextFollowupDate", typeof dateString === 'string' ? dateString : dateString[0] || '');
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-4">
@@ -180,10 +187,12 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                       Next Follow-up Date *
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        type="datetime-local"
-                        {...field}
+                      <DatePicker
+                        showTime
+                        format="YYYY-MM-DDTHH:mm:ss"
                         className="w-full h-10"
+                        onChange={handleDateChange}
+                        value={field.value ? dayjs(field.value) : null}
                       />
                     </FormControl>
                     <FormMessage className="text-xs" />
