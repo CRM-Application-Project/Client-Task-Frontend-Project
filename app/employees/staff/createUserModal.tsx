@@ -50,7 +50,7 @@ export function CreateStaffModal({
     lastName: "",
     emailAddress: "",
     contactNumber: "",
-    userRole: "STAFF",
+    userRole: "",
     departmentId: 0,
     isActive: true,
     moduleAccess: [] as {
@@ -91,7 +91,7 @@ export function CreateStaffModal({
           setDepartments(deptRes.data);
           setFormData((prev) => ({
             ...prev,
-            departmentId: deptRes.data[0]?.id || 0,
+            departmentId: 0,
           }));
         } else {
           toast({
@@ -315,7 +315,9 @@ export function CreateStaffModal({
             <div className="space-y-2">
               <Label>Department</Label>
               <Select
-                value={formData.departmentId.toString()}
+                value={
+                  formData.departmentId ? formData.departmentId.toString() : ""
+                }
                 onValueChange={(value) =>
                   setFormData({ ...formData, departmentId: parseInt(value) })
                 }
