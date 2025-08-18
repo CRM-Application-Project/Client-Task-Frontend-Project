@@ -123,7 +123,6 @@ const handleAddLead = () => {
 const handleAddNewLeadOptimistic = (formData: any) => {
   console.log("Creating lead optimistically with form data:", formData);
   
-  // Create lead with temporary ID and current timestamp
   const newLead: Lead = {
     id: `temp-${Date.now()}`, // Temporary ID
     name: formData.customerName,
@@ -382,6 +381,7 @@ const handleAddNewLeadOptimistic = (formData: any) => {
             setSearchQuery("");
             setSortConfig(undefined);
           }}
+           onImportLead={() => setIsImportModalOpen(true)} 
         />
 
         {viewMode === "kanban" && (

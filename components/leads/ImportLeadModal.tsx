@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, CheckCircle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getAllLeads, importLead } from "@/app/services/data.service";
+import { getAllLeads, importLead, getAssignDropdown } from "@/app/services/data.service";
 
 interface ImportLeadModalProps {
   isOpen: boolean;
@@ -30,12 +30,36 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState("NEW");
   const [source, setSource] = useState("ONLINE");
-  const [user, setUser] = useState("Umesh G");
+  const [user, setUser] = useState("");
+  const [users, setUsers] = useState<{id: string, label: string}[]>([]);
   const [label, setLabel] = useState("");
   const [date, setDate] = useState("");
   const [emailAutomation, setEmailAutomation] = useState(false);
   const [whatsappAutomation, setWhatsappAutomation] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data.length > 0) {
+          setUsers(response.data);
+          setUser(response.data[0].id); // Set the first user as default
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load user list",
+          variant: "destructive",
+        });
+      }
+    };
+
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen, toast]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -45,7 +69,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
   };
 
   const handleImport = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !user) return;
     setImporting(true);
     try {
       const response = await importLead(selectedFile, status, user);
@@ -157,20 +181,25 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
 
           {/* Form Fields */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <select
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full p-2 border rounded-md text-sm"
-              >
-                <option value="NEW">New</option>
-                <option value="CONTACTED">Contacted</option>
-                <option value="QUALIFIED">Qualified</option>
-                <option value="LOST">Lost</option>
-              </select>
-            </div>
+          <div>
+  <Label htmlFor="status">Status</Label>
+  <select
+    id="status"
+    value={status}
+    onChange={(e) => setStatus(e.target.value as LeadStatus)}
+    className="w-full p-2 border rounded-md text-sm"
+  >
+    <option value="NEW">New</option>
+    <option value="CONTACTED">Contacted</option>
+    <option value="QUALIFIED">Qualified</option>
+    <option value="PROPOSAL">Proposal</option>
+    <option value="DEMO">Demo</option>
+    <option value="NEGOTIATIONS">Negotiations</option>
+    <option value="CLOSED_WON">Closed - Won</option>
+    <option value="CLOSED_LOST">Closed - Lost</option>
+  </select>
+</div>
+
 
             <div>
               <Label htmlFor="source">Source</Label>
@@ -194,10 +223,13 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 className="w-full p-2 border rounded-md text-sm"
+                disabled={users.length === 0}
               >
-                <option value="Umesh G">Umesh G</option>
-                <option value="John Doe">John Doe</option>
-                <option value="Jane Smith">Jane Smith</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -292,7 +324,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
           </Button>
           <Button
             onClick={handleImport}
-            disabled={!selectedFile || importing}
+            disabled={!selectedFile || importing || users.length === 0}
             className="h-9 px-3 text-sm"
           >
             {importing ? "Importing..." : "Import"}
