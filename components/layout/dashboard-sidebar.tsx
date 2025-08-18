@@ -43,7 +43,7 @@ const navigation: NavItem[] = [
     icon: UserCheck,
     href: "/employees",
     children: [
-      { name: "HR", href: "/employees/hr" },
+      // { name: "HR", href: "/employees/hr" },
       { name: "Department", href: "/employees/department" },
       { name: "Staff", href: "/employees/staff" },
     ],
