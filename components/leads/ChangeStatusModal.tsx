@@ -81,6 +81,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
         leadAddedBy: lead.assignedTo,
         customerMobileNumber: lead.phone,
         companyEmailAddress: lead.company,
+        leadPriority: lead.priority || 'MEDIUM',
         customerName: lead.name,
         customerEmailAddress: lead.email,
         leadAddress: lead.location || '',

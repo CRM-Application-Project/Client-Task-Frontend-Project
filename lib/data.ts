@@ -17,6 +17,7 @@ export interface FilterLeadsParams {
   assignedTo?: string | null;
   sortBy?: string | null;
   direction?: "asc" | "desc" | null;
+  
 }
 
 export interface FilterLeadsResponse {

@@ -9,7 +9,7 @@ import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Lead, LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
-import { deleteLeadById, getAllLeads, filterLeads } from "../services/data.service";
+import { deleteLeadById, getAllLeads, filterLeads, updateLead } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
 import LeadSortingModal from "@/components/leads/LeadSortingModal";
@@ -30,6 +30,8 @@ type LeadFiltersType = {
     from: Date;
     to: Date;
   };
+   sortBy?: string;
+  sortOrder?: "asc" | "desc";
 };
 
 const Leads = () => {
@@ -124,7 +126,7 @@ const handleAddNewLeadOptimistic = (formData: any) => {
   console.log("Creating lead optimistically with form data:", formData);
   
   const newLead: Lead = {
-    id: `temp-${Date.now()}`, // Temporary ID
+    id: formData.leadId,
     name: formData.customerName,
     company: formData.companyEmailAddress,
     email: formData.customerEmailAddress,
@@ -198,23 +200,73 @@ const handleAddNewLeadOptimistic = (formData: any) => {
     );
   });
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+const handleDragEnd = async (result: DropResult) => {
+  if (!result.destination) return;
 
-    const { source, destination, draggableId } = result;
+  const { source, destination, draggableId } = result;
 
-    if (source.droppableId === destination.droppableId) return;
+  // Don't do anything if dropped in the same place
+  if (source.droppableId === destination.droppableId) return;
 
-    const newStatus = destination.droppableId as LeadStatus;
+  const newStatus = destination.droppableId as LeadStatus;
 
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) =>
+  try {
+    // Find the lead being dragged
+    const leadToUpdate = leads.find(lead => lead.id === draggableId);
+    if (!leadToUpdate) return;
+
+    // Optimistically update local state first
+    setLeads(prevLeads =>
+      prevLeads.map(lead =>
         lead.id === draggableId
           ? { ...lead, status: newStatus, updatedAt: new Date() }
           : lead
       )
     );
-  };
+
+    // Prepare payload for API call
+    const payload = {
+      leadId: leadToUpdate.id,
+      leadStatus: newStatus,
+      leadSource: leadToUpdate.source,
+      leadAddedBy: leadToUpdate.assignedTo,
+      customerMobileNumber: leadToUpdate.phone,
+      companyEmailAddress: leadToUpdate.company,
+      customerName: leadToUpdate.name,
+      customerEmailAddress: leadToUpdate.email,
+      leadLabel: leadToUpdate.leadLabel || '',
+      leadReference: leadToUpdate.leadReference || '',
+      leadAddress: leadToUpdate.location || '',
+      comment: leadToUpdate.comment || ''
+    };
+
+    // Make API call to update status
+    const response = await updateLead(payload);
+    
+    if (!response.isSuccess) {
+      // Revert local state if API call fails
+      setLeads(prevLeads =>
+        prevLeads.map(lead =>
+          lead.id === draggableId
+            ? { ...lead, status: source.droppableId as LeadStatus }
+            : lead
+        )
+      );
+      toast({
+        title: "Error",
+        description: "Failed to update lead status",
+        variant: "destructive",
+      });
+    }
+  } catch (error) {
+    console.error("Failed to update lead status:", error);
+    toast({
+      title: "Error",
+      description: "Failed to update lead status",
+      variant: "destructive",
+    });
+  }
+};
 
   // Add new lead to local state
  
@@ -330,9 +382,36 @@ const handleAddNewLeadOptimistic = (formData: any) => {
     setIsSortingModalOpen(true);
   };
 
-  const handleApplySort = (sortBy: string, sortOrder: "asc" | "desc") => {
-    setSortConfig({ sortBy, sortOrder });
-  };
+ const handleApplySort = async (sortBy: string, sortOrder: "asc" | "desc") => {
+  try {
+    setIsLoading(true);
+    const response = await filterLeads({
+      ...filters,
+      sortBy,
+      direction: sortOrder
+    });
+    
+    if (response.isSuccess && response.data) {
+      const transformedLeads = response.data.map(transformApiLead);
+      setLeads(transformedLeads);
+      setSortConfig({ sortBy, sortOrder });
+      setFilters(prev => ({
+        ...prev,
+        sortBy,
+        sortOrder
+      }));
+    }
+  } catch (error) {
+    console.error("Failed to sort leads:", error);
+    toast({
+      title: "Error",
+      description: "Failed to sort leads",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleChangeStatus = (lead: Lead) => {
     setSelectedLead(lead);
@@ -602,7 +681,7 @@ const handleAddNewLeadOptimistic = (formData: any) => {
           isOpen={isSortingModalOpen}
           onClose={() => setIsSortingModalOpen(false)}
           onApplySort={handleApplySort}
-          currentSort={sortConfig}
+  currentSort={sortConfig}
         />
 
         <ChangeStatusModal

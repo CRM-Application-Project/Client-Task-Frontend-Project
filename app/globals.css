@@ -94,3 +94,9 @@
     display: none;
   }
 }
+
+
+.draggable-item {
+  z-index: 1000; /* Ensure it's above other elements when dragging */
+  position: relative; /* Needed for z-index to work */
+}

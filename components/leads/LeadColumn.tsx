@@ -91,7 +91,7 @@ export const LeadColumn = ({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`space-y-3 min-h-[500px] p-4 bg-gray-50 rounded-lg shadow-sm ${
+            className={`space-y-3 min-h-[500px] p-4 bg-gray-100 rounded-lg shadow-sm ${
               snapshot.isDraggingOver ? 'bg-gray-100' : ''
             }`}
           >
