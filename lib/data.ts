@@ -40,3 +40,15 @@ export interface CreateLeadRequest {
   leadAddress: string;
   comment: string;
 }
+
+
+
+export interface ChangePasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  isSuccess: boolean;
+  message: string;
+}

@@ -46,5 +46,7 @@ export const API_CONSTANTS = {
     LEAD_TRANSFER: "/lead/transfer",
     GET_ALL_WITH_FILTERS: "/lead/leads",
     ASSIGN_DROPDOWN: "/tenant/users/dropdown",
+    CHANGE_PASSWORD: "/tenant/users/:userId/change-password",
+
   },
 };
