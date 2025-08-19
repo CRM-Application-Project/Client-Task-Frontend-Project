@@ -29,29 +29,4 @@ interface VerifyUserResponse {
   };
 }
 
-
-interface LoginRequestData {
-  emailAddress: string;
-  password: string;
-  deviceType: string;
-  accessRegion: string;
-}
-
-interface LoginResponse {
-  isSuccess: boolean;
-  message: string;
-  data: {
-    profileResponse: {
-      firstName: string;
-      lastName: string;
-      emailAddress: string;
-      phoneNumber: string | null;
-      password: string;
-      userRole: string;
-    };
-    authTokenResponse: {
-      token: string | null;
-      refreshToken: string | null;
-    };
-  };
-}
+// types/auth.ts

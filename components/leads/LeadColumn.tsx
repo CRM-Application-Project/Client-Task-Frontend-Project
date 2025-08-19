@@ -18,43 +18,48 @@ interface LeadColumnProps {
 
 const statusConfig = {
   NEW: {
-    title: "New",
-    color: "bg-sky-500", // #0ea5e9
+    title: "New Lead",
+    color: "bg-gray-500", // Gray / Light Blue
     textColor: "text-white"
   },
   CONTACTED: {
     title: "Contacted",
-    color: "bg-indigo-500", // #6366f1
+    color: "bg-blue-500", // Blue
     textColor: "text-white"
   },
   QUALIFIED: {
     title: "Qualified",
-    color: "bg-green-500", // #22c55e
+    color: "bg-green-500", // Green
     textColor: "text-white"
   },
   PROPOSAL: {
-    title: "Proposal",
-    color: "bg-teal-500", // #14b8a6
+    title: "Proposal Sent",
+    color: "bg-orange-500", // Orange
     textColor: "text-white"
   },
   DEMO: {
-    title: "Demo",
-    color: "bg-yellow-500", // #eab308
+    title: "Demo Sent",
+    color: "bg-orange-400", // Orange variant for consistency
     textColor: "text-white"
   },
   NEGOTIATIONS: {
-    title: "Negotiations",
-    color: "bg-orange-500", // #f97316
+    title: "Negotiation",
+    color: "bg-yellow-500", // Yellow / Amber
     textColor: "text-white"
   },
   CLOSED_WON: {
     title: "Closed - Won",
-    color: "bg-emerald-600", // #059669
+    color: "bg-teal-600", // Dark Green / Teal
     textColor: "text-white"
   },
   CLOSED_LOST: {
     title: "Closed - Lost",
-    color: "bg-red-500", // #ef4444
+    color: "bg-red-500", // Red
+    textColor: "text-white"
+  },
+  ON_HOLD: {
+    title: "On Hold / Nurturing",
+    color: "bg-purple-500", // Purple / Violet
     textColor: "text-white"
   }
 };
