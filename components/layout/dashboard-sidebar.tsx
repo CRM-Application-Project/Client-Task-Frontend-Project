@@ -88,9 +88,9 @@ interface UserModuleAccess {
 interface DashboardSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
-
-export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
+export function DashboardSidebar({ isOpen, onClose, onCollapseChange }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
@@ -188,7 +188,13 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
     
     return hasPermission;
   };
-
+  const toggleCollapse = () => {
+    const newCollapsedState = !isCollapsed;
+    setIsCollapsed(newCollapsedState);
+    if (onCollapseChange) {
+      onCollapseChange(newCollapsedState);
+    }
+  };
   // Filter navigation based on permissions - only show items user can view
   const filteredNavigation = navigation.filter(item => {
     const hasAccess = hasPermission(item.moduleName, 'view');
@@ -282,21 +288,21 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   const SidebarContent = () => (
     <div className="flex h-full flex-col bg-[#3b3b3b] relative">
       {/* Collapse Toggle Button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          "absolute -right-3 top-20 z-10 h-6 w-6 rounded-full p-0 bg-white hover:bg-gray-200 hidden lg:flex",
-          isCollapsed && "-right-10"
-        )}
-        onClick={() => setIsCollapsed(!isCollapsed)}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="h-4 w-4 text-[#3b3b3b]" />
-        ) : (
-          <ChevronLeft className="h-4 w-4 text-[#3b3b3b]" />
-        )}
-      </Button>
+    <Button
+    variant="ghost"
+    size="sm"
+    className={cn(
+      "absolute -right-3 top-20 z-10 h-6 w-6 rounded-full p-0 bg-white hover:bg-gray-200 hidden lg:flex",
+      isCollapsed && "-right-10"
+    )}
+    onClick={toggleCollapse} // Changed from onClick={() => setIsCollapsed(!isCollapsed)}
+  >
+    {isCollapsed ? (
+      <ChevronRight className="h-4 w-4 text-[#3b3b3b]" />
+    ) : (
+      <ChevronLeft className="h-4 w-4 text-[#3b3b3b]" />
+    )}
+  </Button>
 
       {/* Logo */}
       <div className={cn(

@@ -538,7 +538,7 @@ const Leads = () => {
 
         {viewMode === "kanban" && (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-6 overflow-x-auto pb-6">
+            <div className="flex gap-4 overflow-x-auto pb-6">
               {statuses.map((status) => (
                 <LeadColumn
                   key={status}
