@@ -3,8 +3,8 @@ interface CreateTaskRequest {
   description: string; // HTML preferred
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   taskStageId: number;
-  startTime: string; // ISO date string
-  endtime: string; // ISO date string or empty
+  startDate: string; // ISO date string
+  endDate: string; // ISO date string or empty
   assignees: string[];
 }
 
