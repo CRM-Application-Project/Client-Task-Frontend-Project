@@ -38,7 +38,7 @@ const statusConfig = {
     textColor: "text-white"
   },
   DEMO: {
-    title: "Demo Sent",
+    title: "Demo",
     color: "bg-orange-400", // Orange variant for consistency
     textColor: "text-white"
   },

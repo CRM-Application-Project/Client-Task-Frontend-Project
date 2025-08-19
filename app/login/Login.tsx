@@ -24,9 +24,26 @@ interface VerifyUserResponse {
 }
 
 interface UserModuleAccess {
-  id: string;
-  name: string;
-  accessLevel: string;
+  id: number;
+  moduleId: number;
+  moduleName: string;
+  canView: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canCreate: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface VerifyUserResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    tenantToken: string | null;
+    accessRegion: string;
+    deviceType: string;
+    requiresCompany: boolean;
+  };
 }
 
 interface ProfileResponse {
@@ -52,7 +69,6 @@ interface LoginResponse {
     };
   };
 }
-
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -167,7 +183,7 @@ const handleLogin = async (e: React.FormEvent) => {
     if (response.isSuccess) {
       const { profileResponse, authTokenResponse } = response.data;
       
-      // Store tokens if they exist
+      // Store tokens in localStorage (only if they exist)
       if (authTokenResponse.token) {
         localStorage.setItem('authToken', authTokenResponse.token);
       }
@@ -175,28 +191,27 @@ const handleLogin = async (e: React.FormEvent) => {
         localStorage.setItem('refreshToken', authTokenResponse.refreshToken);
       }
 
-      // Store user data
-      localStorage.setItem('currentUser', JSON.stringify(profileResponse));
-      
-      // Convert userModuleAccessList to modules format if needed
+      // Debug: Log the original API response
+      console.log('API Response - userModuleAccessList:', profileResponse.userModuleAccessList);
+
+      // Convert userModuleAccessList to modules format
       const modules = profileResponse.userModuleAccessList?.map(access => ({
-        id: parseInt(access.id),
-        moduleId: parseInt(access.id),
-        moduleName: access.name,
-        canView: access.accessLevel.includes('view'),
-        canEdit: access.accessLevel.includes('edit'),
-        canCreate: access.accessLevel.includes('create'),
-        canDelete: access.accessLevel.includes('delete')
+        id: access.moduleId || parseInt(access.id?.toString() || '0'),
+        moduleId: access.moduleId || parseInt(access.id?.toString() || '0'),
+        moduleName: access.moduleName ? access.moduleName.charAt(0).toUpperCase() + access.moduleName.slice(1) : 'Unknown',
+        canView: access.canView ?? true,
+        canEdit: access.canEdit ?? false,
+        canCreate: access.canCreate ?? false,
+        canDelete: access.canDelete ?? false
       })) || [];
 
-      const userWithModules = {
-        ...profileResponse,
-        modules
-      };
+      // Debug: Log transformed modules
+      console.log('Transformed modules:', modules);
 
-      // Add missing properties to match UserProfile type
+      // Create complete user profile
       const completeUserProfile = {
-        ...userWithModules,
+        ...profileResponse,
+        modules,
         userId: profileResponse.id,
         contactNumber: profileResponse.phoneNumber || '',
         dateOfBirth: '',
@@ -209,32 +224,44 @@ const handleLogin = async (e: React.FormEvent) => {
         isActive: true
       };
 
+      // Debug: Log complete user profile
+      console.log('Complete User Profile:', completeUserProfile);
+
+      // Store user data in localStorage
+      localStorage.setItem('currentUser', JSON.stringify(completeUserProfile));
+      localStorage.setItem('userModules', JSON.stringify(modules));
+      
+      // Debug: Verify localStorage storage
+      console.log('Stored in localStorage - currentUser:', localStorage.getItem('currentUser'));
+      console.log('Stored in localStorage - userModules:', localStorage.getItem('userModules'));
+      
       // Dispatch login success with the user data
       dispatch(loginSuccess({ 
         user: completeUserProfile, 
         allUsers: [completeUserProfile] 
       }));
       
+      // Show success toast and redirect
       toast({
         title: "Login successful",
         description: `Welcome back, ${profileResponse.firstName}!`,
         variant: "default",
       });
       
-      // Redirect
-      if (!profileResponse.isPasswordUpdated) {
-        router.push('/reset-password');
-      } else {
-        router.push('/leads');
-      }
+      // Add a small delay before navigation to ensure state updates complete
+      setTimeout(() => {
+        console.log('Redirecting to:', profileResponse.isPasswordUpdated ? '/leads' : '/reset-password');
+        router.push(profileResponse.isPasswordUpdated ? '/leads' : '/reset-password');
+      }, 500); // Increased delay to 500ms
     } else {
-      toast({
-        title: "Login failed",
-        description: response.message,
-        variant: "destructive",
+      toast({ 
+        title: "Login failed", 
+        description: response.message, 
+        variant: "destructive" 
       });
     }
   } catch (error) {
+    console.error('Login error:', error);
     toast({
       title: "Error",
       description: error instanceof Error ? error.message : "An error occurred during login",
@@ -244,7 +271,6 @@ const handleLogin = async (e: React.FormEvent) => {
     setIsLoading(false);
   }
 };
-
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
       {/* Left Side - Image */}
