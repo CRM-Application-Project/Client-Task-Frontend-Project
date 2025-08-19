@@ -86,8 +86,8 @@ interface CreateTaskRequest {
   description: string;
   priority: TaskPriority;
   taskStageId: number;
-  startTime: string;
-  endtime: string;
+  startDate: string;
+  endDate: string;
   assignees: string[];
 }
 
@@ -96,8 +96,8 @@ interface UpdateTaskRequest {
   description: string;
   priority: TaskPriority;
   taskStageId: number;
-  startTime: string;
-  endtime: string;
+  startDate: string;
+  endDate: string;
   assignees: string[];
 }
 
@@ -351,8 +351,8 @@ export default function TaskBoard() {
           description: taskData.description,
           priority: taskData.priority,
           taskStageId: taskData.taskStageId,
-          startTime: taskData.startTime,
-          endtime: taskData.endtime,
+          startDate: taskData.startDate,
+          endDate: taskData.endDate,
           assignees: taskData.assignees
         };
         response = await updateTask(editingTask.id, updateData);

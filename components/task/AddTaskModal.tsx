@@ -29,8 +29,8 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
     description: "",
     priority: "LOW",
     taskStageId: 0,
-    startTime: new Date().toISOString(),
-    endtime: "",
+    startDate: new Date().toISOString(),
+    endDate: "",
     assignees: []
   });
 
@@ -44,10 +44,10 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
         description: editingTask.description || "",
         priority: editingTask.priority || "LOW",
         taskStageId: editingTask.taskStageId || 0,
-        startTime: editingTask.startDate 
+        startDate: editingTask.startDate 
           ? new Date(editingTask.startDate).toISOString() 
           : new Date().toISOString(),
-        endtime: editingTask.endDate 
+        endDate: editingTask.endDate 
           ? new Date(editingTask.endDate).toISOString() 
           : "",
         assignees: editingTask.assignees?.map(a => a.id) || []
@@ -59,8 +59,8 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
         description: "",
         priority: "LOW",
         taskStageId: 0,
-        startTime: new Date().toISOString(),
-        endtime: "",
+        startDate: new Date().toISOString(),
+        endDate: "",
         assignees: []
       });
     }
@@ -111,18 +111,35 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
   };
 
   // Helper function to format date for datetime-local input
- const formatDateForInput = (dateString: string) => {
+const formatDateForInput = (dateString: string) => {
   if (!dateString) return "";
+  
   const date = new Date(dateString);
   
-  // Get the local date and time components
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
+  // Convert UTC to local time for display
+  const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
   
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return localDate.toISOString().slice(0, 16);
+};
+
+// Helper function to convert local datetime to UTC ISO string
+const localToUTCISOString = (localDateTime: string): string => {
+  if (!localDateTime) return "";
+  
+  const date = new Date(localDateTime);
+  
+  // The datetime-local input gives us local time, but we need to store as UTC
+  // Create a proper ISO string in UTC
+  const utcDate = new Date(Date.UTC(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds()
+  ));
+  
+  return utcDate.toISOString();
 };
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -202,36 +219,36 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
               <Label className="text-sm font-medium text-foreground">Start Date: *</Label>
               <div className="relative">
                 <Input
-                  type="datetime-local"
-                  value={formatDateForInput(formData.startTime)}
-                onChange={(e) => {
-  const date = e.target.value ? new Date(e.target.value) : null;
-  setFormData({
-    ...formData,
-    startTime: date ? date.toISOString() : ""
-  });
-}}
-                  className="w-full"
-                  required
-                />
+  type="datetime-local"
+  value={formatDateForInput(formData.startDate)}
+  onChange={(e) => {
+    setFormData({
+      ...formData,
+      startDate: localToUTCISOString(e.target.value)
+    });
+  }}
+  className="w-full"
+  required
+/>
+
+
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">End Date (Optional):</Label>
               <div className="relative">
-                <Input
-                  type="datetime-local"
-                  value={formatDateForInput(formData.endtime)}
-                 onChange={(e) => {
-  const date = e.target.value ? new Date(e.target.value) : null;
-  setFormData({
-    ...formData,
-    endtime: date ? date.toISOString() : ""
-  });
-}}
-                  className="w-full"
-                />
+               <Input
+  type="datetime-local"
+  value={formatDateForInput(formData.endDate)}
+  onChange={(e) => {
+    setFormData({
+      ...formData,
+      endDate: localToUTCISOString(e.target.value)
+    });
+  }}
+  className="w-full"
+/>
               </div>
             </div>
           </div>
