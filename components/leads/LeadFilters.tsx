@@ -30,7 +30,7 @@ interface LeadFiltersProps {
   onViewModeChange: (mode: 'kanban' | 'grid') => void;
   onClearAllFilters: () => void;
   onImportLead: () => void;
-  onApplyFilters: () => void; // New prop for applying filters
+  onApplyFilters: () => void;
 }
 
 export const LeadFilters = ({
@@ -43,7 +43,7 @@ export const LeadFilters = ({
   onViewModeChange,
   onClearAllFilters,
   onImportLead,
-  onApplyFilters, // New prop
+  onApplyFilters,
 }: LeadFiltersProps) => {
   const priorities: LeadPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const statuses: LeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'DEMO', 'NEGOTIATIONS', 'CLOSED_WON', 'CLOSED_LOST'];
@@ -52,14 +52,12 @@ export const LeadFilters = ({
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
-  const [localFilters, setLocalFilters] = useState<ExtendedLeadFilters>(filters); // Local state for filters
+  const [localFilters, setLocalFilters] = useState<ExtendedLeadFilters>(filters);
 
-  // Initialize local filters when props change
   useEffect(() => {
     setLocalFilters(filters);
   }, [filters]);
 
-  // Fetch assignees from API
   useEffect(() => {
     const fetchAssignees = async () => {
       setLoadingAssignees(true);
@@ -88,31 +86,30 @@ export const LeadFilters = ({
   };
 
   const handleApply = () => {
-    // Update the parent filters state which will trigger the API call
     onFiltersChange(localFilters);
-    // Call the apply filters function
     onApplyFilters();
   };
 
   const handleClear = () => {
-    // Reset local filters
     setLocalFilters({});
-    // Call parent clear function
     onClearAllFilters();
   };
 
   return (
-    <div className="rounded-lg shadow-sm mb-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Leads</h1>
-          <p className="text-gray-600">{`Organize leads and track your team's work efficiently.`}</p>
-        </div>
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div className="flex flex-col gap-6">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="flex items-center gap-4">
+          
+            
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">Leads</h1>
+              <p className="text-gray-600 text-sm">{`Organize leads and track your team's work efficiently.`}</p>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            {/* Add Lead Button */}
+          <div className="flex items-center gap-3">
             <Button
               onClick={onAddLead}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
@@ -121,7 +118,6 @@ export const LeadFilters = ({
               Add Lead
             </Button>
 
-            {/* Icon Buttons */}
             <Button
               variant="outline"
               size="icon"
@@ -137,15 +133,14 @@ export const LeadFilters = ({
             >
               <Settings className="h-4 w-4 text-gray-600" />
             </Button>
-            
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               <Button
                 variant={viewMode === 'kanban' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => onViewModeChange('kanban')}
                 className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
               >
-                <LayoutGrid className="h-4 w-4" />
+                <Grid className="h-4 w-4" />
               </Button>
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -153,17 +148,38 @@ export const LeadFilters = ({
                 onClick={() => onViewModeChange('grid')}
                 className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}
               >
-                <Grid className="h-4 w-4" />
+                <LayoutGrid className="h-4 w-4" />
               </Button>
             </div>
           </div>
+          
         </div>
-      </div>
-      
-      <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
-        <div className="flex justify-end gap-4 p-3">
+
+        {/* Search and Date Range Section */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mt-[-15x]">
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search leads..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+              />
+            </div>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDatePickerOpen(true)}
+              className="border-gray-300 rounded-lg flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              <span>Date Range</span>
+            </Button>
+          </div>
+
           {localFilters.dateRange && (
-            <div className="flex items-center bg-white px-3 py-1.5 rounded-md text-sm mr-5">
+            <div className="flex items-center bg-gray-100 px-3 py-1.5 rounded-md text-sm">
               <Calendar className="h-4 w-4 text-gray-500 mr-2" />
               <span className="text-gray-700">
                 {localFilters.dateRange.from.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} - 
@@ -177,36 +193,6 @@ export const LeadFilters = ({
               </button>
             </div>
           )}
-          
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search leads..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
-            />
-          </div>
-          
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search by follow-up date..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
-            />
-          </div>
-          
-          <div>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsDatePickerOpen(true)}
-              className="border-gray-300 rounded-lg"
-            >
-              <Calendar className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
         {/* Filters Row */}
@@ -218,8 +204,8 @@ export const LeadFilters = ({
               setLocalFilters({ ...localFilters, priority: value === "all" ? undefined : value as LeadPriority })
             }
           >
-            <SelectTrigger className="w-52 rounded-lg border-gray-300">
-              <SelectValue placeholder="All Priority" />
+            <SelectTrigger className="w-40 rounded-lg border-gray-300">
+              <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priority</SelectItem>
@@ -238,8 +224,8 @@ export const LeadFilters = ({
               setLocalFilters({ ...localFilters, status: value === "all" ? undefined : value as LeadStatus })
             }
           >
-            <SelectTrigger className="w-52 rounded-lg border-gray-300">
-              <SelectValue placeholder="All Status" />
+            <SelectTrigger className="w-40 rounded-lg border-gray-300">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
@@ -258,8 +244,8 @@ export const LeadFilters = ({
               setLocalFilters({ ...localFilters, label: value === "all" ? undefined : value })
             }
           >
-            <SelectTrigger className="w-52 rounded-lg border-gray-300">
-              <SelectValue placeholder="All Labels" />
+            <SelectTrigger className="w-40 rounded-lg border-gray-300">
+              <SelectValue placeholder="Labels" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Labels</SelectItem>
@@ -278,8 +264,8 @@ export const LeadFilters = ({
               setLocalFilters({ ...localFilters, source: value === "all" ? undefined : value as LeadSource })
             }
           >
-            <SelectTrigger className="w-52 rounded-lg border-gray-300">
-              <SelectValue placeholder="All Sources" />
+            <SelectTrigger className="w-40 rounded-lg border-gray-300">
+              <SelectValue placeholder="Sources" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
@@ -299,8 +285,8 @@ export const LeadFilters = ({
             }
             disabled={loadingAssignees}
           >
-            <SelectTrigger className="w-52 rounded-lg border-gray-300">
-              <SelectValue placeholder={loadingAssignees ? "Loading..." : "All Assigned To"} />
+            <SelectTrigger className="w-40 rounded-lg border-gray-300">
+              <SelectValue placeholder={loadingAssignees ? "Loading..." : "Assigned To"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Assigned To</SelectItem>
@@ -317,13 +303,13 @@ export const LeadFilters = ({
             <Button
               variant="outline"
               onClick={handleClear}
-              className="border-gray-300"
+              className="border-gray-300 w-32"
             >
               Clear Filters
             </Button>
             <Button
               onClick={handleApply}
-              className="bg-gray-800 hover:bg-gray-700 text-white"
+              className="bg-gray-800 hover:bg-gray-700 text-white w-32"
             >
               Apply Filters
             </Button>

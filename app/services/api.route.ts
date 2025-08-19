@@ -3,6 +3,7 @@ export const API_CONSTANTS = {
     REGISTER: "/register",
     VERIFY: "/verify?emailAddress={emailAddress}&deviceType={deviceType}",
     LOGIN: "/login",
+    UPDATE_USER: "/tenant/users/:userId",
   },
   DEPARTMENT: {
     CREATE_DEPARTMENT: "/tenant/departments/",

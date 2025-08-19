@@ -57,11 +57,13 @@ export function ChangePasswordTab() {
   const onSubmit = async (data: ChangePasswordData) => {
     try {
       setIsSubmitting(true);
+      const userId = localStorage.getItem('userId');
       
-      // For now, using a dummy userId - replace with actual userId from your auth context
-      const dummyUserId = "12345";
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
       
-      const response = await changePassword(dummyUserId, {
+      const response = await changePassword(userId, {
         oldPassword: data.currentPassword,
         newPassword: data.newPassword
       });

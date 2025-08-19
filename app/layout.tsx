@@ -5,6 +5,9 @@ import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 
+import { Providers } from '@/hooks/Providers';
+
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -20,10 +23,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+                <Providers>
+
         <DashboardLayout>
           {children}
           <Toaster />
         </DashboardLayout>
+      </Providers>
       </body>
     </html>
   );

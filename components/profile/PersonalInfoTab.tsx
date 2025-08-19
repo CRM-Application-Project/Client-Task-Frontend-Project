@@ -1,9 +1,9 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { CalendarIcon, Upload, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,12 +13,23 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { UpdateUserRequest } from '@/lib/data';
+import { updateUserProfile } from '@/app/services/data.service';
+
+
+interface StoredUserData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  emailAddress: string;
+  phoneNumber: string | null;
+}
 
 const personalInfoSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  phone: z.string().min(1, 'Phone number is required'),
+  emailAddress: z.string().email('Please enter a valid email address'),
+  phoneNumber: z.string().min(1, 'Phone number is required').nullable(),
   birthday: z.date().optional(),
 });
 
@@ -27,18 +38,32 @@ type PersonalInfoData = z.infer<typeof personalInfoSchema>;
 export function PersonalInfoTab() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // Get initial user data from localStorage
+  const getStoredUserData = (): StoredUserData | null => {
+    if (typeof window !== 'undefined') {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    }
+    return null;
+  };
+
+  const storedUser = getStoredUserData();
 
   const form = useForm<PersonalInfoData>({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '', 
-      phone: '', 
+      firstName: storedUser?.firstName || '',
+      lastName: storedUser?.lastName || '',
+      emailAddress: storedUser?.emailAddress || '',
+      phoneNumber: storedUser?.phoneNumber || '',
       birthday: undefined,
     },
   });
+
+
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,16 +81,60 @@ export function PersonalInfoTab() {
     setImagePreview(null);
   };
 
-  const onSubmit = (data: PersonalInfoData) => {
-    console.log('Personal info data:', data);
-    if (imagePreview) {
-      setProfileImage(imagePreview);
-      setImagePreview(null);
+  const onSubmit = async (data: PersonalInfoData) => {
+    try {
+      setIsSubmitting(true);
+      const userId = storedUser?.id;
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
+      const payload: UpdateUserRequest = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        emailAddress: data.emailAddress,
+        contactNumber: data.phoneNumber || undefined,
+        dateOfBirth: data.birthday ? data.birthday.toISOString() : undefined,
+      };
+
+      const response = await updateUserProfile(userId, payload);
+
+      if (response.isSuccess) {
+        // Update localStorage with new user data
+        if (storedUser) {
+          const updatedUser = {
+            ...storedUser,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            emailAddress: data.emailAddress,
+            phoneNumber: data.phoneNumber,
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+
+        if (imagePreview) {
+          setProfileImage(imagePreview);
+          setImagePreview(null);
+        }
+        toast({
+          title: "Profile Updated",
+          description: "Your personal information has been saved successfully.",
+          variant: "default",
+        });
+      } else {
+        throw new Error(response.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to update profile',
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    toast({
-      title: "Profile Updated",
-      description: "Your personal information has been saved successfully.",
-    });
   };
 
   const hasImage = !!(imagePreview || profileImage);
@@ -161,7 +230,7 @@ export function PersonalInfoTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
-              name="email"
+              name="emailAddress"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-gray-700 font-medium">Email</FormLabel>
@@ -170,7 +239,7 @@ export function PersonalInfoTab() {
                       {...field} 
                       type="email"
                       placeholder="Enter email"
-                      className="h-10  border-gray-200 text-gray-600 rounded-md"
+                      className="h-10 border-gray-200  rounded-md"
                     />
                   </FormControl>
                   <FormMessage />
@@ -180,15 +249,17 @@ export function PersonalInfoTab() {
 
             <FormField
               control={form.control}
-              name="phone"
+              name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-gray-700 font-medium">Phone</FormLabel>
                   <FormControl>
                     <Input 
                       {...field} 
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(e.target.value || null)}
                       placeholder="Enter phone number"
-                      className="h-10  border-gray-200 text-gray-500 rounded-md"
+                      className="h-10 border-gray-200  rounded-md"
                     />
                   </FormControl>
                   <FormMessage />
@@ -197,7 +268,7 @@ export function PersonalInfoTab() {
             />
           </div>
 
-          {/* Third Row: Birthday */}
+          {/* Third Row: Birthday - Optional */}
           <FormField
             control={form.control}
             name="birthday"
@@ -246,8 +317,9 @@ export function PersonalInfoTab() {
             <Button 
               type="submit" 
               className="bg-[#3b3b3b] hover:bg-[#3b3b3b]/90 text-white rounded-md px-8 py-2 h-10"
+              disabled={isSubmitting}
             >
-              Save Changes
+              {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>
