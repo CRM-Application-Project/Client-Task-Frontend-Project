@@ -13,6 +13,10 @@ import {
   X,
   BarChart3,
   LogOut,
+  Settings,
+  User,
+  KeyRound,
+  ChevronLeft,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Swal from "sweetalert2";
@@ -57,6 +61,20 @@ const navigation: NavItem[] = [
   },
 ];
 
+// Settings items (no permission required)
+const settingsNavigation = [
+  {
+    name: "Profile",
+    icon: User,
+    href: "/profile",
+  },
+  {
+    name: "Change Password",
+    icon: KeyRound,
+    href: "/change-password",
+  },
+];
+
 interface UserModuleAccess {
   id: number;
   moduleId: number;
@@ -76,6 +94,7 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Get Redux state
   const reduxUser = useSelector((state: RootState) => state.user.currentUser);
@@ -113,15 +132,6 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
       }
     }
   }, [reduxUser]);
-
-  // Debug logs - only in development
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Sidebar - Current User:', currentUser);
-      console.log('Sidebar - User Modules:', userModules);
-      console.log('Sidebar - User Role:', currentUser?.userRole);
-    }
-  }, [currentUser, userModules]);
 
   // Enhanced permission check function - ONLY use API response data
   const hasPermission = (moduleName: string, permission: 'view' | 'edit' | 'create' | 'delete' = 'view'): boolean => {
@@ -176,19 +186,6 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
         hasPermission = false;
     }
     
-    console.log(`Permission check for ${moduleName}:${permission}`, {
-      userRole: currentUser?.userRole,
-      module: module.moduleName,
-      permission,
-      hasPermission,
-      moduleData: {
-        canView: module.canView,
-        canEdit: module.canEdit,
-        canCreate: module.canCreate,
-        canDelete: module.canDelete
-      }
-    });
-    
     return hasPermission;
   };
 
@@ -205,12 +202,9 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
       // Show parent if it has access OR if any child has access
       const shouldShow = hasAccess || accessibleChildren.length > 0;
       
-      console.log(`Navigation item ${item.name}: ${shouldShow ? 'ALLOWED' : 'DENIED'} (parent: ${hasAccess}, accessible children: ${accessibleChildren.length})`);
-      
       return shouldShow;
     }
     
-    console.log(`Navigation item ${item.name}: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
     return hasAccess;
   });
 
@@ -240,7 +234,12 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
         }
       }
     });
-  }, [pathname, filteredNavigation.length]); // Use length to detect changes
+    
+    // Check if we're on a settings route
+    if (settingsNavigation.some(item => pathname === item.href) && !expandedItems.includes('Settings')) {
+      setExpandedItems(prev => [...prev, 'Settings']);
+    }
+  }, [pathname, filteredNavigation.length]);
 
   const handleLogout = () => {
     Swal.fire({
@@ -281,26 +280,48 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   };
 
   const SidebarContent = () => (
-    <div className="flex h-full flex-col bg-[#3b3b3b]">
+    <div className="flex h-full flex-col bg-[#3b3b3b] relative">
+      {/* Collapse Toggle Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className={cn(
+          "absolute -right-3 top-20 z-10 h-6 w-6 rounded-full p-0 bg-white hover:bg-gray-200 hidden lg:flex",
+          isCollapsed && "-right-10"
+        )}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="h-4 w-4 text-[#3b3b3b]" />
+        ) : (
+          <ChevronLeft className="h-4 w-4 text-[#3b3b3b]" />
+        )}
+      </Button>
+
       {/* Logo */}
-      <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b border-[#4b4b4b]">
+      <div className={cn(
+        "flex h-16 shrink-0 items-center justify-between px-6 border-b border-[#4b4b4b] transition-all duration-300",
+        isCollapsed && "px-3 justify-center"
+      )}>
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
             <BarChart3 className="h-5 w-5 text-[#3b3b3b]" />
           </div>
-          <h1 className="text-xl font-bold text-white">CRM Pro</h1>
+          {!isCollapsed && (
+            <h1 className="text-xl font-bold text-white">CRM Pro</h1>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="lg:hidden text-white hover:bg-white hover:text-[#3b3b3b]"
-          onClick={onClose}
-        >
-          <X className="h-5 w-5" />
-        </Button>
+        {!isCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden text-white hover:bg-white hover:text-[#3b3b3b]"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
-
-    
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -330,7 +351,8 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                           "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                           isChildActive || isExpanded || isDirectActive
                             ? "bg-white text-[#3b3b3b] shadow-sm"
-                            : "text-white hover:bg-white hover:text-[#3b3b3b]"
+                            : "text-white hover:bg-white hover:text-[#3b3b3b]",
+                          isCollapsed && "justify-center px-2"
                         )}
                         onClick={() => {
                           // If parent has direct access and href, navigate to it
@@ -343,18 +365,20 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                       >
                         <div className="flex items-center gap-3">
                           <item.icon className="h-5 w-5" />
-                          {item.name}
+                          {!isCollapsed && item.name}
                         </div>
-                        <ChevronRight
-                          className={cn(
-                            "h-4 w-4 transition-transform duration-200",
-                            isExpanded && "rotate-90"
-                          )}
-                        />
+                        {!isCollapsed && (
+                          <ChevronRight
+                            className={cn(
+                              "h-4 w-4 transition-transform duration-200",
+                              isExpanded && "rotate-90"
+                            )}
+                          />
+                        )}
                       </Button>
 
-                      {/* Children */}
-                      {isExpanded && (
+                      {/* Children - Only show when not collapsed */}
+                      {!isCollapsed && isExpanded && (
                         <div className="space-y-1 pl-6 pt-1">
                           {filteredChildren.map((child) => {
                             const isChildActive = pathname === child.href;
@@ -389,16 +413,79 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                       "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                       pathname === item.href
                         ? "bg-white text-[#3b3b3b] shadow-sm"
-                        : "text-white hover:bg-white hover:text-[#3b3b3b]"
+                        : "text-white hover:bg-white hover:text-[#3b3b3b]",
+                      isCollapsed && "justify-center px-2"
                     )}
                     onClick={() => router.push(item.href)}
                   >
-                    <item.icon className="mr-3 h-5 w-5" />
-                    {item.name}
+                    <item.icon className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
+                    {!isCollapsed && item.name}
                   </Button>
                 );
               })
             )}
+          </div>
+
+          {/* Settings Section (no permission required) */}
+          <div className={cn("mt-8 pt-4 border-t border-[#4b4b4b]", isCollapsed && "mt-4")}>
+            {!isCollapsed && (
+              <div className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Account
+              </div>
+            )}
+            
+            {/* Settings Parent Item */}
+            <div className="space-y-1">
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                  (expandedItems.includes('Settings') || settingsNavigation.some(item => pathname === item.href))
+                    ? "bg-white text-[#3b3b3b] shadow-sm"
+                    : "text-white hover:bg-white hover:text-[#3b3b3b]",
+                  isCollapsed && "justify-center px-2"
+                )}
+                onClick={() => toggleExpanded('Settings')}
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="h-5 w-5" />
+                  {!isCollapsed && "Settings"}
+                </div>
+                {!isCollapsed && (
+                  <ChevronRight
+                    className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      expandedItems.includes('Settings') && "rotate-90"
+                    )}
+                  />
+                )}
+              </Button>
+
+              {/* Settings Children - Only show when not collapsed and expanded */}
+              {!isCollapsed && expandedItems.includes('Settings') && (
+                <div className="space-y-1 pl-6 pt-1">
+                  {settingsNavigation.map((item) => {
+                    const isChildActive = pathname === item.href;
+                    return (
+                      <Button
+                        key={item.href}
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-start rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                          isChildActive
+                            ? "bg-white text-[#3b3b3b] shadow-sm"
+                            : "text-gray-300 hover:bg-white hover:text-[#3b3b3b]"
+                        )}
+                        onClick={() => router.push(item.href)}
+                      >
+                        <item.icon className="mr-3 h-4 w-4" />
+                        {item.name}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </ScrollArea>
       </nav>
@@ -407,11 +494,14 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
       <div className="p-4 border-t border-[#4b4b4b]">
         <Button
           variant="ghost"
-          className="w-full justify-start text-white hover:bg-white hover:text-[#3b3b3b] transition-all duration-200"
+          className={cn(
+            "w-full justify-start text-white hover:bg-white hover:text-[#3b3b3b] transition-all duration-200",
+            isCollapsed && "justify-center px-2"
+          )}
           onClick={handleLogout}
         >
-          <LogOut className="mr-3 h-5 w-5" />
-          Logout
+          <LogOut className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
+          {!isCollapsed && "Logout"}
         </Button>
       </div>
     </div>
@@ -420,7 +510,10 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
+      <div className={cn(
+        "hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300",
+        isCollapsed ? "lg:w-16" : "lg:w-64"
+      )}>
         <SidebarContent />
       </div>
 
