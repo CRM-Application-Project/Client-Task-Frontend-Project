@@ -359,11 +359,11 @@ export const UpdateStaffModal = ({
                     value={formData.userRole}
                     onChange={(value) => handleSelectChange("userRole", value)}
                     options={[
-                      { value: "Admin", label: "Admin" },
-                      { value: "Tester_QA", label: "Tester/QA" },
-                      { value: "Sales_Executive", label: "Sales Executive" },
-                      { value: "Project_Manager", label: "Project Manager" },
-                      { value: "Sales_Manager", label: "Sales Manager" },
+                      { value: "ADMIN", label: "Admin" },
+                      { value: "TESTER_QA", label: "Tester/QA" },
+                      { value: "SALES_EXECUTIVE", label: "Sales Executive" },
+                      { value: "PROJECT_MANAGER", label: "Project Manager" },
+                      { value: "SALES_MANAGER", label: "Sales Manager" },
                       { value: "SUPER_ADMIN", label: "Super Admin" },
                       { value: "TEAM_LEAD", label: "Team Lead" },
                       { value: "DEVELOPER", label: "Developer" },

@@ -1,15 +1,8 @@
-import React from 'react'
-import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import Leads from './Leads'
+import React from "react";
+import Leads from "./Leads";
 
 function page() {
-  return (
-        <DashboardLayout>
-    
-    <Leads />
-    </DashboardLayout>
-
-  )
+  return <Leads />;
 }
 
-export default page
+export default page;
