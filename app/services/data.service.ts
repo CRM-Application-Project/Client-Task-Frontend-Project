@@ -532,8 +532,6 @@ export const changePassword = async (
   const res = await postRequest(endpoint, payload);
   return res as ChangePasswordResponse;
 };
-<
-
 
 
 // Function
