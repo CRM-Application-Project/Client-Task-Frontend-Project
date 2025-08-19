@@ -9,7 +9,7 @@ import {
   Users,
   CheckSquare,
   UserCheck,
-  ChevronDown,
+  ChevronRight,
   X,
   BarChart3,
   LogOut,
@@ -70,15 +70,15 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   };
 
   useEffect(() => {
-  navigation.forEach((item) => {
-    if (item.children?.some((child) => pathname === child.href)) {
-      // auto-open if on a child route
-      if (!expandedItems.includes(item.name)) {
-        setExpandedItems((prev) => [...prev, item.name]);
+    navigation.forEach((item) => {
+      if (item.children?.some((child) => pathname === child.href)) {
+        // auto-open if on a child route
+        if (!expandedItems.includes(item.name)) {
+          setExpandedItems((prev) => [...prev, item.name]);
+        }
       }
-    }
-  });
-}, [pathname]);
+    });
+  }, [pathname]);
 
   const handleLogout = () => {
     Swal.fire({
@@ -156,10 +156,10 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                         <item.icon className="h-5 w-5" />
                         {item.name}
                       </div>
-                      <ChevronDown
+                      <ChevronRight
                         className={cn(
                           "h-4 w-4 transition-transform duration-200",
-                          isExpanded && "rotate-180"
+                          isExpanded && "rotate-45"
                         )}
                       />
                     </Button>
