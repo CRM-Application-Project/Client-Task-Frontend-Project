@@ -1,16 +1,24 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, LogIn, Building2, Users, TrendingUp, Shield } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { loginUser, verifyUser } from '../services/data.service';
-import { useDispatch } from 'react-redux';
-import { loginSuccess } from '@/hooks/userSlice';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Eye,
+  EyeOff,
+  LogIn,
+  Building2,
+  Users,
+  TrendingUp,
+  Shield,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { loginUser, verifyUser } from "../services/data.service";
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "@/hooks/userSlice";
 
 interface VerifyUserResponse {
   isSuccess: boolean;
@@ -70,15 +78,15 @@ interface LoginResponse {
   };
 }
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [requiresCompany, setRequiresCompany] = useState(false);
   const [showCompanyField, setShowCompanyField] = useState(false);
-  const [accessRegion, setAccessRegion] = useState('public');
+  const [accessRegion, setAccessRegion] = useState("public");
   const { toast } = useToast();
   const router = useRouter();
   const dispatch = useDispatch();
@@ -86,22 +94,32 @@ export default function LoginPage() {
   // Check if email domain is personal (like gmail.com, yahoo.com etc)
   const isPersonalEmail = (emailAddress: string): boolean => {
     if (!emailAddress) return false;
-    const domain = emailAddress.split('@')[1]?.toLowerCase();
-    const personalDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com', 'mail.com', 'aol.com', 'zoho.com'];
+    const domain = emailAddress.split("@")[1]?.toLowerCase();
+    const personalDomains = [
+      "gmail.com",
+      "yahoo.com",
+      "outlook.com",
+      "hotmail.com",
+      "icloud.com",
+      "protonmail.com",
+      "mail.com",
+      "aol.com",
+      "zoho.com",
+    ];
     return !!domain && personalDomains.includes(domain);
   };
 
   const verifyUserEmail = async (emailAddress: string, company?: string) => {
     if (!emailAddress) return;
-    
+
     setIsLoading(true);
     try {
-      const response = await verifyUser(
-        emailAddress, 
-        'web', 
+      const response = (await verifyUser(
+        emailAddress,
+        "web",
         company
-      ) as VerifyUserResponse;
-      
+      )) as VerifyUserResponse;
+
       if (response.isSuccess) {
         setIsEmailVerified(true);
         setAccessRegion(response.data.accessRegion);
@@ -134,16 +152,16 @@ export default function LoginPage() {
   // Auto-verify email after user stops typing (debounced)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (email && email.includes('@') && email.includes('.')) {
+      if (email && email.includes("@") && email.includes(".")) {
         const isPersonal = isPersonalEmail(email);
         setRequiresCompany(isPersonal);
         setShowCompanyField(isPersonal);
-        
+
         // If it's a personal email and no company name, don't verify yet
         if (isPersonal && !companyName.trim()) {
           return;
         }
-        
+
         // Call verification API
         verifyUserEmail(email, isPersonal ? companyName : undefined);
       }
@@ -163,20 +181,20 @@ export default function LoginPage() {
     return () => clearTimeout(timeoutId);
   }, [companyName, requiresCompany, email, isEmailVerified]);
 
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!isEmailVerified) return;
-  
-  setIsLoading(true);
-  
-  try {
-    const loginData = {
-      emailAddress: email,
-      password,
-      deviceType: 'web',
-      accessRegion,
-      ...(requiresCompany && { companyName })
-    };
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isEmailVerified) return;
+
+    setIsLoading(true);
+
+    try {
+      const loginData = {
+        emailAddress: email,
+        password,
+        deviceType: "web",
+        accessRegion,
+        ...(requiresCompany && { companyName }),
+      };
 
     const response = await loginUser(loginData) as unknown as LoginResponse;
     
@@ -276,8 +294,8 @@ const handleLogin = async (e: React.FormEvent) => {
       {/* Left Side - Image */}
       <div className="lg:w-1/2 relative hidden lg:block animate-slide-in-left">
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
-          <Image 
-            src="/login.jpeg" 
+          <Image
+            src="/login.jpeg"
             alt="CRM Background"
             layout="fill"
             objectFit="cover"
@@ -285,7 +303,7 @@ const handleLogin = async (e: React.FormEvent) => {
             priority
           />
         </div>
-        
+
         {/* Overlay */}
         <div className="absolute inset-0 bg-primary/10" />
       </div>
@@ -310,7 +328,10 @@ const handleLogin = async (e: React.FormEvent) => {
             <CardContent className="p-8">
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                  <Label
+                    htmlFor="email"
+                    className="text-sm font-medium text-foreground"
+                  >
                     Email Address
                   </Label>
                   <Input
@@ -323,7 +344,7 @@ const handleLogin = async (e: React.FormEvent) => {
                       setIsEmailVerified(false);
                       setShowCompanyField(false);
                       setRequiresCompany(false);
-                      setCompanyName('');
+                      setCompanyName("");
                     }}
                     required
                     className="h-12 bg-background border-input focus:border-primary transition-all duration-200"
@@ -333,7 +354,10 @@ const handleLogin = async (e: React.FormEvent) => {
                 {/* Company Name Field - Show dynamically for personal emails */}
                 {showCompanyField && (
                   <div className="space-y-2 animate-slide-down">
-                    <Label htmlFor="company" className="text-sm font-medium text-foreground">
+                    <Label
+                      htmlFor="company"
+                      className="text-sm font-medium text-foreground"
+                    >
                       Company Name
                       <span className="text-red-500 ml-1">*</span>
                     </Label>
@@ -359,7 +383,10 @@ const handleLogin = async (e: React.FormEvent) => {
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                  <Label
+                    htmlFor="password"
+                    className="text-sm font-medium text-foreground"
+                  >
                     Password
                   </Label>
                   <div className="relative">
@@ -372,7 +399,7 @@ const handleLogin = async (e: React.FormEvent) => {
                       required
                       disabled={!isEmailVerified}
                       className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 ${
-                        !isEmailVerified ? 'opacity-50 cursor-not-allowed' : ''
+                        !isEmailVerified ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     />
                     <button
@@ -380,7 +407,7 @@ const handleLogin = async (e: React.FormEvent) => {
                       onClick={() => setShowPassword(!showPassword)}
                       disabled={!isEmailVerified}
                       className={`absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors ${
-                        !isEmailVerified ? 'cursor-not-allowed' : ''
+                        !isEmailVerified ? "cursor-not-allowed" : ""
                       }`}
                     >
                       {showPassword ? (
@@ -394,15 +421,15 @@ const handleLogin = async (e: React.FormEvent) => {
 
                 <div className="flex items-center justify-between text-sm">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0" 
+                    <input
+                      type="checkbox"
+                      className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0"
                     />
                     <span className="text-muted-foreground">Remember me</span>
                   </label>
                   <button
                     type="button"
-                    onClick={() => router.push('/reset-password')}
+                    onClick={() => router.push("/reset-password")}
                     className="text-primary hover:text-primary/80 font-medium transition-colors"
                   >
                     Forgot password?
@@ -433,15 +460,15 @@ const handleLogin = async (e: React.FormEvent) => {
           {/* Additional Links */}
           <div className="text-center space-y-4">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <button 
-                onClick={() => router.push('/register')}
+              Don't have an account?{" "}
+              <button
+                onClick={() => router.push("/register")}
                 className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Register
               </button>
             </p>
-            
+
             {/* Feature Pills */}
             <div className="flex flex-wrap justify-center gap-2 pt-4">
               <div className="flex items-center gap-2 px-3 py-1 bg-secondary rounded-full text-xs text-secondary-foreground">

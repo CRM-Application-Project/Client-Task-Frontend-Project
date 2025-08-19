@@ -3,7 +3,15 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
-import { createTask, deleteTask, filterTasks, getTaskStagesDropdown, getUsers, updateTask, User as ServiceUser } from "../services/data.service";
+import {
+  createTask,
+  deleteTask,
+  filterTasks,
+  getTaskStagesDropdown,
+  getUsers,
+  updateTask,
+  User as ServiceUser,
+} from "../services/data.service";
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -126,7 +134,13 @@ interface FilterTasksResponse {
 }
 
 // ========== MAIN COMPONENT ==========
-const statuses: TaskStatus[] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
+const statuses: TaskStatus[] = [
+  "BACKLOG",
+  "TODO",
+  "IN_PROGRESS",
+  "IN_REVIEW",
+  "DONE",
+];
 
 export default function TaskBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -140,7 +154,9 @@ export default function TaskBoard() {
   }>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<EditingTaskResponse | undefined>();
+  const [editingTask, setEditingTask] = useState<
+    EditingTaskResponse | undefined
+  >();
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,19 +174,41 @@ export default function TaskBoard() {
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Transform API response to flat array of tasks
-  const transformTasks = useCallback((apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
-    if (!apiResponse.isSuccess || !apiResponse.data) return [];
-    
-    if ('content' in apiResponse.data) {
-      interface StageContent {
-        stageId: number;
-        stageName: string;
-        stageOrder: number;
-        tasks: TaskResponse[];
-      }
+  const transformTasks = useCallback(
+    (apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
+      if (!apiResponse.isSuccess || !apiResponse.data) return [];
 
-      return apiResponse.data.content.flatMap((stage: StageContent) => 
-        stage.tasks.map((task: TaskResponse): Task => ({
+      if ("content" in apiResponse.data) {
+        interface StageContent {
+          stageId: number;
+          stageName: string;
+          stageOrder: number;
+          tasks: TaskResponse[];
+        }
+
+        return apiResponse.data.content.flatMap((stage: StageContent) =>
+          stage.tasks.map(
+            (task: TaskResponse): Task => ({
+              id: task.id,
+              subject: task.subject,
+              description: task.description,
+              status: task.taskStageName as TaskStatus,
+              priority: task.priority,
+              labels: [],
+              assignedTo: task.assignees[0]?.label || "Unassigned",
+              createdBy: task.assignees[0]?.label || "Unknown",
+              startDate: new Date(task.startDate),
+              endDate: task.endDate ? new Date(task.endDate) : null,
+              createdAt: new Date(task.createdAt),
+              updatedAt: new Date(task.updatedAt),
+              taskStageId: task.taskStageId,
+              taskStageName: task.taskStageName,
+              assignees: task.assignees,
+            })
+          )
+        );
+      } else {
+        return (apiResponse.data as TaskResponse[]).map((task) => ({
           id: task.id,
           subject: task.subject,
           description: task.description,
@@ -185,93 +223,85 @@ export default function TaskBoard() {
           updatedAt: new Date(task.updatedAt),
           taskStageId: task.taskStageId,
           taskStageName: task.taskStageName,
-          assignees: task.assignees
-        }))
-      );
-    } else {
-      return (apiResponse.data as TaskResponse[]).map(task => ({
-        id: task.id,
-        subject: task.subject,
-        description: task.description,
-        status: task.taskStageName as TaskStatus,
-        priority: task.priority,
-        labels: [],
-        assignedTo: task.assignees[0]?.label || "Unassigned",
-        createdBy: task.assignees[0]?.label || "Unknown",
-        startDate: new Date(task.startDate),
-        endDate: task.endDate ? new Date(task.endDate) : null,
-        createdAt: new Date(task.createdAt),
-        updatedAt: new Date(task.updatedAt),
-        taskStageId: task.taskStageId,
-        taskStageName: task.taskStageName,
-        assignees: task.assignees
-      }));
-    }
-  }, []);
+          assignees: task.assignees,
+        }));
+      }
+    },
+    []
+  );
 
   // Convert filter object to API parameters
-  const convertFiltersToApiParams = useCallback((uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
-    const apiParams: FilterTasksParams = {};
+  const convertFiltersToApiParams = useCallback(
+    (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
+      const apiParams: FilterTasksParams = {};
 
-    if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
-    if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
-    if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
-    if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
-    
-    if (uiFilters.dateRange) {
-      const formatDateWithTime = (date: Date) => {
-        return date.toISOString().split('T')[0] + 'T00:00:00';
-      };
+      if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
+      if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
+      if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
+      if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
 
-      apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
-      apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
-      apiParams.endDateFrom = formatDateWithTime(uiFilters.dateRange.from);
-      apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
-    }
+      if (uiFilters.dateRange) {
+        const formatDateWithTime = (date: Date) => {
+          return date.toISOString().split("T")[0] + "T00:00:00";
+        };
 
-    return apiParams;
-  }, []);
+        apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+        apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
+        apiParams.endDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+        apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
+      }
+
+      return apiParams;
+    },
+    []
+  );
 
   // Optimized task fetching function
-  const fetchTasks = useCallback(async (filterParams?: FilterTasksParams, showLoading = false) => {
-    // Prevent duplicate API calls
-    if (isFilteringRef.current) return;
-    
-    isFilteringRef.current = true;
-    if (showLoading) setIsRefreshing(true);
+  const fetchTasks = useCallback(
+    async (filterParams?: FilterTasksParams, showLoading = false) => {
+      // Prevent duplicate API calls
+      if (isFilteringRef.current) return;
 
-    try {
-      const apiParams = filterParams || convertFiltersToApiParams(filters, searchQuery);
-      const response = await filterTasks(apiParams);
-      
-      if (response.isSuccess) {
-        const transformedTasks = transformTasks(response as ApiTaskResponse | FilterTasksResponse);
-        setTasks(transformedTasks);
-      } else {
-        console.error("Failed to fetch tasks:", response.message);
+      isFilteringRef.current = true;
+      if (showLoading) setIsRefreshing(true);
+
+      try {
+        const apiParams =
+          filterParams || convertFiltersToApiParams(filters, searchQuery);
+        const response = await filterTasks(apiParams);
+
+        if (response.isSuccess) {
+          const transformedTasks = transformTasks(
+            response as ApiTaskResponse | FilterTasksResponse
+          );
+          setTasks(transformedTasks);
+        } else {
+          console.error("Failed to fetch tasks:", response.message);
+          setTasks([]);
+        }
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
         setTasks([]);
+      } finally {
+        isFilteringRef.current = false;
+        if (showLoading) setIsRefreshing(false);
       }
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      setTasks([]);
-    } finally {
-      isFilteringRef.current = false;
-      if (showLoading) setIsRefreshing(false);
-    }
-  }, [filters, searchQuery, convertFiltersToApiParams, transformTasks]);
+    },
+    [filters, searchQuery, convertFiltersToApiParams, transformTasks]
+  );
 
   // Fetch initial data only once
   useEffect(() => {
     if (isInitialLoadingRef.current) return;
-    
+
     const fetchInitialData = async () => {
       isInitialLoadingRef.current = true;
-      
+
       try {
         // Fetch all data in parallel, but only once
         const [stagesRes, usersRes] = await Promise.all([
           getTaskStagesDropdown(),
-          getUsers()
+          getUsers(),
         ]);
 
         // Handle stages response
@@ -279,19 +309,20 @@ export default function TaskBoard() {
           setStages(stagesRes.data);
           console.log("Fetched stages:", stagesRes.data);
         }
-        
+
         // Handle users response
         if (usersRes.isSuccess) {
-          setUsers(usersRes.data.map(user => ({
-            ...user,
-            contactNumber: user.contactNumber || '',
-            userRole: user.userRole || 'User'
-          })));
+          setUsers(
+            usersRes.data.map((user) => ({
+              ...user,
+              contactNumber: user.contactNumber || "",
+              userRole: user.userRole || "User",
+            }))
+          );
         }
 
         // Fetch initial tasks
         await fetchTasks({}, false);
-        
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {
@@ -327,25 +358,31 @@ export default function TaskBoard() {
   }, [searchQuery]); // Only depend on searchQuery
 
   // Handle filter changes
-  const handleFilterChange = useCallback(async (newFilters: typeof filters) => {
-    setFilters(newFilters);
-    
-    // Immediately fetch with new filters
-    const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
-    await fetchTasks(apiParams, true);
-  }, [searchQuery, convertFiltersToApiParams, fetchTasks]);
+  const handleFilterChange = useCallback(
+    async (newFilters: typeof filters) => {
+      setFilters(newFilters);
 
-  const handleDeleteTask = useCallback(async (taskId: number) => {
-    try {
-      const response = await deleteTask(taskId);
-      if (response.isSuccess) {
-        // Simply refresh with current filters
-        await fetchTasks(undefined, true);
+      // Immediately fetch with new filters
+      const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
+      await fetchTasks(apiParams, true);
+    },
+    [searchQuery, convertFiltersToApiParams, fetchTasks]
+  );
+
+  const handleDeleteTask = useCallback(
+    async (taskId: number) => {
+      try {
+        const response = await deleteTask(taskId);
+        if (response.isSuccess) {
+          // Simply refresh with current filters
+          await fetchTasks(undefined, true);
+        }
+      } catch (error) {
+        console.error("Error deleting task:", error);
       }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-    }
-  }, [fetchTasks]);
+    },
+    [fetchTasks]
+  );
 
   const handleAddTask = useCallback(async (taskData: CreateTaskRequest) => {
     try {
@@ -366,15 +403,17 @@ export default function TaskBoard() {
         response = await createTask(taskData);
       }
 
-      if (response.isSuccess) {
-        // Refresh tasks and close modal
-        await fetchTasks(undefined, true);
-        handleCloseModal();
+        if (response.isSuccess) {
+          // Refresh tasks and close modal
+          await fetchTasks(undefined, true);
+          handleCloseModal();
+        }
+      } catch (error) {
+        console.error("Error saving task:", error);
       }
-    } catch (error) {
-      console.error("Error saving task:", error);
-    }
-  }, [editingTask, fetchTasks]);
+    },
+    [editingTask, fetchTasks]
+  );
 
   const handleEditTask = useCallback((task: Task) => {
     const editingTaskData: EditingTaskResponse = {
@@ -388,9 +427,9 @@ export default function TaskBoard() {
       taskStageName: task.taskStageName,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
-      assignees: task.assignees
+      assignees: task.assignees,
     };
-    
+
     setEditingTask(editingTaskData);
     setIsAddModalOpen(true);
   }, []);
@@ -408,22 +447,32 @@ export default function TaskBoard() {
   }, [fetchTasks]);
 
   // Client-side filtering for immediate UI response
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = searchQuery === "" || 
-                         task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesPriority = !filters.priority || task.priority === filters.priority;
-    const matchesStage = !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
-    const matchesAssignee = !filters.assignedTo || 
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch =
+      searchQuery === "" ||
+      task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesPriority =
+      !filters.priority || task.priority === filters.priority;
+    const matchesStage =
+      !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
+    const matchesAssignee =
+      !filters.assignedTo ||
       task.assignedTo.toLowerCase().includes(filters.assignedTo.toLowerCase());
-    
-    const matchesDateRange = !filters.dateRange || (
-      task.startDate >= filters.dateRange.from && 
-      task.startDate <= filters.dateRange.to
+
+    const matchesDateRange =
+      !filters.dateRange ||
+      (task.startDate >= filters.dateRange.from &&
+        task.startDate <= filters.dateRange.to);
+
+    return (
+      matchesSearch &&
+      matchesPriority &&
+      matchesStage &&
+      matchesAssignee &&
+      matchesDateRange
     );
-    
-    return matchesSearch && matchesPriority && matchesStage && matchesAssignee && matchesDateRange;
   });
 
   if (isLoading) {
@@ -437,16 +486,12 @@ export default function TaskBoard() {
   return (
     <div className="min-h-screen">
       <>
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Task Management</h1>
-          <p className="text-muted-foreground">{`Organize and track your team's work efficiently`}</p>
-        </div>
-
         {/* Loading indicator for refreshing */}
         {isRefreshing && (
           <div className="mb-4 flex items-center justify-center">
-            <div className="text-sm text-muted-foreground">Updating tasks...</div>
+            <div className="text-sm text-muted-foreground">
+              Updating tasks...
+            </div>
           </div>
         )}
 
