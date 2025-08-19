@@ -11,6 +11,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,10 +28,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <DashboardSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        onCollapseChange={setSidebarCollapsed}
       />
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className={cn(
+        "transition-all duration-300",
+        sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+      )}>
         {/* Navbar for all screens */}
         <DashboardNavbar
           onMenuClick={() => setSidebarOpen(true)}
