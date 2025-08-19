@@ -48,6 +48,15 @@ const navigation: NavItem[] = [
       { name: "Staff", href: "/employees/staff" },
     ],
   },
+  // {
+  //   name: "WorkSpace",
+  //   icon: UserCheck,
+  //   href: "/workspace",
+  //   children: [
+  //     { name: "Projects", href: "/workspace/projects" },
+  //     { name: "Clients", href: "/workspace/clients" },
+  //   ],
+  // },
 ];
 
 interface DashboardSidebarProps {
@@ -166,7 +175,7 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
 
                     {/* Children */}
                     {isExpanded && (
-                      <div className="space-y-1 pl-6 pt-1 w-full justify-start rounded-lg px-3 py-2 text-sm transition-all duration-200">
+                      <div className="space-y-1 pl-6 pt-1 w-full justify-start rounded-lg text-sm transition-all duration-200">
                         {item.children?.map((child) => {
                           const isChildActive = pathname === child.href;
                           return (
@@ -174,17 +183,28 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
                               key={child.href}
                               variant="ghost"
                               className={cn(
-                                "w-full justify-start rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                                // reset rounding, then apply only on hover
+                                "relative w-full justify-start rounded-none px-3 py-2 text-sm font-medium transition-all duration-200 group",
                                 isChildActive
-                                  ? "bg-white text-[#3b3b3b] shadow-sm"
-                                  : "text-gray-300 hover:bg-white hover:text-[#3b3b3b]"
+                                  ? "text-white hover:rounded-t-md hover:rounded-b-none"
+                                  : "text-gray-300 hover:bg-white/10 hover:text-white hover:rounded-t-md hover:rounded-b-none"
                               )}
                               onClick={(e) => {
-                                e.stopPropagation(); // ✅ don’t close parent
+                                e.stopPropagation();
                                 router.push(child.href);
                               }}
                             >
                               {child.name}
+
+                              {/* underline effect */}
+                              <span
+                                className={cn(
+                                  "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-1000",
+                                  isChildActive
+                                    ? "w-full"
+                                    : "w-0 group-hover:w-full"
+                                )}
+                              />
                             </Button>
                           );
                         })}

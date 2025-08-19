@@ -52,10 +52,10 @@ export default function CreateDepartmentModal({
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to create department",
+        description: error.message || "Failed to create department",
         variant: "destructive",
       });
     } finally {
@@ -66,7 +66,10 @@ export default function CreateDepartmentModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><Plus className="h-4 w-4" />Add Department</Button>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Department
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -75,7 +78,9 @@ export default function CreateDepartmentModal({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name" className="mb-6">Department Name</Label>
+            <Label htmlFor="name" className="mb-6">
+              Department Name
+            </Label>
             <Input
               id="name"
               value={name}

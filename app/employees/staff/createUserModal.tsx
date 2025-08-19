@@ -23,6 +23,7 @@ import {
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import { Popover, PopoverContent } from "@/components/ui/popover";
+import { error } from "console";
 
 interface CreateStaffModalProps {
   isOpen: boolean;
@@ -100,11 +101,11 @@ export function CreateStaffModal({
             description: "Failed to fetch departments",
           });
         }
-      } catch {
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Error loading data",
+          description: error.message || "Error loading data",
         });
       }
     };
@@ -141,14 +142,15 @@ export function CreateStaffModal({
         toast({
           variant: "destructive",
           title: "Error",
-          description: response.message || "Failed to create staff user",
+          description: "Failed to create staff user",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An error occurred while creating staff user",
+        description:
+          error.message || "An error occurred while creating staff user",
       });
     } finally {
       setLoading(false);

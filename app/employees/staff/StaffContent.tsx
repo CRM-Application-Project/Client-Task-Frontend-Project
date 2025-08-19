@@ -19,6 +19,7 @@ import { Pencil, Trash2, Plus, Search, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Select, Checkbox, Button } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
+import { format } from "node:path";
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,6 +55,19 @@ export default function StaffPage() {
   });
   const { toast } = useToast();
 
+  interface FormatUserRoleFn {
+    (role: string | null | undefined): string | null;
+  }
+
+  const formatUserRole: FormatUserRoleFn = (role) => {
+    if (!role) return null;
+    return (role as string)
+      .toLowerCase()
+      .split("_")
+      .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -77,12 +91,12 @@ export default function StaffPage() {
           description: response.message || "Failed to fetch users",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching users:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch users",
+        description: error.message || "Failed to fetch users",
       });
     } finally {
       setLoading(false);
@@ -431,25 +445,25 @@ export default function StaffPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Department
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Join Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -463,7 +477,7 @@ export default function StaffPage() {
                           className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                           onClick={() => toggleRow(user.userId)}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center shadow-inner">
                                 <span className="text-blue-600 font-medium">
@@ -471,7 +485,7 @@ export default function StaffPage() {
                                   {user.lastName[0].toUpperCase()}
                                 </span>
                               </div>
-                              <div className="ml-4">
+                              <div className="ml-2">
                                 <div className="text-sm font-medium text-gray-900">
                                   {user.firstName} {user.lastName}
                                 </div>
@@ -481,27 +495,27 @@ export default function StaffPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               {user.emailAddress}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap text-center">
                             <div className="text-sm text-gray-900">
                               {user.departmentName}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {user.userRole || "N/A"}
+                              {formatUserRole(user.userRole) || "N/A"}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               {formatDate(user.dateOfJoin)}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <span
                                 className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
@@ -523,7 +537,7 @@ export default function StaffPage() {
                               </label>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               className="text-blue-600 hover:text-blue-900 mr-3 flex items-center gap-1 p-1 rounded hover:bg-blue-50 transition-colors"
                               onClick={(e) => handleEditClick(user, e)}
