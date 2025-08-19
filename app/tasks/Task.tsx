@@ -271,6 +271,7 @@ export default function TaskBoard() {
         // Handle stages response
         if (stagesRes.isSuccess) {
           setStages(stagesRes.data);
+          console.log("Fetched stages:", stagesRes.data);
         }
         
         // Handle users response
@@ -457,15 +458,15 @@ export default function TaskBoard() {
 
         {/* Task Board */}
         <div className="flex gap-6 overflow-x-auto pb-6">
-          {statuses.map(status => (
-            <TaskColumn
-              key={status}
-              status={status}
-              tasks={filteredTasks.filter(task => task.status === status)}
-              onEditTask={handleEditTask}
-              onDeleteTask={handleDeleteTask}
-            />
-          ))}
+          {stages.map(stage => (
+    <TaskColumn
+      key={stage.id}
+      status={stage.name as TaskStatus}
+      tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
+      onEditTask={handleEditTask}
+      onDeleteTask={handleDeleteTask}
+    />
+  ))}
         </div>
 
         {/* Add Task Modal */}
