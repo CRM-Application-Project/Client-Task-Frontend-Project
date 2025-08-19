@@ -1,8 +1,25 @@
 "use client";
-import { Search, Calendar, Plus, X, ChevronDown } from "lucide-react";
+import {
+  Search,
+  Calendar,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  Grid,
+  LayoutGrid,
+  UploadCloud,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DateRangePicker } from "./DateRangePicker";
 import { useState } from "react";
 import { TaskFilters as TaskFiltersType, TaskPriority } from "../../lib/task";
@@ -32,216 +49,294 @@ interface TaskFiltersProps {
   onClearAllFilters: () => void;
   stages?: TaskStage[];
   users?: User[];
+  onImportTask?: () => void;
 }
 
-export const TaskFilters = ({ 
-  filters, 
-  onFiltersChange, 
-  onAddTask, 
-  searchQuery, 
+export const TaskFilters = ({
+  filters,
+  onFiltersChange,
+  onAddTask,
+  searchQuery,
   onSearchChange,
   onClearAllFilters,
   stages = [],
-  users = []
+  users = [],
 }: TaskFiltersProps) => {
-  const priorities: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+  const priorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [localFilters, setLocalFilters] = useState(filters);
 
   const clearDateRange = () => {
-    onFiltersChange({ ...filters, dateRange: undefined });
+    const updatedFilters = { ...localFilters, dateRange: undefined };
+    setLocalFilters(updatedFilters);
+    onFiltersChange(updatedFilters);
   };
 
   const handleDateRangeSelect = (range: { from: Date; to: Date }) => {
-    onFiltersChange({ ...filters, dateRange: range });
+    const updatedFilters = { ...localFilters, dateRange: range };
+    setLocalFilters(updatedFilters);
+    onFiltersChange(updatedFilters);
+  };
+
+  const handleFilterChange = (key: string, value: any) => {
+    const updatedFilters = { ...localFilters, [key]: value };
+    setLocalFilters(updatedFilters);
+  };
+
+  const handleApplyFilters = () => {
+    onFiltersChange(localFilters);
+  };
+
+  const handleClearFilters = () => {
+    const clearedFilters = {
+      priority: undefined,
+      labels: undefined,
+      createdBy: undefined,
+      assignedTo: undefined,
+      dateRange: undefined,
+      stageIds: undefined,
+    };
+    setLocalFilters(clearedFilters);
+    onClearAllFilters();
+  };
+
+  const formatDateRange = (range: { from: Date; to: Date }) => {
+    return `${range.from.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${range.to.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })}`;
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
-      {/* Top Row */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
-        {/* Date Range */}
-        {filters.dateRange && (
-          <div className="flex items-center bg-white px-3 py-1.5 rounded-md border border-gray-200 text-sm">
-            <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-            <span className="text-gray-700">
-              {filters.dateRange.from.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} - 
-              {filters.dateRange.to.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </span>
-            <button 
-              onClick={clearDateRange} 
-              className="ml-2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
+    <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+      <div className="flex flex-col gap-2">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">Tasks</h1>
+              <p className="text-gray-600 text-sm">
+                Organize tasks and track your team's work efficiently.
+              </p>
+            </div>
           </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={onAddTask}
+              className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Task
+            </Button>
+          </div>
+        </div>
+
+        <div
+          className={`transition-all duration-500 ${
+            isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end w-full mt-4">
+            {/* Search */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+              />
+            </div>
+
+            {/* Date Range */}
+            <div className="relative w-full">
+              <Button
+                variant={localFilters.dateRange ? "secondary" : "outline"}
+                onClick={() => setIsDatePickerOpen(true)}
+                className={`w-full rounded-lg flex items-center justify-between gap-2 ${
+                  localFilters.dateRange
+                    ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                    : "border-gray-300"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  {localFilters.dateRange
+                    ? formatDateRange(localFilters.dateRange)
+                    : "Date Range"}
+                </span>
+                {localFilters.dateRange && (
+                  <X
+                    className="h-4 w-4 hover:text-blue-900"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearDateRange();
+                    }}
+                  />
+                )}
+              </Button>
+
+              <DateRangePicker
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                onSelect={handleDateRangeSelect}
+                initialRange={localFilters.dateRange}
+              />
+            </div>
+
+            {/* Priority Filter */}
+            <Select
+              value={localFilters.priority || "all"}
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "priority",
+                  value === "all" ? undefined : value
+                )
+              }
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                {priorities.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {priority}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Stage Filter */}
+            <Select
+              value={localFilters.stageIds || "all"}
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "stageIds",
+                  value === "all" ? undefined : value
+                )
+              }
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Stage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {stages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id.toString()}>
+                    {stage.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Labels Filter */}
+            <Select
+              value={
+                Array.isArray(localFilters.labels)
+                  ? localFilters.labels[0] ?? "all"
+                  : localFilters.labels || "all"
+              }
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "labels",
+                  value === "all" ? undefined : [value]
+                )
+              }
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Labels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Labels</SelectItem>
+                <SelectItem value="Frontend">Frontend</SelectItem>
+                <SelectItem value="Backend">Backend</SelectItem>
+                <SelectItem value="Bug">Bug</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Created By Filter */}
+            <Select
+              value={localFilters.createdBy || "all"}
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "createdBy",
+                  value === "all" ? undefined : value
+                )
+              }
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Created By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Created By</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.userId} value={user.userId}>
+                    {`${user.firstName} ${user.lastName}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Assigned To Filter */}
+            <Select
+              value={localFilters.assignedTo || "all"}
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "assignedTo",
+                  value === "all" ? undefined : value
+                )
+              }
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Assigned To" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Assigned To</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.userId} value={user.userId}>
+                    {`${user.firstName} ${user.lastName}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Action Buttons */}
+            <Button
+              onClick={handleApplyFilters}
+              className="bg-gray-800 hover:bg-gray-700 text-white w-full"
+            >
+              Apply Filters
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              className="border-gray-300 w-full"
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Expand/Collapse Button */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="absolute -bottom-6 left-1/2 -translate-x-1/2 
+               w-12 h-12 rounded-full bg-white flex items-center justify-center border-b-2 border-gray-300 shadow-md transition-colors"
+      >
+        {isExpanded ? (
+          <ChevronUp className="h-5 w-5 text-gray-700 mt-2" />
+        ) : (
+          <ChevronDown className="h-5 w-5 text-gray-700 mt-2" />
         )}
-
-        {/* Search Bar */}
-        <div className="relative w-64 ml-auto mr-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={onAddTask} 
-            className="bg-gray-900 text-white hover:bg-gray-800 rounded-lg shadow-sm"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Task
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setIsDatePickerOpen(true)}
-            className="border-gray-300 rounded-lg"
-          >
-            <Calendar className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Filter Row */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Select
-          value={filters.priority || "all"}
-          onValueChange={(value) => 
-            onFiltersChange({ 
-              ...filters, 
-              priority: value === "all" ? undefined : value as TaskPriority 
-            })
-          }
-        >
-          <SelectTrigger className="w-40 rounded-lg border-gray-300">
-            <div className="flex items-center">
-              <SelectValue placeholder="All Priority" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Priority</SelectItem>
-            {priorities.map(priority => (
-              <SelectItem key={priority} value={priority}>
-                {priority}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Stage Filter */}
-        <Select
-          value={filters.stageIds || "all"}
-          onValueChange={(value) => 
-            onFiltersChange({ 
-              ...filters, 
-              stageIds: value === "all" ? undefined : value
-            })
-          }
-        >
-          <SelectTrigger className="w-40 rounded-lg border-gray-300">
-            <div className="flex items-center">
-              <SelectValue placeholder="All Stages" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Stages</SelectItem>
-            {stages.map(stage => (
-              <SelectItem key={stage.id} value={stage.id.toString()}>
-                {stage.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={Array.isArray(filters.labels) ? filters.labels[0] ?? "all" : filters.labels || "all"}
-          onValueChange={(value) => 
-            onFiltersChange({ 
-              ...filters, 
-              labels: value === "all" ? undefined : [value] 
-            })
-          }
-        >
-          <SelectTrigger className="w-40 rounded-lg border-gray-300">
-            <div className="flex items-center">
-              <SelectValue placeholder="All Labels" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Labels</SelectItem>
-            <SelectItem value="Frontend">Frontend</SelectItem>
-            <SelectItem value="Backend">Backend</SelectItem>
-            <SelectItem value="Bug">Bug</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.createdBy || "all"}
-          onValueChange={(value) => 
-            onFiltersChange({ 
-              ...filters, 
-              createdBy: value === "all" ? undefined : value 
-            })
-          }
-        >
-          <SelectTrigger className="w-40 rounded-lg border-gray-300">
-            <div className="flex items-center">
-              <SelectValue placeholder="All Created By" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Created By</SelectItem>
-            {users.map(user => (
-              <SelectItem key={user.userId} value={user.userId}>
-                {`${user.firstName} ${user.lastName}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.assignedTo || "all"}
-          onValueChange={(value) => 
-            onFiltersChange({ 
-              ...filters, 
-              assignedTo: value === "all" ? undefined : value 
-            })
-          }
-        >
-          <SelectTrigger className="w-40 rounded-lg border-gray-300">
-            <div className="flex items-center">
-              <SelectValue placeholder="All Assigned To" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Assigned To</SelectItem>
-            {users.map(user => (
-              <SelectItem key={user.userId} value={user.userId}>
-                {`${user.firstName} ${user.lastName}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <button 
-          onClick={onClearAllFilters}
-          className="flex items-center text-sm text-gray-500 hover:text-gray-700 ml-2"
-        >
-          <X className="h-4 w-4 mr-1" />
-          Clear all
-        </button>
-      </div>
-
-      <DateRangePicker
-        isOpen={isDatePickerOpen}
-        onClose={() => setIsDatePickerOpen(false)}
-        onSelect={handleDateRangeSelect}
-        initialRange={filters.dateRange}
-      />
+      </button>
     </div>
   );
 };

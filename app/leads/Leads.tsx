@@ -517,7 +517,7 @@ const Leads = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div>
       <div>
         <LeadFilters
           filters={filters}

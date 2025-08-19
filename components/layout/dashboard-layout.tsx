@@ -42,8 +42,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         />
 
         {/* Page content */}
-        <main className="py-6">
-          <div className="px-4 sm:px-6 lg:px-8">{children}</div>
+        <main className="py-4 sm:py-4 lg:py-6">
+          <div className="px-4 sm:px-4 lg:px-6">{children}</div>
         </main>
       </div>
     </div>

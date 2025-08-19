@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getTaskById } from "@/app/services/data.service";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
+// import { Progress } from "@/components/ui/progress";
 
 interface TaskDetailsModalProps {
   isOpen: boolean;
@@ -157,7 +157,7 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                     <span className="font-medium">Progress</span>
                     <span className="text-gray-500">{task.progress}%</span>
                   </div>
-                  <Progress value={task.progress} className="h-1.5" />
+                  {/* <Progress value={task.progress} className="h-1.5" /> */}
                 </div>
               )}
 
