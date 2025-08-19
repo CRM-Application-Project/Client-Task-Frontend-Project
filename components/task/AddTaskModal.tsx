@@ -111,12 +111,19 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
   };
 
   // Helper function to format date for datetime-local input
-  const formatDateForInput = (dateString: string) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toISOString().slice(0, 16);
-  };
-
+ const formatDateForInput = (dateString: string) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  
+  // Get the local date and time components
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -197,10 +204,13 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
                 <Input
                   type="datetime-local"
                   value={formatDateForInput(formData.startTime)}
-                  onChange={(e) => setFormData({
-                    ...formData, 
-                    startTime: e.target.value ? new Date(e.target.value).toISOString() : ""
-                  })}
+                onChange={(e) => {
+  const date = e.target.value ? new Date(e.target.value) : null;
+  setFormData({
+    ...formData,
+    startTime: date ? date.toISOString() : ""
+  });
+}}
                   className="w-full"
                   required
                 />
@@ -213,10 +223,13 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
                 <Input
                   type="datetime-local"
                   value={formatDateForInput(formData.endtime)}
-                  onChange={(e) => setFormData({
-                    ...formData, 
-                    endtime: e.target.value ? new Date(e.target.value).toISOString() : ""
-                  })}
+                 onChange={(e) => {
+  const date = e.target.value ? new Date(e.target.value) : null;
+  setFormData({
+    ...formData,
+    endtime: date ? date.toISOString() : ""
+  });
+}}
                   className="w-full"
                 />
               </div>

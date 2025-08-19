@@ -532,6 +532,8 @@ export const changePassword = async (
   const res = await postRequest(endpoint, payload);
   return res as ChangePasswordResponse;
 };
+<
+
 
 
 // Function
@@ -542,4 +544,70 @@ export const updateUserProfile = async (
   const endpoint = API_CONSTANTS.USER.UPDATE_USER.replace(":userId", userId);
   const res = await putRequest(endpoint, payload);
   return res as UpdateUserResponse;
+
 };
+interface UploadUrlRequest {
+  fileName: string;
+  fileType: string;
+}
+
+interface DocumentUrlData {
+  docId: number;
+  type: 'UPLOAD' | 'DOWNLOAD';
+  fileName: string;
+  fileType: string;
+  url: string;
+}
+
+interface DocumentUrlResponse {
+  isSuccess: boolean;
+  message: string;
+  data: DocumentUrlData;
+}
+
+interface DeleteDocumentResponse {
+  isSuccess: boolean;
+  message: string;
+  data: null;
+}
+
+interface VerifyUploadResponse {
+  isSuccess: boolean;
+  message: string;
+  data: any; // Add specific type based on your API response
+}
+
+// Document Service Functions
+export const getDocumentUploadUrl = async (
+  taskId: string,
+  payload: UploadUrlRequest
+): Promise<DocumentUrlResponse> => {
+  const endpoint = API_CONSTANTS.TASK.DOCUMENT.UPLOAD_URL(taskId);
+  const res = await postRequest(endpoint, payload);
+  return res as DocumentUrlResponse;
+};
+
+export const verifyDocumentUpload = async (
+  docId: string,
+  payload?: any // Add specific payload type if needed
+): Promise<VerifyUploadResponse> => {
+  const endpoint = API_CONSTANTS.TASK.DOCUMENT.VERIFY_UPLOAD(docId);
+  const res = await postRequest(endpoint, payload || {});
+  return res as VerifyUploadResponse;
+};
+
+export const getDocumentDownloadUrl = async (
+  docId: string
+): Promise<DocumentUrlResponse> => {
+  const endpoint = API_CONSTANTS.TASK.DOCUMENT.DOWNLOAD_URL(docId);
+  const res = await getRequest(endpoint);
+  return res as DocumentUrlResponse;
+};
+
+export const deleteDocument = async (
+  docId: string
+): Promise<DeleteDocumentResponse> => {
+  const endpoint = API_CONSTANTS.TASK.DOCUMENT.DELETE(docId);
+  const res = await deleteRequest(endpoint);
+  return res as DeleteDocumentResponse;
+}

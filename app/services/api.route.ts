@@ -33,6 +33,13 @@ export const API_CONSTANTS = {
     GET_BY_ID: "/tasks/{taskId}",
     FILTER: "/tasks/filter",
     DROPDOWN: "/task/stages/dropdown",
+        DOCUMENT: {
+      UPLOAD_URL: (taskId: string) => `/tasks/${taskId}/documents/upload-url`,
+      VERIFY_UPLOAD: (docId: string) => `/tasks/documents/${docId}/verify`,
+      DOWNLOAD_URL: (docId: string) => `/tasks/documents/${docId}/download-url`,
+      DELETE: (docId: string) => `/tasks/documents/${docId}`,
+    }
+
   },
   LEAD: {
     CREATE: "/lead/create",
