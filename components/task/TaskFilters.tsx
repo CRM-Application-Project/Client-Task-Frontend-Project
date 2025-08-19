@@ -21,32 +21,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DateRangePicker } from "./DateRangePicker";
-import { useState } from "react";
-import { TaskFilters as TaskFiltersType, TaskPriority } from "../../lib/task";
+import { useState, useEffect } from "react";
+import { TaskPriority } from "../../lib/task";
 import { TaskStage } from "@/lib/data";
 import { User } from "@/app/services/data.service";
 
+interface ExtendedTaskFilters {
+  priority?: string;
+  labels?: string[];
+  createdBy?: string;
+  assignedTo?: string;
+  dateRange?: { from: Date; to: Date };
+  stageIds?: string;
+}
+
 interface TaskFiltersProps {
-  filters: {
-    priority?: string;
-    labels?: string[];
-    createdBy?: string;
-    assignedTo?: string;
-    dateRange?: { from: Date; to: Date };
-    stageIds?: string;
-  };
-  onFiltersChange: (filters: {
-    priority?: string;
-    labels?: string[];
-    createdBy?: string;
-    assignedTo?: string;
-    dateRange?: { from: Date; to: Date };
-    stageIds?: string;
-  }) => void;
+  filters: ExtendedTaskFilters;
+  onFiltersChange: (filters: ExtendedTaskFilters) => void;
   onAddTask: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClearAllFilters: () => void;
+  onApplyFilters: () => void;
+  viewMode: 'kanban' | 'grid';
+  onViewModeChange: (mode: 'kanban' | 'grid') => void;
   stages?: TaskStage[];
   users?: User[];
   onImportTask?: () => void;
@@ -59,6 +57,9 @@ export const TaskFilters = ({
   searchQuery,
   onSearchChange,
   onClearAllFilters,
+  onApplyFilters,
+  viewMode,
+  onViewModeChange,
   stages = [],
   users = [],
 }: TaskFiltersProps) => {
@@ -120,12 +121,14 @@ export const TaskFilters = ({
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-1">Tasks</h1>
               <p className="text-gray-600 text-sm">
-                Organize tasks and track your team's work efficiently.
+                {`Organize tasks and track your team's work efficiently.`}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+           
             <Button
               onClick={onAddTask}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
@@ -133,6 +136,27 @@ export const TaskFilters = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
+             <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+              <Button
+                variant={viewMode === 'kanban' ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onViewModeChange('kanban')}
+                className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-800 text-white' : 'text-gray-700'}`}
+              >
+                <LayoutGrid className="h-4 w-4 mr-1" />
+               
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onViewModeChange('grid')}
+                className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-800 text-white' : 'text-gray-700'}`}
+              >
+                <Grid className="h-4 w-4 mr-1" />
+               
+              </Button>
+            </div>
+
           </div>
         </div>
 

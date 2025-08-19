@@ -356,6 +356,13 @@ export default function TaskBoard() {
       }
     };
   }, [searchQuery]); // Only depend on searchQuery
+const [viewMode, setViewMode] = useState<'kanban' | 'grid'>('kanban');
+
+// Update your existing handleFilterChange function to handle the apply filters:
+const handleApplyFilters = useCallback(async () => {
+  const apiParams = convertFiltersToApiParams(filters, searchQuery);
+  await fetchTasks(apiParams, true);
+}, [filters, searchQuery, convertFiltersToApiParams, fetchTasks]);
 
   // Handle filter changes
   const handleFilterChange = useCallback(
@@ -486,6 +493,9 @@ export default function TaskBoard() {
   return (
     <div className="min-h-screen">
       <>
+        {/* Header */}
+     
+
         {/* Loading indicator for refreshing */}
         {isRefreshing && (
           <div className="mb-4 flex items-center justify-center">
@@ -497,30 +507,147 @@ export default function TaskBoard() {
 
         {/* Filters */}
         <TaskFilters
-          filters={filters}
-          onFiltersChange={handleFilterChange}
-          onAddTask={() => setIsAddModalOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onClearAllFilters={handleClearAllFilters}
-          stages={stages}
-          users={users}
-        />
+  filters={filters}
+  onFiltersChange={handleFilterChange}
+  onAddTask={() => setIsAddModalOpen(true)}
+  searchQuery={searchQuery}
+  onSearchChange={setSearchQuery}
+  onClearAllFilters={handleClearAllFilters}
+  onApplyFilters={handleApplyFilters}
+  viewMode={viewMode}
+  onViewModeChange={setViewMode}
+  stages={stages}
+  users={users}
+/>
 
         {/* Task Board */}
-        <div className="flex gap-6 overflow-x-auto pb-6">
-          {stages.map(stage => (
-    <TaskColumn
-      key={stage.id}
-      status={stage.name as TaskStatus}
-      tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
-      onEditTask={handleEditTask}
-      onDeleteTask={handleDeleteTask}
-                onTaskClick={handleTaskClick} // Add this prop
-
-    />
-  ))}
-        </div>
+       {viewMode === 'kanban' && (
+  <div className="flex gap-3 overflow-x-auto pb-6">
+    {stages.map(stage => (
+      <TaskColumn
+        key={stage.id}
+        status={stage.name as TaskStatus}
+        tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
+        onEditTask={handleEditTask}
+        onDeleteTask={handleDeleteTask}
+      />
+    ))}
+  </div>
+)}
+{viewMode === 'grid' && (
+  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Task
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Stage
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Priority
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Assigned To
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Start Date
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              End Date
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {filteredTasks.map((task) => (
+            <tr key={task.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center">
+                  <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                    {task.subject?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-900">
+                      {task.subject}
+                    </div>
+                    <div className="text-sm text-gray-500 max-w-xs truncate">
+                      {task.description}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                  {task.taskStageName}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span
+                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    task.priority === "LOW"
+                      ? "bg-gray-100 text-gray-800"
+                      : task.priority === "MEDIUM"
+                      ? "bg-blue-100 text-blue-800"
+                      : task.priority === "HIGH"
+                      ? "bg-orange-100 text-orange-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {task.priority}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {task.assignedTo}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {task.startDate.toLocaleDateString('en-US', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric' 
+                })}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {task.endDate ? task.endDate.toLocaleDateString('en-US', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric' 
+                }) : 'No due date'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEditTask(task)}
+                    className="text-indigo-600 hover:text-indigo-900"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTask(task.id)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {filteredTasks.length === 0 && (
+      <div className="text-center py-12">
+        <p className="text-gray-500">
+          No tasks found matching your filters.
+        </p>
+      </div>
+    )}
+  </div>
+)}
 
         {/* Add Task Modal */}
         <AddTaskModal
