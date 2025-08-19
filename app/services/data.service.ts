@@ -1,4 +1,4 @@
-import { ChangePasswordRequest, ChangePasswordResponse, FilterLeadsParams, FilterLeadsResponse, TaskStagesDropdownResponse } from "@/lib/data";
+import { ChangePasswordRequest, ChangePasswordResponse, FilterLeadsParams, FilterLeadsResponse, LoginRequestData, LoginResponse, TaskStagesDropdownResponse, UpdateUserRequest, UpdateUserResponse } from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
   deleteRequest,
@@ -18,17 +18,29 @@ export const registerUser = async (
 
 export const verifyUser = async (
   emailAddress: string,
-  deviceType: string = "web"
+  deviceType: string = "web",
+  companyName?: string
 ): Promise<VerifyUserResponse> => {
-  const url = API_CONSTANTS.USER.VERIFY.replace(
-    "{emailAddress}",
-    encodeURIComponent(emailAddress)
-  ).replace("{deviceType}", deviceType);
+  const baseUrl = "/verify";
+  
+  // 2. Create URLSearchParams for query parameters
+  const params = new URLSearchParams();
+  params.append("emailAddress", emailAddress);
+  params.append("deviceType", deviceType);
+  
+  if (companyName) {
+    params.append("companyName", companyName);
+  }
+
+  // 3. Combine them
+  const url = `${baseUrl}?${params.toString()}`;
+  
+  // (Optional) Log the URL to verify
+  console.log("Final URL:", url);
 
   const res = await getRequest(url);
   return res as VerifyUserResponse;
 };
-
 export const loginUser = async (
   loginData: LoginRequestData
 ): Promise<LoginResponse> => {
@@ -519,4 +531,15 @@ export const changePassword = async (
   const endpoint = API_CONSTANTS.LEAD.CHANGE_PASSWORD.replace(":userId", userId);
   const res = await postRequest(endpoint, payload);
   return res as ChangePasswordResponse;
+};
+
+
+// Function
+export const updateUserProfile = async (
+  userId: string,
+  payload: UpdateUserRequest
+): Promise<UpdateUserResponse> => {
+  const endpoint = API_CONSTANTS.USER.UPDATE_USER.replace(":userId", userId);
+  const res = await putRequest(endpoint, payload);
+  return res as UpdateUserResponse;
 };

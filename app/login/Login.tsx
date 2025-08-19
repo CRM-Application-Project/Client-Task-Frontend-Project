@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { loginUser, verifyUser } from '../services/data.service';
-import { useCountryCodes } from '@/hooks/useCountryCodes';
-
+import { useDispatch } from 'react-redux';
+import { loginSuccess } from '@/hooks/userSlice';
 
 interface VerifyUserResponse {
   isSuccess: boolean;
@@ -19,28 +19,33 @@ interface VerifyUserResponse {
     tenantToken: string | null;
     accessRegion: string;
     deviceType: string;
+    requiresCompany: boolean;
   };
 }
 
-interface LoginRequestData {
+interface UserModuleAccess {
+  id: string;
+  name: string;
+  accessLevel: string;
+}
+
+interface ProfileResponse {
+  id: string;
+  firstName: string;
+  lastName: string;
   emailAddress: string;
+  phoneNumber: string | null;
   password: string;
-  deviceType: string;
-  accessRegion: string;
+  userRole: string;
+  isPasswordUpdated: boolean;
+  userModuleAccessList: UserModuleAccess[];
 }
 
 interface LoginResponse {
   isSuccess: boolean;
   message: string;
   data: {
-    profileResponse: {
-      firstName: string;
-      lastName: string;
-      emailAddress: string;
-      phoneNumber: string | null;
-      password: string;
-      userRole: string;
-    };
+    profileResponse: ProfileResponse;
     authTokenResponse: {
       token: string | null;
       refreshToken: string | null;
@@ -51,25 +56,40 @@ interface LoginResponse {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [requiresCompany, setRequiresCompany] = useState(false);
+  const [showCompanyField, setShowCompanyField] = useState(false);
   const [accessRegion, setAccessRegion] = useState('public');
   const { toast } = useToast();
   const router = useRouter();
-    
+  const dispatch = useDispatch();
 
+  // Check if email domain is personal (like gmail.com, yahoo.com etc)
+  const isPersonalEmail = (emailAddress: string): boolean => {
+    if (!emailAddress) return false;
+    const domain = emailAddress.split('@')[1]?.toLowerCase();
+    const personalDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com', 'mail.com', 'aol.com', 'zoho.com'];
+    return !!domain && personalDomains.includes(domain);
+  };
 
-  const handleEmailBlur = async () => {
-    if (!email) return;
+  const verifyUserEmail = async (emailAddress: string, company?: string) => {
+    if (!emailAddress) return;
     
     setIsLoading(true);
     try {
-      const response: VerifyUserResponse = await verifyUser(email, 'web');
+      const response = await verifyUser(
+        emailAddress, 
+        'web', 
+        company
+      ) as VerifyUserResponse;
       
       if (response.isSuccess) {
         setIsEmailVerified(true);
         setAccessRegion(response.data.accessRegion);
+        setRequiresCompany(response.data.requiresCompany);
         toast({
           title: "Email verified",
           description: "Please enter your password to continue",
@@ -95,52 +115,135 @@ export default function LoginPage() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isEmailVerified) return;
+  // Auto-verify email after user stops typing (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (email && email.includes('@') && email.includes('.')) {
+        const isPersonal = isPersonalEmail(email);
+        setRequiresCompany(isPersonal);
+        setShowCompanyField(isPersonal);
+        
+        // If it's a personal email and no company name, don't verify yet
+        if (isPersonal && !companyName.trim()) {
+          return;
+        }
+        
+        // Call verification API
+        verifyUserEmail(email, isPersonal ? companyName : undefined);
+      }
+    }, 1000); // 1 second delay after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [email, companyName]);
+
+  // Auto-verify when company name is entered for personal emails
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (requiresCompany && email && companyName.trim() && !isEmailVerified) {
+        verifyUserEmail(email, companyName);
+      }
+    }, 800); // Shorter delay for company name
+
+    return () => clearTimeout(timeoutId);
+  }, [companyName, requiresCompany, email, isEmailVerified]);
+
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!isEmailVerified) return;
+  
+  setIsLoading(true);
+  
+  try {
+    const loginData = {
+      emailAddress: email,
+      password,
+      deviceType: 'web',
+      accessRegion,
+      ...(requiresCompany && { companyName })
+    };
+
+    const response = await loginUser(loginData) as unknown as LoginResponse;
     
-    setIsLoading(true);
-    
-    try {
-      const loginData: LoginRequestData = {
-        emailAddress: email,
-        password,
-        deviceType: 'web',
-        accessRegion
+    if (response.isSuccess) {
+      const { profileResponse, authTokenResponse } = response.data;
+      
+      // Store tokens if they exist
+      if (authTokenResponse.token) {
+        localStorage.setItem('authToken', authTokenResponse.token);
+      }
+      if (authTokenResponse.refreshToken) {
+        localStorage.setItem('refreshToken', authTokenResponse.refreshToken);
+      }
+
+      // Store user data
+      localStorage.setItem('currentUser', JSON.stringify(profileResponse));
+      
+      // Convert userModuleAccessList to modules format if needed
+      const modules = profileResponse.userModuleAccessList?.map(access => ({
+        id: parseInt(access.id),
+        moduleId: parseInt(access.id),
+        moduleName: access.name,
+        canView: access.accessLevel.includes('view'),
+        canEdit: access.accessLevel.includes('edit'),
+        canCreate: access.accessLevel.includes('create'),
+        canDelete: access.accessLevel.includes('delete')
+      })) || [];
+
+      const userWithModules = {
+        ...profileResponse,
+        modules
       };
 
-      const response: LoginResponse = await loginUser(loginData);
+      // Add missing properties to match UserProfile type
+      const completeUserProfile = {
+        ...userWithModules,
+        userId: profileResponse.id,
+        contactNumber: profileResponse.phoneNumber || '',
+        dateOfBirth: '',
+        dateOfJoin: '',
+        profileImage: '',
+        address: '',
+        status: 'active',
+        departmentId: 0, 
+        departmentName: '',
+        isActive: true
+      };
+
+      // Dispatch login success with the user data
+      dispatch(loginSuccess({ 
+        user: completeUserProfile, 
+        allUsers: [completeUserProfile] 
+      }));
       
-      if (response.isSuccess) {
-        toast({
-          title: "Login successful",
-          description: `Welcome back, ${response.data.profileResponse.firstName}!`,
-          variant: "default",
-        });
-        
-        // Store tokens and user data in localStorage or context
-        localStorage.setItem('authToken', response.data.authTokenResponse.token || '');
-        localStorage.setItem('refreshToken', response.data.authTokenResponse.refreshToken || '');
-        localStorage.setItem('user', JSON.stringify(response.data.profileResponse));
-        
-        router.push('/leads');
-      } else {
-        toast({
-          title: "Login failed",
-          description: response.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
       toast({
-        title: "Error",
-        description: "An error occurred during login",
+        title: "Login successful",
+        description: `Welcome back, ${profileResponse.firstName}!`,
+        variant: "default",
+      });
+      
+      // Redirect
+      if (!profileResponse.isPasswordUpdated) {
+        router.push('/reset-password');
+      } else {
+        router.push('/leads');
+      }
+    } else {
+      toast({
+        title: "Login failed",
+        description: response.message,
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : "An error occurred during login",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
@@ -192,12 +295,42 @@ export default function LoginPage() {
                     onChange={(e) => {
                       setEmail(e.target.value);
                       setIsEmailVerified(false);
+                      setShowCompanyField(false);
+                      setRequiresCompany(false);
+                      setCompanyName('');
                     }}
-                    onBlur={handleEmailBlur}
                     required
                     className="h-12 bg-background border-input focus:border-primary transition-all duration-200"
                   />
                 </div>
+
+                {/* Company Name Field - Show dynamically for personal emails */}
+                {showCompanyField && (
+                  <div className="space-y-2 animate-slide-down">
+                    <Label htmlFor="company" className="text-sm font-medium text-foreground">
+                      Company Name
+                      <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="company"
+                        type="text"
+                        placeholder="Enter your company name"
+                        value={companyName}
+                        onChange={(e) => {
+                          setCompanyName(e.target.value);
+                          setIsEmailVerified(false);
+                        }}
+                        required
+                        className="h-12 pl-12 bg-background border-input focus:border-primary transition-all duration-200"
+                      />
+                      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Required for personal email addresses
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-sm font-medium text-foreground">
