@@ -104,11 +104,13 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error scheduling follow-up:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred while scheduling follow-up",
+        description:
+          error.message ||
+          "An unexpected error occurred while scheduling follow-up",
         variant: "destructive",
       });
     } finally {

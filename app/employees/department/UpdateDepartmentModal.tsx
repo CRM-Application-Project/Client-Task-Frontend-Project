@@ -61,14 +61,14 @@ export default function UpdateDepartmentModal({
       } else {
         toast({
           title: "Error",
-          description: res.message,
+          description: res.message || "Failed to update department",
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       toast({
         title: "Error",
-        description: "Failed to update department",
+        description: error.message || "Failed to update department",
         variant: "destructive",
       });
     } finally {

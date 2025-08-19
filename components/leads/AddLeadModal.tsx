@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -18,34 +18,38 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { AssignDropdown, createLead, getAllLeads, getAssignDropdown } from '@/app/services/data.service';
-import { useCountryCodes } from '@/hooks/useCountryCodes';
-import { CreateLeadRequest } from '@/lib/data';
-
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AssignDropdown,
+  createLead,
+  getAllLeads,
+  getAssignDropdown,
+} from "@/app/services/data.service";
+import { useCountryCodes } from "@/hooks/useCountryCodes";
+import { CreateLeadRequest } from "@/lib/data";
 
 const formSchema = z.object({
-  customerName: z.string().min(1, 'Customer name is required'),
-  customerEmailAddress: z.string().email('Invalid email address'),
-  customerMobileNumber: z.string().min(1, 'Mobile number is required'),
-  companyEmailAddress: z.string().email('Invalid company email address'),
-  leadStatus: z.string().min(1, 'Lead status is required'),
-  leadSource: z.string().min(1, 'Lead source is required'),
-  leadAddedBy: z.string().min(1, 'Lead added by is required'),
-  leadLabel: z.string().min(1, 'Lead label is required'),
-  leadReference: z.string().min(1, 'Lead reference is required'),
-  leadAddress: z.string().min(1, 'Lead address is required'),
+  customerName: z.string().min(1, "Customer name is required"),
+  customerEmailAddress: z.string().email("Invalid email address"),
+  customerMobileNumber: z.string().min(1, "Mobile number is required"),
+  companyEmailAddress: z.string().email("Invalid company email address"),
+  leadStatus: z.string().min(1, "Lead status is required"),
+  leadSource: z.string().min(1, "Lead source is required"),
+  leadAddedBy: z.string().min(1, "Lead added by is required"),
+  leadLabel: z.string().min(1, "Lead label is required"),
+  leadReference: z.string().min(1, "Lead reference is required"),
+  leadAddress: z.string().min(1, "Lead address is required"),
   comment: z.string().optional(),
 });
 
@@ -58,15 +62,15 @@ interface AddLeadModalProps {
   onNewLeadCreated: (apiLeadData: any) => void; // New prop for immediate state update
 }
 
-const AddLeadModal: React.FC<AddLeadModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onAddLead, 
-  onNewLeadCreated 
+const AddLeadModal: React.FC<AddLeadModalProps> = ({
+  isOpen,
+  onClose,
+  onAddLead,
+  onNewLeadCreated,
 }) => {
   const { toast } = useToast();
   const { codes, loading } = useCountryCodes();
-  const [selectedCode, setSelectedCode] = useState("+91"); 
+  const [selectedCode, setSelectedCode] = useState("+91");
   const [phone, setPhone] = useState("");
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
@@ -75,105 +79,107 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      customerName: '',
-      customerEmailAddress: '',
-      customerMobileNumber: '',
-      companyEmailAddress: '',
-      leadStatus: '',
-      leadSource: '',
-      leadAddedBy: '',
-      leadLabel: '',
-      leadReference: '',
-      leadAddress: '',
-      comment: '',
+      customerName: "",
+      customerEmailAddress: "",
+      customerMobileNumber: "",
+      companyEmailAddress: "",
+      leadStatus: "",
+      leadSource: "",
+      leadAddedBy: "",
+      leadLabel: "",
+      leadReference: "",
+      leadAddress: "",
+      comment: "",
     },
   });
 
-// In your AddLeadModal component, update the onSubmit function:
+  // In your AddLeadModal component, update the onSubmit function:
 
+  // 1. First, let's update the AddLeadModal with debugging:
 
-// 1. First, let's update the AddLeadModal with debugging:
+  const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true);
 
-const onSubmit = async (data: FormData) => {
-  setIsSubmitting(true);
-  
-  try {
-    const selectedAssignee = assignees.find(
-      (assignee) => assignee.id === data.leadAddedBy
-    );
-    
-    const leadData: CreateLeadRequest = {
-      leadStatus: data.leadStatus as LeadStatus,
-      leadSource: data.leadSource as LeadSource,
-      leadAddedBy: selectedAssignee?.label || "",
-      customerMobileNumber: `${selectedCode.replace('+', '')}${data.customerMobileNumber.trim()}`,
-      companyEmailAddress: data.companyEmailAddress,
-      customerName: data.customerName,
-      customerEmailAddress: data.customerEmailAddress,
-      leadLabel: data.leadLabel,
-      leadReference: data.leadReference,
-      leadAddress: data.leadAddress,
-      comment: data.comment || '',
-    };
+    try {
+      const selectedAssignee = assignees.find(
+        (assignee) => assignee.id === data.leadAddedBy
+      );
 
-    console.log("Creating lead with data:", leadData);
-    const response = await createLead(leadData);
-    console.log("API response:", response);
+      const leadData: CreateLeadRequest = {
+        leadStatus: data.leadStatus as LeadStatus,
+        leadSource: data.leadSource as LeadSource,
+        leadAddedBy: selectedAssignee?.label || "",
+        customerMobileNumber: `${selectedCode.replace(
+          "+",
+          ""
+        )}${data.customerMobileNumber.trim()}`,
+        companyEmailAddress: data.companyEmailAddress,
+        customerName: data.customerName,
+        customerEmailAddress: data.customerEmailAddress,
+        leadLabel: data.leadLabel,
+        leadReference: data.leadReference,
+        leadAddress: data.leadAddress,
+        comment: data.comment || "",
+      };
 
-    if (response.isSuccess) {
-      toast({
-        title: "Success",
-        description: "Lead created successfully",
-        variant: "default",
-      });
-       onAddLead(data);
-      // Reset form and close modal first
-      form.reset();
-      onClose();
-      
-      // Call the callback with the API response data
-      if (response.data) {
-        console.log("Calling onNewLeadCreated with:", response.data);
-        onNewLeadCreated(response.data);
+      console.log("Creating lead with data:", leadData);
+      const response = await createLead(leadData);
+      console.log("API response:", response);
+
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Lead created successfully",
+          variant: "default",
+        });
+        onAddLead(data);
+        // Reset form and close modal first
+        form.reset();
+        onClose();
+
+        // Call the callback with the API response data
+        if (response.data) {
+          console.log("Calling onNewLeadCreated with:", response.data);
+          onNewLeadCreated(response.data);
+        } else {
+          console.error("No data in API response:", response);
+        }
       } else {
-        console.error("No data in API response:", response);
+        console.error("API returned error:", response);
+        toast({
+          title: "Error",
+          description: response.message || "Failed to create lead",
+          variant: "destructive",
+        });
       }
-      
-    } else {
-      console.error("API returned error:", response);
+    } catch (error: any) {
+      console.error("Error creating lead:", error);
       toast({
         title: "Error",
-        description: response.message || "Failed to create lead",
+        description:
+          error.message || "An error occurred while creating the lead",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    console.error("Error creating lead:", error);
-    toast({
-      title: "Error",
-      description: "An error occurred while creating the lead",
-      variant: "destructive",
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   useEffect(() => {
     const fetchAssignees = async () => {
       if (!isOpen) return;
-      
+
       setLoadingAssignees(true);
       try {
         const response = await getAssignDropdown();
         if (response.isSuccess && response.data) {
           setAssignees(response.data);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch assignees:", error);
         toast({
           title: "Error",
-          description: "Failed to load assignees",
+          description: error.message || "Failed to load assignees",
           variant: "destructive",
         });
       } finally {
@@ -237,8 +243,8 @@ const onSubmit = async (data: FormData) => {
                   <FormItem>
                     <FormLabel>Mobile Number</FormLabel>
                     <div className="flex gap-2">
-                      <Select 
-                        value={selectedCode} 
+                      <Select
+                        value={selectedCode}
                         onValueChange={setSelectedCode}
                       >
                         <SelectTrigger className="w-[180px]">
@@ -285,7 +291,10 @@ const onSubmit = async (data: FormData) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Lead Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
@@ -297,7 +306,9 @@ const onSubmit = async (data: FormData) => {
                         <SelectItem value="QUALIFIED">Qualified</SelectItem>
                         <SelectItem value="PROPOSAL">Proposal</SelectItem>
                         <SelectItem value="DEMO">Demo</SelectItem>
-                        <SelectItem value="NEGOTIATIONS">Negotiations</SelectItem>
+                        <SelectItem value="NEGOTIATIONS">
+                          Negotiations
+                        </SelectItem>
                         <SelectItem value="CLOSED_WON">Closed Won</SelectItem>
                         <SelectItem value="CLOSED_LOST">Closed Lost</SelectItem>
                       </SelectContent>
@@ -313,7 +324,10 @@ const onSubmit = async (data: FormData) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Lead Source</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select source" />
@@ -322,7 +336,9 @@ const onSubmit = async (data: FormData) => {
                       <SelectContent>
                         <SelectItem value="WEBSITE">Website</SelectItem>
                         <SelectItem value="REFERRAL">Referral</SelectItem>
-                        <SelectItem value="SOCIAL_MEDIA">Social Media</SelectItem>
+                        <SelectItem value="SOCIAL_MEDIA">
+                          Social Media
+                        </SelectItem>
                         <SelectItem value="EMAIL">Email</SelectItem>
                         <SelectItem value="PHONE">Phone</SelectItem>
                         <SelectItem value="EVENT">Event</SelectItem>
@@ -334,20 +350,26 @@ const onSubmit = async (data: FormData) => {
                 )}
               />
 
-               <FormField
+              <FormField
                 control={form.control}
                 name="leadAddedBy"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Assigned To</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       value={field.value}
                       disabled={loadingAssignees}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={loadingAssignees ? "Loading assignees..." : "Select assignee"} />
+                          <SelectValue
+                            placeholder={
+                              loadingAssignees
+                                ? "Loading assignees..."
+                                : "Select assignee"
+                            }
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -413,7 +435,7 @@ const onSubmit = async (data: FormData) => {
                 <FormItem>
                   <FormLabel>Comment</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Enter any additional comments..."
                       className="min-h-[100px]"
                       {...field}

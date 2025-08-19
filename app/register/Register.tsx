@@ -1,130 +1,144 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, UserPlus, Building2, Users, TrendingUp, Shield, ChevronDown, ChevronUp } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { registerUser } from '../services/data.service';
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Eye,
+  EyeOff,
+  UserPlus,
+  Building2,
+  Users,
+  TrendingUp,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { registerUser } from "../services/data.service";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    emailAddress: '',
-    password: '',
-    companyName: '',
-    companyEmailAddress: '',
-    companyContactNumber: '',
-    gstNumber: '',
-    companyType: ''
+    firstName: "",
+    lastName: "",
+    emailAddress: "",
+    password: "",
+    companyName: "",
+    companyEmailAddress: "",
+    companyContactNumber: "",
+    gstNumber: "",
+    companyType: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCompanyInfo, setShowCompanyInfo] = useState(false); 
+  const [showCompanyInfo, setShowCompanyInfo] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
   const companyTypes = [
-    'Private Limited',
-    'Public Limited',
-    'LLP (Limited Liability Partnership)',
-    'Partnership',
-    'Sole Proprietorship',
-    'Government',
-    'Non-Profit'
+    "Private Limited",
+    "Public Limited",
+    "LLP (Limited Liability Partnership)",
+    "Partnership",
+    "Sole Proprietorship",
+    "Government",
+    "Non-Profit",
   ];
 
   const validateForm = () => {
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(formData.emailAddress)) {
-    toast({
-      title: "Invalid Email",
-      description: "Please enter a valid email address",
-      variant: "destructive",
-    });
-    return false;
-  }
-
-  // Password strength check (min 8 chars)
-  if (formData.password.length < 8) {
-    toast({
-      title: "Weak Password",
-      description: "Password must be at least 8 characters long",
-      variant: "destructive",
-    });
-    return false;
-  }
-
-  return true;
-};
-
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-const handleRegister = async (e: React.FormEvent) => {
-  e.preventDefault();
-    if (!validateForm()) {
-    return;
-  }
-  
-  setIsLoading(true);
-  
-  try {
-    // Prepare the registration data
-    const registerData: RegisterRequestData = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      emailAddress: formData.emailAddress,
-      password: formData.password,
-      companyName: formData.companyName,
-      companyEmailAddress: formData.companyEmailAddress,
-      companyContactNumber: formData.companyContactNumber,
-      gstNumber: formData.gstNumber
-    };
-
-    // Call the registration API
-    const response = await registerUser(registerData);
-
-    if (response.isSuccess) {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.emailAddress)) {
       toast({
-        title: "Registration Successful",
-        description: response.data.message || "Your account has been created successfully!",
-      });
-      router.push('/login');
-    } else {
-      toast({
-        title: "Registration Failed",
-        description: response.message || "Please check your information and try again.",
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
+      return false;
     }
-  } catch (error) {
-    toast({
-      title: "Error",
-      description: "An unexpected error occurred. Please try again later.",
-      variant: "destructive",
-    });
-    console.error("Registration error:", error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+
+    // Password strength check (min 8 chars)
+    if (formData.password.length < 8) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 8 characters long",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Prepare the registration data
+      const registerData: RegisterRequestData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        emailAddress: formData.emailAddress,
+        password: formData.password,
+        companyName: formData.companyName,
+        companyEmailAddress: formData.companyEmailAddress,
+        companyContactNumber: formData.companyContactNumber,
+        gstNumber: formData.gstNumber,
+      };
+
+      // Call the registration API
+      const response = await registerUser(registerData);
+
+      if (response.isSuccess) {
+        toast({
+          title: "Registration Successful",
+          description:
+            response.data.message ||
+            "Your account has been created successfully!",
+        });
+        router.push("/login");
+      } else {
+        toast({
+          title: "Registration Failed",
+          description:
+            response.message || "Please check your information and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error.message ||
+          "An unexpected error occurred. Please try again later.",
+        variant: "destructive",
+      });
+      console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
       {/* Left Side - Image */}
       <div className="lg:w-1/2 relative hidden lg:block animate-slide-in-left">
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
-          <Image 
-            src="/login.jpeg" 
+          <Image
+            src="/login.jpeg"
             alt="CRM Background"
             layout="fill"
             objectFit="cover"
@@ -132,7 +146,7 @@ const handleRegister = async (e: React.FormEvent) => {
             priority
           />
         </div>
-        
+
         {/* Overlay */}
         <div className="absolute inset-0 bg-primary/10" />
       </div>
@@ -163,7 +177,10 @@ const handleRegister = async (e: React.FormEvent) => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
+                      <Label
+                        htmlFor="firstName"
+                        className="text-sm font-medium text-foreground"
+                      >
                         First Name
                       </Label>
                       <Input
@@ -171,13 +188,18 @@ const handleRegister = async (e: React.FormEvent) => {
                         type="text"
                         placeholder="Enter your first name"
                         value={formData.firstName}
-                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("firstName", e.target.value)
+                        }
                         required
                         className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-sm font-medium text-foreground">
+                      <Label
+                        htmlFor="lastName"
+                        className="text-sm font-medium text-foreground"
+                      >
                         Last Name
                       </Label>
                       <Input
@@ -185,15 +207,20 @@ const handleRegister = async (e: React.FormEvent) => {
                         type="text"
                         placeholder="Enter your last name"
                         value={formData.lastName}
-                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("lastName", e.target.value)
+                        }
                         required
                         className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="emailAddress" className="text-sm font-medium text-foreground">
+                    <Label
+                      htmlFor="emailAddress"
+                      className="text-sm font-medium text-foreground"
+                    >
                       Email Address
                     </Label>
                     <Input
@@ -201,14 +228,19 @@ const handleRegister = async (e: React.FormEvent) => {
                       type="email"
                       placeholder="Enter your email address"
                       value={formData.emailAddress}
-                      onChange={(e) => handleInputChange('emailAddress', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("emailAddress", e.target.value)
+                      }
                       required
                       className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                    <Label
+                      htmlFor="password"
+                      className="text-sm font-medium text-foreground"
+                    >
                       Password
                     </Label>
                     <div className="relative">
@@ -217,7 +249,9 @@ const handleRegister = async (e: React.FormEvent) => {
                         type={showPassword ? "text" : "password"}
                         placeholder="Create a strong password"
                         value={formData.password}
-                        onChange={(e) => handleInputChange('password', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("password", e.target.value)
+                        }
                         required
                         className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                       />
@@ -254,7 +288,10 @@ const handleRegister = async (e: React.FormEvent) => {
                   {showCompanyInfo && (
                     <div className="space-y-4 animate-fade-in">
                       <div className="space-y-2">
-                        <Label htmlFor="companyName" className="text-sm font-medium text-foreground">
+                        <Label
+                          htmlFor="companyName"
+                          className="text-sm font-medium text-foreground"
+                        >
                           Company Name
                         </Label>
                         <Input
@@ -262,32 +299,44 @@ const handleRegister = async (e: React.FormEvent) => {
                           type="text"
                           placeholder="Enter your company name"
                           value={formData.companyName}
-                          onChange={(e) => handleInputChange('companyName', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("companyName", e.target.value)
+                          }
                           required
                           className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="companyType" className="text-sm font-medium text-foreground">
+                        <Label
+                          htmlFor="companyType"
+                          className="text-sm font-medium text-foreground"
+                        >
                           Company Type
                         </Label>
                         <select
                           id="companyType"
                           value={formData.companyType}
-                          onChange={(e) => handleInputChange('companyType', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("companyType", e.target.value)
+                          }
                           required
                           className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <option value="">Select company type</option>
                           {companyTypes.map((type) => (
-                            <option key={type} value={type}>{type}</option>
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
                           ))}
                         </select>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="companyEmailAddress" className="text-sm font-medium text-foreground">
+                        <Label
+                          htmlFor="companyEmailAddress"
+                          className="text-sm font-medium text-foreground"
+                        >
                           Company Email Address
                         </Label>
                         <Input
@@ -295,7 +344,12 @@ const handleRegister = async (e: React.FormEvent) => {
                           type="email"
                           placeholder="Enter company email address"
                           value={formData.companyEmailAddress}
-                          onChange={(e) => handleInputChange('companyEmailAddress', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "companyEmailAddress",
+                              e.target.value
+                            )
+                          }
                           required
                           className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                         />
@@ -303,7 +357,10 @@ const handleRegister = async (e: React.FormEvent) => {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="companyContactNumber" className="text-sm font-medium text-foreground">
+                          <Label
+                            htmlFor="companyContactNumber"
+                            className="text-sm font-medium text-foreground"
+                          >
                             Company Contact Number
                           </Label>
                           <Input
@@ -311,13 +368,21 @@ const handleRegister = async (e: React.FormEvent) => {
                             type="tel"
                             placeholder="Enter contact number"
                             value={formData.companyContactNumber}
-                            onChange={(e) => handleInputChange('companyContactNumber', e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "companyContactNumber",
+                                e.target.value
+                              )
+                            }
                             required
                             className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="gstNumber" className="text-sm font-medium text-foreground">
+                          <Label
+                            htmlFor="gstNumber"
+                            className="text-sm font-medium text-foreground"
+                          >
                             GST Number
                           </Label>
                           <Input
@@ -325,7 +390,9 @@ const handleRegister = async (e: React.FormEvent) => {
                             type="text"
                             placeholder="Enter GST number"
                             value={formData.gstNumber}
-                            onChange={(e) => handleInputChange('gstNumber', e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange("gstNumber", e.target.value)
+                            }
                             required
                             className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                           />
@@ -359,15 +426,15 @@ const handleRegister = async (e: React.FormEvent) => {
           {/* Additional Links */}
           <div className="text-center space-y-4">
             <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <button 
-                onClick={() => router.push('/login')}
+              Already have an account?{" "}
+              <button
+                onClick={() => router.push("/login")}
                 className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Sign In
               </button>
             </p>
-            
+
             {/* Feature Pills */}
             <div className="flex flex-wrap justify-center gap-2 pt-4">
               <div className="flex items-center gap-2 px-3 py-1 bg-secondary rounded-full text-xs text-secondary-foreground">

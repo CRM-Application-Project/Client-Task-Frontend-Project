@@ -9,7 +9,14 @@ import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Lead, LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
-import { deleteLeadById, getAllLeads, filterLeads, updateLead, AssignDropdown, getAssignDropdown } from "../services/data.service";
+import {
+  deleteLeadById,
+  getAllLeads,
+  filterLeads,
+  updateLead,
+  AssignDropdown,
+  getAssignDropdown,
+} from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
 import LeadSortingModal from "@/components/leads/LeadSortingModal";
@@ -31,7 +38,7 @@ type LeadFiltersType = {
     from: Date;
     to: Date;
   };
-   sortBy?: string;
+  sortBy?: string;
   sortOrder?: "asc" | "desc";
 };
 
@@ -50,7 +57,7 @@ const Leads = () => {
   const [isChangeAssignModalOpen, setIsChangeAssignModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [assignOptions, setAssignOptions] = useState<AssignDropdown[]>([]);
-  
+
   const [isSortingModalOpen, setIsSortingModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -71,8 +78,7 @@ const Leads = () => {
     "CLOSED_LOST",
   ];
 
-  
- useEffect(() => {
+  useEffect(() => {
     const fetchAssignOptions = async () => {
       try {
         const response = await getAssignDropdown();
@@ -83,121 +89,126 @@ const Leads = () => {
         console.error("Failed to fetch assign options:", error);
       }
     };
-    
+
     fetchAssignOptions();
   }, []);
 
   const getAssignedToLabel = (id: string | undefined): string | null => {
-  if (!id) return null;
-  const option = assignOptions.find(opt => opt.id === id);
-  return option ? option.label : null;
-};
-
- const transformApiLead = (apiLead: any): Lead => {
-  const transformed = {
-    id: apiLead.leadId,
-    name: apiLead.customerName,
-    company: apiLead.companyEmailAddress,
-    email: apiLead.customerEmailAddress,
-    phone: apiLead.customerMobileNumber,
-    location: apiLead.leadAddress,
-    status: apiLead.leadStatus as LeadStatus,
-    priority: "MEDIUM" as LeadPriority,
-    source: apiLead.leadSource as LeadSource,
-    assignedTo: apiLead.leadAddedBy,
-    createdAt: new Date(apiLead.createdAt),
-    updatedAt: new Date(apiLead.updatedAt),
-    comment: apiLead.comment,
-    leadLabel: apiLead.leadLabel,
-    leadReference: apiLead.leadReference,
+    if (!id) return null;
+    const option = assignOptions.find((opt) => opt.id === id);
+    return option ? option.label : null;
   };
-  
-  return transformed;
-};
 
-// FIXED: Simplified add lead handler
-const handleAddNewLead = (apiLeadData: any) => {
-  if (!apiLeadData) return;
-  
-  const newLead = transformApiLead(apiLeadData);
-  setLeads((prevLeads) => [newLead, ...prevLeads]);
-};
-
-const handleAddLead = () => {
-  setIsAddModalOpen(true);
-};
-
-const handleAddNewLeadOptimistic = (formData: any) => {
-  const newLead: Lead = {
-    id: formData.leadId,
-    name: formData.customerName,
-    company: formData.companyEmailAddress,
-    email: formData.customerEmailAddress,
-    phone: formData.customerMobileNumber,
-    location: formData.leadAddress,
-    status: formData.leadStatus as LeadStatus,
-    priority: "MEDIUM" as LeadPriority,
-    source: formData.leadSource as LeadSource,
-    assignedTo: formData.leadAddedBy,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    comment: formData.comment || '',
-    leadLabel: formData.leadLabel,
-    leadReference: formData.leadReference,
-  };
-  
-  setLeads((prevLeads) => [newLead, ...prevLeads]);
-};
-
-const fetchFilteredLeads = async () => {
-  try {
-    setIsLoading(true);
-    
-    // Prepare filter parameters with proper type conversion
-    const filterParams: FilterLeadsParams = {
-      startDate: filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : null,
-      endDate: filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : null,
-      leadLabel: filters.label || null,
-      leadSource: filters.source || null,
-      assignedTo: getAssignedToLabel(filters.assignedTo) || null,
-      sortBy: filters.sortBy || null,
-      direction: filters.sortOrder || null
+  const transformApiLead = (apiLead: any): Lead => {
+    const transformed = {
+      id: apiLead.leadId,
+      name: apiLead.customerName,
+      company: apiLead.companyEmailAddress,
+      email: apiLead.customerEmailAddress,
+      phone: apiLead.customerMobileNumber,
+      location: apiLead.leadAddress,
+      status: apiLead.leadStatus as LeadStatus,
+      priority: "MEDIUM" as LeadPriority,
+      source: apiLead.leadSource as LeadSource,
+      assignedTo: apiLead.leadAddedBy,
+      createdAt: new Date(apiLead.createdAt),
+      updatedAt: new Date(apiLead.updatedAt),
+      comment: apiLead.comment,
+      leadLabel: apiLead.leadLabel,
+      leadReference: apiLead.leadReference,
     };
 
-    // Clean null/undefined values
-    const cleanedParams = Object.fromEntries(
-      Object.entries(filterParams).filter(([_, value]) => value !== null && value !== undefined)
-    );
+    return transformed;
+  };
 
-    const response = await filterLeads(cleanedParams);
-    
-    if (response.isSuccess && response.data) {
-      const transformedLeads = response.data.map(transformApiLead);
-      setLeads(transformedLeads);
+  // FIXED: Simplified add lead handler
+  const handleAddNewLead = (apiLeadData: any) => {
+    if (!apiLeadData) return;
+
+    const newLead = transformApiLead(apiLeadData);
+    setLeads((prevLeads) => [newLead, ...prevLeads]);
+  };
+
+  const handleAddLead = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddNewLeadOptimistic = (formData: any) => {
+    const newLead: Lead = {
+      id: formData.leadId,
+      name: formData.customerName,
+      company: formData.companyEmailAddress,
+      email: formData.customerEmailAddress,
+      phone: formData.customerMobileNumber,
+      location: formData.leadAddress,
+      status: formData.leadStatus as LeadStatus,
+      priority: "MEDIUM" as LeadPriority,
+      source: formData.leadSource as LeadSource,
+      assignedTo: formData.leadAddedBy,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      comment: formData.comment || "",
+      leadLabel: formData.leadLabel,
+      leadReference: formData.leadReference,
+    };
+
+    setLeads((prevLeads) => [newLead, ...prevLeads]);
+  };
+
+  const fetchFilteredLeads = async () => {
+    try {
+      setIsLoading(true);
+
+      // Prepare filter parameters with proper type conversion
+      const filterParams: FilterLeadsParams = {
+        startDate: filters.dateRange?.from
+          ? format(filters.dateRange.from, "yyyy-MM-dd")
+          : null,
+        endDate: filters.dateRange?.to
+          ? format(filters.dateRange.to, "yyyy-MM-dd")
+          : null,
+        leadLabel: filters.label || null,
+        leadSource: filters.source || null,
+        assignedTo: getAssignedToLabel(filters.assignedTo) || null,
+        sortBy: filters.sortBy || null,
+        direction: filters.sortOrder || null,
+      };
+
+      // Clean null/undefined values
+      const cleanedParams = Object.fromEntries(
+        Object.entries(filterParams).filter(
+          ([_, value]) => value !== null && value !== undefined
+        )
+      );
+
+      const response = await filterLeads(cleanedParams);
+
+      if (response.isSuccess && response.data) {
+        const transformedLeads = response.data.map(transformApiLead);
+        setLeads(transformedLeads);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to filter leads",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Failed to filter leads:", error);
-    toast({
-      title: "Error",
-      description: "Failed to filter leads",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-// FIXED: Improved useEffect for filters
-useEffect(() => {
-  const hasActiveFilters = Object.keys(filters).length > 0;
-  
-  if (hasActiveFilters && !searchQuery) {
-    fetchFilteredLeads();
-  } else if (!hasActiveFilters && !searchQuery) {
-    // If no filters, fetch all leads
-    fetchLeads();
-  }
-}, [filters]);
+  // FIXED: Improved useEffect for filters
+  useEffect(() => {
+    const hasActiveFilters = Object.keys(filters).length > 0;
+
+    if (hasActiveFilters && !searchQuery) {
+      fetchFilteredLeads();
+    } else if (!hasActiveFilters && !searchQuery) {
+      // If no filters, fetch all leads
+      fetchLeads();
+    }
+  }, [filters]);
 
   // Fetch leads only on initial load
   const fetchLeads = async () => {
@@ -208,11 +219,11 @@ useEffect(() => {
         const transformedLeads = response.data.map(transformApiLead);
         setLeads(transformedLeads);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch leads:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch leads",
+        description: error.message || "Failed to fetch leads",
         variant: "destructive",
       });
     } finally {
@@ -224,84 +235,84 @@ useEffect(() => {
     fetchLeads();
   }, []);
 
-// FIXED: Filter leads based on search and filters (local filtering for search)
-const filteredLeads = searchQuery 
-  ? leads.filter((lead) => {
-      return (
-        lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    })
-  : leads;
+  // FIXED: Filter leads based on search and filters (local filtering for search)
+  const filteredLeads = searchQuery
+    ? leads.filter((lead) => {
+        return (
+          lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      })
+    : leads;
 
-const handleDragEnd = async (result: DropResult) => {
-  if (!result.destination) return;
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
 
-  const { source, destination, draggableId } = result;
+    const { source, destination, draggableId } = result;
 
-  // Don't do anything if dropped in the same place
-  if (source.droppableId === destination.droppableId) return;
+    // Don't do anything if dropped in the same place
+    if (source.droppableId === destination.droppableId) return;
 
-  const newStatus = destination.droppableId as LeadStatus;
+    const newStatus = destination.droppableId as LeadStatus;
 
-  try {
-    // Find the lead being dragged
-    const leadToUpdate = leads.find(lead => lead.id === draggableId);
-    if (!leadToUpdate) return;
+    try {
+      // Find the lead being dragged
+      const leadToUpdate = leads.find((lead) => lead.id === draggableId);
+      if (!leadToUpdate) return;
 
-    // Optimistically update local state first
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
-        lead.id === draggableId
-          ? { ...lead, status: newStatus, updatedAt: new Date() }
-          : lead
-      )
-    );
-
-    // Prepare payload for API call
-    const payload = {
-      leadId: leadToUpdate.id,
-      leadStatus: newStatus,
-      leadSource: leadToUpdate.source,
-      leadAddedBy: leadToUpdate.assignedTo,
-      customerMobileNumber: leadToUpdate.phone,
-      companyEmailAddress: leadToUpdate.company,
-      customerName: leadToUpdate.name,
-      customerEmailAddress: leadToUpdate.email,
-      leadLabel: leadToUpdate.leadLabel || '',
-      leadReference: leadToUpdate.leadReference || '',
-      leadAddress: leadToUpdate.location || '',
-      comment: leadToUpdate.comment || ''
-    };
-
-    // Make API call to update status
-    const response = await updateLead(payload);
-    
-    if (!response.isSuccess) {
-      // Revert local state if API call fails
-      setLeads(prevLeads =>
-        prevLeads.map(lead =>
+      // Optimistically update local state first
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) =>
           lead.id === draggableId
-            ? { ...lead, status: source.droppableId as LeadStatus }
+            ? { ...lead, status: newStatus, updatedAt: new Date() }
             : lead
         )
       );
+
+      // Prepare payload for API call
+      const payload = {
+        leadId: leadToUpdate.id,
+        leadStatus: newStatus,
+        leadSource: leadToUpdate.source,
+        leadAddedBy: leadToUpdate.assignedTo,
+        customerMobileNumber: leadToUpdate.phone,
+        companyEmailAddress: leadToUpdate.company,
+        customerName: leadToUpdate.name,
+        customerEmailAddress: leadToUpdate.email,
+        leadLabel: leadToUpdate.leadLabel || "",
+        leadReference: leadToUpdate.leadReference || "",
+        leadAddress: leadToUpdate.location || "",
+        comment: leadToUpdate.comment || "",
+      };
+
+      // Make API call to update status
+      const response = await updateLead(payload);
+
+      if (!response.isSuccess) {
+        // Revert local state if API call fails
+        setLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.id === draggableId
+              ? { ...lead, status: source.droppableId as LeadStatus }
+              : lead
+          )
+        );
+        toast({
+          title: "Error",
+          description: "Failed to update lead status",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Failed to update lead status:", error);
       toast({
         title: "Error",
-        description: "Failed to update lead status",
+        description: error.message || "Failed to update lead status",
         variant: "destructive",
       });
     }
-  } catch (error) {
-    console.error("Failed to update lead status:", error);
-    toast({
-      title: "Error",
-      description: "Failed to update lead status",
-      variant: "destructive",
-    });
-  }
-};
+  };
 
   // Update existing lead in local state
   const handleUpdateLead = (updatedLead: Lead) => {
@@ -335,11 +346,11 @@ const handleDragEnd = async (result: DropResult) => {
           description: "Lead has been successfully deleted.",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete lead:", error);
       toast({
         title: "Error",
-        description: "Failed to delete lead",
+        description: error.message || "Failed to delete lead",
         variant: "destructive",
       });
     } finally {
@@ -359,10 +370,14 @@ const handleDragEnd = async (result: DropResult) => {
   };
 
   const handleCreateFollowUp = (leadId: string, followUp: any) => {
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
         lead.id === leadId
-          ? { ...lead, leadFollowUp: followUp.notes, nextFollowUpDate: new Date(followUp.date) }
+          ? {
+              ...lead,
+              leadFollowUp: followUp.notes,
+              nextFollowUpDate: new Date(followUp.date),
+            }
           : lead
       )
     );
@@ -397,7 +412,11 @@ const handleDragEnd = async (result: DropResult) => {
 
   // FIXED: Improved import leads handler to prevent duplication
   const handleImportLeads = (importedLeads: any[]) => {
-    if (!importedLeads || !Array.isArray(importedLeads) || importedLeads.length === 0) {
+    if (
+      !importedLeads ||
+      !Array.isArray(importedLeads) ||
+      importedLeads.length === 0
+    ) {
       console.warn("No leads to import or invalid data");
       // Refresh leads after import to ensure consistency
       fetchLeads();
@@ -405,25 +424,28 @@ const handleDragEnd = async (result: DropResult) => {
     }
 
     try {
-      const transformedLeads = importedLeads.map(lead => transformApiLead(lead));
-      
+      const transformedLeads = importedLeads.map((lead) =>
+        transformApiLead(lead)
+      );
+
       // FIXED: Instead of adding to existing leads, replace with fresh data to avoid duplicates
       // Option 1: Add only new leads (check for duplicates)
-      setLeads(prevLeads => {
-        const existingIds = new Set(prevLeads.map(lead => lead.id));
-        const newLeads = transformedLeads.filter(lead => !existingIds.has(lead.id));
+      setLeads((prevLeads) => {
+        const existingIds = new Set(prevLeads.map((lead) => lead.id));
+        const newLeads = transformedLeads.filter(
+          (lead) => !existingIds.has(lead.id)
+        );
         return [...newLeads, ...prevLeads];
       });
-      
+
       toast({
         title: "Leads imported",
         description: `${transformedLeads.length} leads have been successfully imported.`,
       });
-    } catch (error) {
-      console.error("Error transforming imported leads:", error);
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to process imported leads",
+        description: error.message || "Failed to process imported leads",
         variant: "destructive",
       });
       // Fallback: refresh all leads
@@ -435,36 +457,35 @@ const handleDragEnd = async (result: DropResult) => {
     setIsSortingModalOpen(true);
   };
 
- const handleApplySort = async (sortBy: string, sortOrder: "asc" | "desc") => {
-  try {
-    setIsLoading(true);
-    const response = await filterLeads({
-      ...filters,
-      sortBy,
-      direction: sortOrder
-    });
-    
-    if (response.isSuccess && response.data) {
-      const transformedLeads = response.data.map(transformApiLead);
-      setLeads(transformedLeads);
-      setSortConfig({ sortBy, sortOrder });
-      setFilters(prev => ({
-        ...prev,
+  const handleApplySort = async (sortBy: string, sortOrder: "asc" | "desc") => {
+    try {
+      setIsLoading(true);
+      const response = await filterLeads({
+        ...filters,
         sortBy,
-        sortOrder
-      }));
+        direction: sortOrder,
+      });
+
+      if (response.isSuccess && response.data) {
+        const transformedLeads = response.data.map(transformApiLead);
+        setLeads(transformedLeads);
+        setSortConfig({ sortBy, sortOrder });
+        setFilters((prev) => ({
+          ...prev,
+          sortBy,
+          sortOrder,
+        }));
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sort leads",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Failed to sort leads:", error);
-    toast({
-      title: "Error",
-      description: "Failed to sort leads",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleChangeStatus = (lead: Lead) => {
     setSelectedLead(lead);
@@ -496,8 +517,8 @@ const handleDragEnd = async (result: DropResult) => {
   }
 
   return (
-    <div className="min-h-screen">     
-      <div className="">
+    <div className="min-h-screen">
+      <div>
         <LeadFilters
           filters={filters}
           onFiltersChange={setFilters}
@@ -511,8 +532,8 @@ const handleDragEnd = async (result: DropResult) => {
             setSearchQuery("");
             setSortConfig(undefined);
           }}
-           onImportLead={() => setIsImportModalOpen(true)} 
-            onApplyFilters={() => fetchFilteredLeads()}
+          onImportLead={() => setIsImportModalOpen(true)}
+          onApplyFilters={() => fetchFilteredLeads()}
         />
 
         {viewMode === "kanban" && (
@@ -576,7 +597,10 @@ const handleDragEnd = async (result: DropResult) => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {lead?.name?.split(" ")?.map((n) => n[0])?.join("")}
+                            {lead?.name
+                              ?.split(" ")
+                              ?.map((n) => n[0])
+                              ?.join("")}
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
@@ -676,12 +700,12 @@ const handleDragEnd = async (result: DropResult) => {
           </div>
         )}
 
-      <AddLeadModal
-  isOpen={isAddModalOpen}
-  onClose={() => setIsAddModalOpen(false)}
-  onAddLead={handleAddNewLeadOptimistic} // Try this if the API response method doesn't work
-  onNewLeadCreated={handleAddNewLead} // Keep this for API response method
-/>
+        <AddLeadModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAddLead={handleAddNewLeadOptimistic} // Try this if the API response method doesn't work
+          onNewLeadCreated={handleAddNewLead} // Keep this for API response method
+        />
 
         <ConfirmationModal
           isOpen={isDeleteModalOpen}
@@ -730,7 +754,7 @@ const handleDragEnd = async (result: DropResult) => {
           isOpen={isSortingModalOpen}
           onClose={() => setIsSortingModalOpen(false)}
           onApplySort={handleApplySort}
-  currentSort={sortConfig}
+          currentSort={sortConfig}
         />
 
         <ChangeStatusModal

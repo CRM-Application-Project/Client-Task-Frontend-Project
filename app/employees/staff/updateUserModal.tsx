@@ -76,11 +76,12 @@ export const UpdateStaffModal = ({
             description: res.message || "Failed to fetch departments",
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "An error occurred while fetching departments",
+          description:
+            error.message || "An error occurred while fetching departments",
         });
       }
     };

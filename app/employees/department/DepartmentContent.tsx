@@ -57,11 +57,12 @@ export default function DepartmentsPage() {
           description: response.message || "Failed to fetch departments",
         });
       }
-    } catch {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An error occurred while fetching departments",
+        description:
+          error.message || "An error occurred while fetching departments",
       });
     } finally {
       setLoading(false);
@@ -93,11 +94,12 @@ export default function DepartmentsPage() {
           description: response.message || "Failed to delete department",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An error occurred while deleting department",
+        description:
+          error.message || "An error occurred while deleting department",
       });
     } finally {
       setLoading(false);
