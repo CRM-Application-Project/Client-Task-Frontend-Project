@@ -32,6 +32,8 @@ interface TaskColumnProps {
   tasks: Task[];
   onEditTask?: (task: Task) => void;
   onDeleteTask?: (taskId: number) => void;
+    onTaskClick?: (taskId: number) => void;
+
 }
 
 const statusConfig = {
@@ -62,7 +64,7 @@ const statusConfig = {
   }
 };
 
-export const TaskColumn = ({ status, tasks, onEditTask, onDeleteTask }: TaskColumnProps) => {
+export const TaskColumn = ({ status, tasks, onEditTask, onDeleteTask , onTaskClick }: TaskColumnProps) => {
   const config = statusConfig[status];
   
   return (
@@ -85,6 +87,8 @@ export const TaskColumn = ({ status, tasks, onEditTask, onDeleteTask }: TaskColu
             task={task}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
+                        onTaskClick={() => onTaskClick?.(task.id)} // Add this
+
           />
         ))}
         
