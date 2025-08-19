@@ -145,6 +145,12 @@ export default function TaskBoard() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const handleTaskClick = useCallback((taskId: number) => {
+    setSelectedTaskId(taskId);
+    setIsDetailsModalOpen(true);
+  }, []);
 
   // Refs to track if we're already fetching to prevent duplicate calls
   const isInitialLoadingRef = useRef(false);
@@ -465,6 +471,8 @@ export default function TaskBoard() {
       tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
       onEditTask={handleEditTask}
       onDeleteTask={handleDeleteTask}
+                onTaskClick={handleTaskClick} // Add this prop
+
     />
   ))}
         </div>

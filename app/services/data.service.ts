@@ -68,7 +68,7 @@ export const getTaskById = async (
   taskId: number
 ): Promise<GetTaskByIdResponse> => {
   const url = API_CONSTANTS.TASK.GET_BY_ID.replace("{taskId}", String(taskId));
-  const res = await getRequest(url); // assuming you have a getRequest helper
+  const res = await getRequest(url); 
   return res as GetTaskByIdResponse;
 };
 
@@ -587,7 +587,7 @@ export const verifyDocumentUpload = async (
   payload?: any // Add specific payload type if needed
 ): Promise<VerifyUploadResponse> => {
   const endpoint = API_CONSTANTS.TASK.DOCUMENT.VERIFY_UPLOAD(docId);
-  const res = await postRequest(endpoint, payload || {});
+  const res = await putRequest(endpoint, payload || {});
   return res as VerifyUploadResponse;
 };
 

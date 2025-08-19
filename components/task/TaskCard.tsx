@@ -29,6 +29,7 @@ import {
   getDocumentDownloadUrl, 
   deleteDocument 
 } from "@/app/services/data.service"; // Adjust path as needed
+import { TaskDetailsModal } from "./TaskDetailsModal";
 
 // Define the Task type to match the one from Task.tsx
 type TaskStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
@@ -68,6 +69,8 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: number) => void;
   onDocumentUpdate?: (taskId: number, documents: TaskDocument[]) => void;
+    onTaskClick?: () => void; // Add this
+
 }
 
 export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardProps) => {
@@ -77,6 +80,8 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [documents, setDocuments] = useState<TaskDocument[]>(task.documents || []);
+    const [showDetailsModal, setShowDetailsModal] = useState(false); // Add this state
+
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,6 +114,14 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
     }
   };
 
+    const handleCardClick = () => {
+    setShowDetailsModal(true);
+  };
+
+  const handleEditFromDetails = () => {
+    setShowDetailsModal(false);
+    onEdit?.(task);
+  };
  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -239,7 +252,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
     <>
       <Card 
         className="p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] bg-gradient-to-br from-card to-card/80 border border-border/50 relative group"
-        onClick={() => onEdit?.(task)}
+        onClick={handleCardClick} 
       >
         {/* Action buttons - only shows on hover */}
         <div className="absolute top-3 right-2 flex gap-1 opacity-0 group-hover:opacity-100 z-10">
@@ -405,8 +418,15 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
             </Button>
           </DialogFooter>
         </DialogContent>
+
       </Dialog>
 
+  <TaskDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        taskId={task.id}
+        onEdit={handleEditFromDetails}
+      />
       {/* Delete confirmation dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
