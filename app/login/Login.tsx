@@ -248,6 +248,8 @@ export default function LoginPage() {
       // Store user data in localStorage
       localStorage.setItem('currentUser', JSON.stringify(completeUserProfile));
       localStorage.setItem('userModules', JSON.stringify(modules));
+              localStorage.setItem('userId', response.data.profileResponse.id);
+
       
       // Debug: Verify localStorage storage
       console.log('Stored in localStorage - currentUser:', localStorage.getItem('currentUser'));

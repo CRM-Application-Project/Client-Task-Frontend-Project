@@ -1,12 +1,22 @@
 "use client"; 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PersonalInfoTab } from '@/components/profile/PersonalInfoTab';
 import { ChangePasswordTab } from '@/components/profile/ChangePasswordTab';
 
 export default function ProfileAccountPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('personal-info');
+
+  useEffect(() => {
+    // Check if there's a tab query parameter
+    const tab = searchParams.get('tab');
+    if (tab === 'change-password') {
+      setActiveTab('change-password');
+    }
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-muted/20 p-6">

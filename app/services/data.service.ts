@@ -19,7 +19,7 @@ export const registerUser = async (
 export const verifyUser = async (
   emailAddress: string,
   deviceType: string = "web",
-  companyName?: string
+  organizationName?: string
 ): Promise<VerifyUserResponse> => {
   const baseUrl = "/verify";
   
@@ -28,8 +28,8 @@ export const verifyUser = async (
   params.append("emailAddress", emailAddress);
   params.append("deviceType", deviceType);
   
-  if (companyName) {
-    params.append("companyName", companyName);
+  if (organizationName) {
+    params.append("organizationName", organizationName);
   }
 
   // 3. Combine them

@@ -8,10 +8,24 @@ import { Eye, EyeOff, Key, CheckCircle, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { changePassword } from '../services/data.service';
+
+// Define types for the API request/response
+interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+interface ChangePasswordResponse {
+  success: boolean;
+  message?: string;
+}
 
 export default function ResetPasswordPage() {
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,20 +48,53 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    // Simulate password reset process
-    setTimeout(() => {
-      toast({
-        title: "Password Reset Successful",
-        description: "Your password has been updated successfully",
-      });
-      setIsLoading(false);
-      setIsSuccess(true);
+    try {
+      const userId = localStorage.getItem('userId');
       
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
-    }, 2000);
+      if (!userId) {
+        toast({
+          title: "Error",
+          description: "User not found. Please log in again.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Call the change password API
+      const response = await changePassword(userId, {
+        oldPassword: currentPassword,
+        newPassword: newPassword
+      });
+
+      if (response) {
+        toast({
+          title: "Password Reset Successful",
+          description: "Your password has been updated successfully",
+        });
+        setIsSuccess(true);
+        
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      } else {
+        toast({
+          title: "Error",
+          description: response || "Failed to change password",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Password change error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -76,12 +123,12 @@ export default function ResetPasswordPage() {
           <div className="text-center space-y-4">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-foreground">
-                {isSuccess ? "Password Reset!" : "Reset Your Password"}
+                {isSuccess ? "Password Reset!" : "Change Your Password"}
               </h2>
               <p className="text-muted-foreground">
                 {isSuccess 
                   ? "Your password has been updated successfully. Redirecting to login..."
-                  : "Please enter your new password below"}
+                  : "Please enter your current and new password below"}
               </p>
             </div>
           </div>
@@ -90,6 +137,35 @@ export default function ResetPasswordPage() {
             <Card className="border border-border shadow-elevated animate-scale-in">
               <CardContent className="p-8">
                 <form onSubmit={handleResetPassword} className="space-y-6">
+                  {/* Current Password Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword" className="text-sm font-medium text-foreground">
+                      Current Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPassword ? "text" : "password"}
+                        placeholder="Enter your current password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                        className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="newPassword" className="text-sm font-medium text-foreground">
                       New Password
@@ -161,7 +237,7 @@ export default function ResetPasswordPage() {
                     ) : (
                       <div className="flex items-center gap-2">
                         <Key className="h-4 w-4" />
-                        Reset Password
+                        Change Password
                       </div>
                     )}
                   </Button>
