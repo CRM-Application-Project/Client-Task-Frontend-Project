@@ -47,11 +47,13 @@ export default function StaffPage() {
     canView: false,
     canEdit: false,
     canDelete: false,
+    canCreate: false,
   });
   const [newModulePermissions, setNewModulePermissions] = useState({
     canView: true,
     canEdit: false,
     canDelete: false,
+    canCreate: false,
   });
   const { toast } = useToast();
 
@@ -224,6 +226,7 @@ export default function StaffPage() {
             canView: newModulePermissions.canView,
             canEdit: newModulePermissions.canEdit,
             canDelete: newModulePermissions.canDelete,
+            canCreate: newModulePermissions.canCreate,
           },
         ],
       };
@@ -237,6 +240,7 @@ export default function StaffPage() {
           canView: true,
           canEdit: false,
           canDelete: false,
+          canCreate: false,
         });
         toast({
           title: "Success",
@@ -274,6 +278,7 @@ export default function StaffPage() {
         canView: editPermissions.canView,
         canEdit: editPermissions.canEdit,
         canDelete: editPermissions.canDelete,
+        canCreate: editPermissions.canCreate,
       };
 
       const response = await updateModuleAccess(moduleAccessId, payload);
@@ -348,6 +353,7 @@ export default function StaffPage() {
       canView: module.canView,
       canEdit: module.canEdit,
       canDelete: module.canDelete,
+      canCreate: module.canCreate,
     });
   };
 
@@ -512,7 +518,9 @@ export default function StaffPage() {
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {formatDate(user.dateOfJoin)}
+                              {user.dateOfJoin
+                                ? formatDate(user.dateOfJoin)
+                                : "-"}
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
@@ -590,7 +598,9 @@ export default function StaffPage() {
                                         Date of Birth
                                       </p>
                                       <p className="text-sm font-medium mt-1">
-                                        {formatDate(user.dateOfBirth)}
+                                        {user.dateOfBirth
+                                          ? formatDate(user.dateOfBirth)
+                                          : "-"}
                                       </p>
                                     </div>
                                     <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs">
@@ -786,6 +796,17 @@ export default function StaffPage() {
                                                           ? "Can delete"
                                                           : "No delete"}
                                                       </span>
+                                                      <span
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                          module.canCreate
+                                                            ? "bg-yellow-100 text-yellow-800"
+                                                            : "bg-gray-100 text-gray-800"
+                                                        }`}
+                                                      >
+                                                        {module.canCreate
+                                                          ? "Can create"
+                                                          : "No create"}
+                                                      </span>
                                                     </div>
                                                   )}
                                                 </td>
@@ -931,6 +952,7 @@ export default function StaffPage() {
                                                   canView: true,
                                                   canEdit: false,
                                                   canDelete: false,
+                                                  canCreate: false,
                                                 });
                                               }}
                                               className="w-full"
@@ -978,6 +1000,10 @@ export default function StaffPage() {
                                                       checkedValues.includes(
                                                         "canDelete"
                                                       ),
+                                                    canCreate:
+                                                      checkedValues.includes(
+                                                        "canCreate"
+                                                      ),
                                                   });
                                                 }}
                                                 options={[
@@ -992,6 +1018,10 @@ export default function StaffPage() {
                                                   {
                                                     label: "Delete",
                                                     value: "canDelete",
+                                                  },
+                                                  {
+                                                    label: "Create",
+                                                    value: "canCreate",
                                                   },
                                                 ]}
                                               />

@@ -17,16 +17,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Upload, X } from "lucide-react";
-
+import { Upload, X, Clock } from "lucide-react";
+import { Lead } from "../../lib/leads";
 import { useToast } from "@/hooks/use-toast";
 import { addFollowUp } from "@/app/services/data.service";
-import { DatePicker } from "antd";
-import type { Dayjs } from "dayjs";
-import dayjs from "dayjs";
 
 const formSchema = z.object({
   nextFollowupDate: z.string().min(1, "Next followup date is required"),
@@ -70,7 +66,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
 
     try {
       const payload = {
-        leadId: lead.leadId,
+        leadId: lead.id,
         nextFollowUpDate: data.nextFollowupDate,
         followUpType: data.followUpType,
         comment: data.comment || "",
@@ -95,7 +91,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
           createdAt: new Date(),
         };
 
-        onAddFollowUp(lead.leadId, followUp);
+        onAddFollowUp(lead.id, followUp);
         handleClose();
       } else {
         toast({
@@ -164,8 +160,17 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const handleDateChange = (date: Dayjs | null, dateString: string | string[]) => {
-    form.setValue("nextFollowupDate", typeof dateString === 'string' ? dateString : dateString[0] || '');
+  // Helper to format current datetime for the input
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    // Convert to local datetime string in the format YYYY-MM-DDTHH:MM
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   return (
@@ -188,15 +193,16 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                     <FormLabel className="block text-sm font-medium text-gray-700">
                       Next Follow-up Date *
                     </FormLabel>
-                    <FormControl>
-                      <DatePicker
-                        showTime
-                        format="YYYY-MM-DDTHH:mm:ss"
-                        className="w-full h-10"
-                        onChange={handleDateChange}
-                        value={field.value ? dayjs(field.value) : null}
-                      />
-                    </FormControl>
+                    <div className="relative">
+                      <FormControl>
+                        <input
+                          type="datetime-local"
+                          {...field}
+                          className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                          min={getCurrentDateTime()}
+                        />
+                      </FormControl>
+                    </div>
                     <FormMessage className="text-xs" />
                   </FormItem>
                 )}
@@ -218,7 +224,8 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                         <option value="CALL">Call</option>
                         <option value="EMAIL">Email</option>
                         <option value="MEETING">Meeting</option>
-                        <option value="MESSAGE">Message</option>
+                        <option value="WHATSAPP">WhatsApp</option>
+                        <option value="VISIT">Visit</option>
                         <option value="OTHER">Other</option>
                       </select>
                     </FormControl>

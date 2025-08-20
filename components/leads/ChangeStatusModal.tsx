@@ -1,8 +1,8 @@
 "use client";
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -18,22 +18,22 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import {  LeadStatus } from '../../lib/leads';
-import { updateLead } from '@/app/services/data.service';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Lead, LeadStatus } from "../../lib/leads";
+import { changeLeadStatus } from "@/app/services/data.service";
+import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
-  status: z.string().min(1, 'Please select a status'),
+  status: z.string().min(1, "Please select a status"),
   notes: z.string().optional(),
 });
 
@@ -46,26 +46,26 @@ interface ChangeStatusModalProps {
   onChangeStatus: (leadId: string, status: LeadStatus, notes?: string) => void;
 }
 
-const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  lead, 
-  onChangeStatus 
+const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
+  isOpen,
+  onClose,
+  lead,
+  onChangeStatus,
 }) => {
   const { toast } = useToast();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      status: lead?.leadStatus || '',
-      notes: '',
+      status: lead?.status || "",
+      notes: "",
     },
   });
 
   React.useEffect(() => {
     if (lead) {
-      form.reset({ 
-        status: lead.leadStatus,
-        notes: '',
+      form.reset({
+        status: lead.status,
+        notes: "",
       });
     }
   }, [lead, form]);
@@ -75,25 +75,14 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
     try {
       const payload = {
-        leadId: lead.leadId,
+        leadId: lead.id,
         leadStatus: data.status,
-        leadSource: lead.leadSource || 'OTHER', // Default to 'OTHER' if not set
-        leadAddedBy: lead.leadAddedBy,
-        customerMobileNumber: lead.customerMobileNumber,
-        companyEmailAddress: lead.companyEmailAddress,
-        leadPriority: lead.priority || 'MEDIUM',
-        customerName: lead.customerName,
-        customerEmailAddress: lead.customerEmailAddress,
-        leadAddress: lead.leadAddress || '',
-        leadLabel: lead.leadLabel || '', // Add default or actual value
-        leadReference: lead.leadReference || '', // Add default or actual value
-        comment: data.notes || '', // Use notes as comment
       };
 
-      const response = await updateLead(payload);
-      
+      const response = await changeLeadStatus(payload);
+
       if (response.isSuccess) {
-        onChangeStatus(lead.leadId, data.status as LeadStatus, data.notes);
+        onChangeStatus(lead.id, data.status as LeadStatus, data.notes);
         toast({
           title: "Status updated",
           description: "Lead status has been successfully updated.",
@@ -104,7 +93,10 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update lead status",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update lead status",
         variant: "destructive",
       });
     } finally {
@@ -119,14 +111,42 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   };
 
   const statusOptions = [
-    { value: 'NEW', label: 'New', description: 'Newly created lead' },
-    { value: 'CONTACTED', label: 'Contacted', description: 'Initial contact made' },
-    { value: 'QUALIFIED', label: 'Qualified', description: 'Lead qualified as potential customer' },
-    { value: 'PROPOSAL', label: 'Proposal', description: 'Proposal sent to lead' },
-    { value: 'DEMO', label: 'Demo', description: 'Demo scheduled or completed' },
-    { value: 'NEGOTIATIONS', label: 'Negotiations', description: 'In negotiation phase' },
-    { value: 'CLOSED_WON', label: 'Closed Won', description: 'Successfully converted to customer' },
-    { value: 'CLOSED_LOST', label: 'Closed Lost', description: 'Lead did not convert' },
+    { value: "NEW", label: "New", description: "Newly created lead" },
+    {
+      value: "CONTACTED",
+      label: "Contacted",
+      description: "Initial contact made",
+    },
+    {
+      value: "QUALIFIED",
+      label: "Qualified",
+      description: "Lead qualified as potential customer",
+    },
+    {
+      value: "PROPOSAL",
+      label: "Proposal",
+      description: "Proposal sent to lead",
+    },
+    {
+      value: "DEMO",
+      label: "Demo",
+      description: "Demo scheduled or completed",
+    },
+    {
+      value: "NEGOTIATIONS",
+      label: "Negotiations",
+      description: "In negotiation phase",
+    },
+    {
+      value: "CLOSED_WON",
+      label: "Closed Won",
+      description: "Successfully converted to customer",
+    },
+    {
+      value: "CLOSED_LOST",
+      label: "Closed Lost",
+      description: "Lead did not convert",
+    },
   ];
 
   return (
@@ -135,7 +155,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
         <DialogHeader>
           <DialogTitle>Change Lead Status</DialogTitle>
           <DialogDescription>
-            Update the status for {lead?.customerName } and add any relevant notes.
+            Update the status for {lead?.name}
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +178,9 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
                         <SelectItem key={option.value} value={option.value}>
                           <div>
                             <div className="font-medium">{option.label}</div>
-                            <div className="text-xs text-gray-500">{option.description}</div>
+                            <div className="text-xs text-gray-500">
+                              {option.description}
+                            </div>
                           </div>
                         </SelectItem>
                       ))}
@@ -169,14 +191,14 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               )}
             />
 
-            <FormField
+            {/* <FormField
               control={form.control}
               name="notes"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Notes (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Add notes about this status change..."
                       className="min-h-[80px]"
                       {...field}
@@ -185,7 +207,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
                   <FormMessage />
                 </FormItem>
               )}
-            />
+            /> */}
 
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={handleClose}>

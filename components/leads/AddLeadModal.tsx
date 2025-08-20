@@ -37,19 +37,19 @@ import {
   getAssignDropdown,
 } from "@/app/services/data.service";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
-import { CreateLeadRequest } from "@/lib/data";
+// import { CreateLeadRequest } from "@/lib/data";
 
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerEmailAddress: z.string().email("Invalid email address"),
   customerMobileNumber: z.string().min(1, "Mobile number is required"),
-  companyEmailAddress: z.string().email().optional(),
+  companyEmailAddress: z.string().email("Invalid company email address").optional().or(z.literal("")),
   leadStatus: z.string().min(1, "Lead status is required"),
   leadSource: z.string().min(1, "Lead source is required"),
   leadAddedBy: z.string().min(1, "Lead added by is required"),
-  leadLabel: z.string().optional(),
-  leadReference: z.string().optional(),
-  leadAddress: z.string().min(1, "Lead address is required"),
+  leadLabel: z.string().optional().or(z.literal("")),
+  leadReference: z.string().optional().or(z.literal("")),
+  leadAddress: z.string().optional().or(z.literal("")),
   comment: z.string().optional(),
 });
 
@@ -113,12 +113,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
           "+",
           ""
         )}${data.customerMobileNumber.trim()}`,
-        companyEmailAddress: data.companyEmailAddress || "",
+        companyEmailAddress: data.companyEmailAddress ?? "",
         customerName: data.customerName,
         customerEmailAddress: data.customerEmailAddress,
-        leadLabel: data.leadLabel || "",
-        leadReference: data.leadReference || "",
-        leadAddress: data.leadAddress,
+        leadLabel: data.leadLabel ?? "",
+        leadReference: data.leadReference ?? "",
+        leadAddress: data.leadAddress ?? "",
         comment: data.comment || "",
       };
 
@@ -133,7 +133,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
           variant: "default",
         });
         onAddLead(data);
-        // Refresh leads list after adding a new lead
         // Reset form and close modal first
         form.reset();
         onClose();

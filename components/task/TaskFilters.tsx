@@ -25,7 +25,6 @@ import { useState, useEffect } from "react";
 import { TaskPriority } from "../../lib/task";
 import { TaskStage } from "@/lib/data";
 import { User } from "@/app/services/data.service";
-import { usePermissions } from "@/hooks/usePermissions";
 
 interface ExtendedTaskFilters {
   priority?: string;
@@ -44,8 +43,8 @@ interface TaskFiltersProps {
   onSearchChange: (query: string) => void;
   onClearAllFilters: () => void;
   onApplyFilters: () => void;
-  viewMode: 'kanban' | 'grid';
-  onViewModeChange: (mode: 'kanban' | 'grid') => void;
+  viewMode: "kanban" | "grid";
+  onViewModeChange: (mode: "kanban" | "grid") => void;
   stages?: TaskStage[];
   users?: User[];
   onImportTask?: () => void;
@@ -112,7 +111,7 @@ export const TaskFilters = ({
       day: "numeric",
     })}`;
   };
- const { permissions, loading: permissionsLoading } = usePermissions('task');
+
   return (
     <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
       <div className="flex flex-col gap-2">
@@ -129,7 +128,7 @@ export const TaskFilters = ({
 
           <div className="flex items-center gap-3">
             {/* View Mode Toggle */}
-           {permissions.canCreate && !permissionsLoading && (
+
             <Button
               onClick={onAddTask}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
@@ -137,34 +136,40 @@ export const TaskFilters = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
-           )}
-             <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+            <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
               <Button
-                variant={viewMode === 'kanban' ? "default" : "ghost"}
+                variant={viewMode === "kanban" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => onViewModeChange('kanban')}
-                className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-800 text-white' : 'text-gray-700'}`}
+                onClick={() => onViewModeChange("kanban")}
+                className={`rounded-none ${
+                  viewMode === "kanban"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-700"
+                }`}
               >
                 <LayoutGrid className="h-4 w-4 mr-1" />
-               
               </Button>
               <Button
-                variant={viewMode === 'grid' ? "default" : "ghost"}
+                variant={viewMode === "grid" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => onViewModeChange('grid')}
-                className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-800 text-white' : 'text-gray-700'}`}
+                onClick={() => onViewModeChange("grid")}
+                className={`rounded-none ${
+                  viewMode === "grid"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-700"
+                }`}
               >
                 <Grid className="h-4 w-4 mr-1" />
-               
               </Button>
             </div>
-
           </div>
         </div>
 
         <div
           className={`transition-all duration-500 ${
-            isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+            isExpanded
+              ? "max-h-[1000px] opacity-100 overflow-visible"
+              : "max-h-0 opacity-0 overflow-hidden"
           }`}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end w-full mt-4">
@@ -262,7 +267,29 @@ export const TaskFilters = ({
             </Select>
 
             {/* Labels Filter */}
-      
+            <Select
+              value={
+                Array.isArray(localFilters.labels)
+                  ? localFilters.labels[0] ?? "all"
+                  : localFilters.labels || "all"
+              }
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "labels",
+                  value === "all" ? undefined : [value]
+                )
+              }
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Labels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Labels</SelectItem>
+                <SelectItem value="Frontend">Frontend</SelectItem>
+                <SelectItem value="Backend">Backend</SelectItem>
+                <SelectItem value="Bug">Bug</SelectItem>
+              </SelectContent>
+            </Select>
 
             {/* Created By Filter */}
             <Select

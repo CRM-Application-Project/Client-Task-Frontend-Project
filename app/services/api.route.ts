@@ -25,6 +25,7 @@ export const API_CONSTANTS = {
       `/tenant/users/module/${moduleAccessId}`,
     REMOVE_MODULE_ACCESS: (moduleAccessId: string) =>
       `/tenant/users/module/${moduleAccessId}`,
+    ROLE_SCOPE_DROPDOWN: "/tenant/users/scopes",
   },
   MODULE: {
     MODULE_DROPDOWN: "/tenant/modules/dropdown",
@@ -36,14 +37,13 @@ export const API_CONSTANTS = {
     GET_BY_ID: "/tasks/{taskId}",
     FILTER: "/tasks/filter",
     DROPDOWN: "/task/stages/dropdown",
-    ADD_STAGE:"/task/stages/",
-        DOCUMENT: {
+    ADD_STAGE: "/task/stages/",
+    DOCUMENT: {
       UPLOAD_URL: (taskId: string) => `/tasks/${taskId}/documents/upload-url`,
       VERIFY_UPLOAD: (docId: string) => `/tasks/documents/${docId}/verify`,
       DOWNLOAD_URL: (docId: string) => `/tasks/documents/${docId}/download-url`,
       DELETE: (docId: string) => `/tasks/documents/${docId}`,
-    }
-
+    },
   },
   LEAD: {
     CREATE: "/lead/create",
@@ -59,6 +59,6 @@ export const API_CONSTANTS = {
     GET_ALL_WITH_FILTERS: "/lead/leads",
     ASSIGN_DROPDOWN: "/tenant/users/dropdown",
     CHANGE_PASSWORD: "/tenant/users/:userId/change-password",
-
+    CHANGE_STATUS: "/lead/change-status",
   },
 };
