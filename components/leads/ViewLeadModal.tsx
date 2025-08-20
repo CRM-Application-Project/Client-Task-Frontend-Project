@@ -7,8 +7,37 @@ import {
 } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Lead } from '../../lib/leads';
-import { Calendar, Mail, Phone, MapPin, Building, User, Tag } from 'lucide-react';
+import { 
+  Calendar, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Building, 
+  User, 
+  Tag, 
+  MessageSquare,
+  Hash,
+  RefreshCw
+} from 'lucide-react';
+
+interface Lead {
+  leadId: string;
+  leadStatus: string;
+  leadSource: string;
+  leadAddedBy: string;
+  customerMobileNumber: string;
+  companyEmailAddress: string;
+  customerName: string;
+  customerEmailAddress: string;
+  leadAddress: string;
+  comment?: string;
+  leadLabel?: string;
+  leadReference?: string;
+  priority: string;
+  company?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface ViewLeadModalProps {
   isOpen: boolean;
@@ -52,23 +81,45 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
     }
   };
 
+  // Helper function to check if a value exists and should be displayed
+  const shouldDisplay = (value: any): boolean => {
+    return value !== null && value !== undefined && value !== '';
+  };
+
+  // Format date string for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return dateString; // Return original string if parsing fails
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl rounded-lg">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-start gap-4 pb-4 border-b">
             <Avatar className="h-14 w-14">
-              <AvatarImage src={lead.assignedToAvatar} alt={lead.name} />
               <AvatarFallback className="bg-blue-50 text-blue-600 font-medium">
-                {getInitials(lead.name)}
+                {getInitials(lead.customerName)}
               </AvatarFallback>
             </Avatar>
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold text-gray-900">{lead.name}</h2>
-              <p className="text-sm text-gray-600">{lead.company}</p>
-              <div className="flex gap-2 pt-1">
-                <Badge className={`${getStatusColor(lead.status)} border`}>
-                  {lead.status.replace('_', ' ')}
+              <h2 className="text-xl font-semibold text-gray-900">{lead.customerName}</h2>
+              {shouldDisplay(lead.company) && (
+                <p className="text-sm text-gray-600">{lead.company}</p>
+              )}
+              <div className="flex gap-2 pt-1 flex-wrap">
+                <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
+                  {lead.leadStatus.replace('_', ' ')}
                 </Badge>
                 <Badge className={`${getPriorityColor(lead.priority)} border`}>
                   {lead.priority}
@@ -85,37 +136,55 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
               <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">Contact Information</h3>
               
               <div className="space-y-3">
-                <div className="flex items-start gap-3 text-sm">
-                  <Mail className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Email</p>
-                    <p className="text-gray-900 font-medium">{lead.email}</p>
+                {shouldDisplay(lead.customerEmailAddress) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Mail className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Email</p>
+                      <p className="text-gray-900 font-medium">{lead.customerEmailAddress}</p>
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div className="flex items-start gap-3 text-sm">
-                  <Phone className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Phone</p>
-                    <p className="text-gray-900 font-medium">{lead.phone}</p>
+                {shouldDisplay(lead.customerMobileNumber) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Phone className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Phone</p>
+                      <p className="text-gray-900 font-medium">{lead.customerMobileNumber}</p>
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div className="flex items-start gap-3 text-sm">
-                  <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Location</p>
-                    <p className="text-gray-900 font-medium">{lead.location}</p>
+                {shouldDisplay(lead.leadAddress) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Address</p>
+                      <p className="text-gray-900 font-medium">{lead.leadAddress}</p>
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div className="flex items-start gap-3 text-sm">
-                  <Building className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Company</p>
-                    <p className="text-gray-900 font-medium">{lead.company}</p>
+                {shouldDisplay(lead.company) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Building className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Company</p>
+                      <p className="text-gray-900 font-medium">{lead.company}</p>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {shouldDisplay(lead.companyEmailAddress) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Mail className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Company Email</p>
+                      <p className="text-gray-900 font-medium">{lead.companyEmailAddress}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -124,49 +193,123 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
               <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">Lead Details</h3>
               
               <div className="space-y-3">
-                <div className="flex items-start gap-3 text-sm">
-                  <User className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Assigned To</p>
-                    <p className="text-gray-900 font-medium">{lead.assignedTo}</p>
+                {shouldDisplay(lead.leadAddedBy) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <User className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Added By</p>
+                      <p className="text-gray-900 font-medium">{lead.leadAddedBy}</p>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-start gap-3 text-sm">
-                  <Tag className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Source</p>
-                    <p className="text-gray-900 font-medium">{lead.source.replace('_', ' ')}</p>
+                )}
+
+                {shouldDisplay(lead.leadSource) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Tag className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Source</p>
+                      <p className="text-gray-900 font-medium">{lead.leadSource.replace('_', ' ')}</p>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-start gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Created</p>
-                    <p className="text-gray-900 font-medium">
-                      {lead.createdAt.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </p>
+                )}
+
+                {shouldDisplay(lead.leadLabel) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Tag className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Lead Label</p>
+                      <p className="text-gray-900 font-medium">{lead.leadLabel}</p>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-start gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-500">Last Updated</p>
-                    <p className="text-gray-900 font-medium">
-                      {lead.updatedAt.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </p>
+                )}
+
+                {shouldDisplay(lead.leadReference) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Hash className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Lead Reference</p>
+                      <p className="text-gray-900 font-medium">{lead.leadReference}</p>
+                    </div>
                   </div>
+                )}
+
+                {shouldDisplay(lead.priority) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <Hash className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500">Priority</p>
+                      <p className="text-gray-900 font-medium">{lead.priority}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Information */}
+          {(shouldDisplay(lead.comment) || shouldDisplay(lead.createdAt) || shouldDisplay(lead.updatedAt)) && (
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">Additional Information</h3>
+              
+              <div className="space-y-3">
+                {shouldDisplay(lead.comment) && (
+                  <div className="flex items-start gap-3 text-sm">
+                    <MessageSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-gray-500">Comments</p>
+                      <p className="text-gray-900 font-medium whitespace-pre-wrap">{lead.comment}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {shouldDisplay(lead.createdAt) && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <Calendar className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-gray-500">Created</p>
+                        <p className="text-gray-900 font-medium">{formatDate(lead.createdAt)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {shouldDisplay(lead.updatedAt) && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <RefreshCw className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-gray-500">Last Updated</p>
+                        <p className="text-gray-900 font-medium">{formatDate(lead.updatedAt)}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* System Information */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">System Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Lead ID</p>
+                <p className="text-gray-900 font-medium text-md">{lead.leadId}</p>
+              </div>
+              
+              <div>
+                <p className="text-gray-500">Status</p>
+                <p className="text-gray-900 font-medium">{lead.leadStatus.replace('_', ' ')}</p>
+              </div>
+              
+              <div>
+                <p className="text-gray-500">Priority</p>
+                <p className="text-gray-900 font-medium">{lead.priority}</p>
+              </div>
+              
+              <div>
+                <p className="text-gray-500">Source</p>
+                <p className="text-gray-900 font-medium">{lead.leadSource.replace('_', ' ')}</p>
               </div>
             </div>
           </div>
