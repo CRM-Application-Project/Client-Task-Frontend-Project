@@ -1,21 +1,15 @@
-"use client";
-
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { DashboardSidebar } from "./dashboard-sidebar";
 import { DashboardNavbar } from "./DashboardNavbar";
+import { DashboardSidebar } from "./dashboard-sidebar";
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
-
-export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sheet
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // desktop collapse
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar overlay */}
+      {/* Mobile overlay */}
       <div
         className={cn(
           "fixed inset-0 z-40 bg-black/50 transition-opacity lg:hidden",
@@ -28,20 +22,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <DashboardSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onCollapseChange={setSidebarCollapsed}
+        collapsed={sidebarCollapsed}
       />
 
-      {/* Main content */}
-      <div className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
-      )}>
-        {/* Navbar for all screens */}
+      {/* Main */}
+      <div
+        className={cn(
+          "transition-all duration-300",
+          sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+        )}
+      >
         <DashboardNavbar
+          collapsed={sidebarCollapsed}
           onMenuClick={() => setSidebarOpen(true)}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
         />
 
-        {/* Page content */}
         <main className="py-4 sm:py-4 lg:py-6">
           <div className="px-4 sm:px-4 lg:px-6">{children}</div>
         </main>

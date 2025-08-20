@@ -93,7 +93,7 @@ export const LeadFilters = ({
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [localFilters, setLocalFilters] =
     useState<ExtendedLeadFilters>(filters);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     setLocalFilters(filters);
