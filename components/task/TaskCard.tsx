@@ -278,7 +278,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
   // Calculate which action buttons to show
   const showEditButton = permissions.canEdit && onEdit;
   const showDeleteButton = permissions.canDelete && onDelete;
-  const showDocumentButton = permissions.canView; // Anyone who can view can see documents
+  const showDocumentButton = permissions.canEdit; // Anyone who can view can see documents
   const showActionsBar = showEditButton || showDeleteButton || showDocumentButton;
  const actionIconCount = [
     showEditButton, 

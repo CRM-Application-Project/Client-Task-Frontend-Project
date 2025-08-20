@@ -262,29 +262,7 @@ export const TaskFilters = ({
             </Select>
 
             {/* Labels Filter */}
-            <Select
-              value={
-                Array.isArray(localFilters.labels)
-                  ? localFilters.labels[0] ?? "all"
-                  : localFilters.labels || "all"
-              }
-              onValueChange={(value) =>
-                handleFilterChange(
-                  "labels",
-                  value === "all" ? undefined : [value]
-                )
-              }
-            >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
-                <SelectValue placeholder="Labels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Labels</SelectItem>
-                <SelectItem value="Frontend">Frontend</SelectItem>
-                <SelectItem value="Backend">Backend</SelectItem>
-                <SelectItem value="Bug">Bug</SelectItem>
-              </SelectContent>
-            </Select>
+      
 
             {/* Created By Filter */}
             <Select
