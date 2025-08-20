@@ -29,6 +29,7 @@ import {
 import { useEffect, useState } from "react";
 import { DateRangePicker } from "../task/DateRangePicker";
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface DateRange {
   from: Date;
@@ -94,6 +95,7 @@ export const LeadFilters = ({
   const [localFilters, setLocalFilters] =
     useState<ExtendedLeadFilters>(filters);
   const [isExpanded, setIsExpanded] = useState(false);
+   const { permissions, loading: permissionsLoading } = usePermissions('lead');
 
   useEffect(() => {
     setLocalFilters(filters);
@@ -160,6 +162,7 @@ export const LeadFilters = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {permissions.canCreate && !permissionsLoading && (
             <Button
               onClick={onAddLead}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
@@ -167,6 +170,7 @@ export const LeadFilters = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Lead
             </Button>
+            )}
 
             <Button
               variant="outline"
