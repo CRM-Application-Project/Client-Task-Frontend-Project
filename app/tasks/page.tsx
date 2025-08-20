@@ -1,9 +1,12 @@
 import React from 'react'
 import Index from './Task'
+import { DashboardLayout } from '@/components/layout/dashboard-layout'
 
 function page() {
   return (
-    <Index />
+    <DashboardLayout>
+      <Index />
+    </DashboardLayout>
   )
 }
 

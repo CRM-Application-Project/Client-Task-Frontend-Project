@@ -4,8 +4,9 @@ import MyProfilePage from './Profile'
 
 function page() {
   return (
-        
-        <MyProfilePage />
+    <DashboardLayout>
+      <MyProfilePage />
+    </DashboardLayout>
   )
 }
 
