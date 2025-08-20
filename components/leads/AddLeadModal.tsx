@@ -133,6 +133,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
           variant: "default",
         });
         onAddLead(data);
+        // Refresh leads list after adding a new lead
         // Reset form and close modal first
         form.reset();
         onClose();

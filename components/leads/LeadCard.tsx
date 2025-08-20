@@ -77,6 +77,7 @@ export const LeadCard = ({
         const response = await getAssignDropdown();
         if (response.isSuccess && response.data) {
           setAssignees(response.data);
+          console.log("Assignees fetched:", assignees);
         }
       } catch (error) {
         console.error("Failed to fetch assignees:", error);
@@ -196,20 +197,7 @@ export const LeadCard = ({
         </div>
 
         {/* Additional info - Lead Label and Reference */}
-        {(lead.leadLabel || lead.leadReference) && (
-          <div className="flex items-center gap-2 text-xs text-gray-400 pt-1">
-            {lead.leadLabel && (
-              <span className="bg-gray-100 px-2 py-1 rounded">
-                {lead.leadLabel}
-              </span>
-            )}
-            {lead.leadReference && (
-              <span className="bg-gray-100 px-2 py-1 rounded">
-                Ref: {lead.leadReference}
-              </span>
-            )}
-          </div>
-        )}
+     
 
         {/* Action bar */}
         <div className="flex items-center justify-between pt-2">

@@ -150,10 +150,13 @@ const refreshAssignees = async () => {
 
     const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
     setLeads((prevLeads) => [newLead, ...prevLeads]);
+    fetchLeads();
   };
 
   const handleAddLead = () => {
     setIsAddModalOpen(true);
+    fetchLeads();
+    fetchFilteredLeads();
   };
 
   const handleAddNewLeadOptimistic = (formData: any) => {
