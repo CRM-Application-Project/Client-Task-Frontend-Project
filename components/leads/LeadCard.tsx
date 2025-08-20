@@ -23,9 +23,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Lead } from "../../lib/leads";
+
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
+
+
 
 interface LeadCardProps {
   lead: Lead;
@@ -50,15 +52,20 @@ export const LeadCard = ({
   onLeadSorting,
   onChangeStatus,
 }: LeadCardProps) => {
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string | null) => {
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return 'N/A';
+    }
     return name
+      .trim()
       .split(" ")
       .map((n) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
   };
-   const { permissions, loading: permissionsLoading } = usePermissions('lead');
+
+  const { permissions, loading: permissionsLoading } = usePermissions('lead');
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
 
@@ -70,6 +77,7 @@ export const LeadCard = ({
         const response = await getAssignDropdown();
         if (response.isSuccess && response.data) {
           setAssignees(response.data);
+          console.log("Assignees fetched:", assignees);
         }
       } catch (error) {
         console.error("Failed to fetch assignees:", error);
@@ -81,28 +89,59 @@ export const LeadCard = ({
     fetchAssignees();
   }, []);
 
-  // Resolve assignee name
+  // Resolve assignee name - use leadAddedBy if leadAssignedTo is not available
   const getAssigneeName = () => {
-    // If assignedTo looks like a UUID (ID), try to resolve it
-    if (isUUID(lead.assignedTo) && assignees.length > 0) {
-      const assignee = assignees.find((a) => a.id === lead.assignedTo);
-      return assignee?.label || lead.assignedTo;
+    // First check if we have leadAssignedTo
+    if (lead.leadAssignedTo) {
+      // If it's a UUID, try to resolve it from assignees
+      if (isUUID(lead.leadAssignedTo) && assignees.length > 0) {
+        const assignee = assignees.find((a) => a.id === lead.leadAssignedTo);
+        return assignee?.label || lead.leadAssignedTo;
+      }
+      return lead.leadAssignedTo;
     }
-    return lead.assignedTo;
+    
+    // If leadAssignedTo is not available, use leadAddedBy
+    if (lead.leadAddedBy) {
+      // If leadAddedBy looks like a UUID, try to resolve it
+      if (isUUID(lead.leadAddedBy) && assignees.length > 0) {
+        const assignee = assignees.find((a) => a.id === lead.leadAddedBy);
+        return assignee?.label || lead.leadAddedBy;
+      }
+      return lead.leadAddedBy;
+    }
+    
+    return 'Unassigned';
   };
 
-  // Resolve assignee avatar
+  // Resolve assignee avatar - use leadAddedBy if leadAssignedTo is not available
   const getAssigneeAvatar = () => {
-    if (isUUID(lead.assignedTo) && assignees.length > 0) {
-      const assignee = assignees.find((a) => a.id === lead.assignedTo);
-      // Replace 'avatar' with the correct property, e.g., 'label', or fallback to empty string
-      return assignee?.label || "";
+    // First check if we have leadAssignedTo
+    if (lead.leadAssignedTo) {
+      // If it's a UUID, try to resolve it from assignees
+      if (isUUID(lead.leadAssignedTo) && assignees.length > 0) {
+        const assignee = assignees.find((a) => a.id === lead.leadAssignedTo);
+        return assignee?.label || lead.leadAssignedTo;
+      }
+      return lead.leadAssignedTo;
     }
-    return lead.assignedToAvatar || "";
+    
+    // If leadAssignedTo is not available, use leadAddedBy
+    if (lead.leadAddedBy) {
+      // If leadAddedBy looks like a UUID, try to resolve it
+      if (isUUID(lead.leadAddedBy) && assignees.length > 0) {
+        const assignee = assignees.find((a) => a.id === lead.leadAddedBy);
+        return assignee?.label || lead.leadAddedBy;
+      }
+      return lead.leadAddedBy;
+    }
+    
+    return "";
   };
 
   // Helper function to check if a string looks like a UUID
   const isUUID = (str: string) => {
+    if (!str) return false;
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       str
     );
@@ -116,74 +155,80 @@ export const LeadCard = ({
       <div className="space-y-3">
         {/* Lead name */}
         <h3 className="font-bold text-gray-900 text-base leading-tight">
-          {lead.name}
+          {lead.customerName || 'Unnamed Lead'}
         </h3>
 
         {/* Assigned user avatar */}
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="text-xs bg-gray-100 text-gray-600">
-              {getInitials(lead.assignedTo)}
+              {getInitials(assignedName)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-gray-600">{lead.assignedTo}</span>
+          <span className="text-sm text-gray-600">{assignedName}</span>
         </div>
 
         {/* Details section */}
         <div className="space-y-1 text-sm text-gray-500">
-          {lead.company && (
+          {(lead.company || lead.companyEmailAddress) && (
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-gray-400" />
-              {lead.company}
+              <span className="truncate">{lead.company || lead.companyEmailAddress}</span>
             </div>
           )}
-          {lead.email && (
+          {lead.customerEmailAddress && (
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-gray-400" />
-              {lead.email}
+              <span className="truncate">{lead.customerEmailAddress}</span>
             </div>
           )}
-          {lead.phone && (
+          {lead.customerMobileNumber && (
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-gray-400" />
-              {lead.phone}
+              <span className="truncate">{lead.customerMobileNumber}</span>
             </div>
           )}
-          {lead.location && (
+          {lead.leadAddress && (
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-gray-400" />
-              {lead.location}
+              <span className="truncate">{lead.leadAddress}</span>
             </div>
           )}
         </div>
+
+        {/* Additional info - Lead Label and Reference */}
+     
 
         {/* Action bar */}
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">
             {permissions.canView && (
-            <button
-              onClick={() => onView?.(lead)}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              title="View lead"
-            >
-              <Eye className="h-4 w-4 text-gray-600" />
-            </button>
+              <button
+                onClick={() => onView?.(lead)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="View lead"
+              >
+                <Eye className="h-4 w-4 text-gray-600" />
+              </button>
             )}
             {permissions.canEdit && (
-            <button
-              onClick={() => onEdit?.(lead)}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              title="Edit lead"
-            >
-              <Edit className="h-4 w-4 text-gray-600" />
-            </button>
+              <button
+                onClick={() => onEdit?.(lead)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="Edit lead"
+              >
+                <Edit className="h-4 w-4 text-gray-600" />
+              </button>
             )}
-            <button
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              title="Call lead"
-            >
-              <Phone className="h-4 w-4 text-gray-600" />
-            </button>
+            {lead.customerMobileNumber && (
+              <button
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="Call lead"
+                onClick={() => window.open(`tel:${lead.customerMobileNumber}`, '_self')}
+              >
+                <Phone className="h-4 w-4 text-gray-600" />
+              </button>
+            )}
           </div>
 
           {/* 3-dots menu */}
@@ -207,20 +252,19 @@ export const LeadCard = ({
                 Change Status
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-        
               <DropdownMenuItem onClick={() => onLeadSorting?.()}>
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Lead Sorting
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {permissions.canDelete &&( 
-              <DropdownMenuItem
-                onClick={() => onDelete?.(lead)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Lead
-              </DropdownMenuItem>
+              {permissions.canDelete && (
+                <DropdownMenuItem
+                  onClick={() => onDelete?.(lead)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Lead
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

@@ -1,7 +1,9 @@
 import { Droppable, Draggable } from "react-beautiful-dnd";
 import { LeadCard } from "./LeadCard";
-import { Lead, LeadStatus } from "../../lib/leads";
+import {  LeadStatus } from "../../lib/leads";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 
 interface LeadColumnProps {
   status: LeadStatus;
@@ -77,7 +79,25 @@ export const LeadColumn = ({
   onChangeStatus
 }: LeadColumnProps) => {
   const config = statusConfig[status];
+  const [leadsst, setLeads] = useState<Lead[]>([]);
+    const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
+  const refreshAssignees = async () => {
+    try {
+      const response = await getAssignDropdown();
+      if (response.isSuccess && response.data) {
+        setAssignees(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch assignees:", error);
+    }
+  };
+  const handleNewLeadCreated = async (apiLeadData: any) => {
+  // Update leads list
+  setLeads(prevLeads => [apiLeadData, ...prevLeads]);
   
+  // Refresh assignees to ensure we have the latest data
+  await refreshAssignees();
+};
   return (
     <div className="flex-1 min-w-[280px]">
       <div className="mb-4">
@@ -101,7 +121,7 @@ export const LeadColumn = ({
             }`}
           >
             {leads.map((lead, index) => (
-              <Draggable key={lead.id} draggableId={lead.id} index={index}>
+              <Draggable key={lead.leadId} draggableId={lead.leadId} index={index}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
@@ -111,6 +131,7 @@ export const LeadColumn = ({
                   >
                     <LeadCard
                       lead={lead}
+                      
                       onEdit={onEditLead}
                       onDelete={onDeleteLead}
                       onView={onViewLead}

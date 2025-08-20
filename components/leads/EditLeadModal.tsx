@@ -28,20 +28,44 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Lead, LeadStatus, LeadSource, LeadPriority } from '../../lib/leads';
+import { LeadStatus, LeadSource, LeadPriority } from '../../lib/leads';
 import { useToast } from '@/hooks/use-toast';
 import { updateLead } from '@/app/services/data.service';
 
+// Updated Lead interface to match the new structure
+interface Lead {
+  leadId: string;
+  leadStatus: string;
+  leadSource: string;
+  leadAddedBy: string;
+  leadAssignedTo: string;
+
+  customerMobileNumber: string;
+  companyEmailAddress: string;
+  customerName: string;
+  customerEmailAddress: string;
+  leadAddress: string;
+  comment?: string;
+  leadLabel?: string;
+  leadReference?: string;
+  priority: LeadPriority;
+  company?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Additional properties for display
+  assignedToName?: string;
+}
+
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().min(1, 'Phone number is required'),
-  company: z.string().min(1, 'Company is required'),
-  location: z.string().min(1, 'Location is required'),
-  status: z.string().min(1, 'Status is required'),
+  customerName: z.string().min(1, 'Name is required'),
+  customerEmailAddress: z.string().email('Invalid email address'),
+  customerMobileNumber: z.string().min(1, 'Phone number is required'),
+  companyEmailAddress: z.string().min(1, 'Company email is required'),
+  leadAddress: z.string().min(1, 'Address is required'),
+  leadStatus: z.string().min(1, 'Status is required'),
   priority: z.string().min(1, 'Priority is required'),
-  source: z.string().min(1, 'Source is required'),
-  assignedTo: z.string().min(1, 'Assigned to is required'),
+  leadSource: z.string().min(1, 'Source is required'),
+  leadAddedBy: z.string().min(1, 'Assigned to is required'),
   leadLabel: z.string().optional(),
   leadReference: z.string().optional(),
   comment: z.string().optional(),
@@ -68,30 +92,33 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: lead?.name || '',
-      email: lead?.email || '',
-      phone: lead?.phone || '',
-      company: lead?.company || '',
-      location: lead?.location || '',
-      status: lead?.status || '',
+      customerName: lead?.customerName || '',
+      customerEmailAddress: lead?.customerEmailAddress || '',
+      customerMobileNumber: lead?.customerMobileNumber || '',
+      companyEmailAddress: lead?.companyEmailAddress || '',
+      leadAddress: lead?.leadAddress || '',
+      leadStatus: lead?.leadStatus || '',
       priority: lead?.priority || '',
-      source: lead?.source || '',
-      assignedTo: lead?.assignedTo || '',
+      leadSource: lead?.leadSource || '',
+      leadAddedBy: lead?.leadAddedBy || '',
+      leadLabel: lead?.leadLabel || '',
+      leadReference: lead?.leadReference || '',
+      comment: lead?.comment || '',
     },
   });
 
   React.useEffect(() => {
     if (lead) {
       form.reset({
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
-        company: lead.company,
-        location: lead.location,
-        status: lead.status,
+        customerName: lead.customerName,
+        customerEmailAddress: lead.customerEmailAddress,
+        customerMobileNumber: lead.customerMobileNumber,
+        companyEmailAddress: lead.companyEmailAddress,
+        leadAddress: lead.leadAddress,
+        leadStatus: lead.leadStatus,
         priority: lead.priority,
-        source: lead.source,
-        assignedTo: lead.assignedTo,
+        leadSource: lead.leadSource,
+        leadAddedBy: lead.leadAddedBy,
         leadLabel: lead.leadLabel || '',
         leadReference: lead.leadReference || '',
         comment: lead.comment || '',
@@ -106,16 +133,16 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     
     try {
       const payload = {
-        leadId: lead.id,
-        customerName: data.name,
-        customerEmailAddress: data.email,
-        customerMobileNumber: data.phone,
-        companyEmailAddress: data.company,
-        leadAddress: data.location,
-        leadStatus: data.status as LeadStatus,
-        leadPriority: data.priority as LeadPriority,
-        leadSource: data.source as LeadSource,
-        leadAddedBy: data.assignedTo,
+        leadId: lead.leadId,
+        customerName: data.customerName,
+        customerEmailAddress: data.customerEmailAddress,
+        customerMobileNumber: data.customerMobileNumber,
+        companyEmailAddress: data.companyEmailAddress,
+        leadAddress: data.leadAddress,
+        leadStatus: data.leadStatus as LeadStatus,
+        priority: data.priority as LeadPriority,
+        leadSource: data.leadSource as LeadSource,
+        leadAddedBy: data.leadAddedBy,
         leadLabel: data.leadLabel || '',
         leadReference: data.leadReference || '',
         comment: data.comment || '',
@@ -127,19 +154,19 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         // Create the updated lead object
         const updatedLead: Lead = {
           ...lead,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          company: data.company,
-          location: data.location,
-          status: data.status as LeadStatus,
+          customerName: data.customerName,
+          customerEmailAddress: data.customerEmailAddress,
+          customerMobileNumber: data.customerMobileNumber,
+          companyEmailAddress: data.companyEmailAddress,
+          leadAddress: data.leadAddress,
+          leadStatus: data.leadStatus as LeadStatus,
           priority: data.priority as LeadPriority,
-          source: data.source as LeadSource,
-          assignedTo: data.assignedTo,
+          leadSource: data.leadSource as LeadSource,
+          leadAddedBy: data.leadAddedBy,
           leadLabel: data.leadLabel || '',
           leadReference: data.leadReference || '',
           comment: data.comment || '',
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         };
 
         // Close modal first
@@ -193,12 +220,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="customerName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Customer Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter name" {...field} />
+                      <Input placeholder="Enter customer name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -207,12 +234,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="email"
+                name="customerEmailAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Customer Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="email@example.com" {...field} />
+                      <Input placeholder="customer@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -221,10 +248,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="phone"
+                name="customerMobileNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel>Mobile Number</FormLabel>
                     <FormControl>
                       <Input placeholder="+1 (555) 123-4567" {...field} />
                     </FormControl>
@@ -235,12 +262,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="company"
+                name="companyEmailAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company</FormLabel>
+                    <FormLabel>Company Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="Company name" {...field} />
+                      <Input placeholder="company@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -249,12 +276,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="location"
+                name="leadAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location</FormLabel>
+                    <FormLabel>Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="City, State" {...field} />
+                      <Input placeholder="Street, City, State, ZIP" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -263,12 +290,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="assignedTo"
+                name="leadAddedBy"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Assigned To</FormLabel>
                     <FormControl>
-                      <Input placeholder="Assignee name" {...field} />
+                      <Input placeholder="Assignee ID or name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -305,7 +332,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="status"
+                name="leadStatus"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status</FormLabel>
@@ -357,7 +384,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="source"
+                name="leadSource"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Source</FormLabel>
@@ -381,25 +408,25 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="comment"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Comments</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Add any additional comments..."
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
+
+            <FormField
+              control={form.control}
+              name="comment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Comments</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add any additional comments..."
+                      className="min-h-[100px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={handleClose}>

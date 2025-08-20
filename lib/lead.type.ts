@@ -29,6 +29,7 @@ interface Lead {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
+  leadAssignedTo: string;
   customerMobileNumber: string;
   companyEmailAddress: string;
   customerName: string;
@@ -50,6 +51,7 @@ interface GetAllLeadsResponse {
   message: string;
   data: Lead[];
 }
+
 
 
 interface GetLeadByIdResponse {
