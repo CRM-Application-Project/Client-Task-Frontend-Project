@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./dashboard-sidebar";
