@@ -182,7 +182,7 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                     <span className="font-medium text-gray-700">Progress</span>
                     <span className="text-gray-500">{task.progress}% complete</span>
                   </div>
-                  <Progress value={task.progress} className="h-2" />
+                  {/* <Progress value={task.progress} className="h-2" /> */}
                 </div>
               )}
 

@@ -32,12 +32,12 @@ export interface CreateLeadRequest {
   leadSource: LeadSource;
   leadAddedBy: string;
   customerMobileNumber: string;
-  companyEmailAddress: string;
+  companyEmailAddress?: string;
   customerName: string;
   customerEmailAddress: string;
-  leadLabel: string;
-  leadReference: string;
-  leadAddress: string;
+  leadLabel?: string;
+  leadReference?: string;
+  leadAddress?: string;
   comment: string;
 }
 

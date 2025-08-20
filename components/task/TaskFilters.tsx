@@ -43,8 +43,8 @@ interface TaskFiltersProps {
   onSearchChange: (query: string) => void;
   onClearAllFilters: () => void;
   onApplyFilters: () => void;
-  viewMode: 'kanban' | 'grid';
-  onViewModeChange: (mode: 'kanban' | 'grid') => void;
+  viewMode: "kanban" | "grid";
+  onViewModeChange: (mode: "kanban" | "grid") => void;
   stages?: TaskStage[];
   users?: User[];
   onImportTask?: () => void;
@@ -128,7 +128,7 @@ export const TaskFilters = ({
 
           <div className="flex items-center gap-3">
             {/* View Mode Toggle */}
-           
+
             <Button
               onClick={onAddTask}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
@@ -136,33 +136,40 @@ export const TaskFilters = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
-             <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+            <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
               <Button
-                variant={viewMode === 'kanban' ? "default" : "ghost"}
+                variant={viewMode === "kanban" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => onViewModeChange('kanban')}
-                className={`rounded-none ${viewMode === 'kanban' ? 'bg-gray-800 text-white' : 'text-gray-700'}`}
+                onClick={() => onViewModeChange("kanban")}
+                className={`rounded-none ${
+                  viewMode === "kanban"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-700"
+                }`}
               >
                 <LayoutGrid className="h-4 w-4 mr-1" />
-               
               </Button>
               <Button
-                variant={viewMode === 'grid' ? "default" : "ghost"}
+                variant={viewMode === "grid" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => onViewModeChange('grid')}
-                className={`rounded-none ${viewMode === 'grid' ? 'bg-gray-800 text-white' : 'text-gray-700'}`}
+                onClick={() => onViewModeChange("grid")}
+                className={`rounded-none ${
+                  viewMode === "grid"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-700"
+                }`}
               >
                 <Grid className="h-4 w-4 mr-1" />
-               
               </Button>
             </div>
-
           </div>
         </div>
 
         <div
           className={`transition-all duration-500 ${
-            isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+            isExpanded
+              ? "max-h-[1000px] opacity-100 overflow-visible"
+              : "max-h-0 opacity-0 overflow-hidden"
           }`}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end w-full mt-4">

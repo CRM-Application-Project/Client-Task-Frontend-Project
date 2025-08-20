@@ -19,11 +19,13 @@ import {
   getModuleDropdown,
   Module,
   getDepartments,
+  getRoleScopeDropdown,
+  RoleScope,
 } from "@/app/services/data.service";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import { Popover, PopoverContent } from "@/components/ui/popover";
-import { error } from "console";
+import { X } from "lucide-react";
 
 interface CreateStaffModalProps {
   isOpen: boolean;
@@ -40,11 +42,14 @@ export function CreateStaffModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [modules, setModules] = useState<Module[]>([]);
+  const [roles, setRoles] = useState<RoleScope[]>([]);
   const [dateOfBirth, setDateOfBirth] = useState<Date>();
   const [dateOfJoin, setDateOfJoin] = useState<Date>();
   const [departments, setDepartments] = useState<
     { id: number; name: string }[]
   >([]);
+  const [selectedModule, setSelectedModule] = useState<number | null>(null);
+  const [sendMail, setSendMail] = useState(true);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -54,30 +59,32 @@ export function CreateStaffModal({
     userRole: "",
     departmentId: 0,
     isActive: true,
+    password: "",
     moduleAccess: [] as {
       moduleId: number;
+      moduleName: string;
       canView: boolean;
       canEdit: boolean;
       canDelete: boolean;
+      canCreate: boolean;
     }[],
   });
 
+  const formatText = (text: string) => {
+    return text
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   useEffect(() => {
-    const fetchModulesAndDepartments = async () => {
+    const fetchData = async () => {
       try {
         // fetch modules
         const moduleRes = await getModuleDropdown();
         if (moduleRes.isSuccess) {
           setModules(moduleRes.data);
-          setFormData((prev) => ({
-            ...prev,
-            moduleAccess: moduleRes.data.map((module) => ({
-              moduleId: module.id,
-              canView: false,
-              canEdit: false,
-              canDelete: false,
-            })),
-          }));
         } else {
           toast({
             variant: "destructive",
@@ -101,6 +108,18 @@ export function CreateStaffModal({
             description: "Failed to fetch departments",
           });
         }
+
+        // fetch roles
+        const roleRes = await getRoleScopeDropdown();
+        if (roleRes.isSuccess) {
+          setRoles(roleRes.data);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to fetch roles",
+          });
+        }
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -111,7 +130,23 @@ export function CreateStaffModal({
     };
 
     if (isOpen) {
-      fetchModulesAndDepartments();
+      fetchData();
+      // Reset form when modal opens
+      setFormData({
+        firstName: "",
+        lastName: "",
+        emailAddress: "",
+        contactNumber: "",
+        userRole: "",
+        departmentId: 0,
+        isActive: true,
+        password: "",
+        moduleAccess: [],
+      });
+      setDateOfBirth(undefined);
+      setDateOfJoin(undefined);
+      setSelectedModule(null);
+      setSendMail(true);
     }
   }, [isOpen, toast]);
 
@@ -119,14 +154,26 @@ export function CreateStaffModal({
     e.preventDefault();
     setLoading(true);
 
+    // Validate password field if sendMail is false
+    if (!sendMail && !formData.password) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Password is required when not sending email",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         ...formData,
         dateOfBirth: dateOfBirth ? format(dateOfBirth, "yyyy-MM-dd") : "",
         dateOfJoin: dateOfJoin ? format(dateOfJoin, "yyyy-MM-dd") : "",
         moduleAccess: formData.moduleAccess.filter(
-          (m) => m.canView || m.canEdit || m.canDelete
+          (m) => m.canView || m.canEdit || m.canDelete || m.canCreate
         ),
+        sendMail,
       };
 
       const response = await createStaffUser(payload);
@@ -159,7 +206,7 @@ export function CreateStaffModal({
 
   const handleModuleAccessChange = (
     moduleId: number,
-    field: "canView" | "canEdit" | "canDelete",
+    field: "canView" | "canEdit" | "canDelete" | "canCreate",
     value: boolean
   ) => {
     setFormData((prev) => {
@@ -168,6 +215,53 @@ export function CreateStaffModal({
       );
       return { ...prev, moduleAccess: updatedModuleAccess };
     });
+  };
+
+  const addModule = () => {
+    if (!selectedModule) return;
+
+    const module = modules.find((m) => m.id === selectedModule);
+    if (!module) return;
+
+    // Check if module already exists
+    if (formData.moduleAccess.some((ma) => ma.moduleId === selectedModule)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Module already added",
+      });
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      moduleAccess: [
+        ...prev.moduleAccess,
+        {
+          moduleId: module.id,
+          moduleName: module.name,
+          canView: false,
+          canEdit: false,
+          canDelete: false,
+          canCreate: false,
+        },
+      ],
+    }));
+
+    setSelectedModule(null);
+  };
+
+  const removeModule = (moduleId: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      moduleAccess: prev.moduleAccess.filter((ma) => ma.moduleId !== moduleId),
+    }));
+  };
+
+  const getAvailableModules = () => {
+    return modules.filter(
+      (module) => !formData.moduleAccess.some((ma) => ma.moduleId === module.id)
+    );
   };
 
   if (!isOpen) return null;
@@ -205,6 +299,7 @@ export function CreateStaffModal({
               <Label htmlFor="firstName">First Name</Label>
               <Input
                 id="firstName"
+                placeholder="Enter first name"
                 value={formData.firstName}
                 onChange={(e) =>
                   setFormData({ ...formData, firstName: e.target.value })
@@ -217,6 +312,7 @@ export function CreateStaffModal({
               <Label htmlFor="lastName">Last Name</Label>
               <Input
                 id="lastName"
+                placeholder="Enter last name"
                 value={formData.lastName}
                 onChange={(e) =>
                   setFormData({ ...formData, lastName: e.target.value })
@@ -230,6 +326,7 @@ export function CreateStaffModal({
               <Input
                 id="email"
                 type="email"
+                placeholder="Enter email"
                 value={formData.emailAddress}
                 onChange={(e) =>
                   setFormData({ ...formData, emailAddress: e.target.value })
@@ -242,6 +339,7 @@ export function CreateStaffModal({
               <Label htmlFor="contact">Contact Number</Label>
               <Input
                 id="contact"
+                placeholder="Enter contact number"
                 value={formData.contactNumber}
                 onChange={(e) =>
                   setFormData({ ...formData, contactNumber: e.target.value })
@@ -250,11 +348,29 @@ export function CreateStaffModal({
               />
             </div>
 
+            {/* Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="password">
+                Password {!sendMail && <span className="text-red-500">*</span>}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                required={!sendMail}
+              />
+            </div>
+
             {/* Dates */}
             <div className="space-y-2">
               <Label>Date of Birth</Label>
               <Popover>
                 <DatePicker
+                  className="w-full h-10 rounded-md border px-3"
                   style={{ width: "100%" }}
                   value={dateOfBirth ? dayjs(dateOfBirth) : null}
                   onChange={(date) =>
@@ -273,6 +389,7 @@ export function CreateStaffModal({
               <Label>Date of Join</Label>
               <Popover>
                 <DatePicker
+                  className="w-full h-10 rounded-md border px-3"
                   style={{ width: "100%" }}
                   value={dateOfJoin ? dayjs(dateOfJoin) : null}
                   onChange={(date) =>
@@ -297,19 +414,16 @@ export function CreateStaffModal({
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
-                  <SelectItem value="TESTER_QA">Tester/QA</SelectItem>
-                  <SelectItem value="SALES_EXECUTIVE">
-                    Sales Executive
-                  </SelectItem>
-                  <SelectItem value="PROJECT_MANAGER">
-                    Project Manager
-                  </SelectItem>
-                  <SelectItem value="SALES_MANAGER">Sales Manager</SelectItem>
-                  <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                  <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
-                  <SelectItem value="DEVELOPER">Developer</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.role} value={role.role}>
+                      <span className="text-lg">
+                        {formatText(role.role)}
+                      </span>{" "}
+                      <span className="text-gray-500 text-xs">
+                        {formatText(role.scope)}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -337,6 +451,16 @@ export function CreateStaffModal({
               </Select>
             </div>
 
+            {/* Send Mail Checkbox */}
+            <div className="flex items-center space-x-2 pt-6">
+              <Checkbox
+                id="sendMail"
+                checked={sendMail}
+                onCheckedChange={(checked) => setSendMail(Boolean(checked))}
+              />
+              <Label htmlFor="sendMail">Send email with credentials</Label>
+            </div>
+
             {/* Active Status */}
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -353,67 +477,104 @@ export function CreateStaffModal({
           {/* Module Access */}
           <div className="space-y-4">
             <Label className="block">Module Access Permissions</Label>
-            <div className="border rounded-md p-4 overflow-x-auto">
-              <div className="grid grid-cols-5 gap-2 mb-2 min-w-[500px]">
-                <div className="font-medium">Module</div>
-                <div className="text-center font-medium">View</div>
-                <div className="text-center font-medium">Edit</div>
-                <div className="text-center font-medium">Delete</div>
-              </div>
 
-              <div className="space-y-2 min-w-[500px]">
-                {modules.map((module) => {
-                  const moduleAccess = formData.moduleAccess.find(
-                    (ma) => ma.moduleId === module.id
-                  ) || { canView: false, canEdit: false, canDelete: false };
-
-                  return (
-                    <div
-                      key={module.id}
-                      className="grid grid-cols-5 gap-2 items-center"
-                    >
-                      <div className="truncate">{module.name}</div>
-                      <div className="flex justify-center">
-                        <Checkbox
-                          checked={moduleAccess.canView}
-                          onCheckedChange={(checked) =>
-                            handleModuleAccessChange(
-                              module.id,
-                              "canView",
-                              Boolean(checked)
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="flex justify-center">
-                        <Checkbox
-                          checked={moduleAccess.canEdit}
-                          onCheckedChange={(checked) =>
-                            handleModuleAccessChange(
-                              module.id,
-                              "canEdit",
-                              Boolean(checked)
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="flex justify-center">
-                        <Checkbox
-                          checked={moduleAccess.canDelete}
-                          onCheckedChange={(checked) =>
-                            handleModuleAccessChange(
-                              module.id,
-                              "canDelete",
-                              Boolean(checked)
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Add Module Section */}
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 space-y-2">
+                <Label>Select Module</Label>
+                <Select
+                  value={selectedModule ? selectedModule.toString() : ""}
+                  onValueChange={(value) => setSelectedModule(parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a module" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableModules().map((module) => (
+                      <SelectItem key={module.id} value={module.id.toString()}>
+                        <span className="font-medium">{module.name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <Button type="button" onClick={addModule}>
+                Add Module
+              </Button>
             </div>
+
+            {/* Added Modules */}
+            {formData.moduleAccess.length > 0 && (
+              <div className="border rounded-md p-4">
+                <h3 className="font-medium mb-3">Added Modules</h3>
+                <div className="space-y-4">
+                  {formData.moduleAccess.map((moduleAccess) => {
+                    const module = modules.find(
+                      (m) => m.id === moduleAccess.moduleId
+                    );
+                    return (
+                      <div
+                        key={moduleAccess.moduleId}
+                        className="border rounded p-3 relative"
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 h-6 w-6 p-0"
+                          onClick={() => removeModule(moduleAccess.moduleId)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+
+                        <div className="font-medium mb-2">
+                          {module?.name || moduleAccess.moduleName}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { key: "canView", label: "View" },
+                            { key: "canEdit", label: "Edit" },
+                            { key: "canDelete", label: "Delete" },
+                            { key: "canCreate", label: "Create" },
+                          ].map((permission) => (
+                            <div
+                              key={permission.key}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                id={`${moduleAccess.moduleId}-${permission.key}`}
+                                checked={
+                                  moduleAccess[
+                                    permission.key as keyof typeof moduleAccess
+                                  ] as boolean
+                                }
+                                onCheckedChange={(checked) =>
+                                  handleModuleAccessChange(
+                                    moduleAccess.moduleId,
+                                    permission.key as
+                                      | "canView"
+                                      | "canEdit"
+                                      | "canDelete"
+                                      | "canCreate",
+                                    Boolean(checked)
+                                  )
+                                }
+                              />
+                              <Label
+                                htmlFor={`${moduleAccess.moduleId}-${permission.key}`}
+                              >
+                                {permission.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

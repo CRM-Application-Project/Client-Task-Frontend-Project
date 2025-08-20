@@ -291,7 +291,7 @@ export function DashboardSidebar({
                               {/* underline effect */}
                               <span
                                 className={cn(
-                                  "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
+                                  "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-1000",
                                   isChildActive
                                     ? "w-full"
                                     : "w-0 group-hover:w-full"
@@ -424,7 +424,7 @@ export function DashboardSidebar({
       <div
         className={cn(
           "hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300",
-          collapsed ? "lg:w-16" : "lg:w-64"
+          collapsed ? "lg:w-16" : "lg:w-52"
         )}
       >
         <SidebarContent />
@@ -432,7 +432,7 @@ export function DashboardSidebar({
 
       {/* Mobile */}
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent side="left" className="p-0 w-64">
+        <SheetContent side="left" className="p-0 w-52">
           <SidebarContent />
         </SheetContent>
       </Sheet>

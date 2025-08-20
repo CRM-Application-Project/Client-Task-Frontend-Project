@@ -1,4 +1,14 @@
-import { ChangePasswordRequest, ChangePasswordResponse, FilterLeadsParams, FilterLeadsResponse, LoginRequestData, LoginResponse, TaskStagesDropdownResponse, UpdateUserRequest, UpdateUserResponse } from "@/lib/data";
+import {
+  ChangePasswordRequest,
+  ChangePasswordResponse,
+  FilterLeadsParams,
+  FilterLeadsResponse,
+  LoginRequestData,
+  LoginResponse,
+  TaskStagesDropdownResponse,
+  UpdateUserRequest,
+  UpdateUserResponse,
+} from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
   deleteRequest,
@@ -7,7 +17,13 @@ import {
   putRequest,
   patchRequest,
 } from "./httpServices";
-import { AddFollowUpRequest, AddFollowUpResponse, ImportLeadResponse, LeadTransferRequest, LeadTransferResponse } from "@/lib/leads";
+import {
+  AddFollowUpRequest,
+  AddFollowUpResponse,
+  ImportLeadResponse,
+  LeadTransferRequest,
+  LeadTransferResponse,
+} from "@/lib/leads";
 
 export const registerUser = async (
   registerData: RegisterRequestData
@@ -22,19 +38,19 @@ export const verifyUser = async (
   organizationName?: string
 ): Promise<VerifyUserResponse> => {
   const baseUrl = "/verify";
-  
+
   // 2. Create URLSearchParams for query parameters
   const params = new URLSearchParams();
   params.append("emailAddress", emailAddress);
   params.append("deviceType", deviceType);
-  
+
   if (organizationName) {
     params.append("organizationName", organizationName);
   }
 
   // 3. Combine them
   const url = `${baseUrl}?${params.toString()}`;
-  
+
   // (Optional) Log the URL to verify
   console.log("Final URL:", url);
 
@@ -68,7 +84,7 @@ export const getTaskById = async (
   taskId: number
 ): Promise<GetTaskByIdResponse> => {
   const url = API_CONSTANTS.TASK.GET_BY_ID.replace("{taskId}", String(taskId));
-  const res = await getRequest(url); 
+  const res = await getRequest(url);
   return res as GetTaskByIdResponse;
 };
 
@@ -213,6 +229,7 @@ export interface ModuleAccess {
   canView: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canCreate: boolean;
 }
 
 export interface CreateStaffUserPayload {
@@ -278,6 +295,7 @@ export interface ModuleAccesses {
   canView: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canCreate: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -465,6 +483,7 @@ export interface UpdateModuleAccessPayload {
   canView: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canCreate: boolean;
 }
 
 export interface UpdateModuleAccessResponse {
@@ -477,6 +496,7 @@ export interface UpdateModuleAccessResponse {
     canView: boolean;
     canEdit: boolean;
     canDelete: boolean;
+    canCreate: boolean;
     createdAt: string;
     updatedAt: string;
   };
@@ -518,17 +538,20 @@ export interface GetAssignDropdownResponse {
   data: AssignDropdown[];
 }
 
-export const getAssignDropdown = async (): Promise<GetAssignDropdownResponse> => {
-  const res = await getRequest(API_CONSTANTS.LEAD.ASSIGN_DROPDOWN);
-  return res as GetAssignDropdownResponse;
-};
-
+export const getAssignDropdown =
+  async (): Promise<GetAssignDropdownResponse> => {
+    const res = await getRequest(API_CONSTANTS.LEAD.ASSIGN_DROPDOWN);
+    return res as GetAssignDropdownResponse;
+  };
 
 export const changePassword = async (
   userId: string,
   payload: ChangePasswordRequest
 ): Promise<ChangePasswordResponse> => {
-  const endpoint = API_CONSTANTS.LEAD.CHANGE_PASSWORD.replace(":userId", userId);
+  const endpoint = API_CONSTANTS.LEAD.CHANGE_PASSWORD.replace(
+    ":userId",
+    userId
+  );
   const res = await postRequest(endpoint, payload);
   return res as ChangePasswordResponse;
 };
@@ -539,7 +562,6 @@ export const updateUserProfile = async (
   const endpoint = API_CONSTANTS.USER.UPDATE_USER.replace(":userId", userId);
   const res = await putRequest(endpoint, payload);
   return res as UpdateUserResponse;
-
 };
 interface UploadUrlRequest {
   fileName: string;
@@ -548,7 +570,7 @@ interface UploadUrlRequest {
 
 interface DocumentUrlData {
   docId: number;
-  type: 'UPLOAD' | 'DOWNLOAD';
+  type: "UPLOAD" | "DOWNLOAD";
   fileName: string;
   fileType: string;
   url: string;
@@ -605,7 +627,7 @@ export const deleteDocument = async (
   const endpoint = API_CONSTANTS.TASK.DOCUMENT.DELETE(docId);
   const res = await deleteRequest(endpoint);
   return res as DeleteDocumentResponse;
-}
+};
 // Add this interface and function to your existing data.service.ts file
 
 // Add this interface to your existing types (preferably near other task-related types)
@@ -628,10 +650,49 @@ export interface CreateStageResponse {
   };
 }
 
-// Add this function to your data service
 export const createTaskStage = async (
   stageData: CreateStageRequest
 ): Promise<CreateStageResponse> => {
   const res = await postRequest(API_CONSTANTS.TASK.ADD_STAGE, stageData);
   return res as CreateStageResponse;
+};
+
+export interface ChangeLeadStatusRequest {
+  leadId: string;
+  leadStatus: string;
+}
+
+export interface ChangeLeadStatusResponse {
+  isSuccess: boolean;
+  message: string;
+  data?: {
+    leadId: string;
+    leadStatus: string;
+    updatedAt: string;
+  };
+}
+
+export const changeLeadStatus = async (
+  payload: ChangeLeadStatusRequest
+): Promise<ChangeLeadStatusResponse> => {
+  const endpoint = API_CONSTANTS.LEAD.CHANGE_STATUS;
+  const res = await postRequest(endpoint, payload);
+  return res as ChangeLeadStatusResponse;
+};
+
+export interface RoleScope {
+  role: string;
+  scope: string;
+}
+
+export interface GetRoleScopeResponse {
+  isSuccess: boolean;
+  message: string;
+  data: RoleScope[];
+}
+
+export const getRoleScopeDropdown = async (): Promise<GetRoleScopeResponse> => {
+  const endpoint = API_CONSTANTS.STAFF.ROLE_SCOPE_DROPDOWN;
+  const res = await getRequest(endpoint);
+  return res as GetRoleScopeResponse;
 };
