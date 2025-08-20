@@ -155,3 +155,53 @@ export interface UsersListResponse {
   message: string;
   data: UserProfile[];
 }
+
+
+
+// Generate OTP
+export interface GenerateOtpRequest {
+  emailAddress: string;
+  deviceType: string;
+}
+
+export interface GenerateOtpResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: number;
+    status: string; // "SENT"
+  };
+}
+
+// Verify OTP
+export interface VerifyOtpRequest {
+  id: number;
+  otp: string;
+  deviceType: string;
+}
+
+export interface VerifyOtpResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: number;
+    status: string; // "VERIFIED"
+  };
+}
+
+
+export interface ResetRequest {
+  otpId: number;
+  userEmail: string;
+  password: string;
+  deviceType: string;
+}
+
+export interface ResetResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
+}

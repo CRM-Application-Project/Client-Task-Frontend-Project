@@ -81,6 +81,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [documents, setDocuments] = useState<TaskDocument[]>(task.documents || []);
   const [showDetailsModal, setShowDetailsModal] = useState(false); // Add this state
+  const [downloadingDocId, setDownloadingDocId] = useState<number | null>(null);
   
   const { permissions, loading: permissionsLoading } = usePermissions('task');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -227,6 +228,9 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
   };
 
   const handleDownloadDocument = async (document: TaskDocument) => {
+    console.log('Download clicked for:', document.fileName);
+    setDownloadingDocId(document.docId);
+    
     try {
       const downloadResponse = await getDocumentDownloadUrl(document.docId.toString());
       
@@ -234,11 +238,53 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
         throw new Error(downloadResponse.message);
       }
 
-      // Open download URL in new tab
-      window.open(downloadResponse.data.url, '_blank');
+      console.log('Downloading file from S3 URL:', downloadResponse.data.url);
+      
+      try {
+        // Fetch the file from S3 as a blob
+        const fileResponse = await fetch(downloadResponse.data.url, {
+          method: 'GET',
+          headers: {
+            'Accept': '*/*',
+          },
+        });
+        
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
+        }
+        
+        // Convert response to blob
+        const blob = await fileResponse.blob();
+        
+        // Create a local URL for the blob
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // Create and trigger download
+        const downloadLink = window.document.createElement('a');
+        downloadLink.href = blobUrl;
+        downloadLink.download = document.fileName;
+        downloadLink.style.display = 'none';
+        
+        // Add to DOM, click, and remove
+        window.document.body.appendChild(downloadLink);
+        downloadLink.click();
+        window.document.body.removeChild(downloadLink);
+        
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(blobUrl);
+        
+        console.log('File downloaded successfully:', document.fileName);
+        
+      } catch (fetchError) {
+        console.error('Download failed:', fetchError);
+        throw new Error(`Failed to download ${document.fileName}. Please try again.`);
+      }
+
     } catch (error) {
       console.error('Download failed:', error);
       alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setDownloadingDocId(null);
     }
   };
 
@@ -464,10 +510,15 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDownloadDocument(document)}
+                        disabled={downloadingDocId === document.docId}
                         className="h-8 w-8 p-0"
                         title="Download document"
                       >
-                        <Download className="h-3 w-3" />
+                        {downloadingDocId === document.docId ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Download className="h-3 w-3" />
+                        )}
                       </Button>
                       {permissions.canEdit && (
                         <Button
