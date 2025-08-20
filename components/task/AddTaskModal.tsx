@@ -92,7 +92,7 @@ export const AddTaskModal = ({ isOpen, onClose, onSubmit, editingTask }: AddTask
     e.preventDefault();
     
     // Validate required fields
-    if (!formData.subject || !formData.taskStageId || formData.assignees.length === 0) {
+    if (!formData.subject || !formData.taskStageId || formData.assignees.length === 0 || !formData.startDate || formData.description.trim() === "") {
       alert("Please fill all required fields");
       return;
     }
@@ -254,37 +254,47 @@ const localToUTCISOString = (localDateTime: string): string => {
           </div>
 
           {/* Assignees */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Assignees: *</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {users.map(user => (
-                <div key={user.userId} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id={`assignee-${user.userId}`}
-                    checked={formData.assignees.includes(user.userId)}
-                    onChange={() => handleAssigneeChange(user.userId)}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <Label htmlFor={`assignee-${user.userId}`}>
-                    {user.firstName} {user.lastName}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
+    <div className="space-y-2">
+  <Label className="text-sm font-medium text-foreground">Assignees: *</Label>
+  <Select
+    value={formData.assignees[0] || "unassigned"} // Use "unassigned" instead of empty string
+    onValueChange={(value) => {
+      // Handle both assigned and unassigned cases
+      setFormData(prev => ({
+        ...prev,
+        assignees: value === "unassigned" ? [] : [value]
+      }));
+    }}
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="Select an assignee" />
+    </SelectTrigger>
+    <SelectContent>
+   
+      {users.map(user => (
+        <SelectItem key={user.userId} value={user.userId}>
+          {user.firstName} {user.lastName}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Description:</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="Enter Description"
-              rows={4}
-              className="resize-none"
-            />
-          </div>
+        
+<div className="space-y-2">
+  <Label className="text-sm font-medium text-foreground">Description: *</Label>
+  <Textarea
+    value={formData.description}
+    onChange={(e) => setFormData({...formData, description: e.target.value})}
+    placeholder="Enter Description"
+    rows={6}
+    className="resize-none font-mono text-sm"
+  />
+
+  
+  {/* Optional: Preview section */}
+
+</div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
