@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface TaskDetailsModalProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ interface TaskDetails {
 export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetailsModalProps) => {
   const [task, setTask] = useState<TaskDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
+   const { permissions, loading: permissionsLoading } = usePermissions('task');
   useEffect(() => {
     if (isOpen && taskId) {
       fetchTaskDetails();
@@ -148,7 +149,9 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                     )}
                   </div>
                 </div>
+               
                 <div className="flex gap-2">
+                   {permissions.canEdit && (
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -157,7 +160,7 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                   >
                     <Edit className="h-4 w-4" />
                     Edit
-                  </Button>
+                  </Button>)}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="h-9 w-9 p-0">

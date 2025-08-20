@@ -25,6 +25,7 @@ import { useState, useEffect } from "react";
 import { TaskPriority } from "../../lib/task";
 import { TaskStage } from "@/lib/data";
 import { User } from "@/app/services/data.service";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface ExtendedTaskFilters {
   priority?: string;
@@ -111,7 +112,7 @@ export const TaskFilters = ({
       day: "numeric",
     })}`;
   };
-
+ const { permissions, loading: permissionsLoading } = usePermissions('task');
   return (
     <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
       <div className="flex flex-col gap-2">
@@ -128,7 +129,7 @@ export const TaskFilters = ({
 
           <div className="flex items-center gap-3">
             {/* View Mode Toggle */}
-           
+           {permissions.canCreate && !permissionsLoading && (
             <Button
               onClick={onAddTask}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
@@ -136,6 +137,7 @@ export const TaskFilters = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
+           )}
              <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
               <Button
                 variant={viewMode === 'kanban' ? "default" : "ghost"}
