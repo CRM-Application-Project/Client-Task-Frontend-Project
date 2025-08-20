@@ -1,6 +1,4 @@
-"use client";
-
-import { Bell, Moon, Menu } from "lucide-react";
+import { Bell, Moon, Menu, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -12,27 +10,32 @@ interface UserData {
   userRole: string;
 }
 
-export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
+export function DashboardNavbar({
+  onMenuClick,
+  onToggleCollapse,
+  collapsed,
+}: {
+  onMenuClick?: () => void;
+  onToggleCollapse?: () => void;
+  collapsed?: boolean;
+}) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Get user data from localStorage
-    const userData = localStorage.getItem('user');
+    const userData = localStorage.getItem("user");
     if (userData) {
       try {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Failed to parse user data', error);
+        setUser(JSON.parse(userData));
+      } catch (e) {
+        console.error("Failed to parse user data", e);
       }
     }
   }, []);
 
   const handleLogout = () => {
-        setIsDropdownOpen(false);
-
+    setIsDropdownOpen(false);
     Swal.fire({
       title: "Are you sure?",
       text: "You will be logged out from the system",
@@ -54,8 +57,8 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       },
     }).then((result) => {
       if (result.isConfirmed) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
         router.push("/");
       }
     });
@@ -66,40 +69,48 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     setIsDropdownOpen(false);
   };
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
-      {/* Left side */}
-      <div className="flex items-center gap-3">
-        {/* Mobile menu button */}
+    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-6">
+      {/* Left */}
+      <div className="flex items-center gap-2 lg:gap-3">
+        {/* Mobile: open sheet */}
         <button
           className="lg:hidden rounded-md p-2 text-gray-600 hover:bg-gray-100 focus:outline-none"
           onClick={onMenuClick}
+          aria-label="Open sidebar"
         >
           <Menu className="h-5 w-5" />
         </button>
+        {/* Desktop: collapse/expand */}
+        <button
+          className="hidden lg:inline-flex rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <PanelRightClose className="h-5 w-5" />
+          ) : (
+            <PanelRightOpen className="h-5 w-5" />
+          )}
+        </button>
 
-        <span className="text-lg font-semibold text-gray-900">
+        {/* <span className="text-lg font-semibold text-gray-900">
           CRM Dashboard
-        </span>
+        </span> */}
       </div>
 
-      {/* Right side */}
+      {/* Right */}
       <div className="flex items-center gap-4">
-        {/* Notifications */}
         <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
           <Bell className="h-5 w-5" />
         </button>
-
-        {/* Dark/Light Mode */}
         <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
           <Moon className="h-5 w-5" />
         </button>
 
-        {/* User Info */}
+        {/* User */}
         <div className="relative flex items-center gap-3">
           <div className="text-right">
             <div className="text-sm font-medium text-gray-900">
@@ -109,9 +120,8 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
               {user.userRole.replace(/_/g, " ").toLowerCase()}
             </div>
           </div>
-          
           <div className="relative">
-            <button 
+            <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="focus:outline-none"
             >
@@ -122,8 +132,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 </AvatarFallback>
               </Avatar>
             </button>
-            
-            {/* Dropdown menu */}
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                 <button
@@ -144,10 +152,10 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
       </div>
 
-      {/* Close dropdown when clicking outside */}
+      {/* Click-away */}
       {isDropdownOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-transparent" 
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
           onClick={() => setIsDropdownOpen(false)}
         />
       )}

@@ -64,7 +64,7 @@ export const TaskFilters = ({
 }: TaskFiltersProps) => {
   const priorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
 
   const clearDateRange = () => {
