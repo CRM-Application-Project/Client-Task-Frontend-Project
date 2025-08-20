@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Lead } from '../../lib/leads';
+
 import { useToast } from '@/hooks/use-toast';
 import { leadTransfer, getAssignDropdown, AssignDropdown } from '@/app/services/data.service';
 
@@ -93,10 +93,10 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   // Reset form when lead changes
   React.useEffect(() => {
     if (lead) {
-      const currentAssignee = assignees.find(a => a.label === lead.assignedTo);
+      const currentAssignee = assignees.find(a => a.label === lead.leadAddedBy);
       form.reset({ 
         transferToId: currentAssignee?.id || '',
-        transferToLabel: lead.assignedTo 
+        transferToLabel: lead.leadAddedBy 
       });
     }
   }, [lead, assignees, form]);
@@ -119,7 +119,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     
     try {
       const response = await leadTransfer({
-        leadId: lead.id,
+        leadId: lead.leadId,
         transferTo: selectedAssignee.label // Send label instead of ID
       });
 
@@ -131,7 +131,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
         });
         
         // Call the parent component's callback with the label
-        onChangeAssign(lead.id, selectedAssignee.label);
+        onChangeAssign(lead.leadId, selectedAssignee.label);
         onClose();
       } else {
         toast({
@@ -163,7 +163,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
         <DialogHeader>
           <DialogTitle>Transfer Lead</DialogTitle>
           <DialogDescription>
-            Transfer {lead?.name} to a different team member
+            Transfer {lead?.customerName} to a different team member
           </DialogDescription>
         </DialogHeader>
 

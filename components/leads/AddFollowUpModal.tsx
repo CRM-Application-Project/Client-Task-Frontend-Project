@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
-import { Lead } from "../../lib/leads";
+
 import { useToast } from "@/hooks/use-toast";
 import { addFollowUp } from "@/app/services/data.service";
 import { DatePicker } from "antd";
@@ -70,7 +70,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
 
     try {
       const payload = {
-        leadId: lead.id,
+        leadId: lead.leadId,
         nextFollowUpDate: data.nextFollowupDate,
         followUpType: data.followUpType,
         comment: data.comment || "",
@@ -95,7 +95,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
           createdAt: new Date(),
         };
 
-        onAddFollowUp(lead.id, followUp);
+        onAddFollowUp(lead.leadId, followUp);
         handleClose();
       } else {
         toast({

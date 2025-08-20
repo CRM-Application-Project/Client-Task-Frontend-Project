@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Lead, LeadStatus } from '../../lib/leads';
+import {  LeadStatus } from '../../lib/leads';
 import { updateLead } from '@/app/services/data.service';
 import { useToast } from '@/hooks/use-toast';
 
@@ -56,7 +56,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      status: lead?.status || '',
+      status: lead?.leadStatus || '',
       notes: '',
     },
   });
@@ -64,7 +64,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   React.useEffect(() => {
     if (lead) {
       form.reset({ 
-        status: lead.status,
+        status: lead.leadStatus,
         notes: '',
       });
     }
@@ -75,16 +75,16 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
     try {
       const payload = {
-        leadId: lead.id,
+        leadId: lead.leadId,
         leadStatus: data.status,
-        leadSource: lead.source,
-        leadAddedBy: lead.assignedTo,
-        customerMobileNumber: lead.phone,
-        companyEmailAddress: lead.company,
+        leadSource: lead.leadSource || 'OTHER', // Default to 'OTHER' if not set
+        leadAddedBy: lead.leadAddedBy,
+        customerMobileNumber: lead.customerMobileNumber,
+        companyEmailAddress: lead.companyEmailAddress,
         leadPriority: lead.priority || 'MEDIUM',
-        customerName: lead.name,
-        customerEmailAddress: lead.email,
-        leadAddress: lead.location || '',
+        customerName: lead.customerName,
+        customerEmailAddress: lead.customerEmailAddress,
+        leadAddress: lead.leadAddress || '',
         leadLabel: lead.leadLabel || '', // Add default or actual value
         leadReference: lead.leadReference || '', // Add default or actual value
         comment: data.notes || '', // Use notes as comment
@@ -93,7 +93,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
       const response = await updateLead(payload);
       
       if (response.isSuccess) {
-        onChangeStatus(lead.id, data.status as LeadStatus, data.notes);
+        onChangeStatus(lead.leadId, data.status as LeadStatus, data.notes);
         toast({
           title: "Status updated",
           description: "Lead status has been successfully updated.",
@@ -135,7 +135,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
         <DialogHeader>
           <DialogTitle>Change Lead Status</DialogTitle>
           <DialogDescription>
-            Update the status for {lead?.name}
+            Update the status for {lead?.customerName } and add any relevant notes.
           </DialogDescription>
         </DialogHeader>
 

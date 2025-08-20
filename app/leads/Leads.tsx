@@ -6,7 +6,7 @@ import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadColumn } from "@/components/leads/LeadColumn";
 import AddLeadModal from "@/components/leads/AddLeadModal";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
-import { Lead, LeadStatus } from "../../lib/leads";
+import { LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
 import {
@@ -16,6 +16,7 @@ import {
   updateLead,
   AssignDropdown,
   getAssignDropdown,
+  getLeadById,
 } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
@@ -27,6 +28,29 @@ import EditLeadModal from "@/components/leads/EditLeadModal";
 import ViewLeadModal from "@/components/leads/ViewLeadModal";
 import { format } from "date-fns";
 import { FilterLeadsParams } from "@/lib/data";
+
+// Updated Lead interface
+interface Lead {
+  leadId: string;
+  leadStatus: string;
+  leadSource: string;
+  leadAddedBy: string;
+  leadAssignedTo: string;
+  customerMobileNumber: string;
+  companyEmailAddress: string;
+  customerName: string;
+  customerEmailAddress: string;
+  leadAddress: string;
+  comment?: string;
+  leadLabel?: string;
+  leadReference?: string;
+  priority: LeadPriority;
+  company?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Additional properties for display
+  assignedToName?: string; // For display purposes
+}
 
 type LeadFiltersType = {
   status?: LeadStatus;
@@ -77,7 +101,17 @@ const Leads = () => {
     "CLOSED_WON",
     "CLOSED_LOST",
   ];
-
+  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
+const refreshAssignees = async () => {
+  try {
+    const response = await getAssignDropdown();
+    if (response.isSuccess && response.data) {
+      setAssignees(response.data);
+    }
+  } catch (error) {
+    console.error("Failed to fetch assignees:", error);
+  }
+};
   useEffect(() => {
     const fetchAssignOptions = async () => {
       try {
@@ -99,115 +133,100 @@ const Leads = () => {
     return option ? option.label : null;
   };
 
-const transformApiLead = (apiLead: any, assignOptions: AssignDropdown[]): Lead => {
-  // Find the assignee name from the ID
-  const assignee = assignOptions.find(opt => opt.id === apiLead.leadAddedBy);
-  const assignedToName = assignee ? assignee.label : apiLead.leadAddedBy;
-
-  const transformed = {
-    id: apiLead.leadId,
-    name: apiLead.customerName,
-    company: apiLead.companyEmailAddress,
-    email: apiLead.customerEmailAddress,
-    phone: apiLead.customerMobileNumber,
-    location: apiLead.leadAddress,
-    status: apiLead.leadStatus as LeadStatus,
-    priority: "MEDIUM" as LeadPriority,
-    source: apiLead.leadSource as LeadSource,
-    assignedTo: assignedToName, // Use the resolved name here
-    assignedToId: apiLead.leadAddedBy, // Keep the ID for reference
-    createdAt: new Date(apiLead.createdAt),
-    updatedAt: new Date(apiLead.updatedAt),
-    comment: apiLead.comment,
-    leadLabel: apiLead.leadLabel,
-    leadReference: apiLead.leadReference,
+  // Enhanced Lead transformation - now maintains original structure
+  const enhanceLeadWithAssigneeName = (lead: Lead, assignOptions: AssignDropdown[]): Lead => {
+    const assignee = assignOptions.find(opt => opt.id === lead.leadAddedBy);
+    return {
+      ...lead,
+      assignedToName: assignee ? assignee.label : lead.leadAddedBy,
+      // Ensure company field is populated if not present
+      company: lead.company || lead.companyEmailAddress,
+    };
   };
 
-  return transformed;
-};
-
   // FIXED: Simplified add lead handler
-const handleAddNewLead = (apiLeadData: any) => {
-  if (!apiLeadData) return;
+  const handleAddNewLead = (apiLeadData: any) => {
+    if (!apiLeadData) return;
 
-  const newLead = transformApiLead(apiLeadData, assignOptions);
-  setLeads((prevLeads) => [newLead, ...prevLeads]);
-};
+    const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
+    setLeads((prevLeads) => [newLead, ...prevLeads]);
+  };
 
   const handleAddLead = () => {
     setIsAddModalOpen(true);
   };
 
- const handleAddNewLeadOptimistic = (formData: any) => {
-  const assignee = assignOptions.find(opt => opt.id === formData.leadAddedBy);
-  const assignedToName = assignee ? assignee.label : formData.leadAddedBy;
+  const handleAddNewLeadOptimistic = (formData: any) => {
+    const assignee = assignOptions.find(opt => opt.id === formData.leadAddedBy);
 
-  const newLead: Lead = {
-    id: formData.leadId || `temp-${Date.now()}`, // temporary ID if not available
-    name: formData.customerName,
-    company: formData.companyEmailAddress,
-    email: formData.customerEmailAddress,
-    phone: formData.customerMobileNumber,
-    location: formData.leadAddress,
-    status: formData.leadStatus as LeadStatus,
-    priority: "MEDIUM" as LeadPriority,
-    source: formData.leadSource as LeadSource,
-    assignedTo: assignedToName, // Use resolved name
-    assignedToId: formData.leadAddedBy, // Keep ID
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    comment: formData.comment || "",
-    leadLabel: formData.leadLabel,
-    leadReference: formData.leadReference,
-  };
-
-  setLeads((prevLeads) => [newLead, ...prevLeads]);
-};
-
- const fetchFilteredLeads = async () => {
-  try {
-    setIsLoading(true);
-
-    // Prepare filter parameters with proper type conversion
-    const filterParams: FilterLeadsParams = {
-      startDate: filters.dateRange?.from
-        ? format(filters.dateRange.from, "yyyy-MM-dd")
-        : null,
-      endDate: filters.dateRange?.to
-        ? format(filters.dateRange.to, "yyyy-MM-dd")
-        : null,
-      leadLabel: filters.label || null,
-      leadSource: filters.source || null,
-      assignedTo: getAssignedToLabel(filters.assignedTo) || null,
-      sortBy: filters.sortBy || null,
-      direction: filters.sortOrder || null,
+    const newLead: Lead = {
+      leadId: formData.leadId || `temp-${Date.now()}`,
+      leadStatus: formData.leadStatus,
+      leadSource: formData.leadSource,
+      leadAddedBy: formData.leadAddedBy,
+      leadAssignedTo: formData.leadAssignedTo || formData.leadAddedBy,
+      customerMobileNumber: formData.customerMobileNumber,
+      companyEmailAddress: formData.companyEmailAddress,
+      customerName: formData.customerName,
+      customerEmailAddress: formData.customerEmailAddress,
+      leadAddress: formData.leadAddress,
+      comment: formData.comment || "",
+      leadLabel: formData.leadLabel,
+      leadReference: formData.leadReference,
+      priority: formData.priority || "MEDIUM",
+      company: formData.company || formData.companyEmailAddress,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      assignedToName: assignee ? assignee.label : formData.leadAddedBy,
     };
 
-    // Clean null/undefined values
-    const cleanedParams = Object.fromEntries(
-      Object.entries(filterParams).filter(
-        ([_, value]) => value !== null && value !== undefined
-      )
-    );
+    setLeads((prevLeads) => [newLead, ...prevLeads]);
+  };
 
-    const response = await filterLeads(cleanedParams);
+  const fetchFilteredLeads = async () => {
+    try {
+      setIsLoading(true);
 
-    if (response.isSuccess && response.data) {
-      const transformedLeads = response.data.map(lead => 
-        transformApiLead(lead, assignOptions) // Pass assignOptions here
+      // Prepare filter parameters with proper type conversion
+      const filterParams: FilterLeadsParams = {
+        startDate: filters.dateRange?.from
+          ? format(filters.dateRange.from, "yyyy-MM-dd")
+          : null,
+        endDate: filters.dateRange?.to
+          ? format(filters.dateRange.to, "yyyy-MM-dd")
+          : null,
+        leadLabel: filters.label || null,
+        leadSource: filters.source || null,
+        assignedTo: getAssignedToLabel(filters.assignedTo) || null,
+        sortBy: filters.sortBy || null,
+        direction: filters.sortOrder || null,
+      };
+
+      // Clean null/undefined values
+      const cleanedParams = Object.fromEntries(
+        Object.entries(filterParams).filter(
+          ([_, value]) => value !== null && value !== undefined
+        )
       );
-      setLeads(transformedLeads);
+
+      const response = await filterLeads(cleanedParams);
+
+      if (response.isSuccess && response.data) {
+        const enhancedLeads = response.data.map(lead => 
+          enhanceLeadWithAssigneeName(lead, assignOptions)
+        );
+        setLeads(enhancedLeads);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to filter leads",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    toast({
-      title: "Error",
-      description: error.message || "Failed to filter leads",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   // FIXED: Improved useEffect for filters
   useEffect(() => {
@@ -223,43 +242,45 @@ const handleAddNewLead = (apiLeadData: any) => {
 
   // Fetch leads only on initial load
   const fetchLeads = async () => {
-  try {
-    setIsLoading(true);
-    const response = await getAllLeads();
-    if (response.isSuccess && response.data) {
-      const transformedLeads = response.data.map(lead => 
-        transformApiLead(lead, assignOptions)
-      );
-      setLeads(transformedLeads);
-    }
-  } catch (error: any) {
-    console.error("Failed to fetch leads:", error);
-    toast({
-      title: "Error",
-      description: error.message || "Failed to fetch leads",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
-useEffect(() => {
-  // Refresh leads when assignOptions are loaded to update names
-  if (assignOptions.length > 0 && leads.length > 0) {
-    const updatedLeads = leads.map(lead => {
-      // If we only have IDs but not names, update them
-      if (lead.assignedToId && !lead.assignedTo) {
-        const assignee = assignOptions.find(opt => opt.id === lead.assignedToId);
-        return {
-          ...lead,
-          assignedTo: assignee ? assignee.label : lead.assignedToId
-        };
+    try {
+      setIsLoading(true);
+      const response = await getAllLeads();
+      if (response.isSuccess && response.data) {
+        const enhancedLeads = response.data.map(lead => 
+          enhanceLeadWithAssigneeName(lead, assignOptions)
+        );
+        setLeads(enhancedLeads);
       }
-      return lead;
-    });
-    setLeads(updatedLeads);
-  }
-}, [assignOptions]);
+    } catch (error: any) {
+      console.error("Failed to fetch leads:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch leads",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Refresh leads when assignOptions are loaded to update names
+    if (assignOptions.length > 0 && leads.length > 0) {
+      const updatedLeads = leads.map(lead => {
+        // If we only have IDs but not names, update them
+        if (lead.leadAddedBy && !lead.assignedToName) {
+          const assignee = assignOptions.find(opt => opt.id === lead.leadAddedBy);
+          return {
+            ...lead,
+            assignedToName: assignee ? assignee.label : lead.leadAddedBy
+          };
+        }
+        return lead;
+      });
+      setLeads(updatedLeads);
+    }
+  }, [assignOptions]);
+
   useEffect(() => {
     fetchLeads();
   }, []);
@@ -268,9 +289,9 @@ useEffect(() => {
   const filteredLeads = searchQuery
     ? leads.filter((lead) => {
         return (
-          lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
+          lead.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.companyEmailAddress?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.customerEmailAddress?.toLowerCase().includes(searchQuery.toLowerCase())
         );
       })
     : leads;
@@ -287,31 +308,31 @@ useEffect(() => {
 
     try {
       // Find the lead being dragged
-      const leadToUpdate = leads.find((lead) => lead.id === draggableId);
+      const leadToUpdate = leads.find((lead) => lead.leadId === draggableId);
       if (!leadToUpdate) return;
 
       // Optimistically update local state first
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
-          lead.id === draggableId
-            ? { ...lead, status: newStatus, updatedAt: new Date() }
+          lead.leadId === draggableId
+            ? { ...lead, leadStatus: newStatus, updatedAt: new Date().toISOString() }
             : lead
         )
       );
 
       // Prepare payload for API call
       const payload = {
-        leadId: leadToUpdate.id,
+        leadId: leadToUpdate.leadId,
         leadStatus: newStatus,
-        leadSource: leadToUpdate.source,
-        leadAddedBy: leadToUpdate.assignedTo,
-        customerMobileNumber: leadToUpdate.phone,
-        companyEmailAddress: leadToUpdate.company,
-        customerName: leadToUpdate.name,
-        customerEmailAddress: leadToUpdate.email,
+        leadSource: leadToUpdate.leadSource,
+        leadAddedBy: leadToUpdate.leadAddedBy,
+        customerMobileNumber: leadToUpdate.customerMobileNumber,
+        companyEmailAddress: leadToUpdate.companyEmailAddress,
+        customerName: leadToUpdate.customerName,
+        customerEmailAddress: leadToUpdate.customerEmailAddress,
         leadLabel: leadToUpdate.leadLabel || "",
         leadReference: leadToUpdate.leadReference || "",
-        leadAddress: leadToUpdate.location || "",
+        leadAddress: leadToUpdate.leadAddress || "",
         comment: leadToUpdate.comment || "",
       };
 
@@ -322,8 +343,8 @@ useEffect(() => {
         // Revert local state if API call fails
         setLeads((prevLeads) =>
           prevLeads.map((lead) =>
-            lead.id === draggableId
-              ? { ...lead, status: source.droppableId as LeadStatus }
+            lead.leadId === draggableId
+              ? { ...lead, leadStatus: source.droppableId as LeadStatus }
               : lead
           )
         );
@@ -346,7 +367,7 @@ useEffect(() => {
   // Update existing lead in local state
   const handleUpdateLead = (updatedLead: Lead) => {
     setLeads((prevLeads) =>
-      prevLeads.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
+      prevLeads.map((lead) => (lead.leadId === updatedLead.leadId ? updatedLead : lead))
     );
   };
 
@@ -364,11 +385,11 @@ useEffect(() => {
     if (!leadToDelete) return;
 
     try {
-      const response = await deleteLeadById(leadToDelete.id);
+      const response = await deleteLeadById(leadToDelete.leadId);
       if (response.isSuccess) {
         // Remove from local state immediately
         setLeads((prevLeads) =>
-          prevLeads.filter((l) => l.id !== leadToDelete.id)
+          prevLeads.filter((l) => l.leadId !== leadToDelete.leadId)
         );
         toast({
           title: "Lead deleted",
@@ -388,9 +409,26 @@ useEffect(() => {
     }
   };
 
-  const handleViewLead = (lead: Lead) => {
-    setSelectedLead(lead);
+  const handleViewLead = async (lead: Lead) => {
+    setSelectedLead(lead); // Set initial lead data for quick display
     setIsViewModalOpen(true);
+    
+    try {
+      // Fetch detailed lead data from API
+      const response = await getLeadById(lead.leadId);
+      
+      if (response.isSuccess && response.data) {
+        const detailedLead = enhanceLeadWithAssigneeName(response.data, assignOptions);
+        setSelectedLead(detailedLead);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch lead details:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load lead details",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddFollowUp = (lead: Lead) => {
@@ -401,11 +439,11 @@ useEffect(() => {
   const handleCreateFollowUp = (leadId: string, followUp: any) => {
     setLeads((prevLeads) =>
       prevLeads.map((lead) =>
-        lead.id === leadId
+        lead.leadId === leadId
           ? {
               ...lead,
-              leadFollowUp: followUp.notes,
-              nextFollowUpDate: new Date(followUp.date),
+              comment: followUp.notes,
+              updatedAt: new Date().toISOString(),
             }
           : lead
       )
@@ -424,8 +462,13 @@ useEffect(() => {
   const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
     setLeads((prevLeads) =>
       prevLeads.map((lead) =>
-        lead.id === leadId
-          ? { ...lead, assignedTo, updatedAt: new Date() }
+        lead.leadId === leadId
+          ? { 
+              ...lead, 
+              leadAddedBy: assignedTo, 
+              assignedToName: getAssignedToLabel(assignedTo) || assignedTo,
+              updatedAt: new Date().toISOString() 
+            }
           : lead
       )
     );
@@ -453,23 +496,23 @@ useEffect(() => {
     }
 
     try {
-      const transformedLeads = importedLeads.map((lead) =>
-        transformApiLead(lead,assignOptions)
+      const enhancedLeads = importedLeads.map((lead) =>
+        enhanceLeadWithAssigneeName(lead, assignOptions)
       );
 
       // FIXED: Instead of adding to existing leads, replace with fresh data to avoid duplicates
       // Option 1: Add only new leads (check for duplicates)
       setLeads((prevLeads) => {
-        const existingIds = new Set(prevLeads.map((lead) => lead.id));
-        const newLeads = transformedLeads.filter(
-          (lead) => !existingIds.has(lead.id)
+        const existingIds = new Set(prevLeads.map((lead) => lead.leadId));
+        const newLeads = enhancedLeads.filter(
+          (lead) => !existingIds.has(lead.leadId)
         );
         return [...newLeads, ...prevLeads];
       });
 
       toast({
         title: "Leads imported",
-        description: `${transformedLeads.length} leads have been successfully imported.`,
+        description: `${enhancedLeads.length} leads have been successfully imported.`,
       });
     } catch (error: any) {
       toast({
@@ -486,37 +529,37 @@ useEffect(() => {
     setIsSortingModalOpen(true);
   };
 
- const handleApplySort = async (sortBy: string, sortOrder: "asc" | "desc") => {
-  try {
-    setIsLoading(true);
-    const response = await filterLeads({
-      ...filters,
-      sortBy,
-      direction: sortOrder,
-    });
-
-    if (response.isSuccess && response.data) {
-      const transformedLeads = response.data.map(lead => 
-        transformApiLead(lead, assignOptions) // Pass assignOptions here
-      );
-      setLeads(transformedLeads);
-      setSortConfig({ sortBy, sortOrder });
-      setFilters((prev) => ({
-        ...prev,
+  const handleApplySort = async (sortBy: string, sortOrder: "asc" | "desc") => {
+    try {
+      setIsLoading(true);
+      const response = await filterLeads({
+        ...filters,
         sortBy,
-        sortOrder,
-      }));
+        direction: sortOrder,
+      });
+
+      if (response.isSuccess && response.data) {
+        const enhancedLeads = response.data.map(lead => 
+          enhanceLeadWithAssigneeName(lead, assignOptions)
+        );
+        setLeads(enhancedLeads);
+        setSortConfig({ sortBy, sortOrder });
+        setFilters((prev) => ({
+          ...prev,
+          sortBy,
+          sortOrder,
+        }));
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sort leads",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    toast({
-      title: "Error",
-      description: error.message || "Failed to sort leads",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleChangeStatus = (lead: Lead) => {
     setSelectedLead(lead);
@@ -530,7 +573,12 @@ useEffect(() => {
   ) => {
     setLeads((prevLeads) =>
       prevLeads.map((lead) =>
-        lead.id === leadId ? { ...lead, status, updatedAt: new Date() } : lead
+        lead.leadId === leadId ? { 
+          ...lead, 
+          leadStatus: status, 
+          updatedAt: new Date().toISOString(),
+          comment: notes || lead.comment
+        } : lead
       )
     );
     toast({
@@ -574,7 +622,7 @@ useEffect(() => {
                 <LeadColumn
                   key={status}
                   status={status}
-                  leads={filteredLeads.filter((lead) => lead.status === status)}
+                  leads={filteredLeads.filter((lead) => lead.leadStatus === status)}
                   onEditLead={handleEditLead}
                   onDeleteLead={handleDeleteClick}
                   onViewLead={handleViewLead}
@@ -624,49 +672,49 @@ useEffect(() => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredLeads.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-gray-50">
+                    <tr key={lead.leadId} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {lead?.name
+                            {lead?.customerName
                               ?.split(" ")
                               ?.map((n) => n[0])
                               ?.join("")}
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
-                              {lead.name}
+                              {lead.customerName}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {lead.location}
+                              {lead.leadAddress}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {lead.company}
+                        {lead.companyEmailAddress}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            lead.status === "NEW"
+                            lead.leadStatus === "NEW"
                               ? "bg-blue-100 text-blue-800"
-                              : lead.status === "CONTACTED"
+                              : lead.leadStatus === "CONTACTED"
                               ? "bg-indigo-100 text-indigo-800"
-                              : lead.status === "QUALIFIED"
+                              : lead.leadStatus === "QUALIFIED"
                               ? "bg-green-100 text-green-800"
-                              : lead.status === "PROPOSAL"
+                              : lead.leadStatus === "PROPOSAL"
                               ? "bg-teal-100 text-teal-800"
-                              : lead.status === "DEMO"
+                              : lead.leadStatus === "DEMO"
                               ? "bg-yellow-100 text-yellow-800"
-                              : lead.status === "NEGOTIATIONS"
+                              : lead.leadStatus === "NEGOTIATIONS"
                               ? "bg-orange-100 text-orange-800"
-                              : lead.status === "CLOSED_WON"
+                              : lead.leadStatus === "CLOSED_WON"
                               ? "bg-emerald-100 text-emerald-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {lead.status.replace("_", " ")}
+                          {lead.leadStatus.replace("_", " ")}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -685,14 +733,14 @@ useEffect(() => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {lead.source.replace("_", " ")}
+                        {lead.leadSource.replace("_", " ")}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {lead.assignedTo}
+                        {lead.assignedToName || lead.leadAddedBy}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div>{lead.email}</div>
-                        <div>{lead.phone}</div>
+                        <div>{lead.customerEmailAddress}</div>
+                        <div>{lead.customerMobileNumber}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
@@ -743,7 +791,7 @@ useEffect(() => {
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={handleConfirmDelete}
           title="Delete Lead"
-          description={`Are you sure you want to delete the lead "${leadToDelete?.name}"? This action cannot be undone.`}
+          description={`Are you sure you want to delete the lead "${leadToDelete?.customerName}"? This action cannot be undone.`}
           confirmText="Delete"
           cancelText="Cancel"
         />
