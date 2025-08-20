@@ -49,6 +49,14 @@ export const LeadCard = ({
   onLeadSorting,
   onChangeStatus,
 }: LeadCardProps) => {
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
 
@@ -98,19 +106,6 @@ export const LeadCard = ({
     );
   };
 
-  const getInitials = (name: string) => {
-    // Handle case where name might be an ID
-    if (isUUID(name)) {
-      return "NA"; // Or some other fallback
-    }
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const assignedName = getAssigneeName();
   const assignedAvatar = getAssigneeAvatar();
 
@@ -123,18 +118,13 @@ export const LeadCard = ({
         </h3>
 
         {/* Assigned user avatar */}
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={assignedAvatar} alt={assignedName} />
             <AvatarFallback className="text-xs bg-gray-100 text-gray-600">
-              {getInitials(assignedName)}
+              {getInitials(lead.assignedTo)}
             </AvatarFallback>
           </Avatar>
-          {loadingAssignees ? (
-            <span className="text-sm text-gray-400">Loading...</span>
-          ) : (
-            <span className="text-sm text-gray-600">{assignedName}</span>
-          )}
+          <span className="text-sm text-gray-600">{lead.assignedTo}</span>
         </div>
 
         {/* Details section */}

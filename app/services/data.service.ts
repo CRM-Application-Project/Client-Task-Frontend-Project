@@ -606,3 +606,32 @@ export const deleteDocument = async (
   const res = await deleteRequest(endpoint);
   return res as DeleteDocumentResponse;
 }
+// Add this interface and function to your existing data.service.ts file
+
+// Add this interface to your existing types (preferably near other task-related types)
+export interface CreateStageRequest {
+  name: string;
+  description: string;
+  orderNumber: number;
+}
+
+export interface CreateStageResponse {
+  isSuccess: boolean;
+  message: string;
+  data?: {
+    id: number;
+    name: string;
+    description: string;
+    orderNumber: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+// Add this function to your data service
+export const createTaskStage = async (
+  stageData: CreateStageRequest
+): Promise<CreateStageResponse> => {
+  const res = await postRequest(API_CONSTANTS.TASK.ADD_STAGE, stageData);
+  return res as CreateStageResponse;
+};
