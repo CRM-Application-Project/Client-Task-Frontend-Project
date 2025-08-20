@@ -22,6 +22,7 @@ export function DashboardNavbar({
 }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export function DashboardNavbar({
         console.error("Failed to parse user data", e);
       }
     }
+    setIsLoading(false);
   }, []);
 
   const handleLogout = () => {
@@ -70,8 +72,6 @@ export function DashboardNavbar({
     setIsDropdownOpen(false);
   };
 
-  if (!user) return null;
-
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-6">
       {/* Left */}
@@ -108,45 +108,65 @@ export function DashboardNavbar({
         </button>
 
         {/* User */}
-        <div className="relative flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <div className="text-sm font-medium text-gray-900">
-              {user.firstName} {user.lastName}
+        {isLoading ? (
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="w-16 h-3 bg-gray-200 rounded animate-pulse mt-1"></div>
             </div>
-            <div className="text-xs text-gray-500 capitalize">
-              {user.userRole.replace(/_/g, " ").toLowerCase()}
-            </div>
+            <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="focus:outline-none"
-            >
-              <Avatar className="h-8 w-8 cursor-pointer">
-                <AvatarFallback>
-                  {user.firstName.charAt(0).toUpperCase()}
-                  {user.lastName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </button>
-            {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
-                <button
-                  onClick={handleProfileClick}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  My Profile
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  Logout
-                </button>
+        ) : user ? (
+          <div className="relative flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <div className="text-sm font-medium text-gray-900">
+                {user.firstName} {user.lastName}
               </div>
-            )}
+              <div className="text-xs text-gray-500 capitalize">
+                {user.userRole.replace(/_/g, " ").toLowerCase()}
+              </div>
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="focus:outline-none"
+              >
+                <Avatar className="h-8 w-8 cursor-pointer">
+                  <AvatarFallback>
+                    {user.firstName.charAt(0).toUpperCase()}
+                    {user.lastName.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                  <button
+                    onClick={handleProfileClick}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    My Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <div className="text-sm font-medium text-gray-900">Guest User</div>
+              <div className="text-xs text-gray-500">Not logged in</div>
+            </div>
+            <Avatar className="h-8 w-8">
+              <AvatarFallback>GU</AvatarFallback>
+            </Avatar>
+          </div>
+        )}
       </div>
 
       {/* Click-away */}

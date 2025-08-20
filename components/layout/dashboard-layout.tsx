@@ -25,19 +25,21 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         collapsed={sidebarCollapsed}
       />
 
-      {/* Main */}
+      {/* Main Content Area */}
       <div
         className={cn(
-          "transition-all duration-300",
-          sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+          "min-h-screen transition-all duration-300",
+          sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         )}
       >
+        {/* Navbar */}
         <DashboardNavbar
           collapsed={sidebarCollapsed}
           onMenuClick={() => setSidebarOpen(true)}
           onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
         />
 
+        {/* Page Content */}
         <main className="py-4 sm:py-4 lg:py-6">
           <div className="px-4 sm:px-4 lg:px-6">{children}</div>
         </main>
