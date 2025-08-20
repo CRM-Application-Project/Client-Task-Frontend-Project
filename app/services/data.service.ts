@@ -696,3 +696,27 @@ export const getRoleScopeDropdown = async (): Promise<GetRoleScopeResponse> => {
   const res = await getRequest(endpoint);
   return res as GetRoleScopeResponse;
 };
+
+// Generate OTP
+export const generateOtp = async (
+  payload: GenerateOtpRequest
+): Promise<GenerateOtpResponse> => {
+  const res = await postRequest(API_CONSTANTS.USER.GENERATE_OTP, payload);
+  return res as GenerateOtpResponse;
+};
+
+// Verify OTP
+export const verifyOtp = async (
+  payload: VerifyOtpRequest
+): Promise<VerifyOtpResponse> => {
+  const res = await postRequest(API_CONSTANTS.USER.VERIFY_OTP, payload);
+  return res as VerifyOtpResponse;
+};
+
+
+export const resetPassword = async (
+  payload: ResetRequest
+): Promise<ResetResponse> => {
+  const res = await postRequest(API_CONSTANTS.USER.RESET, payload);
+  return res as ResetResponse;
+};

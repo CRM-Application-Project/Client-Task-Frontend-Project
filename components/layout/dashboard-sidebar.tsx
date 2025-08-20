@@ -44,7 +44,7 @@ const NAVIGATION: NavItem[] = [
         href: "/employees/department",
         moduleName: "Department",
       },
-      { name: "Staff", href: "/employees/staff", moduleName: "User" },
+      { name: "Staff", href: "/employees/staff", moduleName: "user" },
     ],
   },
 ];

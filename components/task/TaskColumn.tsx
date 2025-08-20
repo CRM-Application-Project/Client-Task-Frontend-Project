@@ -75,7 +75,7 @@ export const TaskColumn = ({
   const stageColors = getStageColors(stageIndex, stage.name);
   
   return (
-    <div className="flex-1 min-w-[260px] bg-gray-100">
+    <div className="flex-1 min-w-[260px] max-w-[320px] bg-gray-100">
       <div className="mb-4">
         <div className={`${stageColors.color} ${stageColors.textColor} px-4 py-3 rounded-lg flex items-center justify-between shadow-sm`}>
           <h2 className="font-semibold text-sm uppercase tracking-wide">

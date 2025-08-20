@@ -5,7 +5,7 @@ import { Calendar, User, Tag, FileText, Edit, X, Clock, AlertCircle, CheckCircle
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getTaskById } from "@/app/services/data.service";
+import { getDocumentDownloadUrl, getTaskById } from "@/app/services/data.service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface TaskDetailsModalProps {
   isOpen: boolean;
@@ -22,7 +23,19 @@ interface TaskDetailsModalProps {
   onEdit: () => void;
 }
 
-interface TaskDetails {
+interface Document {
+  id: number;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  status: string;
+  taskId: number;
+  createdAt: string;
+  updatedAt: string;
+  uploadedBy: string;
+}
+
+interface TaskDetailsResponse {
   id: number;
   subject: string;
   description: string;
@@ -39,18 +52,25 @@ interface TaskDetails {
     label: string;
     avatar?: string;
   }>;
-  documents?: Array<{
+  documents?: Document[];
+}
+
+interface DocumentUrlResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
     docId: number;
+    type: string;
     fileName: string;
     fileType: string;
-    uploadedAt: string;
-    fileSize?: string;
-  }>;
+    url: string;
+  };
 }
 
 export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetailsModalProps) => {
-  const [task, setTask] = useState<TaskDetails | null>(null);
+  const [task, setTask] = useState<TaskDetailsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { permissions, loading: permissionsLoading } = usePermissions('task');
 
   useEffect(() => {
     if (isOpen && taskId) {
@@ -65,7 +85,10 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
     try {
       const response = await getTaskById(taskId);
       if (response.isSuccess) {
-        setTask(response.data);
+        console.log('Full task response:', response.data);
+      
+        
+        setTask(response.data as TaskDetailsResponse);
       } else {
         console.error("Failed to fetch task details:", response.message);
       }
@@ -96,6 +119,94 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleDownload = async (doc: Document) => {
+    console.log('Download clicked for:', doc.fileName);
+    console.log('Using document ID:', doc.id);
+    
+    if (!doc.id) {
+      console.error('Document ID is missing:', doc);
+      alert('Cannot download: Document ID is missing');
+      return;
+    }
+    
+    try {
+      const response: DocumentUrlResponse = await getDocumentDownloadUrl(doc.id.toString());
+      
+      console.log('API response:', response);
+      
+      if (response.isSuccess && response.data.url) {
+        console.log('Downloading file from S3 URL:', response.data.url);
+        
+        try {
+          // Show loading state (optional)
+          const downloadButton = document.activeElement as HTMLElement;
+          if (downloadButton) {
+            downloadButton.style.opacity = '0.5';
+            downloadButton.style.pointerEvents = 'none';
+          }
+          
+          // Fetch the file from S3 as a blob
+          const fileResponse = await fetch(response.data.url, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*',
+            },
+          });
+          
+          if (!fileResponse.ok) {
+            throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
+          }
+          
+          // Convert response to blob
+          const blob = await fileResponse.blob();
+          
+          // Create a local URL for the blob
+          const blobUrl = window.URL.createObjectURL(blob);
+          
+          // Create and trigger download
+          const downloadLink = document.createElement('a');
+          downloadLink.href = blobUrl;
+          downloadLink.download = doc.fileName;
+          downloadLink.style.display = 'none';
+          
+          // Add to DOM, click, and remove
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          
+          // Clean up the blob URL
+          window.URL.revokeObjectURL(blobUrl);
+          
+          console.log('File downloaded successfully:', doc.fileName);
+          
+          // Reset button state
+          if (downloadButton) {
+            downloadButton.style.opacity = '1';
+            downloadButton.style.pointerEvents = 'auto';
+          }
+          
+        } catch (fetchError) {
+          console.error('Download failed:', fetchError);
+          alert(`Failed to download ${doc.fileName}. Please try again.`);
+          
+          // Reset button state on error
+          const downloadButton = document.activeElement as HTMLElement;
+          if (downloadButton) {
+            downloadButton.style.opacity = '1';
+            downloadButton.style.pointerEvents = 'auto';
+          }
+        }
+        
+      } else {
+        console.error("Failed to get download URL:", response.message);
+        alert(`Failed to get download link: ${response.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      alert('Error downloading document. Please try again.');
+    }
   };
 
   const isOverdue = task?.endDate && new Date(task.endDate) < new Date();
@@ -148,28 +259,19 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={onEdit} 
-                    className="gap-1.5 h-9 px-3"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-9 w-9 p-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Share</DropdownMenuItem>
-                      <DropdownMenuItem>Archive</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+               
+                <div className="flex gap-2 mr-10">
+                  {permissions.canEdit && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={onEdit} 
+                      className="gap-1.5 h-9 px-3"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -182,7 +284,6 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                     <span className="font-medium text-gray-700">Progress</span>
                     <span className="text-gray-500">{task.progress}% complete</span>
                   </div>
-                  {/* <Progress value={task.progress} className="h-2" /> */}
                 </div>
               )}
 
@@ -284,7 +385,10 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                   <h3 className="font-medium text-gray-700 text-sm">Attachments</h3>
                   <div className="space-y-2">
                     {task.documents.map((document) => (
-                      <div key={document.docId} className="flex items-center justify-between p-3 bg-white rounded-md border hover:bg-gray-50 transition-colors">
+                      <div 
+                        key={document.id} 
+                        className="flex items-center justify-between p-3 bg-white rounded-md border hover:bg-gray-50 transition-colors"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-gray-100 rounded-md">
                             <FileText className="h-4 w-4 text-gray-600" />
@@ -293,11 +397,20 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                             <p className="font-medium text-sm text-gray-900 truncate max-w-xs">{document.fileName}</p>
                             <div className="flex text-xs text-gray-500 mt-0.5 gap-2">
                               <span className="capitalize">{document.fileType}</span>
-                              {document.fileSize && <span>{document.fileSize}</span>}
+                              {document.fileSize && <span>{formatFileSize(document.fileSize)}</span>}
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDownload(document);
+                          }}
+                        >
                           <Download className="h-4 w-4" />
                         </Button>
                       </div>

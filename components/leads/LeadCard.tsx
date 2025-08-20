@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Lead } from "../../lib/leads";
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface LeadCardProps {
   lead: Lead;
@@ -57,6 +58,7 @@ export const LeadCard = ({
       .toUpperCase()
       .slice(0, 2);
   };
+   const { permissions, loading: permissionsLoading } = usePermissions('lead');
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
 
@@ -158,6 +160,7 @@ export const LeadCard = ({
         {/* Action bar */}
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">
+            {permissions.canView && (
             <button
               onClick={() => onView?.(lead)}
               className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -165,6 +168,8 @@ export const LeadCard = ({
             >
               <Eye className="h-4 w-4 text-gray-600" />
             </button>
+            )}
+            {permissions.canEdit && (
             <button
               onClick={() => onEdit?.(lead)}
               className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -172,6 +177,7 @@ export const LeadCard = ({
             >
               <Edit className="h-4 w-4 text-gray-600" />
             </button>
+            )}
             <button
               className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
               title="Call lead"
@@ -207,6 +213,7 @@ export const LeadCard = ({
                 Lead Sorting
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {permissions.canDelete &&( 
               <DropdownMenuItem
                 onClick={() => onDelete?.(lead)}
                 className="text-red-600 hover:text-red-700"
@@ -214,6 +221,7 @@ export const LeadCard = ({
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Lead
               </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
