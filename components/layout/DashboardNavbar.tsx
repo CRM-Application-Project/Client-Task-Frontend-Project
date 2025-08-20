@@ -1,4 +1,5 @@
-import { Bell, Moon, Menu, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
+"use client";
+import { Bell, Moon, Menu, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -72,7 +73,7 @@ export function DashboardNavbar({
   if (!user) return null;
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-6">
+    <header className="sticky top-0 z-50 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6 lg:px-6">
       {/* Left */}
       <div className="flex items-center gap-2 lg:gap-3">
         {/* Mobile: open sheet */}
@@ -85,7 +86,7 @@ export function DashboardNavbar({
         </button>
         {/* Desktop: collapse/expand */}
         <button
-          className="hidden lg:inline-flex rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none"
+          className="hidden lg:inline-flex rounded-md p-2 text-gray-600 hover:bg-gray-100 focus:outline-none"
           onClick={onToggleCollapse}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -95,10 +96,6 @@ export function DashboardNavbar({
             <PanelRightOpen className="h-5 w-5" />
           )}
         </button>
-
-        {/* <span className="text-lg font-semibold text-gray-900">
-          CRM Dashboard
-        </span> */}
       </div>
 
       {/* Right */}
@@ -112,7 +109,7 @@ export function DashboardNavbar({
 
         {/* User */}
         <div className="relative flex items-center gap-3">
-          <div className="text-right">
+          <div className="text-right hidden sm:block">
             <div className="text-sm font-medium text-gray-900">
               {user.firstName} {user.lastName}
             </div>
@@ -133,7 +130,7 @@ export function DashboardNavbar({
               </Avatar>
             </button>
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                 <button
                   onClick={handleProfileClick}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

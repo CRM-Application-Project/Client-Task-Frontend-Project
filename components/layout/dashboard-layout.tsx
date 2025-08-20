@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { DashboardNavbar } from "./DashboardNavbar";
 import { DashboardSidebar } from "./dashboard-sidebar";
+import { DashboardNavbar } from "./DashboardNavbar";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sheet

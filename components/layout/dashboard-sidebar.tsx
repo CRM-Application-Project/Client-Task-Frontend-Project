@@ -44,15 +44,18 @@ const NAVIGATION: NavItem[] = [
         href: "/employees/department",
         moduleName: "Department",
       },
-      { name: "Staff", href: "/employees/staff", moduleName: "Staff" },
+      { name: "Staff", href: "/employees/staff", moduleName: "User" },
     ],
   },
 ];
 
 const SETTINGS = [
   { name: "Profile", icon: User, href: "/profile" },
-  { name: "Change Password", icon: KeyRound, href: "/change-password" },
-];
+ { 
+    name: "Change Password", 
+    icon: KeyRound, 
+    href: "/profile?tab=change-password" 
+  },];
 
 interface UserModuleAccess {
   id: number;
@@ -356,37 +359,44 @@ export function DashboardSidebar({
               )}
             </Button>
 
-            {!collapsed && expanded.includes("Settings") && (
-              <div className="space-y-1 pl-6 pt-1 w-full">
-                {SETTINGS.map((it) => {
-                  const isChildActive = pathname === it.href;
-                  return (
-                    <Button
-                      key={it.href}
-                      variant="ghost"
-                      onClick={() => router.push(it.href)}
-                      className={cn(
-                        "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
-                        isChildActive
-                          ? "text-white"
-                          : "text-gray-300 hover:text-white hover:bg-transparent"
-                      )}
-                    >
-                      <it.icon className="mr-3 h-4 w-4" />
-                      {it.name}
+{!collapsed && expanded.includes("Settings") && (
+  <div className="space-y-1 pl-6 pt-1 w-full">
+    {SETTINGS.map((it) => {
+      const isChildActive = pathname === it.href;
+      return (
+        <Button
+          key={it.href}
+          variant="ghost"
+          onClick={() => {
+            if (it.name === "Change Password") {
+              // Navigate to profile with tab parameter
+              router.push("/profile?tab=change-password");
+            } else {
+              router.push(it.href);
+            }
+          }}
+          className={cn(
+            "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
+            isChildActive
+              ? "text-white"
+              : "text-gray-300 hover:text-white hover:bg-transparent"
+          )}
+        >
+          <it.icon className="mr-3 h-4 w-4" />
+          {it.name}
 
-                      {/* underline effect */}
-                      <span
-                        className={cn(
-                          "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
-                          isChildActive ? "w-full" : "w-0 group-hover:w-full"
-                        )}
-                      />
-                    </Button>
-                  );
-                })}
-              </div>
+          {/* underline effect */}
+          <span
+            className={cn(
+              "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
+              isChildActive ? "w-full" : "w-0 group-hover:w-full"
             )}
+          />
+        </Button>
+      );
+    })}
+  </div>
+)}
           </div>
         </ScrollArea>
       </nav>
