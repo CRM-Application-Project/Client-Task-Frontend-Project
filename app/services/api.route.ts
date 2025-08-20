@@ -4,6 +4,9 @@ export const API_CONSTANTS = {
     VERIFY: "/verify?emailAddress={emailAddress}&deviceType={deviceType}",
     LOGIN: "/login",
     UPDATE_USER: "/tenant/users/:userId",
+    GENERATE_OTP: "/generate-otp",
+    VERIFY_OTP: "/verify-otp",
+    RESET:"/reset"
   },
   DEPARTMENT: {
     CREATE_DEPARTMENT: "/tenant/departments/",

@@ -1,4 +1,4 @@
-import { ChangePasswordRequest, ChangePasswordResponse, FilterLeadsParams, FilterLeadsResponse, LoginRequestData, LoginResponse, TaskStagesDropdownResponse, UpdateUserRequest, UpdateUserResponse } from "@/lib/data";
+import { ChangePasswordRequest, ChangePasswordResponse, FilterLeadsParams, FilterLeadsResponse, GenerateOtpRequest, GenerateOtpResponse, LoginRequestData, LoginResponse, ResetRequest, ResetResponse, TaskStagesDropdownResponse, UpdateUserRequest, UpdateUserResponse, VerifyOtpRequest, VerifyOtpResponse } from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
   deleteRequest,
@@ -634,4 +634,30 @@ export const createTaskStage = async (
 ): Promise<CreateStageResponse> => {
   const res = await postRequest(API_CONSTANTS.TASK.ADD_STAGE, stageData);
   return res as CreateStageResponse;
+};
+
+
+
+// Generate OTP
+export const generateOtp = async (
+  payload: GenerateOtpRequest
+): Promise<GenerateOtpResponse> => {
+  const res = await postRequest(API_CONSTANTS.USER.GENERATE_OTP, payload);
+  return res as GenerateOtpResponse;
+};
+
+// Verify OTP
+export const verifyOtp = async (
+  payload: VerifyOtpRequest
+): Promise<VerifyOtpResponse> => {
+  const res = await postRequest(API_CONSTANTS.USER.VERIFY_OTP, payload);
+  return res as VerifyOtpResponse;
+};
+
+
+export const resetPassword = async (
+  payload: ResetRequest
+): Promise<ResetResponse> => {
+  const res = await postRequest(API_CONSTANTS.USER.RESET, payload);
+  return res as ResetResponse;
 };
