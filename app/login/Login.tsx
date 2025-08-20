@@ -249,6 +249,8 @@ export default function LoginPage() {
       localStorage.setItem('currentUser', JSON.stringify(completeUserProfile));
       localStorage.setItem('userModules', JSON.stringify(modules));
               localStorage.setItem('userId', response.data.profileResponse.id);
+                      localStorage.setItem('user', JSON.stringify(response.data.profileResponse));
+
 
       
       // Debug: Verify localStorage storage
