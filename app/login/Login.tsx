@@ -972,7 +972,7 @@ export default function LoginPage() {
           {!forgotPasswordMode && (
             <div className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
-                {`Don't have an account?`}
+                {`Don't have an account?  `}
                 <button
                   onClick={() => router.push("/register")}
                   className="text-primary hover:text-primary/80 font-medium transition-colors"
