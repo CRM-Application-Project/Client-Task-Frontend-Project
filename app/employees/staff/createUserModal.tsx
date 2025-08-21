@@ -25,7 +25,13 @@ import {
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import { Popover, PopoverContent } from "@/components/ui/popover";
-import { X } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CreateStaffModalProps {
   isOpen: boolean;
@@ -210,9 +216,42 @@ export function CreateStaffModal({
     value: boolean
   ) => {
     setFormData((prev) => {
-      const updatedModuleAccess = prev.moduleAccess.map((module) =>
-        module.moduleId === moduleId ? { ...module, [field]: value } : module
-      );
+      const updatedModuleAccess = prev.moduleAccess.map((module) => {
+        if (module.moduleId === moduleId) {
+          const updatedModule = { ...module, [field]: value };
+
+          // Ensure edit/delete permissions require create permission
+          if (
+            (field === "canEdit" || field === "canDelete") &&
+            value &&
+            !updatedModule.canCreate
+          ) {
+            updatedModule.canCreate = true;
+            toast({
+              title: "Permission Dependency",
+              description:
+                "Create permission is required for edit/delete operations",
+              variant: "default",
+            });
+          }
+
+          // If create permission is removed, also remove edit and delete
+          if (field === "canCreate" && !value) {
+            updatedModule.canEdit = false;
+            updatedModule.canDelete = false;
+            toast({
+              title: "Permission Dependency",
+              description:
+                "Edit and delete permissions require create permission",
+              variant: "default",
+            });
+          }
+
+          return updatedModule;
+        }
+        return module;
+      });
+
       return { ...prev, moduleAccess: updatedModuleAccess };
     });
   };
@@ -240,7 +279,7 @@ export function CreateStaffModal({
         {
           moduleId: module.id,
           moduleName: module.name,
-          canView: false,
+          canView: true,
           canEdit: false,
           canDelete: false,
           canCreate: false,
@@ -292,7 +331,7 @@ export function CreateStaffModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Personal Info */}
             <div className="space-y-2">
@@ -331,6 +370,7 @@ export function CreateStaffModal({
                 onChange={(e) =>
                   setFormData({ ...formData, emailAddress: e.target.value })
                 }
+                autoComplete="email"
                 required
               />
             </div>
@@ -341,9 +381,12 @@ export function CreateStaffModal({
                 id="contact"
                 placeholder="Enter contact number"
                 value={formData.contactNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, contactNumber: e.target.value })
-                }
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, "");
+                  setFormData({ ...formData, contactNumber: value });
+                }}
+                maxLength={10}
+                minLength={10}
                 required
               />
             </div>
@@ -361,6 +404,7 @@ export function CreateStaffModal({
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
+                autoComplete="new-password"
                 required={!sendMail}
               />
             </div>
@@ -416,9 +460,7 @@ export function CreateStaffModal({
                 <SelectContent>
                   {roles.map((role) => (
                     <SelectItem key={role.role} value={role.role}>
-                      <span className="text-lg">
-                        {formatText(role.role)}
-                      </span>{" "}
+                      <span className="text-lg">{formatText(role.role)}</span>{" "}
                       <span className="text-gray-500 text-xs">
                         {formatText(role.scope)}
                       </span>
@@ -492,7 +534,9 @@ export function CreateStaffModal({
                   <SelectContent>
                     {getAvailableModules().map((module) => (
                       <SelectItem key={module.id} value={module.id.toString()}>
-                        <span className="font-medium">{module.name}</span>
+                        <span className="font-medium capitalize">
+                          {module.name}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -532,42 +576,131 @@ export function CreateStaffModal({
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          {[
-                            { key: "canView", label: "View" },
-                            { key: "canEdit", label: "Edit" },
-                            { key: "canDelete", label: "Delete" },
-                            { key: "canCreate", label: "Create" },
-                          ].map((permission) => (
-                            <div
-                              key={permission.key}
-                              className="flex items-center space-x-2"
+                          {/* View Permission */}
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`${moduleAccess.moduleId}-canView`}
+                              checked={moduleAccess.canView}
+                              onCheckedChange={(checked) =>
+                                handleModuleAccessChange(
+                                  moduleAccess.moduleId,
+                                  "canView",
+                                  Boolean(checked)
+                                )
+                              }
+                            />
+                            <Label htmlFor={`${moduleAccess.moduleId}-canView`}>
+                              View
+                            </Label>
+                          </div>
+
+                          {/* Create Permission */}
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`${moduleAccess.moduleId}-canCreate`}
+                              checked={moduleAccess.canCreate}
+                              onCheckedChange={(checked) =>
+                                handleModuleAccessChange(
+                                  moduleAccess.moduleId,
+                                  "canCreate",
+                                  Boolean(checked)
+                                )
+                              }
+                            />
+                            <Label
+                              htmlFor={`${moduleAccess.moduleId}-canCreate`}
                             >
-                              <Checkbox
-                                id={`${moduleAccess.moduleId}-${permission.key}`}
-                                checked={
-                                  moduleAccess[
-                                    permission.key as keyof typeof moduleAccess
-                                  ] as boolean
-                                }
-                                onCheckedChange={(checked) =>
-                                  handleModuleAccessChange(
-                                    moduleAccess.moduleId,
-                                    permission.key as
-                                      | "canView"
-                                      | "canEdit"
-                                      | "canDelete"
-                                      | "canCreate",
-                                    Boolean(checked)
-                                  )
-                                }
-                              />
-                              <Label
-                                htmlFor={`${moduleAccess.moduleId}-${permission.key}`}
-                              >
-                                {permission.label}
-                              </Label>
-                            </div>
-                          ))}
+                              Create
+                            </Label>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <AlertCircle className="h-3 w-3 text-amber-500" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Required for Edit/Delete permissions</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+
+                          {/* Edit Permission */}
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`${moduleAccess.moduleId}-canEdit`}
+                              checked={moduleAccess.canEdit}
+                              onCheckedChange={(checked) =>
+                                handleModuleAccessChange(
+                                  moduleAccess.moduleId,
+                                  "canEdit",
+                                  Boolean(checked)
+                                )
+                              }
+                              disabled={!moduleAccess.canCreate}
+                              className={
+                                !moduleAccess.canCreate ? "opacity-50" : ""
+                              }
+                            />
+                            <Label
+                              htmlFor={`${moduleAccess.moduleId}-canEdit`}
+                              className={
+                                !moduleAccess.canCreate ? "text-gray-500" : ""
+                              }
+                            >
+                              Edit
+                            </Label>
+                            {!moduleAccess.canCreate && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Requires Create permission</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+
+                          {/* Delete Permission */}
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`${moduleAccess.moduleId}-canDelete`}
+                              checked={moduleAccess.canDelete}
+                              onCheckedChange={(checked) =>
+                                handleModuleAccessChange(
+                                  moduleAccess.moduleId,
+                                  "canDelete",
+                                  Boolean(checked)
+                                )
+                              }
+                              disabled={!moduleAccess.canCreate}
+                              className={
+                                !moduleAccess.canCreate ? "opacity-50" : ""
+                              }
+                            />
+                            <Label
+                              htmlFor={`${moduleAccess.moduleId}-canDelete`}
+                              className={
+                                !moduleAccess.canCreate ? "text-gray-500" : ""
+                              }
+                            >
+                              Delete
+                            </Label>
+                            {!moduleAccess.canCreate && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Requires Create permission</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

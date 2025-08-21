@@ -97,9 +97,11 @@ export const getLeadById = async (
   leadId: string // Changed from number to string since leadId is like "LD-ID3142"
 ): Promise<GetLeadByIdResponse> => {
   // Construct URL with query parameter
-  const url = `${API_CONSTANTS.LEAD.GET_BY_ID}?leadId=${encodeURIComponent(leadId)}`;
-  
-  const res = await getRequest(url); 
+  const url = `${API_CONSTANTS.LEAD.GET_BY_ID}?leadId=${encodeURIComponent(
+    leadId
+  )}`;
+
+  const res = await getRequest(url);
   return res as GetLeadByIdResponse;
 };
 
@@ -727,7 +729,6 @@ export const verifyOtp = async (
   const res = await postRequest(API_CONSTANTS.USER.VERIFY_OTP, payload);
   return res as VerifyOtpResponse;
 };
-
 
 export const resetPassword = async (
   payload: ResetRequest

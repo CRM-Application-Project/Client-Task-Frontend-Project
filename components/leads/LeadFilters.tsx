@@ -55,7 +55,7 @@ interface LeadFiltersProps {
   onClearAllFilters: () => void;
   onImportLead: () => void;
   onApplyFilters: () => void;
-    onSortLeads: () => void;
+  onSortLeads: () => void;
 }
 
 export const LeadFilters = ({
@@ -98,7 +98,7 @@ export const LeadFilters = ({
   const [localFilters, setLocalFilters] =
     useState<ExtendedLeadFilters>(filters);
   const [isExpanded, setIsExpanded] = useState(false);
-   const { permissions, loading: permissionsLoading } = usePermissions('lead');
+  const { permissions, loading: permissionsLoading } = usePermissions("lead");
 
   useEffect(() => {
     setLocalFilters(filters);
@@ -166,13 +166,13 @@ export const LeadFilters = ({
 
           <div className="flex items-center gap-3">
             {permissions.canCreate && !permissionsLoading && (
-            <Button
-              onClick={onAddLead}
-              className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Lead
-            </Button>
+              <Button
+                onClick={onAddLead}
+                className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Lead
+              </Button>
             )}
 
             <Button
@@ -183,15 +183,15 @@ export const LeadFilters = ({
             >
               <UploadCloud className="h-4 w-4 text-gray-600" />
             </Button>
-           <Button
-  variant="outline"
-  size="icon"
-  onClick={onSortLeads} // Use the passed handler
-  className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
-  title="Sort Leads"
->
-  <SortAsc className="h-4 w-4 text-gray-600" />
-</Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onSortLeads} // Use the passed handler
+              className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
+              title="Sort Leads"
+            >
+              <SortAsc className="h-4 w-4 text-gray-600" />
+            </Button>
             <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               <Button
                 variant={viewMode === "kanban" ? "default" : "ghost"}
@@ -223,7 +223,9 @@ export const LeadFilters = ({
 
         <div
           className={`transition-all duration-500 ${
-            isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+            isExpanded
+              ? "max-h-[1000px] opacity-100 overflow-visible"
+              : "max-h-0 opacity-0 overflow-hidden"
           }`}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end w-full">
@@ -419,7 +421,7 @@ export const LeadFilters = ({
         {isExpanded ? (
           <ChevronUp className="h-5 w-5 text-gray-700 mt-2" />
         ) : (
-          <ChevronDown className="h-5 w-5 text-gray-700 mt-2"/>
+          <ChevronDown className="h-5 w-5 text-gray-700 mt-2" />
         )}
       </button>
     </div>

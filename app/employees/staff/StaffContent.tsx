@@ -15,11 +15,18 @@ import {
 import { CreateStaffModal } from "./createUserModal";
 import { UpdateStaffModal } from "./updateUserModal";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Check, X } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Plus,
+  Search,
+  CircleCheck,
+  CircleX,
+  AlertCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Select, Checkbox, Button } from "antd";
+import { Select, Checkbox, Button, Tooltip } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import { format } from "node:path";
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -390,6 +397,100 @@ export default function StaffPage() {
     );
   };
 
+  const handlePermissionChange = (permissionType: string, checked: boolean) => {
+    const newPermissions = { ...editPermissions, [permissionType]: checked };
+
+    // Ensure edit/delete permissions require create permission
+    if (
+      (permissionType === "canEdit" || permissionType === "canDelete") &&
+      checked &&
+      !newPermissions.canCreate
+    ) {
+      newPermissions.canCreate = true;
+      toast({
+        title: "Permission Dependency",
+        description: "Create permission is required for edit/delete operations",
+        variant: "default",
+      });
+    }
+
+    // If create permission is removed, also remove edit and delete
+    if (permissionType === "canCreate" && !checked) {
+      newPermissions.canEdit = false;
+      newPermissions.canDelete = false;
+      toast({
+        title: "Permission Dependency",
+        description: "Edit and delete permissions require create permission",
+        variant: "default",
+      });
+    }
+
+    setEditPermissions(newPermissions);
+  };
+
+  // Apply the same logic for new module permissions
+  const handleNewPermissionChange = (
+    permissionType: string,
+    checked: boolean
+  ) => {
+    const newPermissions = {
+      ...newModulePermissions,
+      [permissionType]: checked,
+    };
+
+    // Ensure edit/delete permissions require create permission
+    if (
+      (permissionType === "canEdit" || permissionType === "canDelete") &&
+      checked &&
+      !newPermissions.canCreate
+    ) {
+      newPermissions.canCreate = true;
+      toast({
+        title: "Permission Dependency",
+        description: "Create permission is required for edit/delete operations",
+        variant: "default",
+      });
+    }
+
+    // If create permission is removed, also remove edit and delete
+    if (permissionType === "canCreate" && !checked) {
+      newPermissions.canEdit = false;
+      newPermissions.canDelete = false;
+      toast({
+        title: "Permission Dependency",
+        description: "Edit and delete permissions require create permission",
+        variant: "default",
+      });
+    }
+
+    setNewModulePermissions(newPermissions);
+  };
+
+  // Update the Checkbox.Group to use the new handler
+  const handleNewPermissionGroupChange = (checkedValues: any[]) => {
+    const newPermissions = {
+      canView: checkedValues.includes("canView"),
+      canEdit: checkedValues.includes("canEdit"),
+      canDelete: checkedValues.includes("canDelete"),
+      canCreate: checkedValues.includes("canCreate"),
+    };
+
+    // Validate the permissions
+    if (
+      (newPermissions.canEdit || newPermissions.canDelete) &&
+      !newPermissions.canCreate
+    ) {
+      newPermissions.canCreate = true;
+      toast({
+        title: "Permission Dependency",
+        description: "Create permission is required for edit/delete operations",
+        variant: "default",
+      });
+    }
+
+    setNewModulePermissions(newPermissions);
+  };
+
   return (
     <>
       <CreateStaffModal
@@ -693,78 +794,135 @@ export default function StaffPage() {
                                                 <td className="px-5 py-4 whitespace-nowrap">
                                                   {isEditingModule ===
                                                   module.id.toString() ? (
-                                                    <div className="flex justify-center space-x-6">
-                                                      <label className="inline-flex items-center">
-                                                        <input
-                                                          type="checkbox"
-                                                          checked={
-                                                            editPermissions.canView
-                                                          }
-                                                          onChange={(e) =>
-                                                            setEditPermissions(
-                                                              (prev) => ({
-                                                                ...prev,
-                                                                canView:
-                                                                  e.target
-                                                                    .checked,
-                                                              })
-                                                            )
-                                                          }
-                                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                        />
-                                                        <span className="ml-2 text-sm text-gray-700">
-                                                          View
-                                                        </span>
-                                                      </label>
-                                                      <label className="inline-flex items-center">
-                                                        <input
-                                                          type="checkbox"
-                                                          checked={
-                                                            editPermissions.canEdit
-                                                          }
-                                                          onChange={(e) =>
-                                                            setEditPermissions(
-                                                              (prev) => ({
-                                                                ...prev,
-                                                                canEdit:
-                                                                  e.target
-                                                                    .checked,
-                                                              })
-                                                            )
-                                                          }
-                                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                        />
-                                                        <span className="ml-2 text-sm text-gray-700">
-                                                          Edit
-                                                        </span>
-                                                      </label>
-                                                      <label className="inline-flex items-center">
-                                                        <input
-                                                          type="checkbox"
-                                                          checked={
-                                                            editPermissions.canDelete
-                                                          }
-                                                          onChange={(e) =>
-                                                            setEditPermissions(
-                                                              (prev) => ({
-                                                                ...prev,
-                                                                canDelete:
-                                                                  e.target
-                                                                    .checked,
-                                                              })
-                                                            )
-                                                          }
-                                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                        />
-                                                        <span className="ml-2 text-sm text-gray-700">
-                                                          Delete
-                                                        </span>
-                                                      </label>
+                                                    <div className="flex justify-center space-x-4">
+                                                      <div className="flex flex-col items-center">
+                                                        <label className="inline-flex items-center">
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={
+                                                              editPermissions.canView
+                                                            }
+                                                            onChange={(e) =>
+                                                              handlePermissionChange(
+                                                                "canView",
+                                                                e.target.checked
+                                                              )
+                                                            }
+                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                          />
+                                                          <span className="ml-2 text-sm text-gray-700">
+                                                            View
+                                                          </span>
+                                                        </label>
+                                                      </div>
+
+                                                      <div className="flex flex-col items-center">
+                                                        <label className="inline-flex items-center">
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={
+                                                              editPermissions.canCreate
+                                                            }
+                                                            onChange={(e) =>
+                                                              handlePermissionChange(
+                                                                "canCreate",
+                                                                e.target.checked
+                                                              )
+                                                            }
+                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                          />
+                                                          <span className="ml-2 text-sm text-gray-700">
+                                                            Create
+                                                          </span>
+                                                        </label>
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                          Required for
+                                                          Edit/Delete
+                                                        </div>
+                                                      </div>
+
+                                                      <div className="flex flex-col items-center">
+                                                        <label className="inline-flex items-center">
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={
+                                                              editPermissions.canEdit
+                                                            }
+                                                            onChange={(e) =>
+                                                              handlePermissionChange(
+                                                                "canEdit",
+                                                                e.target.checked
+                                                              )
+                                                            }
+                                                            disabled={
+                                                              !editPermissions.canCreate
+                                                            }
+                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                                              !editPermissions.canCreate
+                                                                ? "opacity-50 cursor-not-allowed"
+                                                                : ""
+                                                            }`}
+                                                          />
+                                                          <span
+                                                            className={`ml-2 text-sm ${
+                                                              !editPermissions.canCreate
+                                                                ? "text-gray-500"
+                                                                : "text-gray-700"
+                                                            }`}
+                                                          >
+                                                            Edit
+                                                          </span>
+                                                        </label>
+                                                        {!editPermissions.canCreate && (
+                                                          <Tooltip title="Requires Create permission">
+                                                            <AlertCircle className="h-3 w-3 text-amber-500 mt-1" />
+                                                          </Tooltip>
+                                                        )}
+                                                      </div>
+
+                                                      <div className="flex flex-col items-center">
+                                                        <label className="inline-flex items-center">
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={
+                                                              editPermissions.canDelete
+                                                            }
+                                                            onChange={(e) =>
+                                                              handlePermissionChange(
+                                                                "canDelete",
+                                                                e.target.checked
+                                                              )
+                                                            }
+                                                            disabled={
+                                                              !editPermissions.canCreate
+                                                            }
+                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                                              !editPermissions.canCreate
+                                                                ? "opacity-50 cursor-not-allowed"
+                                                                : ""
+                                                            }`}
+                                                          />
+                                                          <span
+                                                            className={`ml-2 text-sm ${
+                                                              !editPermissions.canCreate
+                                                                ? "text-gray-500"
+                                                                : "text-gray-700"
+                                                            }`}
+                                                          >
+                                                            Delete
+                                                          </span>
+                                                        </label>
+                                                        {!editPermissions.canCreate && (
+                                                          <Tooltip title="Requires Create permission">
+                                                            <AlertCircle className="h-3 w-3 text-amber-500 mt-1" />
+                                                          </Tooltip>
+                                                        )}
+                                                      </div>
                                                     </div>
                                                   ) : (
                                                     <div className="flex justify-center space-x-6">
                                                       <span
-                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                        className={`inline-flex items-center px-2.5 py-0.5 gap-1 rounded-full text-xs font-medium ${
                                                           module.canView
                                                             ? "bg-green-100 text-green-800"
                                                             : "bg-gray-100 text-gray-800"
@@ -773,39 +931,62 @@ export default function StaffPage() {
                                                         {module.canView
                                                           ? "Can view"
                                                           : "No view"}
+                                                        {module.canView ? (
+                                                          <CircleCheck className="h-4 w-4 text-green-500" />
+                                                        ) : (
+                                                          <CircleX className="h-4 w-4 text-gray-500" />
+                                                        )}
                                                       </span>
+
                                                       <span
-                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                        className={`inline-flex items-center px-2.5 py-0.5 gap-1 rounded-full text-xs font-medium ${
                                                           module.canEdit
-                                                            ? "bg-blue-100 text-blue-800"
+                                                            ? "bg-green-100 text-green-800"
                                                             : "bg-gray-100 text-gray-800"
                                                         }`}
                                                       >
                                                         {module.canEdit
                                                           ? "Can edit"
                                                           : "No edit"}
+                                                        {module.canEdit ? (
+                                                          <CircleCheck className="h-4 w-4 text-green-500" />
+                                                        ) : (
+                                                          <CircleX className="h-4 w-4 text-gray-500" />
+                                                        )}
                                                       </span>
+
                                                       <span
-                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                        className={`inline-flex items-center px-2.5 py-0.5 gap-1 rounded-full text-xs font-medium ${
                                                           module.canDelete
-                                                            ? "bg-purple-100 text-purple-800"
+                                                            ? "bg-green-100 text-green-800"
                                                             : "bg-gray-100 text-gray-800"
                                                         }`}
                                                       >
                                                         {module.canDelete
                                                           ? "Can delete"
                                                           : "No delete"}
+                                                        {module.canDelete ? (
+                                                          <CircleCheck className="h-4 w-4 text-green-500" />
+                                                        ) : (
+                                                          <CircleX className="h-4 w-4 text-gray-500" />
+                                                        )}
                                                       </span>
+
                                                       <span
-                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                        className={`inline-flex items-center px-2.5 py-0.5 gap-1 rounded-full text-xs font-medium ${
                                                           module.canCreate
-                                                            ? "bg-yellow-100 text-yellow-800"
+                                                            ? "bg-green-100 text-green-800"
                                                             : "bg-gray-100 text-gray-800"
                                                         }`}
                                                       >
                                                         {module.canCreate
                                                           ? "Can create"
                                                           : "No create"}
+                                                        {module.canCreate ? (
+                                                          <CircleCheck className="h-4 w-4 text-green-500" />
+                                                        ) : (
+                                                          <CircleX className="h-4 w-4 text-gray-500" />
+                                                        )}
                                                       </span>
                                                     </div>
                                                   )}
@@ -966,7 +1147,17 @@ export default function StaffPage() {
                                                 user
                                               ).map((module) => ({
                                                 value: module.id,
-                                                label: module.name,
+                                                label: module.name
+                                                  .toLowerCase()
+                                                  .split(" ")
+                                                  .map(
+                                                    (word) =>
+                                                      word
+                                                        .charAt(0)
+                                                        .toUpperCase() +
+                                                      word.slice(1)
+                                                  )
+                                                  .join(" "),
                                               }))}
                                             />
                                           </div>
@@ -977,54 +1168,100 @@ export default function StaffPage() {
                                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                                 Permissions
                                               </label>
-                                              <Checkbox.Group
-                                                value={Object.keys(
-                                                  newModulePermissions
-                                                ).filter(
-                                                  (key) =>
-                                                    newModulePermissions[
-                                                      key as keyof typeof newModulePermissions
-                                                    ]
+                                              <div className="flex flex-wrap gap-4">
+                                                <div className="flex items-center">
+                                                  <Checkbox
+                                                    checked={
+                                                      newModulePermissions.canView
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleNewPermissionChange(
+                                                        "canView",
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                  >
+                                                    View
+                                                  </Checkbox>
+                                                </div>
+
+                                                <div className="flex items-center">
+                                                  <Checkbox
+                                                    checked={
+                                                      newModulePermissions.canCreate
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleNewPermissionChange(
+                                                        "canCreate",
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                  >
+                                                    Create
+                                                  </Checkbox>
+                                                  <Tooltip title="Required for Edit/Delete permissions">
+                                                    <AlertCircle className="h-3 w-3 text-amber-500 ml-1" />
+                                                  </Tooltip>
+                                                </div>
+
+                                                <div className="flex items-center">
+                                                  <Checkbox
+                                                    checked={
+                                                      newModulePermissions.canEdit
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleNewPermissionChange(
+                                                        "canEdit",
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      !newModulePermissions.canCreate
+                                                    }
+                                                    className={
+                                                      !newModulePermissions.canCreate
+                                                        ? "opacity-50"
+                                                        : ""
+                                                    }
+                                                  >
+                                                    Edit
+                                                  </Checkbox>
+                                                </div>
+
+                                                <div className="flex items-center">
+                                                  <Checkbox
+                                                    checked={
+                                                      newModulePermissions.canDelete
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleNewPermissionChange(
+                                                        "canDelete",
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      !newModulePermissions.canCreate
+                                                    }
+                                                    className={
+                                                      !newModulePermissions.canCreate
+                                                        ? "opacity-50"
+                                                        : ""
+                                                    }
+                                                  >
+                                                    Delete
+                                                  </Checkbox>
+                                                </div>
+                                              </div>
+
+                                              {!newModulePermissions.canCreate &&
+                                                (newModulePermissions.canEdit ||
+                                                  newModulePermissions.canDelete) && (
+                                                  <div className="mt-2 text-xs text-amber-600 flex items-center">
+                                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                                    Enable Create permission to
+                                                    use Edit/Delete
+                                                  </div>
                                                 )}
-                                                onChange={(checkedValues) => {
-                                                  setNewModulePermissions({
-                                                    canView:
-                                                      checkedValues.includes(
-                                                        "canView"
-                                                      ),
-                                                    canEdit:
-                                                      checkedValues.includes(
-                                                        "canEdit"
-                                                      ),
-                                                    canDelete:
-                                                      checkedValues.includes(
-                                                        "canDelete"
-                                                      ),
-                                                    canCreate:
-                                                      checkedValues.includes(
-                                                        "canCreate"
-                                                      ),
-                                                  });
-                                                }}
-                                                options={[
-                                                  {
-                                                    label: "View",
-                                                    value: "canView",
-                                                  },
-                                                  {
-                                                    label: "Edit",
-                                                    value: "canEdit",
-                                                  },
-                                                  {
-                                                    label: "Delete",
-                                                    value: "canDelete",
-                                                  },
-                                                  {
-                                                    label: "Create",
-                                                    value: "canCreate",
-                                                  },
-                                                ]}
-                                              />
                                             </div>
                                           )}
 
