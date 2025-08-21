@@ -10,6 +10,7 @@ import {
   UploadCloud,
   ChevronDown,
   ChevronUp,
+  SortAsc,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ interface LeadFiltersProps {
   onClearAllFilters: () => void;
   onImportLead: () => void;
   onApplyFilters: () => void;
+    onSortLeads: () => void;
 }
 
 export const LeadFilters = ({
@@ -67,6 +69,7 @@ export const LeadFilters = ({
   onClearAllFilters,
   onImportLead,
   onApplyFilters,
+  onSortLeads,
 }: LeadFiltersProps) => {
   const priorities: LeadPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
   const statuses: LeadStatus[] = [
@@ -180,13 +183,15 @@ export const LeadFilters = ({
             >
               <UploadCloud className="h-4 w-4 text-gray-600" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
-            >
-              <Settings className="h-4 w-4 text-gray-600" />
-            </Button>
+           <Button
+  variant="outline"
+  size="icon"
+  onClick={onSortLeads} // Use the passed handler
+  className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
+  title="Sort Leads"
+>
+  <SortAsc className="h-4 w-4 text-gray-600" />
+</Button>
             <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               <Button
                 variant={viewMode === "kanban" ? "default" : "ghost"}

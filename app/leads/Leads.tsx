@@ -616,6 +616,7 @@ const refreshAssignees = async () => {
           }}
           onImportLead={() => setIsImportModalOpen(true)}
           onApplyFilters={() => fetchFilteredLeads()}
+            onSortLeads={() => setIsSortingModalOpen(true)}
         />
 
         {viewMode === "kanban" && (
