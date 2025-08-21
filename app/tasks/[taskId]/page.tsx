@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { filterHistory, FilterHistoryParams, HistoryRecord } from "@/app/services/data.service";
 import { TaskDetails } from "@/components/task/TaskDetails";
 import { TaskHistory } from "@/components/task/TaskHistory";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 
 export default function TaskDetailPage() {
   const params = useParams();
@@ -39,6 +40,7 @@ export default function TaskDetailPage() {
   };
 
   return (
+    <DashboardLayout>
     <div className="container mx-auto p-6">
       {/* Back Button */}
       <button
@@ -87,5 +89,6 @@ export default function TaskDetailPage() {
 </div>
 
     </div>
+    </DashboardLayout>
   );
 }
