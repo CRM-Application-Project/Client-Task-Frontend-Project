@@ -747,3 +747,82 @@ export const fetchLeadTrackById = async (
   });
   return res as FetchLeadTrackResponse;
 };
+// Update these interfaces to match the actual API response
+export interface HistoryUpdateData {
+  newValue: string;
+  oldValue: string;
+  fieldName: string;
+}
+
+export interface HistoryRecord {
+  id: number;
+  taskId: number;
+  doneById: string;
+  doneByName: string;
+  eventType: string;
+  note: string;
+  updateData: HistoryUpdateData[] | null;
+  createdAt: string;
+}
+
+export interface FilterHistoryParams {
+  taskId: number;
+  event?: string;
+  performedBy?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface FilterHistoryResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    totalPages: number;
+    totalElements: number;
+    pageSize: number;
+    pageIndex: number;
+    numberOfElementsInThePage: number;
+    content: HistoryRecord[];
+  };
+}
+
+// Update the filterHistory function to match the actual API response structure
+export const filterHistory = async (
+  params: FilterHistoryParams
+): Promise<FilterHistoryResponse> => {
+  const query = new URLSearchParams();
+  
+  // Always include taskId as it's required
+  query.append('taskId', String(params.taskId));
+  
+  // Only append optional parameters if they have values
+  if (params.event) query.append('event', params.event);
+  if (params.performedBy) query.append('performedBy', params.performedBy);
+  if (params.startDate) query.append('startDate', params.startDate);
+  if (params.endDate) query.append('endDate', params.endDate);
+  if (params.page !== undefined) query.append('page', String(params.page));
+  if (params.limit !== undefined) query.append('limit', String(params.limit));
+
+  const url = `${API_CONSTANTS.TASK.HISTORY.FILTER_HISTORY}?${query.toString()}`;
+  const res = await getRequest(url);
+  return res as FilterHistoryResponse;
+};
+
+// You might also want to update the events dropdown if needed
+export interface HistoryEvent {
+  id: number;
+  name: string;
+}
+
+export interface HistoryEventsDropdownResponse {
+  isSuccess: boolean;
+  message: string;
+  data: HistoryEvent[];
+}
+
+export const getHistoryEventsDropdown = async (): Promise<HistoryEventsDropdownResponse> => {
+  const res = await getRequest(API_CONSTANTS.TASK.HISTORY.EVENTS_DROPDOWN);
+  return res as HistoryEventsDropdownResponse;
+};

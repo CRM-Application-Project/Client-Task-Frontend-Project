@@ -29,7 +29,6 @@ import {
   getDocumentDownloadUrl, 
   deleteDocument 
 } from "@/app/services/data.service";
-import { TaskDetailsModal } from "./TaskDetailsModal";
 import { usePermissions } from "@/hooks/usePermissions";
 
 // Define the Task type to match the one from Task.tsx
@@ -70,7 +69,7 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: number) => void;
   onDocumentUpdate?: (taskId: number, documents: TaskDocument[]) => void;
-  onTaskClick?: () => void;
+  onTaskClick?: (taskId: number) => void; // Updated to pass taskId instead of no params
   onDragStart?: () => void;
   draggable?: boolean;
   isDragging?: boolean;
@@ -92,7 +91,6 @@ export const TaskCard = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [documents, setDocuments] = useState<TaskDocument[]>(task.documents || []);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<number | null>(null);
   
   const { permissions, loading: permissionsLoading } = usePermissions('task');
@@ -165,25 +163,14 @@ export const TaskCard = ({
   };
 
   const handleCardClick = () => {
-  // Prevent opening during drag operations
-  if (isDragging) return;
-  
-  if (permissions.canView) {
-    // If parent provided onTaskClick, use it
-    if (onTaskClick) {
-      onTaskClick();
-    } else {
-      // Otherwise, fall back to showing details modal
-      setShowDetailsModal(true);
-    }
-  }
-};
-
-
-  const handleEditFromDetails = () => {
-    setShowDetailsModal(false);
-    if (permissions.canEdit && onEdit) {
-      onEdit(task);
+    // Prevent opening during drag operations
+    if (isDragging) return;
+    
+    if (permissions.canView) {
+      // Pass the task ID to the click handler
+      if (onTaskClick) {
+        onTaskClick(task.id);
+      }
     }
   };
 
@@ -577,16 +564,6 @@ export const TaskCard = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Task Details Modal */}
-      {showDetailsModal && permissions.canView && (
-        <TaskDetailsModal
-          isOpen={showDetailsModal}
-          onClose={() => setShowDetailsModal(false)}
-          taskId={task.id}
-          onEdit={permissions.canEdit ? handleEditFromDetails : () => {}}
-        />
-      )}
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

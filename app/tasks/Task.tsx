@@ -15,7 +15,8 @@ import {
   User as ServiceUser,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
-import { TaskDetailsModal } from "@/components/task/TaskDetailsModal";
+import { useRouter } from "next/navigation";
+
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -108,8 +109,8 @@ interface UpdateTaskRequest {
   description: string;
   priority: TaskPriority;
   taskStageId: number;
-  startTime: string;
-  endTime: string;
+  startDate: string;
+  endDate: string;
   assignee: string;
 }
 
@@ -177,9 +178,10 @@ export default function TaskBoard() {
   
   // New state for Create Stage Modal
   const [isCreateStageModalOpen, setIsCreateStageModalOpen] = useState(false);
-  
+  const router=useRouter();
   const handleTaskClick = useCallback((taskId: number) => {
     setSelectedTaskId(taskId);
+       router.push(`/tasks/${taskId}`);
     setIsDetailsModalOpen(true);
   }, []);
 
@@ -419,35 +421,33 @@ export default function TaskBoard() {
   );
 
   const handleAddTask = useCallback(async (taskData: CreateTaskRequest) => {
-    try {
-      let response;
-      
-      if (editingTask) {
-        const updateData: UpdateTaskRequest = {
-          subject: taskData.subject,
-          description: taskData.description,
-          priority: taskData.priority,
-          taskStageId: taskData.taskStageId,
-          startTime: taskData.startDate,
-          endTime: taskData.endDate,
-          assignee: taskData.assignee
-        };
-        response = await updateTask(editingTask.id, updateData);
-      } else {
-        response = await createTask(taskData);
-      }
+  try {
+    let response;
+    
+    if (editingTask) {
+      const updateData: UpdateTaskRequest = {
+        subject: taskData.subject,
+        description: taskData.description,
+        priority: taskData.priority,
+        taskStageId: taskData.taskStageId,
+        startDate: taskData.startDate,
+        endDate: taskData.endDate,
+        assignee: taskData.assignee
+      };
+      response = await updateTask(editingTask.id, updateData);
+    } else {
+      response = await createTask(taskData);
+    }
 
-        if (response.isSuccess) {
-          // Refresh tasks and close modal
-          await fetchTasks(undefined, true);
-          handleCloseModal();
-        }
-      } catch (error) {
-        console.error("Error saving task:", error);
-      }
-    },
-    [ fetchTasks]
-  );
+    if (response.isSuccess) {
+      // Refresh tasks and close modal
+      await fetchTasks(undefined, true);
+      handleCloseModal();
+    }
+  } catch (error) {
+    console.error("Error saving task:", error);
+  }
+}, [editingTask, fetchTasks]); // Add editingTask to dependencies
 
   // New function to handle stage creation
   const handleCreateStage = useCallback(async (stageData: CreateStageRequest) => {
@@ -768,14 +768,7 @@ export default function TaskBoard() {
           onSubmit={handleCreateStage}
           existingStagesCount={stages.length}
         />
-          {selectedTaskId && (
-          <TaskDetailsModal
-            isOpen={isDetailsModalOpen}
-            onClose={handleCloseTaskDetails}
-            taskId={selectedTaskId}
-            onEdit={handleEditTaskFromDetails}
-          />
-        )}
+         
       </>
     </div>
   );
