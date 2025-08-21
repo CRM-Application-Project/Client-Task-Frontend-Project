@@ -228,7 +228,7 @@ export const TaskColumn = ({
       
       {/* Tasks Container with Enhanced Scrolling */}
       <div 
-        className={`h-[calc(100vh-280px)] min-h-[400px] p-3 transition-all duration-300 ease-in-out ${
+        className={`h-[calc(100vh-280px)] min-h-[550px] p-3 transition-all duration-300 ease-in-out ${
           isDraggedOver 
             ? 'bg-blue-50/50 border-2 border-blue-300 border-dashed shadow-inner' 
             : 'bg-transparent'
