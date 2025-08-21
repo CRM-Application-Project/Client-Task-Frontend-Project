@@ -26,8 +26,6 @@ import {
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
 
-
-
 interface LeadCardProps {
   lead: Lead;
   onEdit?: (lead: Lead) => void;
@@ -52,8 +50,8 @@ export const LeadCard = ({
   onChangeStatus,
 }: LeadCardProps) => {
   const getInitials = (name?: string | null) => {
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-      return 'N/A';
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      return "N/A";
     }
     return name
       .trim()
@@ -64,7 +62,7 @@ export const LeadCard = ({
       .slice(0, 2);
   };
 
-  const { permissions, loading: permissionsLoading } = usePermissions('lead');
+  const { permissions, loading: permissionsLoading } = usePermissions("lead");
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
 
@@ -88,29 +86,23 @@ export const LeadCard = ({
     fetchAssignees();
   }, []);
 
-  // Resolve assignee name - use leadAddedBy if leadAssignedTo is not available
   const getAssigneeName = () => {
-    // First check if we have leadAssignedTo
+    if (lead.assignedToName) {
+      return lead.assignedToName;
+    }
+
+    // Fall back to leadAssignedTo if available
     if (lead.leadAssignedTo) {
-      // If it's a UUID, try to resolve it from assignees
-      if (isUUID(lead.leadAssignedTo) && assignees.length > 0) {
-        const assignee = assignees.find((a) => a.id === lead.leadAssignedTo);
-        return assignee?.label || lead.leadAssignedTo;
-      }
       return lead.leadAssignedTo;
     }
-    
-    // If leadAssignedTo is not available, use leadAddedBy
-    if (lead.leadAddedBy) {
-      // If leadAddedBy looks like a UUID, try to resolve it
-      if (isUUID(lead.leadAddedBy) && assignees.length > 0) {
-        const assignee = assignees.find((a) => a.id === lead.leadAddedBy);
-        return assignee?.label || lead.leadAddedBy;
-      }
-      return lead.leadAddedBy;
+
+    // Finally, try to resolve from assignees
+    if (lead.leadAddedBy && assignees.length > 0) {
+      const assignee = assignees.find((a) => a.id === lead.leadAddedBy);
+      return assignee?.label || lead.leadAddedBy;
     }
-    
-    return 'Unassigned';
+
+    return "Unassigned";
   };
 
   // Resolve assignee avatar - use leadAddedBy if leadAssignedTo is not available
@@ -124,7 +116,7 @@ export const LeadCard = ({
       }
       return lead.leadAssignedTo;
     }
-    
+
     // If leadAssignedTo is not available, use leadAddedBy
     if (lead.leadAddedBy) {
       // If leadAddedBy looks like a UUID, try to resolve it
@@ -134,7 +126,7 @@ export const LeadCard = ({
       }
       return lead.leadAddedBy;
     }
-    
+
     return "";
   };
 
@@ -150,13 +142,11 @@ export const LeadCard = ({
   const assignedAvatar = getAssigneeAvatar();
 
   return (
-    <Card 
-
-    className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+    <Card className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
       <div className="space-y-3">
         {/* Lead name */}
         <h3 className="font-bold text-gray-900 text-base leading-tight">
-          {lead.customerName || 'Unnamed Lead'}
+          {lead.customerName || "Unnamed Lead"}
         </h3>
 
         {/* Assigned user avatar */}
@@ -174,7 +164,9 @@ export const LeadCard = ({
           {(lead.company || lead.companyEmailAddress) && (
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-gray-400" />
-              <span className="truncate">{lead.company || lead.companyEmailAddress}</span>
+              <span className="truncate">
+                {lead.company || lead.companyEmailAddress}
+              </span>
             </div>
           )}
           {lead.customerEmailAddress && (
@@ -198,7 +190,6 @@ export const LeadCard = ({
         </div>
 
         {/* Additional info - Lead Label and Reference */}
-     
 
         {/* Action bar */}
         <div className="flex items-center justify-between pt-2">
@@ -225,7 +216,9 @@ export const LeadCard = ({
               <button
                 className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                 title="Call lead"
-                onClick={() => window.open(`tel:${lead.customerMobileNumber}`, '_self')}
+                onClick={() =>
+                  window.open(`tel:${lead.customerMobileNumber}`, "_self")
+                }
               >
                 <Phone className="h-4 w-4 text-gray-600" />
               </button>
@@ -253,7 +246,7 @@ export const LeadCard = ({
                 Change Status
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-           
+
               <DropdownMenuSeparator />
               {permissions.canDelete && (
                 <DropdownMenuItem

@@ -275,7 +275,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
               <span className="font-medium text-gray-700">Progress</span>
               <span className="text-gray-500">{task.progress}% complete</span>
             </div>
-            <Progress value={task.progress} className="w-full" />
+            {/* <Progress value={task.progress} className="w-full" /> */}
           </div>
         )}
 
