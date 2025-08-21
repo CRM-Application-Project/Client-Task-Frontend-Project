@@ -2,7 +2,7 @@
 import { Bell, Moon, Menu } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 
 interface UserData {
@@ -11,11 +11,42 @@ interface UserData {
   userRole: string;
 }
 
+// Function to get page title from pathname
+const getPageTitle = (pathname: string): string => {
+  const pathSegments = pathname.split("/").filter(Boolean);
+
+  if (pathSegments.length === 0) return "Dashboard";
+
+  const lastSegment = pathSegments[pathSegments.length - 1];
+
+  // Custom mapping for specific routes
+  const pageTitles: Record<string, string> = {
+    leads: "Leads",
+    tasks: "Tasks",
+    employees: "Employees",
+    staff: "Staff",
+    department: "Departments",
+    profile: "Profile",
+    settings: "Settings",
+  };
+
+  // Return the mapped title or capitalize the segment
+  return (
+    pageTitles[lastSegment] ||
+    lastSegment.charAt(0).toUpperCase() +
+      lastSegment.slice(1).replace(/-/g, " ")
+  );
+};
+
 export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Get the current page title
+  const pageTitle = getPageTitle(pathname);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -76,10 +107,10 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        {/* Desktop: Title
+        {/* Desktop: Title */}
         <h1 className="hidden lg:block text-lg font-semibold text-gray-900">
-          Dashboard
-        </h1> */}
+          {pageTitle}
+        </h1>
       </div>
 
       {/* Right */}
