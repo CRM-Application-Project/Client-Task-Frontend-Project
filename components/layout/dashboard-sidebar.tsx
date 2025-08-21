@@ -224,16 +224,7 @@ export function DashboardSidebar({
               </h1>
             )}
           </div>
-          {isExpandedView && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden text-white hover:bg-white hover:text-[#3b3b3b]"
-              onClick={onClose}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          )}
+       
         </div>
 
         {/* Navigation */}

@@ -54,6 +54,26 @@ export function ChangePasswordTab() {
   const newPassword = form.watch('newPassword');
   const currentPassword = form.watch('currentPassword');
 
+  // Function to prevent paste operation
+  const handlePastePrevention = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    toast({
+      title: "Action not allowed",
+      description: "Pasting is disabled for password fields",
+      variant: "destructive",
+    });
+  };
+
+  // Function to prevent copy/cut operations
+  const handleCopyCutPrevention = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    toast({
+      title: "Action not allowed",
+      description: "Copying is disabled for password fields",
+      variant: "destructive",
+    });
+  };
+
   const onSubmit = async (data: ChangePasswordData) => {
     try {
       setIsSubmitting(true);
@@ -115,6 +135,9 @@ export function ChangePasswordTab() {
                         type={showCurrentPassword ? "text" : "password"}
                         placeholder="Enter current password"
                         className="h-10 border-gray-200 focus:border-[#3D2C8D] focus:ring-1 focus:ring-[#3D2C8D] rounded-md pr-10"
+                        onPaste={handlePastePrevention}
+                        onCopy={handleCopyCutPrevention}
+                        onCut={handleCopyCutPrevention}
                       />
                       <button
                         type="button"
@@ -154,6 +177,9 @@ export function ChangePasswordTab() {
                             form.trigger('confirmPassword');
                           }
                         }}
+                        onPaste={handlePastePrevention}
+                        onCopy={handleCopyCutPrevention}
+                        onCut={handleCopyCutPrevention}
                       />
                       <button
                         type="button"
@@ -193,6 +219,9 @@ export function ChangePasswordTab() {
                             form.trigger('confirmPassword');
                           }
                         }}
+                        onPaste={handlePastePrevention}
+                        onCopy={handleCopyCutPrevention}
+                        onCut={handleCopyCutPrevention}
                       />
                       <button
                         type="button"
@@ -304,6 +333,10 @@ export function ChangePasswordTab() {
               <li className="flex items-start">
                 <span className="mr-2">•</span>
                 <span>Consider using a passphrase</span>
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2">•</span>
+                <span>Type your password manually (copy/paste disabled)</span>
               </li>
             </ul>
           </div>
