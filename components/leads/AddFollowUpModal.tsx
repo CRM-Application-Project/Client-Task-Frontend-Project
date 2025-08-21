@@ -20,7 +20,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Upload, X, Clock } from "lucide-react";
-import { Lead } from "../../lib/leads";
 import { useToast } from "@/hooks/use-toast";
 import { addFollowUp } from "@/app/services/data.service";
 
@@ -31,11 +30,31 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
+interface Leads {
+  leadId: string;
+  leadStatus: string;
+  leadSource: string;
+  leadAddedBy: string;
+  leadAssignedTo: string;
+  customerMobileNumber: string;
+  companyEmailAddress: string;
+  customerName: string;
+  customerEmailAddress: string;
+  leadAddress: string;
+  comment?: string;
+  leadLabel?: string;
+  leadReference?: string;
+  priority: LeadPriority;
+  company?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Additional properties for display
+  assignedToName?: string; // For display purposes
+}
 interface AddFollowUpModalProps {
   isOpen: boolean;
   onClose: () => void;
-  lead: Lead | null;
+  lead: Leads | null;
   onAddFollowUp: (leadId: string, followUp: any) => void;
 }
 
@@ -66,7 +85,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
 
     try {
       const payload = {
-        leadId: lead.id,
+        leadId: lead.leadId,
         nextFollowUpDate: data.nextFollowupDate,
         followUpType: data.followUpType,
         comment: data.comment || "",
@@ -91,7 +110,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
           createdAt: new Date(),
         };
 
-        onAddFollowUp(lead.id, followUp);
+        onAddFollowUp(lead.leadId, followUp);
         handleClose();
       } else {
         toast({
@@ -255,7 +274,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
               )}
             />
 
-            <div>
+            {/* <div>
               <FormLabel className="block text-sm font-medium text-gray-700 mb-2">
                 Attachments (Optional)
               </FormLabel>
@@ -334,7 +353,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                   </div>
                 </div>
               )}
-            </div>
+            </div> */}
 
             <div className="flex justify-end space-x-2 pt-2">
               <Button
