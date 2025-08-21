@@ -1,6 +1,7 @@
 import {
   ChangePasswordRequest,
   ChangePasswordResponse,
+  FetchLeadTrackResponse,
   FilterLeadsParams,
   FilterLeadsResponse,
   GenerateOtpRequest,
@@ -735,4 +736,15 @@ export const resetPassword = async (
 ): Promise<ResetResponse> => {
   const res = await postRequest(API_CONSTANTS.USER.RESET, payload);
   return res as ResetResponse;
+};
+
+
+
+export const fetchLeadTrackById = async (
+  leadId: string
+): Promise<FetchLeadTrackResponse> => {
+  const res = await getRequest(API_CONSTANTS.LEAD.TRACK_BY_LEAD_ID, {
+    params: { leadId },
+  });
+  return res as FetchLeadTrackResponse;
 };
