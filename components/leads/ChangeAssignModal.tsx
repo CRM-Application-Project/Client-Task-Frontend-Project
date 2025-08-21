@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -18,21 +18,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
-import { useToast } from '@/hooks/use-toast';
-import { leadTransfer, getAssignDropdown, AssignDropdown } from '@/app/services/data.service';
+import { useToast } from "@/hooks/use-toast";
+import {
+  leadTransfer,
+  getAssignDropdown,
+  AssignDropdown,
+} from "@/app/services/data.service";
 
 const formSchema = z.object({
-  transferToId: z.string().min(1, 'Please select an assignee'),
+  transferToId: z.string().min(1, "Please select an assignee"),
   transferToLabel: z.string().optional(), // Will be set programmatically
 });
 
@@ -42,25 +46,29 @@ interface ChangeAssignModalProps {
   isOpen: boolean;
   onClose: () => void;
   lead: Lead | null;
-  onChangeAssign: (leadId: string, assignedToLabel: string) => void;
+  onChangeAssign: (
+    leadId: string,
+    assignedToId: string,
+    assignedToLabel: string
+  ) => void;
 }
 
-const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  lead, 
-  onChangeAssign 
+const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
+  isOpen,
+  onClose,
+  lead,
+  onChangeAssign,
 }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [assignees, setAssignees] = React.useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = React.useState(false);
-  
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      transferToId: '',
-      transferToLabel: '',
+      transferToId: "",
+      transferToLabel: "",
     },
   });
 
@@ -68,7 +76,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   React.useEffect(() => {
     const fetchAssignees = async () => {
       if (!isOpen) return;
-      
+
       setLoadingAssignees(true);
       try {
         const response = await getAssignDropdown();
@@ -89,15 +97,16 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
 
     fetchAssignees();
   }, [isOpen, toast]);
-  
 
   // Reset form when lead changes
   React.useEffect(() => {
     if (lead) {
-      const currentAssignee = assignees.find(a => a.label === lead.leadAssignedTo);
-      form.reset({ 
-        transferToId: currentAssignee?.id || '',
-        transferToLabel: lead.leadAssignedTo || '' 
+      const currentAssignee = assignees.find(
+        (a) => a.label === lead.leadAssignedTo
+      );
+      form.reset({
+        transferToId: currentAssignee?.id || "",
+        transferToLabel: lead.leadAssignedTo || "",
       });
     }
   }, [lead, assignees, form]);
@@ -105,8 +114,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
 
-    // Find the selected assignee to get the label
-    const selectedAssignee = assignees.find(a => a.id === data.transferToId);
+    const selectedAssignee = assignees.find((a) => a.id === data.transferToId);
     if (!selectedAssignee) {
       toast({
         title: "Error",
@@ -117,11 +125,11 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     }
 
     setIsSubmitting(true);
-    
+
     try {
       const response = await leadTransfer({
         leadId: lead.leadId,
-        transferTo: selectedAssignee.label // Send label instead of ID
+        transferTo: selectedAssignee.label,
       });
 
       if (response.isSuccess) {
@@ -130,9 +138,13 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
           description: "Lead has been transferred successfully",
           variant: "default",
         });
-        
-        // Call the parent component's callback with the label
-        onChangeAssign(lead.leadId, selectedAssignee.label);
+
+        // Call the parent with both ID and label
+        onChangeAssign(
+          lead.leadId,
+          selectedAssignee.id,
+          selectedAssignee.label
+        );
         onClose();
       } else {
         toast({
@@ -176,19 +188,25 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Transfer To</FormLabel>
-                  <Select 
+                  <Select
                     onValueChange={(value) => {
                       field.onChange(value);
                       // Update the label when selection changes
-                      const selected = assignees.find(a => a.id === value);
-                      form.setValue('transferToLabel', selected?.label || '');
+                      const selected = assignees.find((a) => a.id === value);
+                      form.setValue("transferToLabel", selected?.label || "");
                     }}
                     value={field.value}
                     disabled={isSubmitting || loadingAssignees}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={loadingAssignees ? "Loading assignees..." : "Select team member"} />
+                        <SelectValue
+                          placeholder={
+                            loadingAssignees
+                              ? "Loading assignees..."
+                              : "Select team member"
+                          }
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -205,19 +223,16 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
             />
 
             <DialogFooter className="gap-2">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleClose}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit"
-                disabled={isSubmitting || loadingAssignees}
-              >
-                {isSubmitting ? 'Transferring...' : 'Transfer Lead'}
+              <Button type="submit" disabled={isSubmitting || loadingAssignees}>
+                {isSubmitting ? "Transferring..." : "Transfer Lead"}
               </Button>
             </DialogFooter>
           </form>

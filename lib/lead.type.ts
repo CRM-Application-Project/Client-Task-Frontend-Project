@@ -1,6 +1,21 @@
- type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'PROPOSAL' | 'DEMO' | 'NEGOTIATIONS' | 'CLOSED_WON' | 'CLOSED_LOST';
- type LeadPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
- type LeadSource = 'WEBSITE' | 'REFERRAL' | 'SOCIAL_MEDIA' | 'EMAIL' | 'PHONE' | 'EVENT' | 'OTHER';
+type LeadStatus =
+  | "NEW"
+  | "CONTACTED"
+  | "QUALIFIED"
+  | "PROPOSAL"
+  | "DEMO"
+  | "NEGOTIATIONS"
+  | "CLOSED_WON"
+  | "CLOSED_LOST";
+type LeadPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+type LeadSource =
+  | "WEBSITE"
+  | "REFERRAL"
+  | "SOCIAL_MEDIA"
+  | "EMAIL"
+  | "PHONE"
+  | "EVENT"
+  | "OTHER";
 interface CreateLeadRequest {
   leadStatus: LeadStatus;
   leadSource: LeadSource;
@@ -34,17 +49,16 @@ interface Lead {
   companyEmailAddress: string;
   customerName: string;
   customerEmailAddress: string;
-
   leadAddress: string;
-    comment?: string;
+  comment?: string;
   leadLabel?: string;
   leadReference?: string;
   leadPriority: LeadPriority;
   company?: string;
   createdAt: string;
   updatedAt: string;
+  assignedToName?: string;
 }
-
 
 interface GetAllLeadsResponse {
   isSuccess: boolean;
@@ -52,15 +66,11 @@ interface GetAllLeadsResponse {
   data: Lead[];
 }
 
-
-
 interface GetLeadByIdResponse {
   isSuccess: boolean;
   message: string;
   data: Lead;
 }
-
-
 
 interface UpdateLeadRequest {
   leadId: string;

@@ -125,7 +125,6 @@ const Leads = () => {
     return option ? option.label : null;
   };
 
- 
   const enhanceLeadWithAssigneeName = (
     lead: Lead,
     assignOptions: AssignDropdown[]
@@ -183,7 +182,7 @@ const Leads = () => {
     setLeads((prevLeads) => [newLead, ...prevLeads]);
   };
 
-   const fetchFilteredLeads = async () => {
+  const fetchFilteredLeads = async () => {
     try {
       setIsLoading(true);
 
@@ -228,7 +227,6 @@ const Leads = () => {
     }
   };
 
-
   // FIXED: Improved useEffect for filters
   useEffect(() => {
     const hasActiveFilters = Object.keys(filters).length > 0;
@@ -242,9 +240,12 @@ const Leads = () => {
   }, [filters]);
 
   // Fetch leads only on initial load
-  const fetchLeads = async () => {
+  const fetchLeads = async (showLoading: boolean = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
+
       const response = await getAllLeads();
       if (response.isSuccess && response.data) {
         const enhancedLeads = response.data.map((lead) =>
@@ -260,7 +261,9 @@ const Leads = () => {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -287,6 +290,23 @@ const Leads = () => {
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  useEffect(() => {
+  // Refresh assignee options periodically or when leads change significantly
+  const refreshAssignOptions = async () => {
+    try {
+      const response = await getAssignDropdown();
+      if (response.isSuccess && response.data) {
+        setAssignOptions(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to refresh assign options:", error);
+    }
+  };
+
+  // Refresh assign options when leads change significantly
+  refreshAssignOptions();
+}, [leads.length]); // Refresh when lead count changes
 
   // FIXED: Filter leads based on search and filters (local filtering for search)
   const filteredLeads = searchQuery
@@ -320,48 +340,79 @@ const Leads = () => {
     e.dataTransfer.dropEffect = "move";
   };
 
-const handleDrop = async (
-  e: React.DragEvent<HTMLDivElement>,
-  newStatus: LeadStatus
-) => {
-  e.preventDefault();
+  const handleDrop = async (
+    e: React.DragEvent<HTMLDivElement>,
+    newStatus: LeadStatus
+  ) => {
+    e.preventDefault();
 
-  if (!draggedLead) return;
+    if (!draggedLead) return;
 
-  // Don't do anything if dropped in the same status
-  if (draggedLead.leadStatus === newStatus) return;
+    // Don't do anything if dropped in the same status
+    if (draggedLead.leadStatus === newStatus) return;
 
-  try {
-    // Find the lead being dragged
-    const leadToUpdate = leads.find(
-      (lead) => lead.leadId === draggedLead.leadId
-    );
-    if (!leadToUpdate) return;
+    try {
+      // Find the lead being dragged
+      const leadToUpdate = leads.find(
+        (lead) => lead.leadId === draggedLead.leadId
+      );
+      if (!leadToUpdate) return;
 
-    // Optimistically update local state first
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) =>
-        lead.leadId === draggedLead.leadId
-          ? {
-              ...lead,
-              leadStatus: newStatus,
-              updatedAt: new Date().toISOString(),
-            }
-          : lead
-      )
-    );
+      // Optimistically update local state first
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) =>
+          lead.leadId === draggedLead.leadId
+            ? {
+                ...lead,
+                leadStatus: newStatus,
+                updatedAt: new Date().toISOString(),
+              }
+            : lead
+        )
+      );
 
-    // Prepare payload for API call using the new endpoint
-    const payload: ChangeLeadStatusRequest = {
-      leadId: leadToUpdate.leadId,
-      leadStatus: newStatus,
-    };
+      // Prepare payload for API call using the new endpoint
+      const payload: ChangeLeadStatusRequest = {
+        leadId: leadToUpdate.leadId,
+        leadStatus: newStatus,
+      };
 
-    // Make API call to update status using the dedicated endpoint
-    const response = await changeLeadStatus(payload);
+      // Make API call to update status using the dedicated endpoint
+      const response = await changeLeadStatus(payload);
 
-    if (!response.isSuccess) {
-      // Revert local state if API call fails
+      if (!response.isSuccess) {
+        // Revert local state if API call fails
+        setLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.leadId === draggedLead.leadId
+              ? { ...lead, leadStatus: draggedLead.leadStatus }
+              : lead
+          )
+        );
+        toast({
+          title: "Error",
+          description: response.message || "Failed to update lead status",
+          variant: "destructive",
+        });
+      } else {
+        // Update with the actual timestamp from the server if available
+        if (response.data) {
+          setLeads((prevLeads) =>
+            prevLeads.map((lead) =>
+              lead.leadId === draggedLead.leadId
+                ? {
+                    ...lead,
+                    leadStatus: newStatus,
+                    updatedAt: response.data!.updatedAt,
+                  }
+                : lead
+            )
+          );
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to update lead status:", error);
+      // Revert local state on error
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
           lead.leadId === draggedLead.leadId
@@ -371,44 +422,13 @@ const handleDrop = async (
       );
       toast({
         title: "Error",
-        description: response.message || "Failed to update lead status",
+        description: error.message || "Failed to update lead status",
         variant: "destructive",
       });
-    } else {
-      // Update with the actual timestamp from the server if available
-      if (response.data) {
-        setLeads((prevLeads) =>
-          prevLeads.map((lead) =>
-            lead.leadId === draggedLead.leadId
-              ? {
-                  ...lead,
-                  leadStatus: newStatus,
-                  updatedAt: response.data!.updatedAt,
-                }
-              : lead
-          )
-        );
-      }
+    } finally {
+      setDraggedLead(null);
     }
-  } catch (error: any) {
-    console.error("Failed to update lead status:", error);
-    // Revert local state on error
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) =>
-        lead.leadId === draggedLead.leadId
-          ? { ...lead, leadStatus: draggedLead.leadStatus }
-          : lead
-      )
-    );
-    toast({
-      title: "Error",
-      description: error.message || "Failed to update lead status",
-      variant: "destructive",
-    });
-  } finally {
-    setDraggedLead(null);
-  }
-};
+  };
 
   // Update existing lead in local state
   const handleUpdateLead = (updatedLead: Lead) => {
@@ -510,23 +530,43 @@ const handleDrop = async (
     setIsChangeAssignModalOpen(true);
   };
 
-  const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) =>
-        lead.leadId === leadId
-          ? {
-              ...lead,
-              leadAddedBy: assignedTo,
-              assignedToName: getAssignedToLabel(assignedTo) || assignedTo,
-              updatedAt: new Date().toISOString(),
-            }
-          : lead
-      )
-    );
-    toast({
-      title: "Assignment updated",
-      description: "Lead has been reassigned successfully.",
-    });
+  const handleUpdateAssignment = async (
+    leadId: string,
+    assignedToId: string,
+    assignedToLabel: string
+  ) => {
+    try {
+      // Optimistic update first for immediate UI response
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) =>
+          lead.leadId === leadId
+            ? {
+                ...lead,
+                leadAddedBy: assignedToId,
+                leadAssignedTo: assignedToLabel,
+                assignedToName: assignedToLabel,
+                updatedAt: new Date().toISOString(),
+              }
+            : lead
+        )
+      );
+
+      // Refresh all leads to ensure data consistency
+      await fetchLeads();
+
+      toast({
+        title: "Assignment updated",
+        description: "Lead has been reassigned successfully.",
+      });
+    } catch (error: any) {
+      console.error("Failed to refresh leads after assignment:", error);
+      // The optimistic update will still show the change
+      toast({
+        title: "Assignment updated",
+        description:
+          "Lead has been reassigned (refresh may be needed for full sync).",
+      });
+    }
   };
 
   const handleImportLead = () => {
