@@ -31,6 +31,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { LeadStatus } from "../../lib/leads";
 import { changeLeadStatus } from "@/app/services/data.service";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { ChevronDown, Info, X } from "lucide-react";
 
 const formSchema = z.object({
   status: z.string().min(1, "Please select a status"),
@@ -132,74 +134,125 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   };
 
   const statusOptions = [
-    { value: "NEW", label: "New", description: "Newly created lead" },
+    {
+      value: "NEW",
+      label: "New",
+      description: "Newly created lead",
+      color: "text-gray-800",
+    },
     {
       value: "CONTACTED",
       label: "Contacted",
       description: "Initial contact made",
+      color: "text-gray-800",
     },
     {
       value: "QUALIFIED",
       label: "Qualified",
       description: "Lead qualified as potential customer",
+      color: "text-gray-800",
     },
     {
       value: "PROPOSAL",
       label: "Proposal",
       description: "Proposal sent to lead",
+      color: "text-gray-800",
     },
     {
       value: "DEMO",
       label: "Demo",
       description: "Demo scheduled or completed",
+      color: "text-gray-800",
     },
     {
       value: "NEGOTIATIONS",
       label: "Negotiations",
       description: "In negotiation phase",
+      color: "text-gray-800",
     },
     {
       value: "CLOSED_WON",
       label: "Closed Won",
       description: "Successfully converted to customer",
+      color: "text-gray-800",
     },
     {
       value: "CLOSED_LOST",
       label: "Closed Lost",
       description: "Lead did not convert",
+      color: "text-gray-800",
     },
   ];
 
+  const getCurrentStatus = () => {
+    return statusOptions.find((option) => option.value === lead?.leadStatus);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Change Lead Status</DialogTitle>
-          <DialogDescription>
-            Update the status for {lead?.leadAssignedTo}
+      <DialogContent className="sm:max-w-md md:max-w-lg rounded-lg">
+        {/* <div className="absolute right-4 top-4">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 w-8 p-0 rounded-full"
+            onClick={handleClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div> */}
+
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-xl font-semibold">
+            Update Lead Status
+          </DialogTitle>
+          <DialogDescription className="flex flex-col gap-2 mt-2">
+            <span>
+              Change the status for{" "}
+              <span className="font-medium">{lead?.customerName}</span>
+            </span>
+            {/* {lead && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-sm text-muted-foreground">
+                  Current Status:
+                </span>
+                <Badge variant="outline" className={getCurrentStatus()?.color}>
+                  {getCurrentStatus()?.label}
+                </Badge>
+              </div>
+            )} */}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-5 py-2"
+          >
             <FormField
               control={form.control}
               name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Status</FormLabel>
+                  <FormLabel className="text-base">Select New Status</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select new status" />
+                      <SelectTrigger className="h-12 w-full">
+                        <SelectValue placeholder="Choose a status" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-72">
                       {statusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div>
-                            <div className="font-medium">{option.label}</div>
-                            <div className="text-xs text-gray-500">
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="py-3"
+                        >
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                                {option.label}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
                               {option.description}
                             </div>
                           </div>
@@ -217,11 +270,14 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
+                  <div className="flex items-center gap-1">
+                    <FormLabel className="text-base">Add Notes</FormLabel>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
                   <FormControl>
                     <Textarea
-                      placeholder="Add notes about this status change..."
-                      className="min-h-[80px]"
+                      placeholder="Optional: Add details about this status change..."
+                      className="min-h-[100px] resize-none"
                       {...field}
                     />
                   </FormControl>
@@ -230,11 +286,18 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               )}
             /> */}
 
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={handleClose}>
+            <DialogFooter className="gap-2 sm:gap-0 flex flex-col-reverse sm:flex-row mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                className="h-11 flex-1"
+              >
                 Cancel
               </Button>
-              <Button type="submit">Update Status</Button>
+              <Button type="submit" className="h-11 flex-1">
+                Update Status
+              </Button>
             </DialogFooter>
           </form>
         </Form>
