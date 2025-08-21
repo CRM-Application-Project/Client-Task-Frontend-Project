@@ -64,11 +64,16 @@ export const TaskFilters = ({
   onViewModeChange,
   stages = [],
   users = [],
+  onImportTask,
 }: TaskFiltersProps) => {
   const priorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
+
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   const clearDateRange = () => {
     const updatedFilters = { ...localFilters, dateRange: undefined };
@@ -89,6 +94,7 @@ export const TaskFilters = ({
 
   const handleApplyFilters = () => {
     onFiltersChange(localFilters);
+    onApplyFilters();
   };
 
   const handleClearFilters = () => {
@@ -115,8 +121,8 @@ export const TaskFilters = ({
   };
 
   return (
-    <div className="relative bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8">
-      <div className="flex flex-col gap-1">
+    <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+      <div className="flex flex-col gap-6">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex items-center gap-4">
@@ -140,26 +146,41 @@ export const TaskFilters = ({
                 Add Stage
               </Button>
             )}
-<Button
+
+            {/* Add Task Button */}
+            <Button
               onClick={onAddTask}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
+
+            {/* Import Task Button */}
+            {onImportTask && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onImportTask}
+                className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
+              >
+                <UploadCloud className="h-4 w-4 text-gray-600" />
+              </Button>
+            )}
+
             {/* View Mode Toggle */}
-            <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               <Button
                 variant={viewMode === "kanban" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => onViewModeChange("kanban")}
                 className={`rounded-none ${
                   viewMode === "kanban"
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-700"
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600"
                 }`}
               >
-                <LayoutGrid className="h-4 w-4 mr-1" />
+                <Grid className="h-4 w-4" />
               </Button>
               <Button
                 variant={viewMode === "grid" ? "default" : "ghost"}
@@ -167,16 +188,13 @@ export const TaskFilters = ({
                 onClick={() => onViewModeChange("grid")}
                 className={`rounded-none ${
                   viewMode === "grid"
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-700"
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600"
                 }`}
               >
-                <Grid className="h-4 w-4 mr-1" />
+                <LayoutGrid className="h-4 w-4" />
               </Button>
             </div>
-
-            {/* Add Task Button */}
-            
           </div>
         </div>
 
@@ -187,62 +205,54 @@ export const TaskFilters = ({
               : "max-h-0 opacity-0 overflow-hidden"
           }`}
         >
-          {/* First Line: Search and Date Range on the right */}
-          <div className="flex flex-col md:flex-row gap-4 items-end justify-between w-full mt-4">
-            <div className="flex-1"></div> {/* Spacer to push content to right */}
-            
-            <div className="flex flex-col md:flex-row gap-4 items-end w-full md:w-auto">
-              {/* Search */}
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search tasks..."
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
-                />
-              </div>
-
-              {/* Date Range */}
-              <div className="relative w-full md:w-64">
-                <Button
-                  variant={localFilters.dateRange ? "secondary" : "outline"}
-                  onClick={() => setIsDatePickerOpen(true)}
-                  className={`w-full rounded-lg flex items-center justify-between gap-2 ${
-                    localFilters.dateRange
-                      ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                      : "border-gray-300"
-                  }`}
-                >
-                  <span className="flex items-center gap-2 text-[#636363]">
-                    <Calendar className="h-4 w-4" />
-                    {localFilters.dateRange
-                      ? formatDateRange(localFilters.dateRange)
-                      : "Date Range"}
-                  </span>
-                  {localFilters.dateRange && (
-                    <X
-                      className="h-4 w-4 hover:text-blue-900"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearDateRange();
-                      }}
-                    />
-                  )}
-                </Button>
-
-                <DateRangePicker
-                  isOpen={isDatePickerOpen}
-                  onClose={() => setIsDatePickerOpen(false)}
-                  onSelect={handleDateRangeSelect}
-                  initialRange={localFilters.dateRange}
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end w-full">
+            {/* Search - Moved to the left */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+              />
             </div>
-          </div>
 
-          {/* Second Line: 4 filters in one line */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end w-full mt-4">
+            {/* Date Range */}
+            <div className="relative w-full">
+              <Button
+                variant={localFilters.dateRange ? "secondary" : "outline"}
+                onClick={() => setIsDatePickerOpen(true)}
+                className={`w-full rounded-lg flex items-center justify-between gap-2 ${
+                  localFilters.dateRange
+                    ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                    : "border-gray-300"
+                }`}
+              >
+                <span className="flex items-center gap-2 text-[#636363]">
+                  <Calendar className="h-4 w-4" />
+                  {localFilters.dateRange
+                    ? formatDateRange(localFilters.dateRange)
+                    : "Date Range"}
+                </span>
+                {localFilters.dateRange && (
+                  <X
+                    className="h-4 w-4 hover:text-blue-900"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearDateRange();
+                    }}
+                  />
+                )}
+              </Button>
+
+              <DateRangePicker
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                onSelect={handleDateRangeSelect}
+                initialRange={localFilters.dateRange}
+              />
+            </div>
+
             {/* Priority Filter */}
             <Select
               value={localFilters.priority || "all"}
@@ -334,26 +344,22 @@ export const TaskFilters = ({
                 ))}
               </SelectContent>
             </Select>
-          </div>
 
-          {/* Third Line: Action buttons on the right */}
-          <div className="flex flex-col md:flex-row gap-4 items-end justify-end w-full mt-4">
-            <div className="flex gap-4">
-              <Button
-                onClick={handleApplyFilters}
-                className="bg-gray-800 hover:bg-gray-700 text-white w-full md:w-auto"
-              >
-                Apply Filters
-              </Button>
+            {/* Action Buttons */}
+            <Button
+              onClick={handleApplyFilters}
+              className="bg-gray-800 hover:bg-gray-700 text-white w-full"
+            >
+              Apply Filters
+            </Button>
 
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-                className="border-gray-300 w-full md:w-auto"
-              >
-                Clear Filters
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              className="border-gray-300 w-full"
+            >
+              Clear Filters
+            </Button>
           </div>
         </div>
       </div>
