@@ -194,6 +194,8 @@ const Leads = () => {
         endDate: filters.dateRange?.to
           ? format(filters.dateRange.to, "yyyy-MM-dd")
           : null,
+        leadStatus: filters.status || null,
+        leadPriority: filters.priority || null,
         leadLabel: filters.label || null,
         leadSource: filters.source || null,
         assignedTo: getAssignedToLabel(filters.assignedTo) || null,

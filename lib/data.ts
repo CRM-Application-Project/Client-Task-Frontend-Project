@@ -10,6 +10,8 @@ export interface TaskStagesDropdownResponse {
 }
 
 export interface FilterLeadsParams {
+  leadStatus?: string | null;
+  leadPriority?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   leadLabel?: string | null;
