@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
- // Import the new modal
 import {
   createTask,
   deleteTask,
@@ -11,12 +10,11 @@ import {
   getTaskStagesDropdown,
   getUsers,
   updateTask,
-  createTaskStage, // Import the new service function
+  createTaskStage,
   User as ServiceUser,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
 import { useRouter } from "next/navigation";
-
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -175,15 +173,16 @@ export default function TaskBoard() {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'grid'>('kanban');
-  
-  // New state for Create Stage Modal
   const [isCreateStageModalOpen, setIsCreateStageModalOpen] = useState(false);
-  const router=useRouter();
+  
+  const router = useRouter();
+  const kanbanScrollRef = useRef<HTMLDivElement>(null);
+
   const handleTaskClick = useCallback((taskId: number) => {
     setSelectedTaskId(taskId);
-       router.push(`/tasks/${taskId}`);
+    router.push(`/tasks/${taskId}`);
     setIsDetailsModalOpen(true);
-  }, []);
+  }, [router]);
 
   // Refs to track if we're already fetching to prevent duplicate calls
   const isInitialLoadingRef = useRef(false);
@@ -276,7 +275,6 @@ export default function TaskBoard() {
   // Optimized task fetching function
   const fetchTasks = useCallback(
     async (filterParams?: FilterTasksParams, showLoading = false) => {
-      // Prevent duplicate API calls
       if (isFilteringRef.current) return;
 
       isFilteringRef.current = true;
@@ -328,19 +326,16 @@ export default function TaskBoard() {
       isInitialLoadingRef.current = true;
 
       try {
-        // Fetch all data in parallel, but only once
         const [stagesRes, usersRes] = await Promise.all([
           getTaskStagesDropdown(),
           getUsers(),
         ]);
 
-        // Handle stages response
         if (stagesRes.isSuccess) {
           setStages(stagesRes.data);
           console.log("Fetched stages:", stagesRes.data);
         }
 
-        // Handle users response
         if (usersRes.isSuccess) {
           setUsers(
             usersRes.data.map((user) => ({
@@ -351,7 +346,6 @@ export default function TaskBoard() {
           );
         }
 
-        // Fetch initial tasks
         await fetchTasks({}, false);
       } catch (error) {
         console.error("Error fetching initial data:", error);
@@ -361,44 +355,36 @@ export default function TaskBoard() {
     };
 
     fetchInitialData();
-  }, []); // Empty dependency array - only run once
+  }, []);
 
   // Debounced search effect
   useEffect(() => {
-    // Clear existing timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Don't trigger search during initial load
     if (isInitialLoadingRef.current) return;
 
-    // Set new timeout for search
     searchTimeoutRef.current = setTimeout(() => {
       const apiParams = convertFiltersToApiParams(filters, searchQuery);
       fetchTasks(apiParams, true);
     }, 300);
 
-    // Cleanup timeout on unmount
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]); // Only depend on searchQuery
+  }, [searchQuery]);
 
-  // Update your existing handleFilterChange function to handle the apply filters:
   const handleApplyFilters = useCallback(async () => {
     const apiParams = convertFiltersToApiParams(filters, searchQuery);
     await fetchTasks(apiParams, true);
   }, [filters, searchQuery, convertFiltersToApiParams, fetchTasks]);
 
-  // Handle filter changes
   const handleFilterChange = useCallback(
     async (newFilters: typeof filters) => {
       setFilters(newFilters);
-
-      // Immediately fetch with new filters
       const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
       await fetchTasks(apiParams, true);
     },
@@ -410,7 +396,6 @@ export default function TaskBoard() {
       try {
         const response = await deleteTask(taskId);
         if (response.isSuccess) {
-          // Simply refresh with current filters
           await fetchTasks(undefined, true);
         }
       } catch (error) {
@@ -421,45 +406,41 @@ export default function TaskBoard() {
   );
 
   const handleAddTask = useCallback(async (taskData: CreateTaskRequest) => {
-  try {
-    let response;
-    
-    if (editingTask) {
-      const updateData: UpdateTaskRequest = {
-        subject: taskData.subject,
-        description: taskData.description,
-        priority: taskData.priority,
-        taskStageId: taskData.taskStageId,
-        startDate: taskData.startDate,
-        endDate: taskData.endDate,
-        assignee: taskData.assignee
-      };
-      response = await updateTask(editingTask.id, updateData);
-    } else {
-      response = await createTask(taskData);
-    }
+    try {
+      let response;
+      
+      if (editingTask) {
+        const updateData: UpdateTaskRequest = {
+          subject: taskData.subject,
+          description: taskData.description,
+          priority: taskData.priority,
+          taskStageId: taskData.taskStageId,
+          startDate: taskData.startDate,
+          endDate: taskData.endDate,
+          assignee: taskData.assignee
+        };
+        response = await updateTask(editingTask.id, updateData);
+      } else {
+        response = await createTask(taskData);
+      }
 
-    if (response.isSuccess) {
-      // Refresh tasks and close modal
-      await fetchTasks(undefined, true);
-      handleCloseModal();
+      if (response.isSuccess) {
+        await fetchTasks(undefined, true);
+        handleCloseModal();
+      }
+    } catch (error) {
+      console.error("Error saving task:", error);
     }
-  } catch (error) {
-    console.error("Error saving task:", error);
-  }
-}, [editingTask, fetchTasks]); // Add editingTask to dependencies
+  }, [editingTask, fetchTasks]);
 
-  // New function to handle stage creation
   const handleCreateStage = useCallback(async (stageData: CreateStageRequest) => {
     try {
       const response = await createTaskStage(stageData);
       if (response.isSuccess) {
-        // Refresh stages after successful creation
         await fetchStages();
         setIsCreateStageModalOpen(false);
       } else {
         console.error("Failed to create stage:", response.message);
-        // You might want to show an error message to the user here
       }
     } catch (error) {
       console.error("Error creating stage:", error);
@@ -489,12 +470,12 @@ export default function TaskBoard() {
     setIsAddModalOpen(false);
     setEditingTask(undefined);
   }, []);
- const handleCloseTaskDetails = useCallback(() => {
+
+  const handleCloseTaskDetails = useCallback(() => {
     setIsDetailsModalOpen(false);
     setSelectedTaskId(null);
   }, []);
 
-  // Add handler for editing task from details modal
   const handleEditTaskFromDetails = useCallback(() => {
     if (selectedTaskId) {
       const taskToEdit = tasks.find(task => task.id === selectedTaskId);
@@ -504,11 +485,11 @@ export default function TaskBoard() {
         setSelectedTaskId(null);
       }
     }
-  }, [selectedTaskId, tasks]);
+  }, [selectedTaskId, tasks, handleEditTask]);
+
   const handleClearAllFilters = useCallback(async () => {
     setFilters({});
     setSearchQuery("");
-    // Fetch all tasks without any filters
     await fetchTasks({}, true);
   }, [fetchTasks]);
 
@@ -540,6 +521,25 @@ export default function TaskBoard() {
       matchesDateRange
     );
   });
+
+  // Smooth scroll navigation functions
+  const scrollLeft = () => {
+    if (kanbanScrollRef.current) {
+      kanbanScrollRef.current.scrollBy({
+        left: -300,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollRight = () => {
+    if (kanbanScrollRef.current) {
+      kanbanScrollRef.current.scrollBy({
+        left: 300,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -587,7 +587,7 @@ export default function TaskBoard() {
               </p>
               <button
                 onClick={() => setIsCreateStageModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-[#636363] text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none "
+                className="inline-flex items-center px-4 py-2 bg-[#636363] text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -599,27 +599,83 @@ export default function TaskBoard() {
         )}
 
         {/* Task Board - Only show if stages exist */}
-       {stages.length > 0 && (
-  <>
-    {viewMode === 'kanban' && (
-      <div className="flex gap-3 overflow-x-auto pb-6">
-        {stages.map((stage, index) => (
-          <TaskColumn
-            key={stage.id}
-            stage={stage}
-            tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onTaskClick={handleTaskClick}
-            stageIndex={index}
-            onTaskUpdate={() => fetchTasks(undefined, true)} // Add this line
-          />
-        ))}
-                
-                {/* Add Stage Button in Kanban View */}
-              
-      </div>
-    )}
+        {stages.length > 0 && (
+          <>
+            {viewMode === 'kanban' && (
+              <div className="relative">
+                {/* Scroll Navigation Buttons - Only show if there are more than 3 stages */}
+                {stages.length > 3 && (
+                  <>
+                    {/* Left scroll button */}
+                    <button
+                      onClick={scrollLeft}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
+                      style={{ marginLeft: '-12px' }}
+                    >
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Right scroll button */}
+                    <button
+                      onClick={scrollRight}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
+                      style={{ marginRight: '-12px' }}
+                    >
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+
+                {/* Kanban Board Container with Enhanced Smooth Scrolling */}
+                <div 
+                  ref={kanbanScrollRef}
+                  className="flex gap-4 overflow-x-auto pb-6 px-1"
+                  style={{
+                    scrollBehavior: 'smooth',
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#cbd5e1 #f1f5f9',
+                    WebkitOverflowScrolling: 'touch', // For iOS smooth scrolling
+                  }}
+                >
+                  {/* Custom scrollbar styles */}
+                  <style jsx>{`
+                    div::-webkit-scrollbar {
+                      height: 8px;
+                    }
+                    div::-webkit-scrollbar-track {
+                      background: #f1f5f9;
+                      border-radius: 4px;
+                    }
+                    div::-webkit-scrollbar-thumb {
+                      background: #cbd5e1;
+                      border-radius: 4px;
+                      transition: background 0.2s ease;
+                    }
+                    div::-webkit-scrollbar-thumb:hover {
+                      background: #94a3b8;
+                    }
+                  `}</style>
+                  
+                  {stages.map((stage, index) => (
+                    <TaskColumn
+                      key={stage.id}
+                      stage={stage}
+                      tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
+                      onEditTask={handleEditTask}
+                      onDeleteTask={handleDeleteTask}
+                      onTaskClick={handleTaskClick}
+                      stageIndex={index}
+                      onTaskUpdate={() => fetchTasks(undefined, true)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {viewMode === 'grid' && (
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">

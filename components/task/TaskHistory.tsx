@@ -17,21 +17,15 @@ interface TaskHistoryProps {
 
 export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
   const formatTrackDate = (dateString: string) => {
-    // Handle both timestamp and ISO date formats
     let date: Date;
     
-    // Check if it's a timestamp (all numbers)
     if (/^\d+$/.test(dateString)) {
-      // Convert timestamp to date
       const timestamp = parseInt(dateString);
-      // Handle both seconds and milliseconds timestamps
       date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
     } else {
-      // Handle ISO date string
       date = new Date(dateString);
     }
     
-    // Check if date is valid
     if (isNaN(date.getTime())) {
       return 'Invalid date';
     }
@@ -42,7 +36,6 @@ export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
     
-    // Show relative time for recent events
     if (diffMinutes < 1) {
       return 'Just now';
     } else if (diffMinutes < 60) {
@@ -52,156 +45,133 @@ export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
     } else if (diffDays < 7) {
       return `${diffDays}d ago`;
     } else {
-      // For older dates, show formatted date
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // Format as DD-MM-YYYY for older dates
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
     }
   };
 
-const formatFieldValue = (fieldName: string, value: any) => {
-  // Handle array date format [year, month, day, hour, minute]
-  if (Array.isArray(value) && value.length >= 3) {
-    const [year, month, day, hour, minute] = value;
-    const date = new Date(year, month - 1, day, hour || 0, minute || 0); // month is 0-indexed in JS
-    
-    return date.toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      ...(hour !== undefined && {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }).replace(/\//g, '-'); // Replace slashes with dashes for DD-MM-YYYY format
-  }
-  
-  // Handle timestamp fields (string timestamps)
-  if (typeof value === 'string' && 
-      (fieldName.toLowerCase().includes('date') || fieldName.toLowerCase().includes('time')) && 
-      /^\d+$/.test(value)) {
-    const timestamp = parseInt(value);
-    const date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('en-US', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).replace(/\//g, '-');
+  const formatFieldValue = (fieldName: string, value: any) => {
+    if (Array.isArray(value) && value.length >= 3) {
+      const [year, month, day, hour, minute] = value;
+      const date = new Date(year, month - 1, day, hour || 0, minute || 0);
+      
+      const formattedDay = date.getDate().toString().padStart(2, '0');
+      const formattedMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+      const formattedYear = date.getFullYear();
+      
+      return `${formattedDay}-${formattedMonth}-${formattedYear}`;
     }
-  }
-  
-  // For other values, convert to string
-  return String(value);
-};
+    
+    if (typeof value === 'string' && 
+        (fieldName.toLowerCase().includes('date') || fieldName.toLowerCase().includes('time')) && 
+        /^\d+$/.test(value)) {
+      const timestamp = parseInt(value);
+      const date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
+      if (!isNaN(date.getTime())) {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      }
+    }
+    
+    return String(value);
+  };
+
   const handleRefresh = () => {
-    // Replace with your actual refresh function
     console.log("Refreshing task history for task ID:", taskId);
     window.location.reload();
   };
 
   return (
-    <div className="bg-white/70 backdrop-blur border rounded-xl p-6 shadow-md">
-      <div className="space-y-5">
-        {/* Header */}
-        <h3 className="font-semibold text-gray-900 text-base tracking-tight flex items-center gap-2">
-          <History className="h-5 w-5 text-blue-600" />
-          Task History
-          <button
-            onClick={handleRefresh}
-            className="ml-auto p-2 rounded-full hover:bg-blue-50 text-blue-600 transition"
-            title="Sync history"
-          >
-            <RefreshCw className="h-4 w-4 hover:animate-spin" />
-          </button>
-        </h3>
+    <div className="space-y-4">
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8 text-gray-500">
+          <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+          Loading activity...
+        </div>
+      )}
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-10 text-gray-500 animate-pulse">
-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-            Loading task history...
+      {/* Empty */}
+      {!isLoading && history.length === 0 && (
+        <div className="text-center py-8">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <History className="h-6 w-6 text-gray-400" />
           </div>
-        )}
+          <p className="text-gray-500 text-sm">No activity yet</p>
+        </div>
+      )}
 
-        {/* Empty */}
-        {!isLoading && history.length === 0 && (
-          <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <p className="text-gray-500 text-sm">
-              ✨ No task history yet
-            </p>
-          </div>
-        )}
-
-        {/* Timeline */}
-        {!isLoading && history.length > 0 && (
-          <div className="space-y-6 max-h-[calc(120vh-200px)] overflow-y-auto pr-2">
+      {/* Activity Timeline */}
+      {!isLoading && history.length > 0 && (
+        <div className="max-h-[600px] overflow-y-auto px-1 py-2 pb-11">
+          <div className="space-y-3">
             {history.map((record, index) => (
-              <div
-                key={record.id}
-                className="grid grid-cols-[40px_1fr] gap-4 items-start"
-              >
-                {/* Timeline column */}
-                <div className="flex flex-col items-center relative">
-                  {/* Circle */}
-                  <div className="h-4 w-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 shadow-md border-2 border-white z-10" />
-                  {/* Line (except last item) */}
-                  {index !== history.length - 1 && (
-                    <div className="flex-1 w-px bg-gradient-to-b from-blue-400 to-purple-400 min-h-[60px]" />
-                  )}
-                </div>
-
-                {/* Card column */}
-                <div className="bg-white/80 backdrop-blur rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-xs">
-                        {record.doneByName?.charAt(0) ?? "?"}
-                      </div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {record.doneByName}
-                      </p>
+              <div key={record.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  {/* Avatar */}
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-white">
+                        {record.doneByName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                      </span>
                     </div>
-                    <span className="text-[11px] font-mono px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
-                      {formatTrackDate(record.createdAt)}
-                    </span>
                   </div>
 
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap mb-3">
-                    {record.note}
-                  </p>
-
-                  {record.updateData && record.updateData.length > 0 && (
-                    <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
-                      <div className="flex items-center gap-1 text-xs text-blue-500 font-medium mb-2">
-                        <ArrowRight className="h-3 w-3" />
-                        Changes made
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-1">
+                      <div>
+                        <h4 className="font-medium text-gray-900 text-sm">
+                          {record.doneByName}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          Senior Developer
+                        </p>
                       </div>
-                      {record.updateData.map((update: UpdateData, updateIndex: number) => (
-                        <div key={updateIndex} className="text-sm text-gray-600 mb-1 last:mb-0">
-                          <span className="font-medium">{update.fieldName}:</span>{" "}
-                          <span className="line-through text-red-500">
-                            {formatFieldValue(update.fieldName, update.oldValue)}
-                          </span> →{" "}
-                          <span className="text-green-600">
-                            {formatFieldValue(update.fieldName, update.newValue)}
-                          </span>
-                        </div>
-                      ))}
+                      <span className="text-xs text-gray-400">
+                        {formatTrackDate(record.createdAt)}
+                      </span>
                     </div>
-                  )}
+
+                    {/* Activity Description */}
+                    <p className="text-sm text-gray-700 mb-3">
+                      {record.note}
+                    </p>
+
+                    {/* Update Details */}
+                    {record.updateData && record.updateData.length > 0 && (
+                      <div className="space-y-2">
+                        {record.updateData.map((update: UpdateData, updateIndex: number) => (
+                          <div key={updateIndex} className="flex items-center gap-2 text-sm">
+                            <span className="text-gray-600 font-medium">{update.fieldName}:</span>
+                            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
+                              <span className="text-gray-600">
+                                {formatFieldValue(update.fieldName, update.oldValue)}
+                              </span>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-gray-400" />
+                            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
+                              <span className="text-gray-600 font-medium">
+                                {formatFieldValue(update.fieldName, update.newValue)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
