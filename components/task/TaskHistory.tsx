@@ -130,7 +130,7 @@ export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
                         <h4 className="font-medium text-gray-900 text-sm">
                           {record.doneByName}
                         </h4>
-                     
+                       
                       </div>
                       <span className="text-xs text-gray-400">
                         {formatTrackDate(record.createdAt)}

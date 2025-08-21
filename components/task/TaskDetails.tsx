@@ -172,15 +172,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           <h1 className="text-base font-semibold text-gray-900">
             {task.subject}
           </h1>
-          {permissions.canEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
+          
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3">
