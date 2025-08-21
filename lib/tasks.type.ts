@@ -5,7 +5,7 @@ interface CreateTaskRequest {
   taskStageId: number;
   startDate: string; // ISO date string
   endDate: string; // ISO date string or empty
-  assignees: string[];
+  assignee: string;
   acceptanceCriteria?: string;
 }
 
@@ -23,17 +23,17 @@ interface CreateTaskResponse {
     taskStageName: string;
     createdAt: string;
     updatedAt: string;
-    assignees: {
+    assignee: {
       id: string;
       label: string;
-    }[];
+    };
   };
 }
 
 
 
 interface UpdateTaskRequest {
-  assignees: string[];
+  assignee: string;
 }
 
 interface UpdateTaskResponse {
@@ -50,10 +50,10 @@ interface UpdateTaskResponse {
     taskStageName: string;
     createdAt: string;
     updatedAt: string;
-    assignees: {
+    assignee: {
       id: string;
       label: string;
-    }[];
+    };
   };
 }
 

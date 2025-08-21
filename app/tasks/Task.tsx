@@ -15,6 +15,7 @@ import {
   User as ServiceUser,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
+import { TaskDetailsModal } from "@/components/task/TaskDetailsModal";
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -43,7 +44,7 @@ interface TaskResponse {
   taskStageName: string;
   createdAt: string;
   updatedAt: string;
-  assignees: Assignee[];
+  assignee: Assignee;
 }
 
 interface Task {
@@ -61,7 +62,7 @@ interface Task {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignees: Assignee[];
+  assignee: Assignee;
 }
 
 interface EditingTaskResponse {
@@ -75,7 +76,7 @@ interface EditingTaskResponse {
   taskStageName: string;
   createdAt: string;
   updatedAt: string;
-  assignees: Assignee[];
+  assignee: Assignee;
 }
 
 interface FilterTasksParams {
@@ -99,7 +100,7 @@ interface CreateTaskRequest {
   taskStageId: number;
   startDate: string;
   endDate: string;
-  assignees: string[];
+  assignee: string;
 }
 
 interface UpdateTaskRequest {
@@ -107,9 +108,9 @@ interface UpdateTaskRequest {
   description: string;
   priority: TaskPriority;
   taskStageId: number;
-  startDate: string;
-  endDate: string;
-  assignees: string[];
+  startTime: string;
+  endTime: string;
+  assignee: string;
 }
 
 interface ApiTaskResponse {
@@ -209,15 +210,15 @@ export default function TaskBoard() {
               status: task.taskStageName as TaskStatus,
               priority: task.priority,
               labels: [],
-              assignedTo: task.assignees[0]?.label || "Unassigned",
-              createdBy: task.assignees[0]?.label || "Unknown",
+              assignedTo: task.assignee?.label || "Unassigned",
+              createdBy: task.assignee?.label || "Unknown",
               startDate: new Date(task.startDate),
               endDate: task.endDate ? new Date(task.endDate) : null,
               createdAt: new Date(task.createdAt),
               updatedAt: new Date(task.updatedAt),
               taskStageId: task.taskStageId,
               taskStageName: task.taskStageName,
-              assignees: task.assignees,
+              assignee: task.assignee,
             })
           )
         );
@@ -229,15 +230,15 @@ export default function TaskBoard() {
           status: task.taskStageName as TaskStatus,
           priority: task.priority,
           labels: [],
-          assignedTo: task.assignees[0]?.label || "Unassigned",
-          createdBy: task.assignees[0]?.label || "Unknown",
+          assignedTo: task.assignee?.label || "Unassigned",
+          createdBy: task.assignee?.label || "Unknown",
           startDate: new Date(task.startDate),
           endDate: task.endDate ? new Date(task.endDate) : null,
           createdAt: new Date(task.createdAt),
           updatedAt: new Date(task.updatedAt),
           taskStageId: task.taskStageId,
           taskStageName: task.taskStageName,
-          assignees: task.assignees,
+          assignee: task.assignee,
         }));
       }
     },
@@ -427,9 +428,9 @@ export default function TaskBoard() {
           description: taskData.description,
           priority: taskData.priority,
           taskStageId: taskData.taskStageId,
-          startDate: taskData.startDate,
-          endDate: taskData.endDate,
-          assignees: taskData.assignees
+          startTime: taskData.startDate,
+          endTime: taskData.endDate,
+          assignee: taskData.assignee
         };
         response = await updateTask(editingTask.id, updateData);
       } else {
@@ -445,7 +446,7 @@ export default function TaskBoard() {
         console.error("Error saving task:", error);
       }
     },
-    [editingTask, fetchTasks]
+    [ fetchTasks]
   );
 
   // New function to handle stage creation
@@ -477,7 +478,7 @@ export default function TaskBoard() {
       taskStageName: task.taskStageName,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
-      assignees: task.assignees,
+      assignee: task.assignee,
     };
 
     setEditingTask(editingTaskData);
@@ -488,7 +489,22 @@ export default function TaskBoard() {
     setIsAddModalOpen(false);
     setEditingTask(undefined);
   }, []);
+ const handleCloseTaskDetails = useCallback(() => {
+    setIsDetailsModalOpen(false);
+    setSelectedTaskId(null);
+  }, []);
 
+  // Add handler for editing task from details modal
+  const handleEditTaskFromDetails = useCallback(() => {
+    if (selectedTaskId) {
+      const taskToEdit = tasks.find(task => task.id === selectedTaskId);
+      if (taskToEdit) {
+        handleEditTask(taskToEdit);
+        setIsDetailsModalOpen(false);
+        setSelectedTaskId(null);
+      }
+    }
+  }, [selectedTaskId, tasks]);
   const handleClearAllFilters = useCallback(async () => {
     setFilters({});
     setSearchQuery("");
@@ -752,6 +768,14 @@ export default function TaskBoard() {
           onSubmit={handleCreateStage}
           existingStagesCount={stages.length}
         />
+          {selectedTaskId && (
+          <TaskDetailsModal
+            isOpen={isDetailsModalOpen}
+            onClose={handleCloseTaskDetails}
+            taskId={selectedTaskId}
+            onEdit={handleEditTaskFromDetails}
+          />
+        )}
       </>
     </div>
   );

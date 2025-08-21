@@ -58,10 +58,10 @@ interface Task {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignees: Array<{
+  assignee: {
     id: string;
     label: string;
-  }>;
+  };
   documents?: TaskDocument[];
 }
 
@@ -165,12 +165,20 @@ export const TaskCard = ({
   };
 
   const handleCardClick = () => {
-    if (permissions.canView && !isDragging && onTaskClick) {
+  // Prevent opening during drag operations
+  if (isDragging) return;
+  
+  if (permissions.canView) {
+    // If parent provided onTaskClick, use it
+    if (onTaskClick) {
       onTaskClick();
-    } else if (permissions.canView && !isDragging) {
+    } else {
+      // Otherwise, fall back to showing details modal
       setShowDetailsModal(true);
     }
-  };
+  }
+};
+
 
   const handleEditFromDetails = () => {
     setShowDetailsModal(false);

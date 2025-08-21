@@ -24,10 +24,10 @@ interface Task {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignees: Array<{
+  assignee: {
     id: string;
     label: string;
-  }>;
+  };
 }
 
 interface TaskStage {
@@ -169,7 +169,7 @@ export const TaskColumn = ({
         taskStageId: stage.id, // Move to new stage
         startDate: new Date(task.startDate).toISOString(),
         endDate: task.endDate ? new Date(task.endDate).toISOString() : "",
-        assignees: task.assignees.map((a: any) => a.id)
+        assignee: task.assignee.id
       };
 
       // Call the update API
