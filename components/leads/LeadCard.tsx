@@ -252,10 +252,7 @@ export const LeadCard = ({
                 Change Status
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onLeadSorting?.()}>
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                Lead Sorting
-              </DropdownMenuItem>
+           
               <DropdownMenuSeparator />
               {permissions.canDelete && (
                 <DropdownMenuItem

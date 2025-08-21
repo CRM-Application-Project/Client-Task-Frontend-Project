@@ -6,6 +6,7 @@ interface CreateTaskRequest {
   startDate: string; // ISO date string
   endDate: string; // ISO date string or empty
   assignees: string[];
+  acceptanceCriteria?: string;
 }
 
 interface CreateTaskResponse {
