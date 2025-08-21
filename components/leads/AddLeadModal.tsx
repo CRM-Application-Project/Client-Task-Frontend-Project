@@ -31,13 +31,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AssignDropdown,
   createLead,
-  getAllLeads,
-  getAssignDropdown,
 } from "@/app/services/data.service";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
-// import { CreateLeadRequest } from "@/lib/data";
 
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
@@ -59,7 +55,13 @@ interface AddLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddLead: (lead: any) => void;
-  onNewLeadCreated: (apiLeadData: any) => void; // New prop for immediate state update
+  onNewLeadCreated: (apiLeadData: any) => void; 
+}
+
+interface UserData {
+  firstName: string;
+  lastName: string;
+  userRole: string;
 }
 
 const AddLeadModal: React.FC<AddLeadModalProps> = ({
@@ -72,8 +74,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const { codes, loading } = useCountryCodes();
   const [selectedCode, setSelectedCode] = useState("+91");
   const [phone, setPhone] = useState("");
-  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
-  const [loadingAssignees, setLoadingAssignees] = useState(false);
+  const [user, setUser] = useState<UserData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormData>({
@@ -93,22 +94,29 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
     },
   });
 
-  // In your AddLeadModal component, update the onSubmit function:
-
-  // 1. First, let's update the AddLeadModal with debugging:
+  useEffect(() => {
+    // Get user data from localStorage
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData) as UserData;
+        setUser(parsedUser);
+        
+        form.setValue("leadAddedBy", `${parsedUser.firstName} ${parsedUser.lastName}`);
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+      }
+    }
+  }, [form]);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
 
     try {
-      const selectedAssignee = assignees.find(
-        (assignee) => assignee.id === data.leadAddedBy
-      );
-
       const leadData: CreateLeadRequest = {
         leadStatus: data.leadStatus as LeadStatus,
         leadSource: data.leadSource as LeadSource,
-        leadAddedBy: selectedAssignee?.label || "",
+        leadAddedBy: data.leadAddedBy,
         customerMobileNumber: `${selectedCode.replace(
           "+",
           ""
@@ -164,31 +172,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    const fetchAssignees = async () => {
-      if (!isOpen) return;
-
-      setLoadingAssignees(true);
-      try {
-        const response = await getAssignDropdown();
-        if (response.isSuccess && response.data) {
-          setAssignees(response.data);
-        }
-      } catch (error: any) {
-        console.error("Failed to fetch assignees:", error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load assignees",
-          variant: "destructive",
-        });
-      } finally {
-        setLoadingAssignees(false);
-      }
-    };
-
-    fetchAssignees();
-  }, [isOpen, toast]);
 
   const handleClose = () => {
     form.reset();
@@ -263,7 +246,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                         </SelectContent>
                       </Select>
                       <FormControl>
-                        <Input placeholder="1234567890" {...field} />
+                        <Input 
+                        maxLength={10}
+                        placeholder="Enter  mobile number" {...field} />
                       </FormControl>
                     </div>
                     <FormMessage />
@@ -276,7 +261,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="companyEmailAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Email</FormLabel>
+                    <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="contact@company.com" {...field} />
                     </FormControl>
@@ -355,31 +340,15 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="leadAddedBy"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Assigned To</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={loadingAssignees}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              loadingAssignees
-                                ? "Loading assignees..."
-                                : "Select assignee"
-                            }
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {assignees.map((assignee) => (
-                          <SelectItem key={assignee.id} value={assignee.id}>
-                            {assignee.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Added By</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Lead added by" 
+                        {...field} 
+                        disabled
+                        className="bg-gray-100"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -390,7 +359,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="leadLabel"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Lead Label</FormLabel>
+                    <FormLabel>Lead Label (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter lead label" {...field} />
                     </FormControl>
@@ -404,7 +373,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="leadReference"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Lead Reference</FormLabel>
+                    <FormLabel>Lead Reference (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter reference number" {...field} />
                     </FormControl>
@@ -419,7 +388,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               name="leadAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Address (Optional)</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter address" {...field} />
                   </FormControl>
@@ -433,7 +402,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               name="comment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Comment</FormLabel>
+                  <FormLabel>Comment (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Enter any additional comments..."
