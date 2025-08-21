@@ -3,11 +3,17 @@ import {
   ChangePasswordResponse,
   FilterLeadsParams,
   FilterLeadsResponse,
+  GenerateOtpRequest,
+  GenerateOtpResponse,
   LoginRequestData,
   LoginResponse,
+  ResetRequest,
+  ResetResponse,
   TaskStagesDropdownResponse,
   UpdateUserRequest,
   UpdateUserResponse,
+  VerifyOtpRequest,
+  VerifyOtpResponse,
 } from "@/lib/data";
 import { API_CONSTANTS } from "./api.route";
 import {
