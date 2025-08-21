@@ -205,63 +205,111 @@ export const TaskColumn = ({
 
   return (
     <div 
-      className="flex-1 min-w-[260px] max-w-[320px] bg-gray-100 rounded-lg pb-32"
+      className="flex-shrink-0 min-w-[280px] max-w-[320px] bg-gray-50 rounded-xl border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-md"
       data-stage-id={stage.id}
       data-stage-name={stage.name}
+      style={{
+        // Ensure smooth transitions and prevent layout shifts
+        willChange: 'transform, box-shadow',
+        transform: 'translateZ(0)', // Enable hardware acceleration
+      }}
     >
-      <div className="mb-4">
-        <div className={`${stageColors.color} ${stageColors.textColor} px-4 py-3 rounded-lg flex items-center justify-between shadow-sm`}>
-          <h2 className="font-semibold text-sm uppercase tracking-wide">
+      {/* Stage Header */}
+      <div className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200">
+        <div className={`${stageColors.color} ${stageColors.textColor} px-4 py-3 rounded-t-xl flex items-center justify-between shadow-sm transition-all duration-200`}>
+          <h2 className="font-semibold text-sm uppercase tracking-wide truncate">
             {stage.name}
           </h2>
-          <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+          <Badge variant="secondary" className="bg-white/20 text-white border-white/30 flex-shrink-0 ml-2">
             {tasks.length}
           </Badge>
         </div>
       </div>
       
+      {/* Tasks Container with Enhanced Scrolling */}
       <div 
-        className={`space-y-3 h-[500px] p-1 rounded-lg transition-all duration-200 overflow-y-auto ${
+        className={`h-[calc(100vh-280px)] min-h-[400px] p-3 transition-all duration-300 ease-in-out ${
           isDraggedOver 
-            ? 'bg-gray-50 border-2 border-gray-300 border-dashed shadow-inner' 
+            ? 'bg-blue-50/50 border-2 border-blue-300 border-dashed shadow-inner' 
             : 'bg-transparent'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDragEnter={handleDragEnter}
         onDrop={handleDrop}
+        style={{
+          // Smooth scrolling properties
+          overflowY: 'auto',
+          scrollBehavior: 'smooth',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#cbd5e1 #f1f5f9',
+          WebkitOverflowScrolling: 'touch',
+        }}
       >
+        {/* Custom Scrollbar Styles */}
+        <style jsx>{`
+          div::-webkit-scrollbar {
+            width: 6px;
+          }
+          div::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 3px;
+          }
+          div::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+            transition: background 0.2s ease;
+          }
+          div::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+        `}</style>
+
         {/* Loading indicator */}
         {isUpdating && (
-          <div className="flex items-center justify-center py-4">
-            <div className="flex items-center gap-2 text-blue-600">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm">Moving task...</span>
+          <div className="flex items-center justify-center py-6 mb-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-3 text-blue-700">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm font-medium">Moving task...</span>
             </div>
           </div>
         )}
         
-        {/* Task cards */}
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onEdit={onEditTask}
-            onDelete={onDeleteTask}
-            onTaskClick={() => onTaskClick?.(task.id)}
-            draggable={!isUpdating}
-            isDragging={draggedTaskId === task.id}
-            onDragStart={handleDragStart}
-          />
-        ))}
+        {/* Task cards with enhanced spacing and animations */}
+        <div className="space-y-3">
+          {tasks.map((task, index) => (
+            <div
+              key={task.id}
+              className="transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
+              style={{
+                // Stagger animation delay for smooth loading
+                animationDelay: `${index * 50}ms`,
+                willChange: 'transform, opacity',
+              }}
+            >
+              <TaskCard
+                task={task}
+                onEdit={onEditTask}
+                onDelete={onDeleteTask}
+                onTaskClick={() => onTaskClick?.(task.id)}
+                draggable={!isUpdating}
+                isDragging={draggedTaskId === task.id}
+                onDragStart={handleDragStart}
+              />
+            </div>
+          ))}
+        </div>
         
         {/* Empty state */}
         {tasks.length === 0 && !isUpdating && (
-          <div className="text-center py-8 text-muted-foreground">
-            <div className="rounded-lg p-6">
-              <p className="text-sm">No tasks in this stage</p>
+          <div className="text-center py-2">
+            <div className=" rounded-xl p-8  transition-all duration-200 hover:border-gray-400">
+             
+              <p className="text-sm text-gray-500 mb-2">No tasks in this stage</p>
               {isDraggedOver && (
-                <p className="text-xs text-blue-600 mt-2 font-medium">Drop task here</p>
+                <p className="text-sm text-blue-600 font-medium animate-pulse">
+                  Drop task here
+                </p>
               )}
             </div>
           </div>
@@ -269,8 +317,13 @@ export const TaskColumn = ({
 
         {/* Drop indicator when dragging over non-empty column */}
         {isDraggedOver && tasks.length > 0 && (
-          <div className="text-center py-4 text-blue-600 bg-gray-100 rounded-lg border-2 border-blue-300 border-dashed">
-            <p className="text-sm font-medium">Drop task here</p>
+          <div className="mt-4 text-center py-6 text-blue-600 bg-blue-50 rounded-xl border-2 border-blue-300 border-dashed transition-all duration-200 animate-pulse">
+            <div className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+              <p className="text-sm font-medium">Drop task here</p>
+            </div>
           </div>
         )}
       </div>
