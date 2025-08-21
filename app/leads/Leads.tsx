@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
-import { DragDropContext, DropResult, Draggable } from "react-beautiful-dnd";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadColumn } from "@/components/leads/LeadColumn";
@@ -17,6 +16,8 @@ import {
   AssignDropdown,
   getAssignDropdown,
   getLeadById,
+  ChangeLeadStatusRequest,
+  changeLeadStatus,
 } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
@@ -80,13 +81,15 @@ const Leads = () => {
   const [isChangeAssignModalOpen, setIsChangeAssignModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [assignOptions, setAssignOptions] = useState<AssignDropdown[]>([]);
-
   const [isSortingModalOpen, setIsSortingModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [sortConfig, setSortConfig] = useState<
     { sortBy: string; sortOrder: "asc" | "desc" } | undefined
   >();
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
 
   const { toast } = useToast();
 
@@ -100,17 +103,7 @@ const Leads = () => {
     "CLOSED_WON",
     "CLOSED_LOST",
   ];
-  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
-const refreshAssignees = async () => {
-  try {
-    const response = await getAssignDropdown();
-    if (response.isSuccess && response.data) {
-      setAssignees(response.data);
-    }
-  } catch (error) {
-    console.error("Failed to fetch assignees:", error);
-  }
-};
+
   useEffect(() => {
     const fetchAssignOptions = async () => {
       try {
@@ -132,25 +125,19 @@ const refreshAssignees = async () => {
     return option ? option.label : null;
   };
 
-  // Enhanced Lead transformation - now maintains original structure
-  const enhanceLeadWithAssigneeName = (lead: Lead, assignOptions: AssignDropdown[]): Lead => {
-  // If leadAssignedTo exists, use it as the primary assignee
-  let assignedToName = lead.leadAssignedTo;
-  
-  if (lead.leadAssignedTo) {
-    assignedToName = lead.leadAssignedTo;
-  } else if (lead.leadAddedBy) {
-    // Fallback to leadAddedBy if leadAssignedTo is not set
-    const assignee = assignOptions.find(opt => opt.id === lead.leadAddedBy);
-    assignedToName = assignee ? assignee.label : lead.leadAddedBy;
-  }
-
-  return {
-    ...lead,
-    assignedToName,
-    company: lead.company || lead.companyEmailAddress,
+ 
+  const enhanceLeadWithAssigneeName = (
+    lead: Lead,
+    assignOptions: AssignDropdown[]
+  ): Lead => {
+    const assignee = assignOptions.find((opt) => opt.id === lead.leadAddedBy);
+    return {
+      ...lead,
+      assignedToName: assignee ? assignee.label : lead.leadAddedBy,
+      // Ensure company field is populated if not present
+      company: lead.company || lead.companyEmailAddress,
+    };
   };
-};
 
   // FIXED: Simplified add lead handler
   const handleAddNewLead = (apiLeadData: any) => {
@@ -168,7 +155,9 @@ const refreshAssignees = async () => {
   };
 
   const handleAddNewLeadOptimistic = (formData: any) => {
-    const assignee = assignOptions.find(opt => opt.id === formData.leadAddedBy);
+    const assignee = assignOptions.find(
+      (opt) => opt.id === formData.leadAddedBy
+    );
 
     const newLead: Lead = {
       leadId: formData.leadId || `temp-${Date.now()}`,
@@ -194,7 +183,7 @@ const refreshAssignees = async () => {
     setLeads((prevLeads) => [newLead, ...prevLeads]);
   };
 
-  const fetchFilteredLeads = async () => {
+   const fetchFilteredLeads = async () => {
     try {
       setIsLoading(true);
 
@@ -223,7 +212,7 @@ const refreshAssignees = async () => {
       const response = await filterLeads(cleanedParams);
 
       if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.map(lead => 
+        const enhancedLeads = response.data.map((lead) =>
           enhanceLeadWithAssigneeName(lead, assignOptions)
         );
         setLeads(enhancedLeads);
@@ -238,6 +227,7 @@ const refreshAssignees = async () => {
       setIsLoading(false);
     }
   };
+
 
   // FIXED: Improved useEffect for filters
   useEffect(() => {
@@ -257,7 +247,7 @@ const refreshAssignees = async () => {
       setIsLoading(true);
       const response = await getAllLeads();
       if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.map(lead => 
+        const enhancedLeads = response.data.map((lead) =>
           enhanceLeadWithAssigneeName(lead, assignOptions)
         );
         setLeads(enhancedLeads);
@@ -277,13 +267,15 @@ const refreshAssignees = async () => {
   useEffect(() => {
     // Refresh leads when assignOptions are loaded to update names
     if (assignOptions.length > 0 && leads.length > 0) {
-      const updatedLeads = leads.map(lead => {
+      const updatedLeads = leads.map((lead) => {
         // If we only have IDs but not names, update them
-        if (lead.leadAddedBy && !lead.leadAssignedTo) {
-          const assignee = assignOptions.find(opt => opt.id === lead.leadAddedBy);
+        if (lead.leadAddedBy && !lead.assignedToName) {
+          const assignee = assignOptions.find(
+            (opt) => opt.id === lead.leadAddedBy
+          );
           return {
             ...lead,
-            assignedToName: assignee ? assignee.label : lead.leadAddedBy
+            assignedToName: assignee ? assignee.label : lead.leadAddedBy,
           };
         }
         return lead;
@@ -300,85 +292,130 @@ const refreshAssignees = async () => {
   const filteredLeads = searchQuery
     ? leads.filter((lead) => {
         return (
-          lead.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.companyEmailAddress?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.customerEmailAddress?.toLowerCase().includes(searchQuery.toLowerCase())
+          lead.customerName
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          lead.companyEmailAddress
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          lead.customerEmailAddress
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase())
         );
       })
     : leads;
 
-  const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
+  // Custom drag and drop handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, lead: Lead) => {
+    setDraggedLead(lead);
+    e.dataTransfer.setData("text/plain", lead.leadId);
+    e.dataTransfer.effectAllowed = "move";
+  };
 
-    const { source, destination, draggableId } = result;
+  const handleDragOver = (
+    e: React.DragEvent<HTMLDivElement>,
+    status: LeadStatus
+  ) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
 
-    // Don't do anything if dropped in the same place
-    if (source.droppableId === destination.droppableId) return;
+const handleDrop = async (
+  e: React.DragEvent<HTMLDivElement>,
+  newStatus: LeadStatus
+) => {
+  e.preventDefault();
 
-    const newStatus = destination.droppableId as LeadStatus;
+  if (!draggedLead) return;
 
-    try {
-      // Find the lead being dragged
-      const leadToUpdate = leads.find((lead) => lead.leadId === draggableId);
-      if (!leadToUpdate) return;
+  // Don't do anything if dropped in the same status
+  if (draggedLead.leadStatus === newStatus) return;
 
-      // Optimistically update local state first
+  try {
+    // Find the lead being dragged
+    const leadToUpdate = leads.find(
+      (lead) => lead.leadId === draggedLead.leadId
+    );
+    if (!leadToUpdate) return;
+
+    // Optimistically update local state first
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.leadId === draggedLead.leadId
+          ? {
+              ...lead,
+              leadStatus: newStatus,
+              updatedAt: new Date().toISOString(),
+            }
+          : lead
+      )
+    );
+
+    // Prepare payload for API call using the new endpoint
+    const payload: ChangeLeadStatusRequest = {
+      leadId: leadToUpdate.leadId,
+      leadStatus: newStatus,
+    };
+
+    // Make API call to update status using the dedicated endpoint
+    const response = await changeLeadStatus(payload);
+
+    if (!response.isSuccess) {
+      // Revert local state if API call fails
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
-          lead.leadId === draggableId
-            ? { ...lead, leadStatus: newStatus, updatedAt: new Date().toISOString() }
+          lead.leadId === draggedLead.leadId
+            ? { ...lead, leadStatus: draggedLead.leadStatus }
             : lead
         )
       );
-
-      // Prepare payload for API call
-      const payload = {
-        leadId: leadToUpdate.leadId,
-        leadStatus: newStatus,
-        leadSource: leadToUpdate.leadSource,
-        leadAddedBy: leadToUpdate.leadAddedBy,
-        customerMobileNumber: leadToUpdate.customerMobileNumber,
-        companyEmailAddress: leadToUpdate.companyEmailAddress,
-        customerName: leadToUpdate.customerName,
-        customerEmailAddress: leadToUpdate.customerEmailAddress,
-        leadLabel: leadToUpdate.leadLabel || "",
-        leadReference: leadToUpdate.leadReference || "",
-        leadAddress: leadToUpdate.leadAddress || "",
-        comment: leadToUpdate.comment || "",
-      };
-
-      // Make API call to update status
-      const response = await updateLead(payload);
-
-      if (!response.isSuccess) {
-        // Revert local state if API call fails
+      toast({
+        title: "Error",
+        description: response.message || "Failed to update lead status",
+        variant: "destructive",
+      });
+    } else {
+      // Update with the actual timestamp from the server if available
+      if (response.data) {
         setLeads((prevLeads) =>
           prevLeads.map((lead) =>
-            lead.leadId === draggableId
-              ? { ...lead, leadStatus: source.droppableId as LeadStatus }
+            lead.leadId === draggedLead.leadId
+              ? {
+                  ...lead,
+                  leadStatus: newStatus,
+                  updatedAt: response.data!.updatedAt,
+                }
               : lead
           )
         );
-        toast({
-          title: "Error",
-          description: "Failed to update lead status",
-          variant: "destructive",
-        });
       }
-    } catch (error: any) {
-      console.error("Failed to update lead status:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update lead status",
-        variant: "destructive",
-      });
     }
-  };
+  } catch (error: any) {
+    console.error("Failed to update lead status:", error);
+    // Revert local state on error
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.leadId === draggedLead.leadId
+          ? { ...lead, leadStatus: draggedLead.leadStatus }
+          : lead
+      )
+    );
+    toast({
+      title: "Error",
+      description: error.message || "Failed to update lead status",
+      variant: "destructive",
+    });
+  } finally {
+    setDraggedLead(null);
+  }
+};
 
   // Update existing lead in local state
   const handleUpdateLead = (updatedLead: Lead) => {
     setLeads((prevLeads) =>
-      prevLeads.map((lead) => (lead.leadId === updatedLead.leadId ? updatedLead : lead))
+      prevLeads.map((lead) =>
+        lead.leadId === updatedLead.leadId ? updatedLead : lead
+      )
     );
   };
 
@@ -423,13 +460,16 @@ const refreshAssignees = async () => {
   const handleViewLead = async (lead: Lead) => {
     setSelectedLead(lead); // Set initial lead data for quick display
     setIsViewModalOpen(true);
-    
+
     try {
       // Fetch detailed lead data from API
       const response = await getLeadById(lead.leadId);
-      
+
       if (response.isSuccess && response.data) {
-        const detailedLead = enhanceLeadWithAssigneeName(response.data, assignOptions);
+        const detailedLead = enhanceLeadWithAssigneeName(
+          response.data,
+          assignOptions
+        );
         setSelectedLead(detailedLead);
       }
     } catch (error: any) {
@@ -470,28 +510,24 @@ const refreshAssignees = async () => {
     setIsChangeAssignModalOpen(true);
   };
 
-const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
-  // Find the assignee details from assignOptions
-  const assignee = assignOptions.find(opt => opt.label === assignedTo);
-  
-  setLeads((prevLeads) =>
-    prevLeads.map((lead) =>
-      lead.leadId === leadId
-        ? { 
-            ...lead, 
-            leadAssignedTo: assignedTo, // Update leadAssignedTo instead of leadAddedBy
-            assignedToName: assignedTo, // Keep this for display
-            updatedAt: new Date().toISOString() 
-          }
-        : lead
-    )
-  );
-  
-  toast({
-    title: "Assignment updated",
-    description: "Lead has been reassigned successfully.",
-  });
-};
+  const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.leadId === leadId
+          ? {
+              ...lead,
+              leadAddedBy: assignedTo,
+              assignedToName: getAssignedToLabel(assignedTo) || assignedTo,
+              updatedAt: new Date().toISOString(),
+            }
+          : lead
+      )
+    );
+    toast({
+      title: "Assignment updated",
+      description: "Lead has been reassigned successfully.",
+    });
+  };
 
   const handleImportLead = () => {
     setIsImportModalOpen(true);
@@ -554,7 +590,7 @@ const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
       });
 
       if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.map(lead => 
+        const enhancedLeads = response.data.map((lead) =>
           enhanceLeadWithAssigneeName(lead, assignOptions)
         );
         setLeads(enhancedLeads);
@@ -588,12 +624,14 @@ const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
   ) => {
     setLeads((prevLeads) =>
       prevLeads.map((lead) =>
-        lead.leadId === leadId ? { 
-          ...lead, 
-          leadStatus: status, 
-          updatedAt: new Date().toISOString(),
-          comment: notes || lead.comment
-        } : lead
+        lead.leadId === leadId
+          ? {
+              ...lead,
+              leadStatus: status,
+              updatedAt: new Date().toISOString(),
+              comment: notes || lead.comment,
+            }
+          : lead
       )
     );
     toast({
@@ -628,29 +666,32 @@ const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
           }}
           onImportLead={() => setIsImportModalOpen(true)}
           onApplyFilters={() => fetchFilteredLeads()}
-            onSortLeads={() => setIsSortingModalOpen(true)}
+          onSortLeads={() => setIsSortingModalOpen(true)}
         />
 
         {viewMode === "kanban" && (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-4 overflow-x-auto pb-6">
-              {statuses.map((status) => (
-                <LeadColumn
-                  key={status}
-                  status={status}
-                  leads={filteredLeads.filter((lead) => lead.leadStatus === status)}
-                  onEditLead={handleEditLead}
-                  onDeleteLead={handleDeleteClick}
-                  onViewLead={handleViewLead}
-                  onAddFollowUp={handleAddFollowUp}
-                  onChangeAssign={handleChangeAssign}
-                  onImportLead={handleImportLead}
-                  onLeadSorting={handleLeadSorting}
-                  onChangeStatus={handleChangeStatus}
-                />
-              ))}
-            </div>
-          </DragDropContext>
+          <div className="flex gap-4 overflow-x-auto pb-6">
+            {statuses.map((status) => (
+              <LeadColumn
+                key={status}
+                status={status}
+                leads={filteredLeads.filter(
+                  (lead) => lead.leadStatus === status
+                )}
+                onEditLead={handleEditLead}
+                onDeleteLead={handleDeleteClick}
+                onViewLead={handleViewLead}
+                onAddFollowUp={handleAddFollowUp}
+                onChangeAssign={handleChangeAssign}
+                onImportLead={handleImportLead}
+                onLeadSorting={handleLeadSorting}
+                onChangeStatus={handleChangeStatus}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              />
+            ))}
+          </div>
         )}
 
         {/* Grid View */}
@@ -821,6 +862,7 @@ const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
         <EditLeadModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
+          //@ts-ignore
           onUpdateLead={handleUpdateLead}
           lead={selectedLead}
         />
