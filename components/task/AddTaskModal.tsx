@@ -34,13 +34,42 @@ interface AddTaskModalProps {
   users: User[];
 }
 
+interface CreateTaskRequest {
+  subject: string;
+  description: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  taskStageId: number;
+  startDate: string;
+  endDate: string;
+  assignee: string;
+}
+
+interface GetTaskByIdResponse {
+  data: {
+    id: number;
+    subject: string;
+    description: string;
+    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+    startDate: string;
+    endDate: string | null;
+    taskStageId: number;
+    taskStageName: string;
+    createdAt: string;
+    updatedAt: string;
+    assignee: {
+      id: string;
+      label: string;
+    };
+  };
+}
+
 export const AddTaskModal = ({
   isOpen,
   onClose,
   onSubmit,
   editingTask,
+  users,
 }: AddTaskModalProps) => {
-  const [users, setUsers] = useState<User[]>([]);
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -76,7 +105,7 @@ export const AddTaskModal = ({
         endDate: editingTask.endDate
           ? new Date(editingTask.endDate).toISOString()
           : "",
-        assignee: editingTask.assignee.id || "",
+        assignee: editingTask.assignee?.id || "",
       });
     } else {
       // Reset form for new task
@@ -90,24 +119,32 @@ export const AddTaskModal = ({
         assignee: "",
       });
     }
-  }, [editingTask]);
+  }, [editingTask, isOpen]); // Added isOpen to dependencies
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!isOpen) return; // Don't fetch if modal is closed
+      
       try {
-        const [usersRes, stagesRes] = await Promise.all([
-          getUsers(),
-          getTaskStagesDropdown(),
-        ]);
+        setIsLoading(true);
+        const stagesRes = await getTaskStagesDropdown();
 
-        if (usersRes.isSuccess) setUsers(usersRes.data);
-        if (stagesRes.isSuccess) setStages(stagesRes.data);
+        if (stagesRes?.isSuccess && stagesRes.data) {
+          setStages(stagesRes.data);
+        } else {
+          console.error("Failed to fetch stages:", stagesRes?.message);
+          toast({
+            title: "Error",
+            description: "Failed to load stages. Please try again later.",
+            variant: "destructive",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching data:", error);
         toast({
           title: "Error",
           description:
-            error.message || "Failed to load data. Please try again later.",
+            error?.message || "Failed to load data. Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -115,29 +152,99 @@ export const AddTaskModal = ({
       }
     };
 
-    if (isOpen) {
-      fetchData();
-    }
-  }, [isOpen]);
+    fetchData();
+  }, [isOpen, toast]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.subject || !formData.taskStageId || !formData.assignee || !formData.description) {
-      alert("Please fill all required fields");
+    // Validate required fields
+    if (!formData.subject?.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Subject is required",
+        variant: "destructive",
+      });
       return;
     }
 
-    onSubmit(formData);
-    onClose();
+    if (!formData.description?.trim()) {
+      toast({
+        title: "Validation Error", 
+        description: "Description is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.taskStageId || formData.taskStageId === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a stage",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.assignee?.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please select an assignee",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      onSubmit(formData);
+      onClose();
+    } catch (error) {
+      console.error("Error submitting task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save task. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Format date for <input type="date">
   const formatDateForInput = (dateString: string) => {
     if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toISOString().slice(0, 10); // YYYY-MM-DD only
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().slice(0, 10); // YYYY-MM-DD only
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "";
+    }
   };
+
+  // Handle date changes safely
+  const handleDateChange = (value: string, field: 'startDate' | 'endDate') => {
+    try {
+      if (!value) {
+        setFormData({ ...formData, [field]: "" });
+        return;
+      }
+      
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        console.error("Invalid date:", value);
+        return;
+      }
+      
+      setFormData({
+        ...formData,
+        [field]: date.toISOString(),
+      });
+    } catch (error) {
+      console.error("Error handling date change:", error);
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -215,10 +322,13 @@ export const AddTaskModal = ({
                 Stage: *
               </Label>
               <Select
-                value={formData.taskStageId.toString()}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, taskStageId: parseInt(value) })
-                }
+                value={formData.taskStageId?.toString() || ""}
+                onValueChange={(value) => {
+                  const numValue = parseInt(value, 10);
+                  if (!isNaN(numValue)) {
+                    setFormData({ ...formData, taskStageId: numValue });
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select stage" />
@@ -243,12 +353,7 @@ export const AddTaskModal = ({
               <Input
                 type="date"
                 value={formatDateForInput(formData.startDate)}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    startDate: new Date(e.target.value).toISOString(),
-                  })
-                }
+                onChange={(e) => handleDateChange(e.target.value, 'startDate')}
                 className="w-full"
                 required
               />
@@ -261,12 +366,7 @@ export const AddTaskModal = ({
               <Input
                 type="date"
                 value={formatDateForInput(formData.endDate)}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    endDate: new Date(e.target.value).toISOString(),
-                  })
-                }
+                onChange={(e) => handleDateChange(e.target.value, 'endDate')}
                 className="w-full"
               />
             </div>
@@ -285,11 +385,17 @@ export const AddTaskModal = ({
                 <SelectValue placeholder="Select assignee" />
               </SelectTrigger>
               <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.userId} value={user.userId}>
-                    {user.firstName} {user.lastName}
+                {users && users.length > 0 ? (
+                  users.map((user) => (
+                    <SelectItem key={user.userId} value={user.userId}>
+                      {user.firstName} {user.lastName}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="" disabled>
+                    No users available
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -319,8 +425,9 @@ export const AddTaskModal = ({
             <Button
               type="submit"
               className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={isLoading}
             >
-              {editingTask ? "Update" : "Submit"}
+              {isLoading ? "Loading..." : editingTask ? "Update" : "Submit"}
             </Button>
           </div>
         </form>
