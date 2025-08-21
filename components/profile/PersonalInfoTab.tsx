@@ -95,7 +95,6 @@ export function PersonalInfoTab() {
         lastName: data.lastName,
         emailAddress: data.emailAddress,
         contactNumber: data.phoneNumber || undefined,
-        dateOfBirth: data.birthday ? data.birthday.toISOString() : undefined,
       };
 
       const response = await updateUserProfile(userId, payload);
@@ -269,7 +268,7 @@ export function PersonalInfoTab() {
           </div>
 
           {/* Third Row: Birthday - Optional */}
-          <FormField
+          {/* <FormField
             control={form.control}
             name="birthday"
             render={({ field }) => (
@@ -310,7 +309,7 @@ export function PersonalInfoTab() {
                 <FormMessage />
               </FormItem>
             )}
-          />
+          /> */}
 
           {/* Submit Button */}
           <div className="flex justify-end pt-4">
