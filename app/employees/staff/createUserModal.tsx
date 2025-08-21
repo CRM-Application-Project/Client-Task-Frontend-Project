@@ -290,6 +290,13 @@ export function CreateStaffModal({
     setSelectedModule(null);
   };
 
+  function formatModuleName(name: string) {
+    return name
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  }
+
   const removeModule = (moduleId: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -535,7 +542,7 @@ export function CreateStaffModal({
                     {getAvailableModules().map((module) => (
                       <SelectItem key={module.id} value={module.id.toString()}>
                         <span className="font-medium capitalize">
-                          {module.name}
+                          {formatModuleName(module.name)}
                         </span>
                       </SelectItem>
                     ))}
@@ -572,7 +579,9 @@ export function CreateStaffModal({
                         </Button>
 
                         <div className="font-medium mb-2">
-                          {module?.name || moduleAccess.moduleName}
+                          {formatModuleName(
+                            module?.name || moduleAccess.moduleName
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
