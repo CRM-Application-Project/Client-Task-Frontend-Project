@@ -52,7 +52,7 @@ interface Lead {
   comment?: string;
   leadLabel?: string;
   leadReference?: string;
-  priority: LeadPriority;
+  leadPriority: LeadPriority;
   company?: string;
   createdAt: string;
   updatedAt: string;

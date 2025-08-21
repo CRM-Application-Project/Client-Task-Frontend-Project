@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -89,14 +89,15 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
 
     fetchAssignees();
   }, [isOpen, toast]);
+  
 
   // Reset form when lead changes
   React.useEffect(() => {
     if (lead) {
-      const currentAssignee = assignees.find(a => a.label === lead.leadAddedBy);
+      const currentAssignee = assignees.find(a => a.label === lead.leadAssignedTo);
       form.reset({ 
         transferToId: currentAssignee?.id || '',
-        transferToLabel: lead.leadAddedBy 
+        transferToLabel: lead.leadAssignedTo || '' 
       });
     }
   }, [lead, assignees, form]);
