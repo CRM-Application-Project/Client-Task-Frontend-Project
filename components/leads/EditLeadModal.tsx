@@ -39,7 +39,6 @@ interface Lead {
   leadSource: string;
   leadAddedBy: string;
   leadAssignedTo: string;
-
   customerMobileNumber: string;
   companyEmailAddress: string;
   customerName: string;
@@ -48,7 +47,7 @@ interface Lead {
   comment?: string;
   leadLabel?: string;
   leadReference?: string;
-  leadPriority: LeadPriority;
+  leadPriority?: LeadPriority;
   company?: string;
   createdAt: string;
   updatedAt: string;
@@ -60,14 +59,14 @@ const formSchema = z.object({
   customerName: z.string().min(1, 'Name is required'),
   customerEmailAddress: z.string().email('Invalid email address'),
   customerMobileNumber: z.string().min(1, 'Phone number is required'),
-  companyEmailAddress: z.string().min(1, 'Company email is required'),
-  leadAddress: z.string().min(1, 'Address is required'),
+  companyEmailAddress: z.string().email('Invalid company email address').optional().or(z.literal('')),
+  leadAddress: z.string().optional().or(z.literal('')),
   leadStatus: z.string().min(1, 'Status is required'),
   leadPriority: z.string().min(1, 'Priority is required'),
   leadSource: z.string().min(1, 'Source is required'),
   leadAddedBy: z.string().min(1, 'Assigned to is required'),
-  leadLabel: z.string().optional(),
-  leadReference: z.string().optional(),
+  leadLabel: z.string().optional().or(z.literal('')),
+  leadReference: z.string().optional().or(z.literal('')),
   comment: z.string().optional(),
 });
 
@@ -137,10 +136,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         customerName: data.customerName,
         customerEmailAddress: data.customerEmailAddress,
         customerMobileNumber: data.customerMobileNumber,
-        companyEmailAddress: data.companyEmailAddress,
-        leadAddress: data.leadAddress,
+        companyEmailAddress: data.companyEmailAddress || '',
+        leadAddress: data.leadAddress || '',
         leadStatus: data.leadStatus as LeadStatus,
-        priority: data.leadPriority as LeadPriority,
+        leadPriority: data.leadPriority as LeadPriority,
         leadSource: data.leadSource as LeadSource,
         leadAddedBy: data.leadAddedBy,
         leadLabel: data.leadLabel || '',
@@ -157,8 +156,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           customerName: data.customerName,
           customerEmailAddress: data.customerEmailAddress,
           customerMobileNumber: data.customerMobileNumber,
-          companyEmailAddress: data.companyEmailAddress,
-          leadAddress: data.leadAddress,
+          companyEmailAddress: data.companyEmailAddress || '',
+          leadAddress: data.leadAddress || '',
           leadStatus: data.leadStatus as LeadStatus,
           leadPriority: data.leadPriority as LeadPriority,
           leadSource: data.leadSource as LeadSource,
@@ -265,7 +264,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 name="companyEmailAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Email</FormLabel>
+                    <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="company@example.com" {...field} />
                     </FormControl>
@@ -279,7 +278,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 name="leadAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>Address (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Street, City, State, ZIP" {...field} />
                     </FormControl>
@@ -307,7 +306,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 name="leadLabel"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Lead Label</FormLabel>
+                    <FormLabel>Lead Label (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Lead label" {...field} />
                     </FormControl>
@@ -321,7 +320,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 name="leadReference"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Lead Reference</FormLabel>
+                    <FormLabel>Lead Reference (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Lead reference" {...field} />
                     </FormControl>
@@ -415,7 +414,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
               name="comment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Comments</FormLabel>
+                  <FormLabel>Comments (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Add any additional comments..."
