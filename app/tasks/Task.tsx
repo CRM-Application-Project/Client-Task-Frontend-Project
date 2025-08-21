@@ -43,7 +43,7 @@ interface TaskResponse {
   taskStageName: string;
   createdAt: string;
   updatedAt: string;
-  assignees: Assignee[];
+  assignee: Assignee;
 }
 
 interface Task {
@@ -61,7 +61,7 @@ interface Task {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignees: Assignee[];
+  assignee: Assignee;
 }
 
 interface EditingTaskResponse {
@@ -75,7 +75,7 @@ interface EditingTaskResponse {
   taskStageName: string;
   createdAt: string;
   updatedAt: string;
-  assignees: Assignee[];
+  assignee: Assignee;
 }
 
 interface FilterTasksParams {
@@ -99,7 +99,7 @@ interface CreateTaskRequest {
   taskStageId: number;
   startDate: string;
   endDate: string;
-  assignees: string[];
+  assignee: string;
 }
 
 interface UpdateTaskRequest {
@@ -109,7 +109,7 @@ interface UpdateTaskRequest {
   taskStageId: number;
   startDate: string;
   endDate: string;
-  assignees: string[];
+  assignee: string;
 }
 
 interface ApiTaskResponse {
@@ -209,15 +209,15 @@ export default function TaskBoard() {
               status: task.taskStageName as TaskStatus,
               priority: task.priority,
               labels: [],
-              assignedTo: task.assignees[0]?.label || "Unassigned",
-              createdBy: task.assignees[0]?.label || "Unknown",
+              assignedTo: task.assignee?.label || "Unassigned",
+              createdBy: task.assignee?.label || "Unknown",
               startDate: new Date(task.startDate),
               endDate: task.endDate ? new Date(task.endDate) : null,
               createdAt: new Date(task.createdAt),
               updatedAt: new Date(task.updatedAt),
               taskStageId: task.taskStageId,
               taskStageName: task.taskStageName,
-              assignees: task.assignees,
+              assignee: task.assignee,
             })
           )
         );
@@ -229,15 +229,15 @@ export default function TaskBoard() {
           status: task.taskStageName as TaskStatus,
           priority: task.priority,
           labels: [],
-          assignedTo: task.assignees[0]?.label || "Unassigned",
-          createdBy: task.assignees[0]?.label || "Unknown",
+          assignedTo: task.assignee?.label || "Unassigned",
+          createdBy: task.assignee?.label || "Unknown",
           startDate: new Date(task.startDate),
           endDate: task.endDate ? new Date(task.endDate) : null,
           createdAt: new Date(task.createdAt),
           updatedAt: new Date(task.updatedAt),
           taskStageId: task.taskStageId,
           taskStageName: task.taskStageName,
-          assignees: task.assignees,
+          assignee: task.assignee,
         }));
       }
     },
@@ -429,7 +429,7 @@ export default function TaskBoard() {
           taskStageId: taskData.taskStageId,
           startDate: taskData.startDate,
           endDate: taskData.endDate,
-          assignees: taskData.assignees
+          assignee: taskData.assignee
         };
         response = await updateTask(editingTask.id, updateData);
       } else {
@@ -477,7 +477,7 @@ export default function TaskBoard() {
       taskStageName: task.taskStageName,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
-      assignees: task.assignees,
+      assignee: task.assignee,
     };
 
     setEditingTask(editingTaskData);

@@ -47,11 +47,11 @@ interface TaskDetailsResponse {
   createdAt: string;
   updatedAt: string;
   progress?: number;
-  assignees: Array<{
+  assignee: {
     id: string;
     label: string;
     avatar?: string;
-  }>;
+  };
   documents?: Document[];
 }
 
@@ -351,31 +351,30 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
                 {/* Assignees */}
                 <div className="space-y-3">
                   <h3 className="font-medium text-gray-700 text-sm">Assigned To</h3>
-                  {task.assignees && task.assignees.length > 0 ? (
-                    <div className="space-y-2">
-                      {task.assignees.map((assignee) => (
-                        <div key={assignee.id} className="flex items-center gap-3 p-3 bg-white rounded-md border">
-                          {assignee.avatar ? (
-                            <img 
-                              src={assignee.avatar} 
-                              alt={assignee.label}
-                              className="h-9 w-9 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
-                              <User className="h-4.5 w-4.5 text-blue-600" />
-                            </div>
-                          )}
-                          <span className="font-medium text-sm text-gray-900">{assignee.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-5 text-gray-500 text-sm border rounded-md bg-gray-50">
-                      <User className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                      <p>No assignees</p>
-                    </div>
-                  )}
+                  {task.assignee ? (
+  <div className="flex items-center gap-3 p-3 bg-white rounded-md border">
+    {task.assignee.avatar ? (
+      <img
+        src={task.assignee.avatar}
+        alt={task.assignee.label}
+        className="h-9 w-9 rounded-full object-cover"
+      />
+    ) : (
+      <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
+        <User className="h-4.5 w-4.5 text-blue-600" />
+      </div>
+    )}
+    <span className="font-medium text-sm text-gray-900">
+      {task.assignee.label}
+    </span>
+  </div>
+) : (
+  <div className="text-center py-5 text-gray-500 text-sm border rounded-md bg-gray-50">
+    <User className="h-6 w-6 mx-auto mb-2 opacity-50" />
+    <p>No assignees</p>
+  </div>
+)}
+
                 </div>
               </div>
 

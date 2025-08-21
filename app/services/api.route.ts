@@ -44,6 +44,10 @@ export const API_CONSTANTS = {
       DOWNLOAD_URL: (docId: string) => `/tasks/documents/${docId}/download-url`,
       DELETE: (docId: string) => `/tasks/documents/${docId}`,
     },
+    HISTORY:{
+      FILTER_HISTORY:`/tasks/history`,
+      EVENTS_DROPDOWN:`/tasks/history/events`
+    }
   },
   LEAD: {
     CREATE: "/lead/create",
