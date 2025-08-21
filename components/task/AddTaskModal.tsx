@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { X, Calendar, ChevronDown } from "lucide-react";
 import {
   Dialog,
@@ -72,6 +72,7 @@ export const AddTaskModal = ({
 }: AddTaskModalProps) => {
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [formInitialized, setFormInitialized] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
@@ -91,8 +92,21 @@ export const AddTaskModal = ({
     "URGENT",
   ];
 
-  // Initialize form data when editingTask changes
+  // Memoize the editing task ID to prevent unnecessary re-renders
+  const editingTaskId = useMemo(() => editingTask?.id, [editingTask?.id]);
+  
+  // Initialize form data when modal opens or editingTask changes
   useEffect(() => {
+    if (!isOpen) {
+      setFormInitialized(false);
+      return;
+    }
+
+    // Prevent re-initialization if already initialized for the same task
+    if (formInitialized && editingTaskId === editingTask?.id) {
+      return;
+    }
+
     if (editingTask) {
       setFormData({
         subject: editingTask.subject || "",
@@ -106,6 +120,7 @@ export const AddTaskModal = ({
           ? new Date(editingTask.endDate).toISOString()
           : "",
         assignee: editingTask.assignee?.id || "",
+        
       });
     } else {
       // Reset form for new task
