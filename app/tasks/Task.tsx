@@ -15,6 +15,7 @@ import {
   User as ServiceUser,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
+import { TaskDetailsModal } from "@/components/task/TaskDetailsModal";
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -107,8 +108,8 @@ interface UpdateTaskRequest {
   description: string;
   priority: TaskPriority;
   taskStageId: number;
-  startDate: string;
-  endDate: string;
+  startTime: string;
+  endTime: string;
   assignee: string;
 }
 
@@ -427,8 +428,8 @@ export default function TaskBoard() {
           description: taskData.description,
           priority: taskData.priority,
           taskStageId: taskData.taskStageId,
-          startDate: taskData.startDate,
-          endDate: taskData.endDate,
+          startTime: taskData.startDate,
+          endTime: taskData.endDate,
           assignee: taskData.assignee
         };
         response = await updateTask(editingTask.id, updateData);
@@ -445,7 +446,7 @@ export default function TaskBoard() {
         console.error("Error saving task:", error);
       }
     },
-    [editingTask, fetchTasks]
+    [ fetchTasks]
   );
 
   // New function to handle stage creation
@@ -488,7 +489,22 @@ export default function TaskBoard() {
     setIsAddModalOpen(false);
     setEditingTask(undefined);
   }, []);
+ const handleCloseTaskDetails = useCallback(() => {
+    setIsDetailsModalOpen(false);
+    setSelectedTaskId(null);
+  }, []);
 
+  // Add handler for editing task from details modal
+  const handleEditTaskFromDetails = useCallback(() => {
+    if (selectedTaskId) {
+      const taskToEdit = tasks.find(task => task.id === selectedTaskId);
+      if (taskToEdit) {
+        handleEditTask(taskToEdit);
+        setIsDetailsModalOpen(false);
+        setSelectedTaskId(null);
+      }
+    }
+  }, [selectedTaskId, tasks]);
   const handleClearAllFilters = useCallback(async () => {
     setFilters({});
     setSearchQuery("");
@@ -752,6 +768,14 @@ export default function TaskBoard() {
           onSubmit={handleCreateStage}
           existingStagesCount={stages.length}
         />
+          {selectedTaskId && (
+          <TaskDetailsModal
+            isOpen={isDetailsModalOpen}
+            onClose={handleCloseTaskDetails}
+            taskId={selectedTaskId}
+            onEdit={handleEditTaskFromDetails}
+          />
+        )}
       </>
     </div>
   );
