@@ -205,3 +205,19 @@ export interface ResetResponse {
     message: string;
   };
 }
+
+
+
+
+// types/track.ts
+export interface LeadTrack {
+  actionBy: string;
+  actionTime: string; // ISO timestamp
+  actionDescription: string;
+}
+
+export interface FetchLeadTrackResponse {
+  isSuccess: boolean;
+  message: string;
+  data: LeadTrack[];
+}

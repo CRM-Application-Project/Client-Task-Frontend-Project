@@ -60,5 +60,6 @@ export const API_CONSTANTS = {
     ASSIGN_DROPDOWN: "/tenant/users/dropdown",
     CHANGE_PASSWORD: "/tenant/users/:userId/change-password",
     CHANGE_STATUS: "/lead/change-status",
+     TRACK_BY_LEAD_ID: "/track/fetchByLeadId",
   },
 };

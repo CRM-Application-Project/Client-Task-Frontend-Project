@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,12 @@ import {
   Tag, 
   MessageSquare,
   Hash,
-  RefreshCw
+  RefreshCw,
+  History,
+  Clock
 } from 'lucide-react';
+import { FetchLeadTrackResponse, LeadTrack } from '@/lib/data';
+import { fetchLeadTrackById } from '@/app/services/data.service';
 
 interface Lead {
   leadId: string;
@@ -46,6 +50,36 @@ interface ViewLeadModalProps {
 }
 
 const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) => {
+  const [leadTracks, setLeadTracks] = useState<LeadTrack[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && lead) {
+      fetchLeadTracks();
+    }
+  }, [isOpen, lead]);
+
+  const fetchLeadTracks = async () => {
+    if (!lead) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const response: FetchLeadTrackResponse = await fetchLeadTrackById(lead.leadId);
+      if (response.isSuccess) {
+        setLeadTracks(response.data);
+      } else {
+        setError(response.message || 'Failed to fetch lead tracking data');
+      }
+    } catch (err) {
+      setError('Error fetching lead tracking data');
+      console.error('Error fetching lead tracks:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!lead) return null;
 
   const getInitials = (name: string) => {
@@ -102,9 +136,23 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
     }
   };
 
+  const formatTrackDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-start gap-4 pb-4 border-b">
             <Avatar className="h-14 w-14">
@@ -244,6 +292,56 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Lead Tracking History */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Lead Activity History
+            </h3>
+            
+            {loading && (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-gray-500" />
+                <span className="ml-2 text-gray-600">Loading activity history...</span>
+              </div>
+            )}
+            
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <p className="text-red-800 text-sm">{error}</p>
+              </div>
+            )}
+            
+            {!loading && !error && leadTracks.length === 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-4 text-center">
+                <p className="text-gray-600 text-sm">No activity history found</p>
+              </div>
+            )}
+            
+            {!loading && !error && leadTracks.length > 0 && (
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {leadTracks.map((track, index) => (
+                  <div key={index} className="flex gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Clock className="h-4 w-4 text-blue-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <p className="text-sm font-medium text-gray-900">{track.actionBy}</p>
+                        <p className="text-xs text-gray-500">{formatTrackDate(track.actionTime)}</p>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                        {track.actionDescription}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Additional Information */}
