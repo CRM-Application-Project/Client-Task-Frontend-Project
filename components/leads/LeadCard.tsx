@@ -151,7 +151,6 @@ export const LeadCard = ({
 
   return (
     <Card 
-                    onClick={() => onView?.(lead)}
 
     className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
       <div className="space-y-3">
