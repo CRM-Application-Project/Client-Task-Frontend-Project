@@ -367,14 +367,16 @@ export default function RegisterPage() {
                             <Input
                               id="companyContactNumber"
                               type="tel"
+                              maxLength={10}
                               placeholder="Enter contact number"
                               value={formData.companyContactNumber}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                let value = e.target.value.replace(/\D/g, "");
                                 handleInputChange(
                                   "companyContactNumber",
-                                  e.target.value
-                                )
-                              }
+                                  value
+                                );
+                              }}
                               required
                               className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                             />
