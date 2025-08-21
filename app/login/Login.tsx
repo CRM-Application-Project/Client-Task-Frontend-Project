@@ -23,6 +23,29 @@ import { useRouter } from "next/navigation";
 import { generateOtp, loginUser, resetPassword, verifyOtp, verifyUser } from "../services/data.service";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
+import { z } from "zod";
+
+// Password regex: at least 8 characters, uppercase, lowercase, number, and special character
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+// Password validation schema
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string()
+    .min(1, 'New password is required')
+    .regex(PASSWORD_REGEX, {
+      message: 'Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character'
+    }),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+})
+.refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
+.refine((data) => data.currentPassword !== data.newPassword, {
+  message: "New password must be different from current password",
+  path: ["newPassword"],
+});
 
 interface VerifyUserResponse {
   isSuccess: boolean;
@@ -90,6 +113,7 @@ export default function LoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpId, setOtpId] = useState<number | null>(null);
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const router = useRouter();
   const dispatch = useDispatch();
@@ -110,6 +134,62 @@ export default function LoginPage() {
       "zoho.com",
     ];
     return !!domain && personalDomains.includes(domain);
+  };
+
+  // Function to prevent copying from password fields
+  const handleCopyPrevention = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Copy not allowed",
+      description: "Copying from password fields is not allowed for security reasons",
+      variant: "destructive",
+    });
+  };
+
+  // Function to prevent pasting into password fields
+  const handlePastePrevention = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Paste not allowed",
+      description: "Pasting into password fields is not allowed for security reasons",
+      variant: "destructive",
+    });
+  };
+
+  // Validate new password using the schema
+  const validateNewPassword = (password: string, confirmPassword: string) => {
+    try {
+      // We use a dummy current password for validation since we don't have it in reset flow
+      changePasswordSchema.parse({
+        currentPassword: "dummyCurrentPassword123!",
+        newPassword: password,
+        confirmPassword: confirmPassword
+      });
+      setPasswordErrors([]);
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errors = error.errors.map(err => err.message);
+        setPasswordErrors(errors);
+        return false;
+      }
+      return false;
+    }
+  };
+
+  // Handle password input changes with validation
+  const handleNewPasswordChange = (value: string) => {
+    setNewPassword(value);
+    if (confirmPassword) {
+      validateNewPassword(value, confirmPassword);
+    }
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    if (newPassword) {
+      validateNewPassword(newPassword, value);
+    }
   };
 
   const verifyUserEmail = async (emailAddress: string, company?: string) => {
@@ -308,6 +388,11 @@ export default function LoginPage() {
       return;
     }
 
+    // Validate password using schema
+    if (!validateNewPassword(newPassword, confirmPassword)) {
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -340,6 +425,7 @@ export default function LoginPage() {
         setOtp("");
         setNewPassword("");
         setConfirmPassword("");
+        setPasswordErrors([]);
       } else {
         toast({
           title: "Reset Failed",
@@ -560,6 +646,7 @@ export default function LoginPage() {
                 setOtp("");
                 setNewPassword("");
                 setConfirmPassword("");
+                setPasswordErrors([]);
               }}
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
             >
@@ -647,6 +734,8 @@ export default function LoginPage() {
                         className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 ${
                           !isEmailVerified ? "opacity-50 cursor-not-allowed" : ""
                         }`}
+                        onCopy={handleCopyPrevention}
+                        onPaste={handlePastePrevention}
                       />
                       <button
                         type="button"
@@ -745,7 +834,7 @@ export default function LoginPage() {
                           Verification Code
                         </Label>
                         <Input
-                          id="otp"
+                          id="otp"  
                           type="text"
                           placeholder="Enter the code sent to your email"
                           value={otp}
@@ -793,8 +882,10 @@ export default function LoginPage() {
                             type={showNewPassword ? "text" : "password"}
                             placeholder="Enter your new password"
                             value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
+                            onChange={(e) => handleNewPasswordChange(e.target.value)}
                             className="h-12 pr-12 bg-background border-input focus:border-primary"
+                            onCopy={handleCopyPrevention}
+                            onPaste={handlePastePrevention}
                           />
                           <button
                             type="button"
@@ -822,8 +913,10 @@ export default function LoginPage() {
                             type={showConfirmPassword ? "text" : "password"}
                             placeholder="Confirm your new password"
                             value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                             className="h-12 pr-12 bg-background border-input focus:border-primary"
+                            onCopy={handleCopyPrevention}
+                            onPaste={handlePastePrevention}
                           />
                           <button
                             type="button"
@@ -838,9 +931,22 @@ export default function LoginPage() {
                           </button>
                         </div>
                       </div>
+                      
+                      {/* Password validation errors */}
+                      {passwordErrors.length > 0 && (
+                        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                          <p className="text-destructive text-sm font-medium mb-1">Password requirements:</p>
+                          <ul className="text-destructive text-xs list-disc pl-4 space-y-1">
+                            {passwordErrors.map((error, index) => (
+                              <li key={index}>{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
                       <Button
                         onClick={handleResetPassword}
-                        disabled={isLoading || !newPassword || !confirmPassword}
+                        disabled={isLoading || !newPassword || !confirmPassword || passwordErrors.length > 0}
                         className="w-full h-12"
                       >
                         {isLoading ? (

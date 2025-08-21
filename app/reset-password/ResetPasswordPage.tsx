@@ -9,6 +9,29 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { changePassword } from '../services/data.service';
+import { z } from 'zod';
+
+// Password regex: at least 8 characters, uppercase, lowercase, number, and special character
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+// Define the validation schema
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string()
+    .min(1, 'New password is required')
+    .regex(PASSWORD_REGEX, {
+      message: 'Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character'
+    }),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+})
+.refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
+.refine((data) => data.currentPassword !== data.newPassword, {
+  message: "New password must be different from current password",
+  path: ["newPassword"],
+});
 
 // Define types for the API request/response
 interface ChangePasswordRequest {
@@ -30,20 +53,48 @@ export default function ResetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const router = useRouter();
+
+  const validateForm = () => {
+    try {
+      changePasswordSchema.parse({
+        currentPassword,
+        newPassword,
+        confirmPassword
+      });
+      setErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: Record<string, string> = {};
+        error.errors.forEach((err) => {
+          if (err.path) {
+            newErrors[err.path[0]] = err.message;
+          }
+        });
+        setErrors(newErrors);
+        
+        // Show the first error in toast
+        if (error.errors.length > 0) {
+          toast({
+            title: "Validation Error",
+            description: error.errors[0].message,
+            variant: "destructive"
+          });
+        }
+      }
+      return false;
+    }
+  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Validate passwords match
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive"
-      });
+    // Validate form using Zod schema
+    if (!validateForm()) {
       setIsLoading(false);
       return;
     }
@@ -151,6 +202,9 @@ export default function ResetPasswordPage() {
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         required
                         className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200"
+                        onCopy={(e) => e.preventDefault()}
+                        onPaste={(e) => e.preventDefault()}
+                        autoComplete="off"
                       />
                       <button
                         type="button"
@@ -164,6 +218,9 @@ export default function ResetPasswordPage() {
                         )}
                       </button>
                     </div>
+                    {errors.currentPassword && (
+                      <p className="text-sm text-destructive">{errors.currentPassword}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -180,6 +237,9 @@ export default function ResetPasswordPage() {
                         required
                         minLength={8}
                         className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200"
+                        onCopy={(e) => e.preventDefault()}
+                        onPaste={(e) => e.preventDefault()}
+                        autoComplete="new-password"
                       />
                       <button
                         type="button"
@@ -193,6 +253,9 @@ export default function ResetPasswordPage() {
                         )}
                       </button>
                     </div>
+                    {errors.newPassword && (
+                      <p className="text-sm text-destructive">{errors.newPassword}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -209,6 +272,9 @@ export default function ResetPasswordPage() {
                         required
                         minLength={8}
                         className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200"
+                        onCopy={(e) => e.preventDefault()}
+                        onPaste={(e) => e.preventDefault()}
+                        autoComplete="new-password"
                       />
                       <button
                         type="button"
@@ -222,6 +288,9 @@ export default function ResetPasswordPage() {
                         )}
                       </button>
                     </div>
+                    {errors.confirmPassword && (
+                      <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                    )}
                   </div>
 
                   <Button
