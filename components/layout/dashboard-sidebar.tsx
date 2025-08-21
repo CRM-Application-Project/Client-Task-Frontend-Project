@@ -284,7 +284,7 @@ export function DashboardSidebar({
                           <ChevronRight
                             className={cn(
                               "h-4 w-4 flex-shrink-0 transition-transform duration-200",
-                              isExpanded && "rotate-90"
+                              isExpanded && "rotate-45"
                             )}
                           />
                         )}
