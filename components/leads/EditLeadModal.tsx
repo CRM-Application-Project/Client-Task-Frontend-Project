@@ -48,7 +48,7 @@ interface Lead {
   comment?: string;
   leadLabel?: string;
   leadReference?: string;
-  priority: LeadPriority;
+  leadPriority: LeadPriority;
   company?: string;
   createdAt: string;
   updatedAt: string;
@@ -63,7 +63,7 @@ const formSchema = z.object({
   companyEmailAddress: z.string().min(1, 'Company email is required'),
   leadAddress: z.string().min(1, 'Address is required'),
   leadStatus: z.string().min(1, 'Status is required'),
-  priority: z.string().min(1, 'Priority is required'),
+  leadPriority: z.string().min(1, 'Priority is required'),
   leadSource: z.string().min(1, 'Source is required'),
   leadAddedBy: z.string().min(1, 'Assigned to is required'),
   leadLabel: z.string().optional(),
@@ -98,7 +98,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       companyEmailAddress: lead?.companyEmailAddress || '',
       leadAddress: lead?.leadAddress || '',
       leadStatus: lead?.leadStatus || '',
-      priority: lead?.priority || '',
+      leadPriority: lead?.leadPriority || '',
       leadSource: lead?.leadSource || '',
       leadAddedBy: lead?.leadAddedBy || '',
       leadLabel: lead?.leadLabel || '',
@@ -116,7 +116,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         companyEmailAddress: lead.companyEmailAddress,
         leadAddress: lead.leadAddress,
         leadStatus: lead.leadStatus,
-        priority: lead.priority,
+        leadPriority: lead.leadPriority,
         leadSource: lead.leadSource,
         leadAddedBy: lead.leadAddedBy,
         leadLabel: lead.leadLabel || '',
@@ -140,7 +140,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         companyEmailAddress: data.companyEmailAddress,
         leadAddress: data.leadAddress,
         leadStatus: data.leadStatus as LeadStatus,
-        priority: data.priority as LeadPriority,
+        priority: data.leadPriority as LeadPriority,
         leadSource: data.leadSource as LeadSource,
         leadAddedBy: data.leadAddedBy,
         leadLabel: data.leadLabel || '',
@@ -160,7 +160,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           companyEmailAddress: data.companyEmailAddress,
           leadAddress: data.leadAddress,
           leadStatus: data.leadStatus as LeadStatus,
-          priority: data.priority as LeadPriority,
+          leadPriority: data.leadPriority as LeadPriority,
           leadSource: data.leadSource as LeadSource,
           leadAddedBy: data.leadAddedBy,
           leadLabel: data.leadLabel || '',
@@ -360,7 +360,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
               <FormField
                 control={form.control}
-                name="priority"
+                name="leadPriority"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Priority</FormLabel>

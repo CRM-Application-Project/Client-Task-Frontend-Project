@@ -37,7 +37,7 @@ interface Lead {
   comment?: string;
   leadLabel?: string;
   leadReference?: string;
-  priority: string;
+  leadPriority: string;
   company?: string;
   createdAt: string;
   updatedAt: string;
@@ -170,9 +170,8 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
                 <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
                   {lead.leadStatus.replace('_', ' ')}
                 </Badge>
-                <Badge className={`${getPriorityColor(lead.priority)} border`}>
-
-                  {lead.priority}
+                <Badge className={`${getPriorityColor(lead.leadPriority)} border`}>
+                  {lead.leadPriority}
                 </Badge>
               </div>
             </div>
@@ -283,12 +282,12 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
                   </div>
                 )}
 
-                {shouldDisplay(lead.priority) && (
+                {shouldDisplay(lead.leadPriority) && (
                   <div className="flex items-start gap-3 text-sm">
                     <Hash className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-gray-500">Priority</p>
-                      <p className="text-gray-900 font-medium">{lead.priority}</p>
+                      <p className="text-gray-900 font-medium">{lead.leadPriority}</p>
                     </div>
                   </div>
                 )}
@@ -404,7 +403,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
               
               <div>
                 <p className="text-gray-500">Priority</p>
-                <p className="text-gray-900 font-medium">{lead.priority}</p>
+                <p className="text-gray-900 font-medium">{lead.leadPriority}</p>
               </div>
               
               <div>

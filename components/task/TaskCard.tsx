@@ -1,5 +1,5 @@
 "use client";
-import { Calendar, User, Tag, Trash2, Upload, Download, FileText, X, Edit } from "lucide-react";
+import { Calendar, User, Tag, Trash2, Upload, Download, FileText, X, Edit, GripVertical } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ import {
   verifyDocumentUpload, 
   getDocumentDownloadUrl, 
   deleteDocument 
-} from "@/app/services/data.service"; // Adjust path as needed
+} from "@/app/services/data.service";
 import { TaskDetailsModal } from "./TaskDetailsModal";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -62,7 +62,7 @@ interface Task {
     id: string;
     label: string;
   }>;
-  documents?: TaskDocument[]; // Add documents array
+  documents?: TaskDocument[];
 }
 
 interface TaskCardProps {
@@ -70,31 +70,68 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: number) => void;
   onDocumentUpdate?: (taskId: number, documents: TaskDocument[]) => void;
-  onTaskClick?: () => void; // Add this
+  onTaskClick?: () => void;
+  onDragStart?: () => void;
+  draggable?: boolean;
+  isDragging?: boolean;
 }
 
-export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardProps) => {
+export const TaskCard = ({ 
+  task, 
+  onEdit, 
+  onDelete, 
+  onDocumentUpdate, 
+  onTaskClick,
+  onDragStart,
+  draggable = true,
+  isDragging = false
+}: TaskCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [documents, setDocuments] = useState<TaskDocument[]>(task.documents || []);
-  const [showDetailsModal, setShowDetailsModal] = useState(false); // Add this state
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<number | null>(null);
   
   const { permissions, loading: permissionsLoading } = usePermissions('task');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  
-  // Count the number of action icons that will appear on hover
- 
   const priorityColors: Record<TaskPriority, string> = {
     LOW: "bg-muted text-muted-foreground",
     MEDIUM: "bg-status-todo/20 text-status-todo",
     HIGH: "bg-status-progress/20 text-status-progress",
     URGENT: "bg-destructive/20 text-destructive"
   } as const;
+
+  // Improved drag event handlers
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!draggable) {
+      e.preventDefault();
+      return;
+    }
+
+    // Call the column's onDragStart to reset its drag over state
+    onDragStart?.();
+
+    // Set the data to be transferred
+    const dragData = {
+      taskId: task.id,
+      sourceStageId: task.taskStageId,
+      task: task // Include full task data
+    };
+    
+    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = "move";
+    
+    // Add a subtle visual indication without changing the original card
+    e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 10, 10);
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Clean up any drag state if needed
+  };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,7 +165,9 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
   };
 
   const handleCardClick = () => {
-    if (permissions.canView) {
+    if (permissions.canView && !isDragging && onTaskClick) {
+      onTaskClick();
+    } else if (permissions.canView && !isDragging) {
       setShowDetailsModal(true);
     }
   };
@@ -148,7 +187,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
     setUploadProgress("Getting upload URL...");
 
     try {
-      // Step 1: Get upload URL
       const uploadUrlResponse = await getDocumentUploadUrl(task.id.toString(), {
         fileName: file.name,
         fileType: file.type
@@ -161,7 +199,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
       const { docId, url: uploadUrl } = uploadUrlResponse.data;
       setUploadProgress("Uploading file...");
 
-      // Step 2: Upload file to S3 with CORS handling
       try {
         const uploadResponse = await fetch(uploadUrl, {
           method: 'PUT',
@@ -169,7 +206,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
           headers: {
             'Content-Type': file.type,
           },
-          mode: 'cors', // Explicitly set CORS mode
+          mode: 'cors',
         });
 
         if (!uploadResponse.ok) {
@@ -178,14 +215,12 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
 
         setUploadProgress("Verifying upload...");
 
-        // Step 3: Verify upload
         const verifyResponse = await verifyDocumentUpload(docId.toString());
         
         if (!verifyResponse.isSuccess) {
           throw new Error(verifyResponse.message);
         }
 
-        // Step 4: Update local documents list
         const newDocument: TaskDocument = {
           docId,
           fileName: file.name,
@@ -201,7 +236,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
         setTimeout(() => setUploadProgress(""), 2000);
 
       } catch (uploadError) {
-        // Handle CORS or network errors specifically
         if (uploadError instanceof TypeError && uploadError.message.includes('CORS')) {
           throw new Error('CORS error: S3 bucket needs proper CORS configuration for browser uploads');
         }
@@ -220,7 +254,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
       setTimeout(() => setUploadProgress(""), 5000);
     } finally {
       setIsUploading(false);
-      // Clear the input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -241,7 +274,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
       console.log('Downloading file from S3 URL:', downloadResponse.data.url);
       
       try {
-        // Fetch the file from S3 as a blob
         const fileResponse = await fetch(downloadResponse.data.url, {
           method: 'GET',
           headers: {
@@ -253,24 +285,18 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
           throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
         }
         
-        // Convert response to blob
         const blob = await fileResponse.blob();
-        
-        // Create a local URL for the blob
         const blobUrl = window.URL.createObjectURL(blob);
         
-        // Create and trigger download
         const downloadLink = window.document.createElement('a');
         downloadLink.href = blobUrl;
         downloadLink.download = document.fileName;
         downloadLink.style.display = 'none';
         
-        // Add to DOM, click, and remove
         window.document.body.appendChild(downloadLink);
         downloadLink.click();
         window.document.body.removeChild(downloadLink);
         
-        // Clean up the blob URL
         window.URL.revokeObjectURL(blobUrl);
         
         console.log('File downloaded successfully:', document.fileName);
@@ -305,7 +331,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
         throw new Error(deleteResponse.message);
       }
 
-      // Remove from local documents list
       const updatedDocuments = documents.filter(doc => doc.docId !== document.docId);
       setDocuments(updatedDocuments);
       onDocumentUpdate?.(task.id, updatedDocuments);
@@ -316,38 +341,40 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
     }
   };
 
-  // Don't render if user can't view tasks
   if (permissionsLoading || !permissions.canView) {
     return null;
   }
 
-  // Calculate which action buttons to show
   const showEditButton = permissions.canEdit && onEdit;
   const showDeleteButton = permissions.canDelete && onDelete;
-  const showDocumentButton = permissions.canEdit; // Anyone who can view can see documents
+  const showDocumentButton = permissions.canEdit;
   const showActionsBar = showEditButton || showDeleteButton || showDocumentButton;
- const actionIconCount = [
+  
+  const actionIconCount = [
     showEditButton, 
     showDocumentButton, 
     showDeleteButton
   ].filter(Boolean).length;
   
-  // Calculate the translate distance based on number of icons
-  // Each icon is approximately 32px (24px icon + 8px padding)
-  // We add a little extra for spacing between icons
   const translateDistance = actionIconCount > 0 
     ? `${(actionIconCount * 20) + ((actionIconCount - 1) * 6)}px` 
     : "0px";
+
   return (
     <>
-     <Card 
-        className={`p-4 transition-all duration-200 hover:shadow-md hover:scale-[1.02] bg-gradient-to-br from-card to-card/80 border border-border/50 relative group ${
+      <Card 
+        className={`p-4 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-card to-card/80 border border-border/50 relative group ${
           permissions.canView ? 'cursor-pointer' : 'cursor-default'
+        } ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${
+          isDragging ? 'opacity-50 scale-95' : 'hover:scale-[1.02]'
         }`}
-        onClick={handleCardClick} 
+        onClick={handleCardClick}
+        draggable={draggable}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
-        {/* Action buttons - only shows on hover and if user has permissions */}
-     {showActionsBar && (
+        {/* Action buttons */}
+        {showActionsBar && (
           <div className="absolute top-3 right-2 flex gap-1 opacity-0 group-hover:opacity-100 z-10">
             {showEditButton && (
               <button 
@@ -386,7 +413,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
         
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-foreground line-clamp-2 flex-1">
+            <h3 className="font-medium text-foreground flex-1">
               {task.subject}
             </h3>
             <Badge 
@@ -401,7 +428,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
           </div>
 
           {task.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">
+            <p className="text-sm text-muted-foreground line-clamp-2 ml-1">
               {task.description}
             </p>
           )}
@@ -417,9 +444,8 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
             </div>
           )}
 
-          {/* Document count indicator */}
           {documents.length > 0 && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ml-1">
               <FileText className="h-3 w-3 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
                 {documents.length} document{documents.length !== 1 ? 's' : ''}
@@ -427,7 +453,7 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
             </div>
           )}
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-xs text-muted-foreground ml-1">
             {task.assignedTo && (
               <div className="flex items-center gap-1">
                 <User className="h-3 w-3" />
@@ -456,7 +482,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Upload section - only show if user can edit */}
             {permissions.canEdit && (
               <div className="space-y-2">
                 <div className="flex gap-2">
@@ -482,7 +507,6 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
               </div>
             )}
 
-            {/* Documents list */}
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {documents.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
@@ -549,11 +573,11 @@ export const TaskCard = ({ task, onEdit, onDelete, onDocumentUpdate }: TaskCardP
       {/* Task Details Modal */}
       {showDetailsModal && permissions.canView && (
         <TaskDetailsModal
-  isOpen={showDetailsModal}
-  onClose={() => setShowDetailsModal(false)}
-  taskId={task.id}
-  onEdit={permissions.canEdit ? handleEditFromDetails : () => {}}
-/>
+          isOpen={showDetailsModal}
+          onClose={() => setShowDetailsModal(false)}
+          taskId={task.id}
+          onEdit={permissions.canEdit ? handleEditFromDetails : () => {}}
+        />
       )}
 
       {/* Delete confirmation dialog */}

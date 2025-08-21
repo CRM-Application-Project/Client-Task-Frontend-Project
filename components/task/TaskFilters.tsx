@@ -39,6 +39,7 @@ interface TaskFiltersProps {
   filters: ExtendedTaskFilters;
   onFiltersChange: (filters: ExtendedTaskFilters) => void;
   onAddTask: () => void;
+  onAddStage?: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClearAllFilters: () => void;
@@ -54,6 +55,7 @@ export const TaskFilters = ({
   filters,
   onFiltersChange,
   onAddTask,
+  onAddStage,
   searchQuery,
   onSearchChange,
   onClearAllFilters,
@@ -113,8 +115,8 @@ export const TaskFilters = ({
   };
 
   return (
-    <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-      <div className="flex flex-col gap-2">
+    <div className="relative bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8">
+      <div className="flex flex-col gap-1">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex items-center gap-4">
@@ -127,15 +129,25 @@ export const TaskFilters = ({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* View Mode Toggle */}
-
-            <Button
+            {/* Add Stage Button */}
+            {onAddStage && (
+              <Button
+                onClick={onAddStage}
+                variant="outline"
+                className="border-gray-300 text-gray-700 rounded-md shadow-sm flex items-center px-3 py-2"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Stage
+              </Button>
+            )}
+<Button
               onClick={onAddTask}
               className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
+            {/* View Mode Toggle */}
             <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
               <Button
                 variant={viewMode === "kanban" ? "default" : "ghost"}
@@ -162,6 +174,9 @@ export const TaskFilters = ({
                 <Grid className="h-4 w-4 mr-1" />
               </Button>
             </div>
+
+            {/* Add Task Button */}
+            
           </div>
         </div>
 
@@ -172,54 +187,62 @@ export const TaskFilters = ({
               : "max-h-0 opacity-0 overflow-hidden"
           }`}
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end w-full mt-4">
-            {/* Search */}
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
-              />
+          {/* First Line: Search and Date Range on the right */}
+          <div className="flex flex-col md:flex-row gap-4 items-end justify-between w-full mt-4">
+            <div className="flex-1"></div> {/* Spacer to push content to right */}
+            
+            <div className="flex flex-col md:flex-row gap-4 items-end w-full md:w-auto">
+              {/* Search */}
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+                />
+              </div>
+
+              {/* Date Range */}
+              <div className="relative w-full md:w-64">
+                <Button
+                  variant={localFilters.dateRange ? "secondary" : "outline"}
+                  onClick={() => setIsDatePickerOpen(true)}
+                  className={`w-full rounded-lg flex items-center justify-between gap-2 ${
+                    localFilters.dateRange
+                      ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                      : "border-gray-300"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 text-[#636363]">
+                    <Calendar className="h-4 w-4" />
+                    {localFilters.dateRange
+                      ? formatDateRange(localFilters.dateRange)
+                      : "Date Range"}
+                  </span>
+                  {localFilters.dateRange && (
+                    <X
+                      className="h-4 w-4 hover:text-blue-900"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearDateRange();
+                      }}
+                    />
+                  )}
+                </Button>
+
+                <DateRangePicker
+                  isOpen={isDatePickerOpen}
+                  onClose={() => setIsDatePickerOpen(false)}
+                  onSelect={handleDateRangeSelect}
+                  initialRange={localFilters.dateRange}
+                />
+              </div>
             </div>
+          </div>
 
-            {/* Date Range */}
-            <div className="relative w-full">
-              <Button
-                variant={localFilters.dateRange ? "secondary" : "outline"}
-                onClick={() => setIsDatePickerOpen(true)}
-                className={`w-full rounded-lg flex items-center justify-between gap-2 ${
-                  localFilters.dateRange
-                    ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                    : "border-gray-300"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {localFilters.dateRange
-                    ? formatDateRange(localFilters.dateRange)
-                    : "Date Range"}
-                </span>
-                {localFilters.dateRange && (
-                  <X
-                    className="h-4 w-4 hover:text-blue-900"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearDateRange();
-                    }}
-                  />
-                )}
-              </Button>
-
-              <DateRangePicker
-                isOpen={isDatePickerOpen}
-                onClose={() => setIsDatePickerOpen(false)}
-                onSelect={handleDateRangeSelect}
-                initialRange={localFilters.dateRange}
-              />
-            </div>
-
+          {/* Second Line: 4 filters in one line */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end w-full mt-4">
             {/* Priority Filter */}
             <Select
               value={localFilters.priority || "all"}
@@ -263,31 +286,6 @@ export const TaskFilters = ({
                     {stage.name}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-
-            {/* Labels Filter */}
-            <Select
-              value={
-                Array.isArray(localFilters.labels)
-                  ? localFilters.labels[0] ?? "all"
-                  : localFilters.labels || "all"
-              }
-              onValueChange={(value) =>
-                handleFilterChange(
-                  "labels",
-                  value === "all" ? undefined : [value]
-                )
-              }
-            >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
-                <SelectValue placeholder="Labels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Labels</SelectItem>
-                <SelectItem value="Frontend">Frontend</SelectItem>
-                <SelectItem value="Backend">Backend</SelectItem>
-                <SelectItem value="Bug">Bug</SelectItem>
               </SelectContent>
             </Select>
 
@@ -336,22 +334,26 @@ export const TaskFilters = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
 
-            {/* Action Buttons */}
-            <Button
-              onClick={handleApplyFilters}
-              className="bg-gray-800 hover:bg-gray-700 text-white w-full"
-            >
-              Apply Filters
-            </Button>
+          {/* Third Line: Action buttons on the right */}
+          <div className="flex flex-col md:flex-row gap-4 items-end justify-end w-full mt-4">
+            <div className="flex gap-4">
+              <Button
+                onClick={handleApplyFilters}
+                className="bg-gray-800 hover:bg-gray-700 text-white w-full md:w-auto"
+              >
+                Apply Filters
+              </Button>
 
-            <Button
-              variant="outline"
-              onClick={handleClearFilters}
-              className="border-gray-300 w-full"
-            >
-              Clear Filters
-            </Button>
+              <Button
+                variant="outline"
+                onClick={handleClearFilters}
+                className="border-gray-300 w-full md:w-auto"
+              >
+                Clear Filters
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -550,10 +550,11 @@ export default function TaskBoard() {
           filters={filters}
           onFiltersChange={handleFilterChange}
           onAddTask={() => setIsAddModalOpen(true)}
+          onAddStage={() => setIsCreateStageModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onClearAllFilters={handleClearAllFilters}
-          onApplyFilters={handleApplyFilters}
+          onApplyFilters={handleApplyFilters} 
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           stages={stages}
@@ -582,37 +583,27 @@ export default function TaskBoard() {
         )}
 
         {/* Task Board - Only show if stages exist */}
-        {stages.length > 0 && (
-          <>
-            {viewMode === 'kanban' && (
-              <div className="flex gap-3 overflow-x-auto pb-6">
-                {stages.map((stage, index) => (
-                  <TaskColumn
-                    key={stage.id}
-                    stage={stage}
-                    tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
-                    onEditTask={handleEditTask}
-                    onDeleteTask={handleDeleteTask}
-                    onTaskClick={handleTaskClick}
-                    stageIndex={index} 
-                  />
-                ))}
+       {stages.length > 0 && (
+  <>
+    {viewMode === 'kanban' && (
+      <div className="flex gap-3 overflow-x-auto pb-6">
+        {stages.map((stage, index) => (
+          <TaskColumn
+            key={stage.id}
+            stage={stage}
+            tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+            onTaskClick={handleTaskClick}
+            stageIndex={index}
+            onTaskUpdate={() => fetchTasks(undefined, true)} // Add this line
+          />
+        ))}
                 
                 {/* Add Stage Button in Kanban View */}
-                <div className="min-w-80 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                  <button
-                    onClick={() => setIsCreateStageModalOpen(true)}
-                    className="flex flex-col items-center justify-center p-6 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span className="text-sm font-medium">Add Stage</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
+              
+      </div>
+    )}
             {viewMode === 'grid' && (
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">

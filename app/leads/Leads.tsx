@@ -44,14 +44,13 @@ interface Lead {
   comment?: string;
   leadLabel?: string;
   leadReference?: string;
-  priority: LeadPriority;
+  leadPriority: LeadPriority;
   company?: string;
   createdAt: string;
   updatedAt: string;
   // Additional properties for display
   assignedToName?: string; // For display purposes
 }
-
 type LeadFiltersType = {
   status?: LeadStatus;
   priority?: LeadPriority;
@@ -135,14 +134,23 @@ const refreshAssignees = async () => {
 
   // Enhanced Lead transformation - now maintains original structure
   const enhanceLeadWithAssigneeName = (lead: Lead, assignOptions: AssignDropdown[]): Lead => {
+  // If leadAssignedTo exists, use it as the primary assignee
+  let assignedToName = lead.leadAssignedTo;
+  
+  if (lead.leadAssignedTo) {
+    assignedToName = lead.leadAssignedTo;
+  } else if (lead.leadAddedBy) {
+    // Fallback to leadAddedBy if leadAssignedTo is not set
     const assignee = assignOptions.find(opt => opt.id === lead.leadAddedBy);
-    return {
-      ...lead,
-      assignedToName: assignee ? assignee.label : lead.leadAddedBy,
-      // Ensure company field is populated if not present
-      company: lead.company || lead.companyEmailAddress,
-    };
+    assignedToName = assignee ? assignee.label : lead.leadAddedBy;
+  }
+
+  return {
+    ...lead,
+    assignedToName,
+    company: lead.company || lead.companyEmailAddress,
   };
+};
 
   // FIXED: Simplified add lead handler
   const handleAddNewLead = (apiLeadData: any) => {
@@ -176,7 +184,7 @@ const refreshAssignees = async () => {
       comment: formData.comment || "",
       leadLabel: formData.leadLabel,
       leadReference: formData.leadReference,
-      priority: formData.priority || "MEDIUM",
+      leadPriority: formData.leadPriority || "MEDIUM",
       company: formData.company || formData.companyEmailAddress,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -271,7 +279,7 @@ const refreshAssignees = async () => {
     if (assignOptions.length > 0 && leads.length > 0) {
       const updatedLeads = leads.map(lead => {
         // If we only have IDs but not names, update them
-        if (lead.leadAddedBy && !lead.assignedToName) {
+        if (lead.leadAddedBy && !lead.leadAssignedTo) {
           const assignee = assignOptions.find(opt => opt.id === lead.leadAddedBy);
           return {
             ...lead,
@@ -462,24 +470,28 @@ const refreshAssignees = async () => {
     setIsChangeAssignModalOpen(true);
   };
 
-  const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) =>
-        lead.leadId === leadId
-          ? { 
-              ...lead, 
-              leadAddedBy: assignedTo, 
-              assignedToName: getAssignedToLabel(assignedTo) || assignedTo,
-              updatedAt: new Date().toISOString() 
-            }
-          : lead
-      )
-    );
-    toast({
-      title: "Assignment updated",
-      description: "Lead has been reassigned successfully.",
-    });
-  };
+const handleUpdateAssignment = (leadId: string, assignedTo: string) => {
+  // Find the assignee details from assignOptions
+  const assignee = assignOptions.find(opt => opt.label === assignedTo);
+  
+  setLeads((prevLeads) =>
+    prevLeads.map((lead) =>
+      lead.leadId === leadId
+        ? { 
+            ...lead, 
+            leadAssignedTo: assignedTo, // Update leadAssignedTo instead of leadAddedBy
+            assignedToName: assignedTo, // Keep this for display
+            updatedAt: new Date().toISOString() 
+          }
+        : lead
+    )
+  );
+  
+  toast({
+    title: "Assignment updated",
+    description: "Lead has been reassigned successfully.",
+  });
+};
 
   const handleImportLead = () => {
     setIsImportModalOpen(true);
@@ -724,23 +736,23 @@ const refreshAssignees = async () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            lead.priority === "LOW"
+                            lead.leadPriority === "LOW"
                               ? "bg-gray-100 text-gray-800"
-                              : lead.priority === "MEDIUM"
+                              : lead.leadPriority === "MEDIUM"
                               ? "bg-blue-100 text-blue-800"
-                              : lead.priority === "HIGH"
+                              : lead.leadPriority === "HIGH"
                               ? "bg-orange-100 text-orange-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {lead.priority}
+                          {lead.leadPriority}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {lead.leadSource.replace("_", " ")}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {lead.assignedToName || lead.leadAddedBy}
+                        {lead.leadAssignedTo || lead.leadAddedBy}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div>{lead.customerEmailAddress}</div>
