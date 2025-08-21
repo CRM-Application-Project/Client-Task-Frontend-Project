@@ -1,5 +1,5 @@
 "use client";
-import { Bell, Moon, Menu, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Bell, Moon, Menu } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,15 +11,7 @@ interface UserData {
   userRole: string;
 }
 
-export function DashboardNavbar({
-  onMenuClick,
-  onToggleCollapse,
-  collapsed,
-}: {
-  onMenuClick?: () => void;
-  onToggleCollapse?: () => void;
-  collapsed?: boolean;
-}) {
+export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,28 +76,20 @@ export function DashboardNavbar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {/* Desktop: collapse/expand */}
-        <button
-          className="hidden lg:inline-flex rounded-md p-2 text-gray-600 hover:bg-gray-100 focus:outline-none"
-          onClick={onToggleCollapse}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <PanelRightClose className="h-5 w-5" />
-          ) : (
-            <PanelRightOpen className="h-5 w-5" />
-          )}
-        </button>
+        {/* Desktop: Title
+        <h1 className="hidden lg:block text-lg font-semibold text-gray-900">
+          Dashboard
+        </h1> */}
       </div>
 
       {/* Right */}
       <div className="flex items-center gap-4">
-        <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
+        {/* <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
           <Bell className="h-5 w-5" />
         </button>
         <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
           <Moon className="h-5 w-5" />
-        </button>
+        </button> */}
 
         {/* User */}
         {isLoading ? (
@@ -159,7 +143,9 @@ export function DashboardNavbar({
         ) : (
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-sm font-medium text-gray-900">Guest User</div>
+              <div className="text-sm font-medium text-gray-900">
+                Guest User
+              </div>
               <div className="text-xs text-gray-500">Not logged in</div>
             </div>
             <Avatar className="h-8 w-8">
