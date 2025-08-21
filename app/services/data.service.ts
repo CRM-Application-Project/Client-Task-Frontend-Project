@@ -347,16 +347,17 @@ export const getUsers = async (): Promise<GetUsersResponse> => {
   return res as GetUsersResponse;
 };
 
-export interface UpdateUserPayload {
+export type UpdateUserPayload = Partial<{
   firstName: string;
   lastName: string;
   emailAddress: string;
   contactNumber: string;
   userRole: string;
-  dateOfBirth: string; // YYYY-MM-DD
+  dateOfBirth: string;
+  dateOfJoin: string;
   departmentId: number;
   isActive: boolean;
-}
+}>;
 
 export interface UserResponse {
   isSuccess: boolean;
@@ -737,8 +738,6 @@ export const resetPassword = async (
   const res = await postRequest(API_CONSTANTS.USER.RESET, payload);
   return res as ResetResponse;
 };
-
-
 
 export const fetchLeadTrackById = async (
   leadId: string

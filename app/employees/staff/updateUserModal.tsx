@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, updateUser, getDepartments } from "@/app/services/data.service";
+import {
+  User,
+  updateUser,
+  getDepartments,
+  UpdateUserPayload,
+} from "@/app/services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker, Select } from "antd";
-import type { DatePickerProps } from "antd";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import dayjs, { Dayjs } from "dayjs";
 
 interface UpdateStaffModalProps {
@@ -21,6 +27,18 @@ export const UpdateStaffModal = ({
   onSuccess,
   user,
 }: UpdateStaffModalProps) => {
+  const [initialData, setInitialData] = useState({
+    firstName: "",
+    lastName: "",
+    emailAddress: "",
+    contactNumber: "",
+    userRole: "",
+    dateOfBirth: "",
+    dateOfJoin: "",
+    departmentId: 0,
+    isActive: true,
+  });
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -32,6 +50,7 @@ export const UpdateStaffModal = ({
     departmentId: 0,
     isActive: true,
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isFormDirty, setIsFormDirty] = useState(false);
@@ -42,7 +61,7 @@ export const UpdateStaffModal = ({
 
   useEffect(() => {
     if (user) {
-      setFormData({
+      const userData = {
         firstName: user.firstName,
         lastName: user.lastName,
         emailAddress: user.emailAddress,
@@ -52,7 +71,10 @@ export const UpdateStaffModal = ({
         dateOfJoin: user.dateOfJoin || "",
         departmentId: user.departmentId,
         isActive: user.isActive,
-      });
+      };
+
+      setInitialData(userData);
+      setFormData(userData);
       setIsFormDirty(false);
     }
   }, [user]);
@@ -63,12 +85,6 @@ export const UpdateStaffModal = ({
         const res = await getDepartments();
         if (res.isSuccess) {
           setDepartments(res.data);
-          if (res.data.length > 0) {
-            setFormData((prev) => ({
-              ...prev,
-              departmentId: res.data[0].id,
-            }));
-          }
         } else {
           toast({
             variant: "destructive",
@@ -88,6 +104,17 @@ export const UpdateStaffModal = ({
     fetchDepartments();
   }, []);
 
+  // Check if form is dirty whenever formData changes
+  useEffect(() => {
+    const isDirty = Object.keys(formData).some((key) => {
+      return (
+        formData[key as keyof typeof formData] !==
+        initialData[key as keyof typeof initialData]
+      );
+    });
+    setIsFormDirty(isDirty);
+  }, [formData, initialData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
@@ -96,10 +123,6 @@ export const UpdateStaffModal = ({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
-
-    if (!isFormDirty) {
-      setIsFormDirty(true);
-    }
   };
 
   const handleDateChange = (
@@ -113,10 +136,6 @@ export const UpdateStaffModal = ({
       ...formData,
       [fieldName]: dateValue,
     });
-
-    if (!isFormDirty) {
-      setIsFormDirty(true);
-    }
   };
 
   const handleSelectChange = (fieldName: string, value: string | number) => {
@@ -124,10 +143,13 @@ export const UpdateStaffModal = ({
       ...formData,
       [fieldName]: value,
     });
+  };
 
-    if (!isFormDirty) {
-      setIsFormDirty(true);
-    }
+  const handleContactNumberChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value.replace(/\D/g, "");
+    setFormData({ ...formData, contactNumber: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,8 +165,22 @@ export const UpdateStaffModal = ({
         return;
       }
 
-      const response = await updateUser(user.userId, formData);
+      // Create an object with only the changed fields
+      const changedData: UpdateUserPayload = (
+        Object.keys(formData) as Array<keyof typeof formData>
+      ).reduce((acc, key) => {
+        if (formData[key] !== initialData[key]) {
+          acc[key] = formData[key] as any;
+        }
+        return acc;
+      }, {} as UpdateUserPayload);
+
+      const response = await updateUser(user.userId, changedData);
       if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
         onSuccess();
         onClose();
       } else {
@@ -274,20 +310,17 @@ export const UpdateStaffModal = ({
                 </div>
 
                 {/* Contact */}
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="contactNumber"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Contact Number
-                  </label>
-                  <input
+                <div className="sm:col-span-2 space-y-2">
+                  <Label htmlFor="contactNumber">Contact Number</Label>
+                  <Input
                     type="tel"
                     id="contactNumber"
                     name="contactNumber"
+                    placeholder="Enter contact number"
                     value={formData.contactNumber}
-                    onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-md p-2 border"
+                    onChange={handleContactNumberChange}
+                    maxLength={10}
+                    minLength={10}
                   />
                 </div>
 
