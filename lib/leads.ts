@@ -25,7 +25,7 @@ export interface Lead {
   phone: string;
   location: string;
   status: LeadStatus; // or: string if you don't want enums
-  priority: LeadPriority; // or: string
+  leadPriority: string;
   source: LeadSource; // or: string
   assignedTo: string; // Could be ID or name
   assignedToId?: string;

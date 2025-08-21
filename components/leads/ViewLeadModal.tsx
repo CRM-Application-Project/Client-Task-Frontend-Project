@@ -92,6 +92,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
   };
 
   const getPriorityColor = (priority: string) => {
+    console.log("aaaaaaaaaaaaaaaaaaaaa", priority);
     switch (priority) {
       case 'LOW': return 'bg-gray-100 text-gray-800 border-gray-300';
       case 'MEDIUM': return 'bg-blue-50 text-blue-800 border-blue-200';
@@ -170,6 +171,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({ isOpen, onClose, lead }) 
                   {lead.leadStatus.replace('_', ' ')}
                 </Badge>
                 <Badge className={`${getPriorityColor(lead.priority)} border`}>
+
                   {lead.priority}
                 </Badge>
               </div>
