@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Lead, LeadStatus } from "../../lib/leads";
+import { LeadStatus } from "../../lib/leads";
 import { changeLeadStatus } from "@/app/services/data.service";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,6 +38,27 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+interface Lead {
+  leadId: string;
+  leadStatus: string;
+  leadSource: string;
+  leadAddedBy: string;
+  leadAssignedTo: string;
+  customerMobileNumber: string;
+  companyEmailAddress: string;
+  customerName: string;
+  customerEmailAddress: string;
+  leadAddress: string;
+  comment?: string;
+  leadLabel?: string;
+  leadReference?: string;
+  priority: LeadPriority;
+  company?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Additional properties for display
+  assignedToName?: string; // For display purposes
+}
 
 interface ChangeStatusModalProps {
   isOpen: boolean;
@@ -56,7 +77,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      status: lead?.status || "",
+      status: lead?.leadStatus || "",
       notes: "",
     },
   });
@@ -64,7 +85,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   React.useEffect(() => {
     if (lead) {
       form.reset({
-        status: lead.status,
+        status: lead.leadStatus,
         notes: "",
       });
     }
@@ -75,14 +96,14 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
     try {
       const payload = {
-        leadId: lead.id,
+        leadId: lead.leadId,
         leadStatus: data.status,
       };
 
       const response = await changeLeadStatus(payload);
 
       if (response.isSuccess) {
-        onChangeStatus(lead.id, data.status as LeadStatus, data.notes);
+        onChangeStatus(lead.leadId, data.status as LeadStatus, data.notes);
         toast({
           title: "Status updated",
           description: "Lead status has been successfully updated.",
@@ -155,7 +176,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
         <DialogHeader>
           <DialogTitle>Change Lead Status</DialogTitle>
           <DialogDescription>
-            Update the status for {lead?.name}
+            Update the status for {lead?.leadAssignedTo}
           </DialogDescription>
         </DialogHeader>
 
