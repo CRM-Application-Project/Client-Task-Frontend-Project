@@ -449,7 +449,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="NEW">New</SelectItem>
+                        <SelectItem value="NEW LEAD">New Lead</SelectItem>
                         <SelectItem value="CONTACTED">Contacted</SelectItem>
                         <SelectItem value="QUALIFIED">Qualified</SelectItem>
                         <SelectItem value="PROPOSAL">Proposal</SelectItem>

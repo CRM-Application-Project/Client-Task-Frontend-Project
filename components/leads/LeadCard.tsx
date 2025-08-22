@@ -214,7 +214,7 @@ export const LeadCard = ({
                 <Edit className="h-4 w-4 text-gray-600" />
               </button>
             )}
-            {lead.customerMobileNumber && (
+            {/* {lead.customerMobileNumber && (
               <button
                 className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                 title="Call lead"
@@ -224,7 +224,7 @@ export const LeadCard = ({
               >
                 <Phone className="h-4 w-4 text-gray-600" />
               </button>
-            )}
+            )} */}
           </div>
 
           {/* 3-dots menu */}
