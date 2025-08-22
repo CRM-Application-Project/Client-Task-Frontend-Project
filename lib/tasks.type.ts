@@ -23,6 +23,7 @@ interface CreateTaskResponse {
     taskStageName: string;
     createdAt: string;
     updatedAt: string;
+    comment?: string;
     assignee: {
       id: string;
       label: string;
@@ -63,6 +64,7 @@ interface UpdateTaskResponse {
     taskStageName: string;
     createdAt: string;
     updatedAt: string;
+    comment?: string;
     assignee: {
       id: string;
       label: string;

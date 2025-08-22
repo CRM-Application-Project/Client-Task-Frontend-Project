@@ -149,7 +149,7 @@ export default function LoginPage() {
     value: string
   ): string => {
     if (field === "email") {
-      if (!value.trim()) return "Email is required";
+      if (!value.trim()) return "Email address is required";
       if (!EMAIL_REGEX.test(value))
         return "Enter a valid email address (e.g., a@domain.com)";
       return "";

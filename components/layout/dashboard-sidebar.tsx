@@ -10,12 +10,11 @@ import {
   CheckSquare,
   UserCheck,
   ChevronRight,
-  X,
-  BarChart3,
   LogOut,
   Settings,
   User,
   KeyRound,
+  BarChart3,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Swal from "sweetalert2";
@@ -54,7 +53,7 @@ const SETTINGS = [
   {
     name: "Change Password",
     icon: KeyRound,
-    href: "/profile?tab=change-password",
+    href: "/changepasswordtab",
   },
 ];
 
@@ -83,7 +82,10 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [expanded, setExpanded] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<string[]>([]); // which groups are open (visual)
+  const [manuallyCollapsed, setManuallyCollapsed] = useState<Set<string>>(
+    new Set()
+  ); // groups user explicitly closed (wins over auto-open)
 
   const reduxUser = useSelector((s: RootState) => s.user.currentUser);
   const [modules, setModules] = useState<UserModuleAccess[]>([]);
@@ -143,31 +145,54 @@ export function DashboardSidebar({
     [can]
   );
 
+  // AUTO-EXPAND ON ROUTE — but respect manual collapse
   useEffect(() => {
-    filteredNav.forEach((item) => {
-      const children = getChildren(item);
-      if (
-        children.some((c) => pathname === c.href) &&
-        !expanded.includes(item.name)
-      ) {
-        setExpanded((p) => [...p, item.name]);
-      }
-    });
-    if (
-      SETTINGS.some((s) => pathname === s.href) &&
-      !expanded.includes("Settings")
-    ) {
-      setExpanded((p) => [...p, "Settings"]);
-    }
-  }, [pathname, filteredNav, expanded, getChildren]);
+    setExpanded((prev) => {
+      let next = [...prev];
 
-  const toggleGroup = useCallback(
-    (key: string) =>
-      setExpanded((p) =>
-        p.includes(key) ? p.filter((k) => k !== key) : [...p, key]
-      ),
-    []
-  );
+      const openIfNeeded = (key: string) => {
+        if (!next.includes(key)) next.push(key);
+      };
+
+      // Employees etc.
+      filteredNav.forEach((item) => {
+        const hasActiveChild = getChildren(item).some(
+          (c) => pathname === c.href
+        );
+        if (hasActiveChild && !manuallyCollapsed.has(item.name)) {
+          openIfNeeded(item.name);
+        }
+      });
+
+      // Settings group
+      const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
+      if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
+        openIfNeeded("Settings");
+      }
+
+      // Dedup
+      next = Array.from(new Set(next));
+      return next;
+    });
+  }, [pathname, filteredNav, getChildren, manuallyCollapsed]);
+
+  // If you navigate away from a group's children, we **do not** force close it.
+  // (This prevents flicker and lets users keep groups open if they want.)
+  // Manual collapse always wins.
+
+  const toggleGroup = useCallback((key: string) => {
+    setExpanded((prev) => {
+      const isOpen = prev.includes(key);
+      const next = isOpen ? prev.filter((k) => k !== key) : [...prev, key];
+      setManuallyCollapsed((mc) => {
+        const s = new Set(mc);
+        if (isOpen) s.add(key); // user explicitly closed
+        else s.delete(key); // user explicitly opened
+        return s;
+      });
+      return next;
+    });
+  }, []);
 
   const handleLogout = useCallback(() => {
     Swal.fire({
@@ -204,8 +229,10 @@ export function DashboardSidebar({
 
   const isExpandedView = !collapsed || hovered;
 
-  const SidebarContent = useCallback(
-    () => (
+  const SidebarContent = useCallback(() => {
+    const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
+
+    return (
       <div className="flex h-full flex-col bg-[#3b3b3b] relative">
         {/* Logo */}
         <div
@@ -224,7 +251,6 @@ export function DashboardSidebar({
               </h1>
             )}
           </div>
-       
         </div>
 
         {/* Navigation */}
@@ -241,7 +267,7 @@ export function DashboardSidebar({
               ) : (
                 filteredNav.map((item) => {
                   const children = getChildren(item);
-                  const isExpanded = expanded.includes(item.name);
+                  const isGroupExpanded = expanded.includes(item.name);
                   const isActive =
                     pathname === item.href ||
                     children.some((c) => pathname === c.href);
@@ -252,7 +278,8 @@ export function DashboardSidebar({
                         variant="ghost"
                         className={cn(
                           "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                          isActive || isExpanded
+                          // ✅ Highlight ONLY when active, not when merely expanded
+                          isActive
                             ? "bg-white text-[#3b3b3b] shadow-sm"
                             : "text-white hover:bg-white hover:text-[#3b3b3b]",
                           collapsed && !hovered && "justify-center px-2"
@@ -275,14 +302,14 @@ export function DashboardSidebar({
                           <ChevronRight
                             className={cn(
                               "h-4 w-4 flex-shrink-0 transition-transform duration-200",
-                              isExpanded && "rotate-45"
+                              isGroupExpanded && "rotate-45"
                             )}
                           />
                         )}
                       </Button>
 
-                      {/* Submenu children */}
-                      {isExpandedView && isExpanded && (
+                      {/* Submenu */}
+                      {isExpandedView && isGroupExpanded && (
                         <div className="space-y-1 pl-6 pt-1 w-full">
                           {children.map((c) => {
                             const isChildActive = pathname === c.href;
@@ -301,8 +328,6 @@ export function DashboardSidebar({
                                 <span className="whitespace-nowrap">
                                   {c.name}
                                 </span>
-
-                                {/* underline effect */}
                                 <span
                                   className={cn(
                                     "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
@@ -356,8 +381,8 @@ export function DashboardSidebar({
                 variant="ghost"
                 className={cn(
                   "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                  expanded.includes("Settings") ||
-                    SETTINGS.some((s) => pathname === s.href)
+                  // ✅ Only highlight when settings route is active
+                  isSettingsActive
                     ? "bg-white text-[#3b3b3b] shadow-sm"
                     : "text-white hover:bg-white hover:text-[#3b3b3b]",
                   collapsed && !hovered && "justify-center px-2"
@@ -404,7 +429,6 @@ export function DashboardSidebar({
                       >
                         <it.icon className="mr-3 h-4 w-4 flex-shrink-0" />
                         <span className="whitespace-nowrap">{it.name}</span>
-
                         <span
                           className={cn(
                             "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
@@ -439,23 +463,21 @@ export function DashboardSidebar({
           </Button>
         </div>
       </div>
-    ),
-    [
-      isExpandedView,
-      collapsed,
-      hovered,
-      onClose,
-      ready,
-      filteredNav,
-      getChildren,
-      expanded,
-      pathname,
-      can,
-      router,
-      toggleGroup,
-      handleLogout,
-    ]
-  );
+    );
+  }, [
+    isExpandedView,
+    collapsed,
+    hovered,
+    ready,
+    filteredNav,
+    getChildren,
+    expanded,
+    pathname,
+    can,
+    router,
+    toggleGroup,
+    handleLogout,
+  ]);
 
   return (
     <>

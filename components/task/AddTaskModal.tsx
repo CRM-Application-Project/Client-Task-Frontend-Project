@@ -1,6 +1,31 @@
 "use client";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { X, Calendar, ChevronDown, Check, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Smile, Code, List, ListOrdered, Link, Image, Quote, Strikethrough, Subscript, Superscript, Palette, Type, MoreHorizontal } from "lucide-react";
+import {
+  X,
+  Calendar,
+  ChevronDown,
+  Check,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Smile,
+  Code,
+  List,
+  ListOrdered,
+  Link,
+  Image,
+  Quote,
+  Strikethrough,
+  Subscript,
+  Superscript,
+  Palette,
+  Type,
+  MoreHorizontal,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +51,10 @@ import { TaskStage } from "@/lib/data";
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (task: CreateTaskRequest | Partial<UpdateTaskRequest>, isEdit: boolean) => void;
+  onSubmit: (
+    task: CreateTaskRequest | Partial<UpdateTaskRequest>,
+    isEdit: boolean
+  ) => void | Promise<void>;
   editingTask?: GetTaskByIdResponse["data"];
   preSelectedStageId?: number | null;
   users: User[];
@@ -49,9 +77,11 @@ interface UpdateTaskRequest {
   priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   taskStageId?: number;
   startDate?: string;
-  endDate?: string;
+  endDate?: string | null;
   assignee?: string;
   acceptanceCriteria?: string;
+  // New: comment captured during edit (required if stage changes)
+  comment?: string;
 }
 
 interface GetTaskByIdResponse {
@@ -82,41 +112,262 @@ interface RichTextEditorProps {
   className?: string;
 }
 
-const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEditorProps) => {
+const RichTextEditor = ({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
-  const [textAlignment, setTextAlignment] = useState<string>('left');
+  const [textAlignment, setTextAlignment] = useState<string>("left");
 
   // Comprehensive emoji collection
   const emojiCategories = {
-    "Frequently Used": ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😔", "😪"],
-    "Gestures": ["👍", "👎", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄", "💋"],
-    "Symbols": ["✅", "❌", "⚡", "🛡️", "🎯", "🚀", "⭐", "🔥", "💡", "🔧", "📊", "📱", "💻", "🌟", "⚠️", "🎉", "📝", "🔍", "🎨", "🔒", "📈", "⏰", "🏆", "🎪", "💎", "🔑", "🎁", "🏅", "🎊", "💥", "✨", "🌈", "⭐", "🔮", "💫", "🌙", "☀️", "⭐", "🌟"],
-    "Objects": ["📱", "💻", "🖥️", "⌨️", "🖱️", "🖨️", "📷", "📹", "🎥", "📞", "☎️", "📠", "📺", "📻", "🎙️", "🎚️", "🎛️", "🕹️", "💾", "💿", "📀", "💽", "💻", "📱", "☎️", "📞", "📟", "📠", "📺", "📻", "🎙️", "⏰", "⏲️", "⏱️", "🕰️", "📡", "🔋", "🔌", "💡", "🔦", "🕯️", "🧯", "🛢️"],
-    "Activities": ["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥽", "🥼", "🦺", "⛷️", "🏂", "🪂", "🏋️", "🤼", "🤸", "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏃", "🚶", "🧎", "🧍"]
+    "Frequently Used": [
+      "😀",
+      "😃",
+      "😄",
+      "😁",
+      "😆",
+      "😅",
+      "🤣",
+      "😂",
+      "🙂",
+      "🙃",
+      "😉",
+      "😊",
+      "😇",
+      "🥰",
+      "😍",
+      "🤩",
+      "😘",
+      "😗",
+      "😚",
+      "😙",
+      "🥲",
+      "😋",
+      "😛",
+      "😜",
+      "🤪",
+      "😝",
+      "🤑",
+      "🤗",
+      "🤭",
+      "🤫",
+      "🤔",
+      "🤐",
+      "🤨",
+      "😐",
+      "😑",
+      "😶",
+      "😏",
+      "😒",
+      "🙄",
+      "😬",
+      "🤥",
+      "😔",
+      "😪",
+    ],
+    Gestures: [
+      "👍",
+      "👎",
+      "👌",
+      "🤌",
+      "🤏",
+      "✌️",
+      "🤞",
+      "🤟",
+      "🤘",
+      "🤙",
+      "👈",
+      "👉",
+      "👆",
+      "🖕",
+      "👇",
+      "☝️",
+      "👋",
+      "🤚",
+      "🖐️",
+      "✋",
+      "🖖",
+      "👏",
+      "🙌",
+      "🤲",
+      "🤝",
+      "🙏",
+      "✍️",
+      "💅",
+      "🤳",
+      "💪",
+      "🦾",
+      "🦿",
+      "🦵",
+      "🦶",
+      "👂",
+      "🦻",
+      "👃",
+      "🧠",
+      "🫀",
+      "🫁",
+      "🦷",
+      "🦴",
+      "👀",
+      "👁️",
+      "👅",
+      "👄",
+      "💋",
+    ],
+    Symbols: [
+      "✅",
+      "❌",
+      "⚡",
+      "🛡️",
+      "🎯",
+      "🚀",
+      "⭐",
+      "🔥",
+      "💡",
+      "🔧",
+      "📊",
+      "📱",
+      "💻",
+      "🌟",
+      "⚠️",
+      "🎉",
+      "📝",
+      "🔍",
+      "🎨",
+      "🔒",
+      "📈",
+      "⏰",
+      "🏆",
+      "🎪",
+      "💎",
+      "🔑",
+      "🎁",
+      "🏅",
+      "🎊",
+      "💥",
+      "✨",
+      "🌈",
+      "⭐",
+      "🔮",
+      "💫",
+      "🌙",
+      "☀️",
+      "⭐",
+      "🌟",
+    ],
+    Objects: [
+      "📱",
+      "💻",
+      "🖥️",
+      "⌨️",
+      "🖱️",
+      "🖨️",
+      "📷",
+      "📹",
+      "🎥",
+      "📞",
+      "☎️",
+      "📠",
+      "📺",
+      "📻",
+      "🎙️",
+      "🎚️",
+      "🎛️",
+      "🕹️",
+      "💾",
+      "💿",
+      "📀",
+      "💽",
+      "💻",
+      "📱",
+      "☎️",
+      "📞",
+      "📟",
+      "📠",
+      "📺",
+      "📻",
+      "🎙️",
+      "⏰",
+      "⏲️",
+      "⏱️",
+      "🕰️",
+      "📡",
+      "🔋",
+      "🔌",
+      "💡",
+      "🔦",
+      "🕯️",
+      "🧯",
+      "🛢️",
+    ],
+    Activities: [
+      "⚽",
+      "🏀",
+      "🏈",
+      "⚾",
+      "🥎",
+      "🎾",
+      "🏐",
+      "🏉",
+      "🥏",
+      "🎱",
+      "🪀",
+      "🏓",
+      "🏸",
+      "🏒",
+      "🏑",
+      "🥍",
+      "🏏",
+      "🪃",
+      "🥅",
+      "⛳",
+      "🪁",
+      "🏹",
+      "🎣",
+      "🤿",
+      "🥽",
+      "🥼",
+      "🦺",
+      "⛷️",
+      "🏂",
+      "🪂",
+      "🏋️",
+      "🤼",
+      "🤸",
+      "⛹️",
+      "🤺",
+      "🤾",
+      "🏌️",
+      "🏇",
+      "🧘",
+      "🏃",
+      "🚶",
+      "🧎",
+      "🧍",
+    ],
   };
 
-  // Check active formats
   const checkActiveFormats = () => {
     if (!editorRef.current) return;
-    
     const newActiveFormats = new Set<string>();
     const alignmentCommands: Record<string, string> = {
-      'justifyLeft': 'left',
-      'justifyCenter': 'center',
-      'justifyRight': 'right',
-      'justifyFull': 'justify'
+      justifyLeft: "left",
+      justifyCenter: "center",
+      justifyRight: "right",
+      justifyFull: "justify",
     };
-    
-    // Check text formatting
-    if (document.queryCommandState('bold')) newActiveFormats.add('bold');
-    if (document.queryCommandState('italic')) newActiveFormats.add('italic');
-    if (document.queryCommandState('underline')) newActiveFormats.add('underline');
-    if (document.queryCommandState('strikeThrough')) newActiveFormats.add('strikeThrough');
-    
-    // Check alignment
+    if (document.queryCommandState("bold")) newActiveFormats.add("bold");
+    if (document.queryCommandState("italic")) newActiveFormats.add("italic");
+    if (document.queryCommandState("underline"))
+      newActiveFormats.add("underline");
+    if (document.queryCommandState("strikeThrough"))
+      newActiveFormats.add("strikeThrough");
     for (const [command, alignment] of Object.entries(alignmentCommands)) {
       if (document.queryCommandState(command)) {
         newActiveFormats.add(alignment);
@@ -124,36 +375,33 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
         break;
       }
     }
-    
-    // Check lists
-    if (document.queryCommandState('insertUnorderedList')) newActiveFormats.add('unorderedList');
-    if (document.queryCommandState('insertOrderedList')) newActiveFormats.add('orderedList');
-    
+    if (document.queryCommandState("insertUnorderedList"))
+      newActiveFormats.add("unorderedList");
+    if (document.queryCommandState("insertOrderedList"))
+      newActiveFormats.add("orderedList");
     setActiveFormats(newActiveFormats);
   };
 
-  // Initialize editor content only once
   useEffect(() => {
     if (editorRef.current && !isInitialized) {
       if (value) {
-        if (value.includes('<')) {
+        if (value.includes("<")) {
           editorRef.current.innerHTML = value;
         } else {
-          editorRef.current.innerHTML = value.replace(/\n/g, '<br>');
+          editorRef.current.innerHTML = value.replace(/\n/g, "<br>");
         }
       } else {
-        editorRef.current.innerHTML = '';
+        editorRef.current.innerHTML = "";
       }
       setIsInitialized(true);
     }
   }, [value, isInitialized]);
 
-  // Reset initialization when modal reopens
   useEffect(() => {
     setIsInitialized(false);
   }, []);
 
-  const handleInput = (e: any) => {
+  const handleInput = () => {
     if (editorRef.current) {
       const htmlContent = editorRef.current.innerHTML;
       onChange(htmlContent);
@@ -161,25 +409,15 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
     }
   };
 
-
-
-  // Add event listener for selection changes
-
-
   const executeFormat = (command: string, value?: string) => {
-    // Ensure the editor is focused
     editorRef.current?.focus();
-    
-    // Execute the command
     const success = document.execCommand(command, false, value);
-    
-    if (!success && command === 'bold') {
-      // Fallback for bold if execCommand fails
+    if (!success && command === "bold") {
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0);
         if (!range.collapsed) {
-          const bold = document.createElement('strong');
+          const bold = document.createElement("strong");
           try {
             range.surroundContents(bold);
           } catch (e) {
@@ -189,23 +427,19 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
         }
       }
     }
-    
-    // Trigger change event
     setTimeout(() => {
-      handleInput(null);
+      handleInput();
       checkActiveFormats();
     }, 10);
   };
 
   const insertAtCursor = (html: string) => {
     editorRef.current?.focus();
-    
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       let range = selection.getRangeAt(0);
       range.deleteContents();
-      
-      const div = document.createElement('div');
+      const div = document.createElement("div");
       div.innerHTML = html;
       const frag = document.createDocumentFragment();
       let node, lastNode;
@@ -213,7 +447,6 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
         lastNode = frag.appendChild(node);
       }
       range.insertNode(frag);
-      
       if (lastNode) {
         const newRange = range.cloneRange();
         newRange.setStartAfter(lastNode);
@@ -222,8 +455,7 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
         selection.addRange(newRange);
       }
     }
-    
-    handleInput(null);
+    handleInput();
   };
 
   const insertEmoji = (emoji: string) => {
@@ -231,228 +463,160 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
     setShowEmojiPicker(false);
   };
 
-const toggleList = (ordered: boolean) => {
-  editorRef.current?.focus();
-  
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-
-  const range = selection.getRangeAt(0);
-  
-  // Check if we're already in a list of the same type
-  let listParent = findParentList(range.commonAncestorContainer as HTMLElement);
-  
-  if (listParent) {
-    // If we're in a list of the same type, toggle it off
-    if ((ordered && listParent.tagName === 'OL') || (!ordered && listParent.tagName === 'UL')) {
-      // Convert list items to paragraphs
-      const listItems = Array.from(listParent.querySelectorAll('li'));
-      listItems.forEach(li => {
-        const p = document.createElement('p');
-        p.innerHTML = li.innerHTML;
-        li.parentNode?.replaceChild(p, li);
-      });
-      
-      // Remove the empty list
-      listParent.parentNode?.removeChild(listParent);
-    } else {
-      // Convert to the other list type
-      convertListType(listParent, ordered ? 'OL' : 'UL');
+  const findParentList = (element: HTMLElement): HTMLElement | null => {
+    let parent = element.parentElement;
+    while (parent && parent !== editorRef.current) {
+      if (parent.tagName === "UL" || parent.tagName === "OL") {
+        return parent;
+      }
+      parent = parent.parentElement;
     }
-  } else {
-    // Create a new list
-    const list = document.createElement(ordered ? 'ol' : 'ul');
-    const listItem = document.createElement('li');
-    
-    // If there's selected text, put it in the list item
-    if (!range.collapsed) {
-      listItem.appendChild(range.extractContents());
-    } else {
-      // Add a zero-width space to make the list item visible
-      listItem.innerHTML = '&#8203;';
-    }
-    
-    list.appendChild(listItem);
-    range.insertNode(list);
-    
-    // Place cursor inside the list item
-    const newRange = document.createRange();
-    newRange.setStart(listItem, 0);
-    newRange.setEnd(listItem, 0);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-  }
-  
-  handleInput(null);
-  checkActiveFormats();
-};
-
-// Helper function to find if an element is inside a list
-const findParentList = (element: HTMLElement): HTMLElement | null => {
-  let parent = element.parentElement;
-  while (parent && parent !== editorRef.current) {
-    if (parent.tagName === 'UL' || parent.tagName === 'OL') {
-      return parent;
-    }
-    parent = parent.parentElement;
-  }
-  return null;
-};
-const insertNumberedList = () => {
-  const selection = window.getSelection();
-  if (selection && selection.rangeCount > 0) {
-    const range = selection.getRangeAt(0);
-    
-    // Create a new paragraph with the numbered list prefix
-    const p = document.createElement('p');
-    p.innerHTML = '1. ';
-    
-    // Insert it at the cursor position
-    range.insertNode(p);
-    
-    // Move cursor after the "1. "
-    const newRange = document.createRange();
-    newRange.setStart(p, 1);
-    newRange.setEnd(p, 1);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-    
-    handleInput(null);
-  }
-};
-
-const insertBulletList = () => {
-  const selection = window.getSelection();
-  if (selection && selection.rangeCount > 0) {
-    const range = selection.getRangeAt(0);
-    
-    // Create a new paragraph with the bullet list prefix
-    const p = document.createElement('p');
-    p.innerHTML = '• ';
-    
-    // Insert it at the cursor position
-    range.insertNode(p);
-    
-    // Move cursor after the "• "
-    const newRange = document.createRange();
-    newRange.setStart(p, 1);
-    newRange.setEnd(p, 1);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-    
-    handleInput(null);
-  }
-};
-
-// Replace the toggleList function with these simpler functions
-// Remove the old toggleList, findParentList, and convertListType functions
-// Helper function to convert list type
-const convertListType = (listElement: HTMLElement, newType: string) => {
-  const newList = document.createElement(newType);
-  
-  // Copy all list items to the new list
-  while (listElement.firstChild) {
-    const listItem = document.createElement('li');
-    listItem.innerHTML = (listElement.firstChild as HTMLElement).innerHTML;
-    newList.appendChild(listItem);
-    listElement.removeChild(listElement.firstChild);
-  }
-  
-  // Replace the old list with the new one
-  listElement.parentNode?.replaceChild(newList, listElement);
-};
-// Empty dependency array since checkActiveFormats doesn't change
-
-// Add event listener for selection changes
-const handleSelectionChange = useCallback(() => {
-  checkActiveFormats();
-}, []); // Empty dependency array since checkActiveFormats doesn't change
-
-// Add event listener for selection changes
-useEffect(() => {
-  document.addEventListener('selectionchange', handleSelectionChange);
-  return () => {
-    document.removeEventListener('selectionchange', handleSelectionChange);
+    return null;
   };
-}, [handleSelectionChange]); // Now this dependency is stable // Now this dependency is stable
+
+  const insertNumberedList = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const p = document.createElement("p");
+      p.innerHTML = "1. ";
+      range.insertNode(p);
+      const newRange = document.createRange();
+      newRange.setStart(p, 1);
+      newRange.setEnd(p, 1);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      handleInput();
+    }
+  };
+
+  const insertBulletList = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const p = document.createElement("p");
+      p.innerHTML = "• ";
+      range.insertNode(p);
+      const newRange = document.createRange();
+      newRange.setStart(p, 1);
+      newRange.setEnd(p, 1);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      handleInput();
+    }
+  };
+
+  const convertListType = (listElement: HTMLElement, newType: string) => {
+    const newList = document.createElement(newType);
+    while (listElement.firstChild) {
+      const listItem = document.createElement("li");
+      listItem.innerHTML = (listElement.firstChild as HTMLElement).innerHTML;
+      newList.appendChild(listItem);
+      listElement.removeChild(listElement.firstChild);
+    }
+    listElement.parentNode?.replaceChild(newList, listElement);
+  };
+
+  const handleSelectionChange = useCallback(() => {
+    checkActiveFormats();
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+    };
+  }, [handleSelectionChange]);
+
   const setAlignment = (alignment: string) => {
     const commands: Record<string, string> = {
-      'left': 'justifyLeft',
-      'center': 'justifyCenter',
-      'right': 'justifyRight',
-      'justify': 'justifyFull'
+      left: "justifyLeft",
+      center: "justifyCenter",
+      right: "justifyRight",
+      justify: "justifyFull",
     };
     executeFormat(commands[alignment]);
   };
 
   const addLink = () => {
-    const url = prompt('Enter URL:');
+    const url = prompt("Enter URL:");
     if (url) {
-      executeFormat('createLink', url);
+      executeFormat("createLink", url);
     }
   };
 
   const addImage = () => {
-    const url = prompt('Enter image URL:');
+    const url = prompt("Enter image URL:");
     if (url) {
-      executeFormat('insertImage', url);
+      executeFormat("insertImage", url);
     }
   };
 
   const makeHeading = () => {
-    executeFormat('formatBlock', 'H3');
+    executeFormat("formatBlock", "H3");
   };
 
   const addHorizontalRule = () => {
-    executeFormat('insertHorizontalRule');
+    executeFormat("insertHorizontalRule");
   };
 
   return (
     <div className={`border border-gray-300 rounded-md bg-white ${className}`}>
-      {/* Comprehensive Formatting Toolbar */}
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 px-3 py-2 bg-gray-100 border-b">
-        {/* Text Formatting Group */}
         <div className="flex items-center gap-0.5">
           <Button
             type="button"
-            variant={activeFormats.has('bold') ? "secondary" : "ghost"}
+            variant={activeFormats.has("bold") ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('bold')}
-            className={`h-8 w-8 p-0 ${activeFormats.has('bold') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => executeFormat("bold")}
+            className={`h-8 w-8 p-0 ${
+              activeFormats.has("bold") ? "bg-gray-300" : "hover:bg-gray-200"
+            }`}
             title="Bold"
           >
             <Bold className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant={activeFormats.has('italic') ? "secondary" : "ghost"}
+            variant={activeFormats.has("italic") ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('italic')}
-            className={`h-8 w-8 p-0 ${activeFormats.has('italic') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => executeFormat("italic")}
+            className={`h-8 w-8 p-0 ${
+              activeFormats.has("italic") ? "bg-gray-300" : "hover:bg-gray-200"
+            }`}
             title="Italic"
           >
             <Italic className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant={activeFormats.has('underline') ? "secondary" : "ghost"}
+            variant={activeFormats.has("underline") ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('underline')}
-            className={`h-8 w-8 p-0 ${activeFormats.has('underline') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => executeFormat("underline")}
+            className={`h-8 w-8 p-0 ${
+              activeFormats.has("underline")
+                ? "bg-gray-300"
+                : "hover:bg-gray-200"
+            }`}
             title="Underline"
           >
             <Underline className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant={activeFormats.has('strikeThrough') ? "secondary" : "ghost"}
+            variant={activeFormats.has("strikeThrough") ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('strikeThrough')}
-            className={`h-8 w-8 p-0 ${activeFormats.has('strikeThrough') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => executeFormat("strikeThrough")}
+            className={`h-8 w-8 p-0 ${
+              activeFormats.has("strikeThrough")
+                ? "bg-gray-300"
+                : "hover:bg-gray-200"
+            }`}
             title="Strikethrough"
           >
             <Strikethrough className="h-4 w-4" />
@@ -461,48 +625,55 @@ useEffect(() => {
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
-        {/* Alignment Group */}
         <div className="flex items-center gap-0.5">
           <Button
             type="button"
-            variant={textAlignment === 'left' ? "secondary" : "ghost"}
+            variant={textAlignment === "left" ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setAlignment('left')}
-            className={`h-8 w-8 p-0 ${textAlignment === 'left' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => setAlignment("left")}
+            className={`h-8 w-8 p-0 ${
+              textAlignment === "left" ? "bg-gray-300" : "hover:bg-gray-200"
+            }`}
             title="Align Left"
           >
             <AlignLeft className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant={textAlignment === 'center' ? "secondary" : "ghost"}
+            variant={textAlignment === "center" ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setAlignment('center')}
-            className={`h-8 w-8 p-0 ${textAlignment === 'center' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => setAlignment("center")}
+            className={`h-8 w-8 p-0 ${
+              textAlignment === "center" ? "bg-gray-300" : "hover:bg-gray-200"
+            }`}
             title="Align Center"
           >
             <AlignCenter className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant={textAlignment === 'right' ? "secondary" : "ghost"}
+            variant={textAlignment === "right" ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setAlignment('right')}
-            className={`h-8 w-8 p-0 ${textAlignment === 'right' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => setAlignment("right")}
+            className={`h-8 w-8 p-0 ${
+              textAlignment === "right" ? "bg-gray-300" : "hover:bg-gray-200"
+            }`}
             title="Align Right"
           >
             <AlignRight className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant={textAlignment === 'justify' ? "secondary" : "ghost"}
+            variant={textAlignment === "justify" ? "secondary" : "ghost"}
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setAlignment('justify')}
-            className={`h-8 w-8 p-0 ${textAlignment === 'justify' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            onClick={() => setAlignment("justify")}
+            className={`h-8 w-8 p-0 ${
+              textAlignment === "justify" ? "bg-gray-300" : "hover:bg-gray-200"
+            }`}
             title="Justify"
           >
             <AlignJustify className="h-4 w-4" />
@@ -511,14 +682,13 @@ useEffect(() => {
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
-        {/* Advanced Formatting */}
         <div className="flex items-center gap-0.5">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('superscript')}
+            onClick={() => executeFormat("superscript")}
             className="h-8 w-8 p-0 hover:bg-gray-200"
             title="Superscript"
           >
@@ -529,7 +699,7 @@ useEffect(() => {
             variant="ghost"
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('subscript')}
+            onClick={() => executeFormat("subscript")}
             className="h-8 w-8 p-0 hover:bg-gray-200"
             title="Subscript"
           >
@@ -540,7 +710,7 @@ useEffect(() => {
             variant="ghost"
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('formatBlock', 'pre')}
+            onClick={() => executeFormat("formatBlock", "pre")}
             className="h-8 w-8 p-0 hover:bg-gray-200"
             title="Code Block"
           >
@@ -551,7 +721,7 @@ useEffect(() => {
             variant="ghost"
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeFormat('formatBlock', 'blockquote')}
+            onClick={() => executeFormat("formatBlock", "blockquote")}
             className="h-8 w-8 p-0 hover:bg-gray-200"
             title="Quote"
           >
@@ -561,40 +731,33 @@ useEffect(() => {
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
-        {/* Lists Group */}
-       <div className="flex items-center gap-0.5">
-  <Button
-    type="button"
-    variant={activeFormats.has('orderedList') ? "secondary" : "ghost"}
-    size="sm"
-    onMouseDown={(e) => e.preventDefault()}
-    onClick={insertNumberedList}
-    className={`h-8 w-8 p-0 ${activeFormats.has('orderedList') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
-    title="Numbered List"
-  >
-    <ListOrdered className="h-4 w-4" />
-  </Button>
-  <Button
-    type="button"
-    variant={activeFormats.has('unorderedList') ? "secondary" : "ghost"}
-    size="sm"
-    onMouseDown={(e) => e.preventDefault()}
-    onClick={insertBulletList}
-    className={`h-8 w-8 p-0 ${activeFormats.has('unorderedList') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
-    title="Bullet List"
-  >
-    <List className="h-4 w-4" />
-  </Button>
-</div>
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={insertNumberedList}
+            className={`h-8 w-8 p-0 hover:bg-gray-200`}
+            title="Numbered List"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={insertBulletList}
+            className={`h-8 w-8 p-0 hover:bg-gray-200`}
+            title="Bullet List"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
-        {/* Media & Links */}
-       
-
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Emoji Picker */}
         <div className="relative">
           <Button
             type="button"
@@ -607,7 +770,6 @@ useEffect(() => {
           >
             <Smile className="h-4 w-4" />
           </Button>
-          
           {showEmojiPicker && (
             <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto">
               {Object.entries(emojiCategories).map(([category, emojis]) => (
@@ -637,7 +799,6 @@ useEffect(() => {
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
-        {/* Additional Tools */}
         <div className="flex items-center gap-0.5">
           <Button
             type="button"
@@ -664,17 +825,15 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Content Editable Area */}
       <div
         ref={editorRef}
         contentEditable
         onInput={handleInput}
         className="min-h-[200px] p-4 focus:outline-none text-sm leading-relaxed"
-        style={{ wordWrap: 'break-word' }}
+        style={{ wordWrap: "break-word" }}
         data-placeholder={placeholder}
       />
 
-      {/* Support Text */}
       <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-600 rounded-b-md">
         Rich text editor with full formatting support
       </div>
@@ -682,7 +841,7 @@ useEffect(() => {
   );
 };
 
-// The rest of your AddTaskModal component remains the same...
+// The rest of your AddTaskModal component with edit-comment logic
 export const AddTaskModal = ({
   isOpen,
   onClose,
@@ -706,11 +865,14 @@ export const AddTaskModal = ({
     acceptanceCriteria: "",
   });
 
-  // Track original values for comparison
-  const [originalFormData, setOriginalFormData] = useState<CreateTaskRequest | null>(null);
-  
-  // Track which fields have been modified
-  const [dirtyFields, setDirtyFields] = useState<Set<keyof CreateTaskRequest>>(new Set());
+  // New: comment state (edit only)
+  const [comment, setComment] = useState<string>("");
+
+  const [originalFormData, setOriginalFormData] =
+    useState<CreateTaskRequest | null>(null);
+  const [dirtyFields, setDirtyFields] = useState<Set<keyof CreateTaskRequest>>(
+    new Set()
+  );
 
   const priorities: Array<CreateTaskRequest["priority"]> = [
     "LOW",
@@ -719,102 +881,89 @@ export const AddTaskModal = ({
     "URGENT",
   ];
 
-  // Default acceptance criteria template
   const getDefaultAcceptanceCriteria = () => {
     return `<strong>Given</strong> Dummy acceptance criteria edit your acceptance criteria here.<br><br>`;
+    // You can expand template later if needed
   };
 
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
 
-  // Helper function to compare values (handles dates properly)
   const areValuesEqual = (original: any, current: any): boolean => {
     if (original === current) return true;
-    
-    // Handle date comparison
-    if (original instanceof Date && typeof current === 'string') {
+    if (original instanceof Date && typeof current === "string") {
       return original.toISOString() === current;
     }
-    if (typeof original === 'string' && current instanceof Date) {
+    if (typeof original === "string" && current instanceof Date) {
       return original === current.toISOString();
     }
-    
-    // Handle null/undefined/empty string equivalence
-    const normalizeEmpty = (val: any) => val === null || val === undefined || val === '' ? '' : val;
+    const normalizeEmpty = (val: any) =>
+      val === null || val === undefined || val === "" ? "" : val;
     return normalizeEmpty(original) === normalizeEmpty(current);
   };
 
-  // Function to update form data and track dirty fields
   const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
     if (originalFormData && editingTask) {
       const originalValue = originalFormData[field];
       const newDirtyFields = new Set(dirtyFields);
-      
+
       if (areValuesEqual(originalValue, value)) {
-        // Value matches original, remove from dirty fields
         newDirtyFields.delete(field);
       } else {
-        // Value is different from original, add to dirty fields
         newDirtyFields.add(field);
       }
-      
       setDirtyFields(newDirtyFields);
     }
   };
 
-  // Helper function to get local ISO string without timezone conversion
   const getLocalISOString = (date: Date): string => {
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    
+    const pad = (n: number) => n.toString().padStart(2, "0");
     const year = date.getFullYear();
     const month = pad(date.getMonth() + 1);
     const day = pad(date.getDate());
     const hours = pad(date.getHours());
     const minutes = pad(date.getMinutes());
     const seconds = pad(date.getSeconds());
-    
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   };
 
-  // Helper function to add minutes to current time and round up to next 5-minute interval
   const getAdjustedCurrentTime = (): Date => {
     const now = new Date();
     const currentMinutes = now.getMinutes();
     const currentSeconds = now.getSeconds();
-    
     if (currentSeconds > 0) {
       now.setMinutes(currentMinutes + 1);
     }
-    
     const minutesToAdd = 5 - (now.getMinutes() % 5);
     if (minutesToAdd < 5) {
       now.setMinutes(now.getMinutes() + minutesToAdd);
     } else {
       now.setMinutes(now.getMinutes() + 5);
     }
-    
     now.setSeconds(0);
     now.setMilliseconds(0);
-    
     return now;
   };
 
-  // MAIN EFFECT: Reset and initialize form when modal opens/closes or when key props change
+  // Determine if stage changed (edit mode only)
+  const stageChanged = useMemo(() => {
+    if (!editingTask || !originalFormData) return false;
+    return formData.taskStageId !== originalFormData.taskStageId;
+  }, [editingTask, formData.taskStageId, originalFormData]);
+
   useEffect(() => {
     if (!isOpen) {
-      // Reset everything when modal closes
       setOriginalFormData(null);
       setDirtyFields(new Set());
+      setComment("");
       return;
     }
 
-    // Initialize form data when modal opens
     if (editingTask) {
-      // EDIT MODE: Initialize with existing task data
-      const initialData = {
+      const initialData: CreateTaskRequest = {
         subject: editingTask.subject || "",
         description: editingTask.description || "",
         priority: editingTask.priority || "LOW",
@@ -824,39 +973,35 @@ export const AddTaskModal = ({
         assignee: editingTask.assignee?.id || "",
         acceptanceCriteria: editingTask.acceptanceCriteria || "",
       };
-      
       setFormData(initialData);
       setOriginalFormData(initialData);
       setDirtyFields(new Set());
+      setComment(""); // reset comment on open
     } else {
-      // NEW TASK MODE: Initialize with defaults and pre-selected stage + prefilled acceptance criteria
       const adjustedTime = getAdjustedCurrentTime();
-      const newTaskData = {
+      const newTaskData: CreateTaskRequest = {
         subject: "",
         description: "",
-        priority: "LOW" as const,
+        priority: "LOW",
         taskStageId: preSelectedStageId || 0,
         startDate: getLocalISOString(adjustedTime),
         endDate: "",
         assignee: "",
         acceptanceCriteria: getDefaultAcceptanceCriteria(),
       };
-      
       setFormData(newTaskData);
       setOriginalFormData(null);
       setDirtyFields(new Set());
+      setComment(""); // not used in create
     }
   }, [isOpen, editingTask, preSelectedStageId]);
 
-  // Fetch stages when modal opens
   useEffect(() => {
     const fetchData = async () => {
       if (!isOpen) return;
-      
       try {
         setIsLoading(true);
         const stagesRes = await getTaskStagesDropdown();
-
         if (stagesRes?.isSuccess && stagesRes.data) {
           setStages(stagesRes.data);
         } else {
@@ -879,14 +1024,12 @@ export const AddTaskModal = ({
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, [isOpen, toast]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
     if (!formData.subject?.trim()) {
       toast({
         title: "Validation Error",
@@ -898,7 +1041,7 @@ export const AddTaskModal = ({
 
     if (!formData.description?.trim()) {
       toast({
-        title: "Validation Error", 
+        title: "Validation Error",
         description: "Description is required",
         variant: "destructive",
       });
@@ -923,10 +1066,19 @@ export const AddTaskModal = ({
       return;
     }
 
+    // Comment required only if stage changed in edit mode
+    if (editingTask && stageChanged && !comment.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Comment is required when changing the stage.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       if (editingTask) {
-        // For editing, only send changed fields
-        if (dirtyFields.size === 0) {
+        if (dirtyFields.size === 0 && !(stageChanged && comment.trim())) {
           toast({
             title: "No Changes",
             description: "No changes were made to the task.",
@@ -937,27 +1089,24 @@ export const AddTaskModal = ({
         }
 
         const updatePayload: Partial<UpdateTaskRequest> = {};
-        
-        // Only include fields that have been modified
-        dirtyFields.forEach(field => {
-          if (field === 'endDate' && formData[field] === '') {
-            // Handle empty endDate specially - send null or don't send at all
+        dirtyFields.forEach((field) => {
+          if (field === "endDate" && formData[field] === "") {
             (updatePayload as any)[field] = null;
           } else {
             (updatePayload as any)[field] = formData[field];
           }
         });
 
-        console.log('Update payload (only dirty fields):', updatePayload);
-        console.log('Dirty fields:', Array.from(dirtyFields));
-        
+        // include comment if provided (always include when stage changed)
+        if (comment.trim()) {
+          updatePayload.comment = comment.trim();
+        }
+
         onSubmit(updatePayload, true);
       } else {
-        // For new tasks, send all required fields
-        console.log('Submitting new task:', formData);
         onSubmit(formData, false);
       }
-      
+
       onClose();
     } catch (error) {
       console.error("Error submitting task:", error);
@@ -969,23 +1118,20 @@ export const AddTaskModal = ({
     }
   };
 
-  // Updated handleDateChange function
-  const handleDateChange = (value: string, field: 'startDate' | 'endDate') => {
+  const handleDateChange = (value: string, field: "startDate" | "endDate") => {
     try {
       if (!value) {
         updateFormField(field, "");
         return;
       }
-      
-      if (field === 'startDate') {
+      if (field === "startDate") {
         const selectedDate = new Date(value);
         const today = new Date();
-        
-        const isToday = 
+        const isToday =
           selectedDate.getDate() === today.getDate() &&
           selectedDate.getMonth() === today.getMonth() &&
           selectedDate.getFullYear() === today.getFullYear();
-        
+
         if (isToday) {
           const adjustedTime = getAdjustedCurrentTime();
           const finalDate = new Date(selectedDate);
@@ -993,7 +1139,6 @@ export const AddTaskModal = ({
           finalDate.setMinutes(adjustedTime.getMinutes());
           finalDate.setSeconds(0);
           finalDate.setMilliseconds(0);
-          
           const localISOTime = getLocalISOString(finalDate);
           updateFormField(field, localISOTime);
         } else {
@@ -1007,7 +1152,6 @@ export const AddTaskModal = ({
           console.error("Invalid date:", value);
           return;
         }
-        
         date.setHours(23, 59, 59, 0);
         const localISOTime = getLocalISOString(date);
         updateFormField(field, localISOTime);
@@ -1017,32 +1161,31 @@ export const AddTaskModal = ({
     }
   };
 
-  // Updated formatDateForInput function
   const formatDateForInput = (dateString: string) => {
     if (!dateString) return "";
     try {
       let date: Date;
-      
-      if (dateString.includes('T')) {
-        if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
-          const [datePart, timePart] = dateString.split('T');
-          const [year, month, day] = datePart.split('-').map(Number);
-          const [hour, minute, second] = timePart.split(':').map(Number);
+      if (dateString.includes("T")) {
+        if (
+          !dateString.includes("Z") &&
+          !dateString.includes("+") &&
+          !dateString.includes("-", 10)
+        ) {
+          const [datePart, timePart] = dateString.split("T");
+          const [year, month, day] = datePart.split("-").map(Number);
+          const [hour, minute, second] = timePart.split(":").map(Number);
           date = new Date(year, month - 1, day, hour, minute, second || 0);
         } else {
           date = new Date(dateString);
         }
       } else {
-        const [year, month, day] = dateString.split('-').map(Number);
+        const [year, month, day] = dateString.split("-").map(Number);
         date = new Date(year, month - 1, day);
       }
-      
       if (isNaN(date.getTime())) return "";
-      
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     } catch (error) {
       console.error("Error formatting date:", error);
@@ -1050,10 +1193,11 @@ export const AddTaskModal = ({
     }
   };
 
-  // Get the name of the pre-selected stage for display
   const getPreSelectedStageName = () => {
     if (preSelectedStageId && stages.length > 0) {
-      const selectedStage = stages.find(stage => stage.id === preSelectedStageId);
+      const selectedStage = stages.find(
+        (stage) => stage.id === preSelectedStageId
+      );
       return selectedStage?.name;
     }
     return null;
@@ -1072,7 +1216,7 @@ export const AddTaskModal = ({
                 Create a new task for your team
                 {preSelectedStageId && getPreSelectedStageName() && (
                   <span className="text-blue-600 ml-1">
-                  {`• Adding to "${getPreSelectedStageName()}" stage`}
+                    {`• Adding to "${getPreSelectedStageName()}" stage`}
                   </span>
                 )}
               </p>
@@ -1081,7 +1225,8 @@ export const AddTaskModal = ({
                 Edit the task details
                 {dirtyFields.size > 0 && (
                   <span className="text-blue-600 ml-1">
-                    • {dirtyFields.size} field{dirtyFields.size !== 1 ? 's' : ''} modified
+                    • {dirtyFields.size} field
+                    {dirtyFields.size !== 1 ? "s" : ""} modified
                   </span>
                 )}
               </p>
@@ -1101,14 +1246,14 @@ export const AddTaskModal = ({
               className="text-sm font-medium text-foreground"
             >
               Subject: *
-              {dirtyFields.has('subject') && (
+              {dirtyFields.has("subject") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
             <Input
               id="subject"
               value={formData.subject}
-              onChange={(e) => updateFormField('subject', e.target.value)}
+              onChange={(e) => updateFormField("subject", e.target.value)}
               placeholder="Enter Subject"
               required
               className="w-full"
@@ -1120,14 +1265,14 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Priority: *
-                {dirtyFields.has('priority') && (
+                {dirtyFields.has("priority") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
               </Label>
               <Select
                 value={formData.priority}
                 onValueChange={(value) =>
-                  updateFormField('priority', value as typeof formData.priority)
+                  updateFormField("priority", value as typeof formData.priority)
                 }
               >
                 <SelectTrigger>
@@ -1146,30 +1291,43 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Stage: *
-                {dirtyFields.has('taskStageId') && (
+                {dirtyFields.has("taskStageId") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
+                {editingTask && (
+                  <span
+                    className={`ml-2 text-xs ${
+                      stageChanged ? "text-red-600" : "text-gray-500"
+                    }`}
+                  >
+                    {stageChanged
+                      ? "Comment required (stage changed)"
+                      : "Comment optional"}
+                  </span>
+                )}
               </Label>
+
               {hasPreSelectedStage ? (
-                // Display locked stage when pre-selected
                 <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
                   <span className="text-sm">
-                    {stages.find(stage => stage.id === preSelectedStageId)?.name || "Selected Stage"}
+                    {stages.find((stage) => stage.id === preSelectedStageId)
+                      ?.name || "Selected Stage"}
                   </span>
                   <input
                     type="hidden"
                     value={preSelectedStageId || ""}
-                    onChange={(e) => updateFormField('taskStageId', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      updateFormField("taskStageId", parseInt(e.target.value))
+                    }
                   />
                 </div>
               ) : (
-                // Normal stage selection when not pre-selected
                 <Select
                   value={formData.taskStageId?.toString() || ""}
                   onValueChange={(value) => {
                     const numValue = parseInt(value, 10);
                     if (!isNaN(numValue)) {
-                      updateFormField('taskStageId', numValue);
+                      updateFormField("taskStageId", numValue);
                     }
                   }}
                 >
@@ -1193,14 +1351,14 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Start Date: *
-                {dirtyFields.has('startDate') && (
+                {dirtyFields.has("startDate") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
               </Label>
               <Input
                 type="date"
                 value={formatDateForInput(formData.startDate)}
-                onChange={(e) => handleDateChange(e.target.value, 'startDate')}
+                onChange={(e) => handleDateChange(e.target.value, "startDate")}
                 className="w-full"
                 required
               />
@@ -1209,14 +1367,14 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 End Date (Optional):
-                {dirtyFields.has('endDate') && (
+                {dirtyFields.has("endDate") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
               </Label>
               <Input
                 type="date"
                 value={formatDateForInput(formData.endDate)}
-                onChange={(e) => handleDateChange(e.target.value, 'endDate')}
+                onChange={(e) => handleDateChange(e.target.value, "endDate")}
                 className="w-full"
               />
             </div>
@@ -1226,13 +1384,13 @@ export const AddTaskModal = ({
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
               Assignee: *
-              {dirtyFields.has('assignee') && (
+              {dirtyFields.has("assignee") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
             <Select
               value={formData.assignee}
-              onValueChange={(value) => updateFormField('assignee', value)}
+              onValueChange={(value) => updateFormField("assignee", value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select assignee" />
@@ -1257,13 +1415,13 @@ export const AddTaskModal = ({
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
               Description: *
-              {dirtyFields.has('description') && (
+              {dirtyFields.has("description") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
             <Textarea
               value={formData.description}
-              onChange={(e) => updateFormField('description', e.target.value)}
+              onChange={(e) => updateFormField("description", e.target.value)}
               placeholder="Enter Description"
               rows={4}
               className="resize-none"
@@ -1271,22 +1429,53 @@ export const AddTaskModal = ({
             />
           </div>
 
-          {/* Rich Text Editor for Acceptance Criteria */}
+          {/* Acceptance Criteria */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground text-blue-600">
               Acceptance Criteria
-              {dirtyFields.has('acceptanceCriteria') && (
+              {dirtyFields.has("acceptanceCriteria") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-            
             <RichTextEditor
               value={formData.acceptanceCriteria || ""}
-              onChange={(value) => updateFormField('acceptanceCriteria', value)}
+              onChange={(value) => updateFormField("acceptanceCriteria", value)}
               placeholder="Start typing your acceptance criteria..."
               className=""
             />
           </div>
+
+          {/* EDIT MODE: Comment field (required if stage changed) */}
+          {editingTask && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Comment{" "}
+                {stageChanged ? (
+                  <span className="text-red-600">*</span>
+                ) : (
+                  <span className="text-gray-500 text-xs">(optional)</span>
+                )}
+              </Label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder={
+                  stageChanged
+                    ? "Explain the reason for changing the stage..."
+                    : "Add an optional comment..."
+                }
+                rows={3}
+                className={`resize-none ${
+                  stageChanged && !comment.trim() ? "border-destructive" : ""
+                }`}
+              />
+              {stageChanged && !comment.trim() && (
+                <p className="text-xs text-destructive">
+                  Comment is required when changing the stage.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
