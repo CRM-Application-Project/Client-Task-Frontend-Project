@@ -207,7 +207,7 @@ export function CreateStaffModal({
         break;
       case "dateOfJoin":
         if (!value) return "Date of join is required";
-        if (value > new Date()) return "Date of join cannot be in the future";
+        // if (value > new Date()) return "Date of join cannot be in the future";
         break;
       case "moduleAccess":
         if (formData.moduleAccess.length === 0)
