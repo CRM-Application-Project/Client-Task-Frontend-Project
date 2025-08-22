@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { deleteLeadStage } from "@/app/services/data.service";
 import { LeadCard } from "./LeadCard";
 import { LeadStage } from "@/lib/data";
-import { Pencil, MoreVertical, Trash2, Plus, GripVertical } from "lucide-react";
+import { Pencil, MoreVertical, Trash2, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,12 +38,6 @@ interface LeadColumnProps {
   isDragOver?: boolean;
   stageIndex: number;
   onAddLeadForStage?: (stageId: string) => void;
-  // New props for column dragging
-  onColumnDragStart: (e: React.DragEvent<HTMLDivElement>, stage: LeadStage) => void;
-  onColumnDragOver: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
-  onColumnDrop: (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => void;
-  isColumnDragOver: boolean;
-  isDraggingColumn: boolean;
 }
 
 // Dynamic color assignment based on stage position
@@ -250,11 +244,6 @@ export const LeadColumn = ({
   isDragOver = false,
   stageIndex = 0,
   onAddLeadForStage,
-  onColumnDragStart,
-  onColumnDragOver,
-  onColumnDrop,
-  isColumnDragOver = false,
-  isDraggingColumn = false,
 }: LeadColumnProps) => {
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -372,38 +361,14 @@ export const LeadColumn = ({
     onDragOver(e, currentStage.leadStageName);
   };
 
-const handleColumnDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-  e.stopPropagation();
-  onColumnDragStart(e, currentStage);
-  e.dataTransfer.effectAllowed = "move";
-};
-
-const handleColumnDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  onColumnDragOver(e, stageIndex);
-};
-
-const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  onColumnDrop(e, stageIndex);
-};
-
   return (
     <>
       <div
-        draggable
-        onDragStart={handleColumnDragStart}
-        onDragOver={handleColumnDragOver}
-        onDrop={handleColumnDrop}
         className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md bg-gray-50 border-gray-200 ${
           isDragOver ? "bg-gray-50 border-2 border-gray-300 border-dashed" : ""
-        } ${
-          isColumnDragOver ? "ring-2 ring-blue-400 bg-blue-50/50" : ""
-        } ${
-          isDraggingColumn ? "opacity-50 scale-95" : ""
-        } cursor-move`}
+        }`}
+        onDragOver={handleDragOver}
+        onDrop={(e) => onDrop(e, currentStage.leadStageName)}
       >
         {/* Stage Header */}
         <div className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200">
@@ -411,11 +376,6 @@ const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
             className={`${stageColors?.color} ${stageColors?.textColor} px-4 py-3 rounded-t-xl flex items-center justify-between shadow-sm transition-all duration-200`}
           >
             <div className="flex items-center gap-2 flex-1">
-              {/* Drag Handle */}
-              <div className="p-1 rounded hover:bg-white/20 transition-colors cursor-grab active:cursor-grabbing">
-                <GripVertical className="w-4 h-4 opacity-70" />
-              </div>
-              
               <h2 className="font-semibold text-sm uppercase tracking-wide truncate flex-1">
                 {currentStage.leadStageName}
               </h2>
@@ -428,6 +388,15 @@ const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
               >
                 {leads.length}
               </Badge>
+
+              {/* Add Lead Icon */}
+              {/* <button
+                onClick={() => onAddLeadForStage?.(currentStage.leadStageId)}
+                className="p-1.5 rounded hover:bg-white/20 transition-colors ml-2"
+                title={`Add lead to ${currentStage.leadStageName}`}
+              >
+                <Plus className="w-4 h-4" />
+              </button> */}
 
               {/* Three dots menu for stage operations */}
               <div className="relative">
@@ -498,8 +467,6 @@ const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
             scrollbarColor: "#cbd5e1 #f1f5f9",
             WebkitOverflowScrolling: "touch",
           }}
-          onDragOver={handleDragOver}
-          onDrop={(e) => onDrop(e, currentStage.leadStageName)}
         >
           {/* Custom Scrollbar Styles */}
           <style jsx>{`
@@ -533,10 +500,7 @@ const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
               >
                 <div
                   draggable
-                  onDragStart={(e) => {
-                    e.stopPropagation();
-                    onDragStart(e, lead);
-                  }}
+                  onDragStart={(e) => onDragStart(e, lead)}
                   className="cursor-move"
                 >
                   <LeadCard
@@ -593,18 +557,6 @@ const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
             </div>
           )}
         </div>
-
-        {/* Column Drop Indicator */}
-        {isColumnDragOver && (
-          <div className="absolute inset-0 bg-blue-100/30 border-2 border-blue-400 border-dashed rounded-xl flex items-center justify-center z-20 pointer-events-none">
-            <div className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
-              <div className="flex items-center gap-2">
-                <GripVertical className="w-4 h-4" />
-                <span className="text-sm font-medium">Drop column here</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Edit Stage Modal */}
@@ -624,7 +576,9 @@ const handleColumnDrop = (e: React.DragEvent<HTMLDivElement>) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Stage</AlertDialogTitle>
             <AlertDialogDescription>
-              {`Are you sure you want to delete the stage "${currentStage.leadStageName}"? This action cannot be undone and all leads in this stage will need to be moved to another stage.`}
+              {`Are you sure you want to delete the stage "
+              ${currentStage.leadStageName}"? This action cannot be undone and
+              all leads in this stage will need to be moved to another stage.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
