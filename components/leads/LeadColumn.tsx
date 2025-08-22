@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -576,9 +577,9 @@ export const LeadColumn = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Stage</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the stage "
-              {currentStage.leadStageName}"? This action cannot be undone and
-              all leads in this stage will need to be moved to another stage.
+              {`Are you sure you want to delete the stage "
+              ${currentStage.leadStageName}"? This action cannot be undone and
+              all leads in this stage will need to be moved to another stage.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

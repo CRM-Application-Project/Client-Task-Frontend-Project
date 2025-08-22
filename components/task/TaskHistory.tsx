@@ -215,7 +215,7 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
         </div>
       </div>
 
-      {/* Filter Panel - Only this section has reduced font size and gray shades */}
+      {/* Filter Panel */}
       {showFilters && (
         <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -227,12 +227,12 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
               <select
                 value={filters.doneById || ''}
                 onChange={(e) => handleFilterChange('doneById', e.target.value || undefined)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
                 disabled={isLoadingUsers}
               >
-                <option value="">All Users</option>
+                <option value="" className="hover:bg-gray-100">All Users</option>
                 {users.map((user) => (
-                  <option key={user.userId} value={user.userId}>
+                  <option key={user.userId} value={user.userId} className="hover:bg-gray-100">
                     {user.firstName} {user.lastName}
                   </option>
                 ))}
@@ -247,12 +247,12 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
               <select
                 value={filters.eventTypes || ''}
                 onChange={(e) => handleFilterChange('eventTypes', e.target.value || undefined)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
                 disabled={isLoadingEvents}
               >
-                <option value="">All Events</option>
+                <option value="" className="hover:bg-gray-100">All Events</option>
                 {eventTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
+                  <option key={type.value} value={type.value} className="hover:bg-gray-100">
                     {type.label}
                   </option>
                 ))}
@@ -268,7 +268,7 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
                 type="date"
                 value={filters.createdAfter ? filters.createdAfter.split('T')[0] : ''}
                 onChange={(e) => handleFilterChange('createdAfter', formatDateForApi(e.target.value))}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
               />
             </div>
 
@@ -281,7 +281,7 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
                 type="date"
                 value={filters.createdBefore ? filters.createdBefore.split('T')[0] : ''}
                 onChange={(e) => handleFilterChange('createdBefore', formatDateForApi(e.target.value))}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
               />
             </div>
 
@@ -293,10 +293,10 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
               <select
                 value={filters.sortDirection || 'DESC'}
                 onChange={(e) => handleFilterChange('sortDirection', e.target.value)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
               >
-                <option value="DESC">Newest First</option>
-                <option value="ASC">Oldest First</option>
+                <option value="DESC" className="hover:bg-gray-100">Newest First</option>
+                <option value="ASC" className="hover:bg-gray-100">Oldest First</option>
               </select>
             </div>
           </div>
@@ -331,9 +331,9 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
             {history.map((record, index) => (
               <div key={record.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                 <div className="flex items-start gap-3">
-                  {/* Avatar */}
+                  {/* Avatar - Changed from blue to grey */}
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium text-white">
                         {record.doneByName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
                       </span>
@@ -352,12 +352,9 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
                       </span>
                     </div>
 
-                    {/* Activity Description */}
-                  
-
-                    {/* Event Type Badge */}
+                    {/* Event Type Badge - Changed from blue to grey */}
                     {record.eventType && (
-                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-3">
+                      <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full mb-3">
                         {eventTypes.find(et => et.value === record.eventType)?.label || record.eventType}
                       </span>
                     )}

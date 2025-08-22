@@ -358,16 +358,6 @@ export const TaskCard = ({
   const showDeleteButton = permissions.canDelete && onDelete;
   const showDocumentButton = permissions.canEdit;
   const showActionsBar = showEditButton || showDeleteButton || showDocumentButton;
-  
-  const actionIconCount = [
-    showEditButton, 
-    showDocumentButton, 
-    showDeleteButton
-  ].filter(Boolean).length;
-  
-  const translateDistance = actionIconCount > 0 
-    ? `${(actionIconCount * 20) + ((actionIconCount - 1) * 6)}px` 
-    : "0px";
 
   return (
     <>
@@ -382,46 +372,8 @@ export const TaskCard = ({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        {/* Action buttons */}
-        {showActionsBar && (
-          <div className="absolute top-3 right-2 flex gap-1 opacity-0 group-hover:opacity-100 z-10">
-            {showEditButton && (
-              <button 
-                onClick={handleEditClick}
-                className="p-1 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                aria-label="Edit task"
-                title="Edit task"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
-            )}
-            
-            {showDocumentButton && (
-              <button 
-                onClick={handleDocumentClick}
-                className="p-1 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                aria-label="Manage documents"
-                title="Manage documents"
-              >
-                <FileText className="h-4 w-4" />
-              </button>
-            )}
-            
-            {showDeleteButton && (
-              <button 
-                onClick={handleDeleteClick}
-                className="p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                aria-label="Delete task"
-                title="Delete task"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
-        
         <div className="space-y-3">
-          {/* Title and Priority Row with proper spacing */}
+          {/* Title and Priority Row */}
           <div className="flex items-start justify-between gap-3">
             {/* Subject with truncation and tooltip */}
             <div className="flex-1 min-w-0">
@@ -442,13 +394,10 @@ export const TaskCard = ({
               </h3>
             </div>
 
-            {/* Priority Badge */}
+            {/* Priority Badge - No longer moves */}
             <Badge 
               variant="outline" 
-              className={`${priorityColors[task.priority]} whitespace-nowrap flex-shrink-0 transition-transform duration-200 ${
-                showActionsBar ? 'group-hover:-translate-x-[var(--translate-distance)]' : ''
-              }`}
-              style={{ '--translate-distance': translateDistance } as React.CSSProperties}
+              className={`${priorityColors[task.priority]} whitespace-nowrap flex-shrink-0`}
             >
               {task.priority}
             </Badge>
@@ -507,19 +456,62 @@ export const TaskCard = ({
           )}
 
           {/* Footer with assignee and date */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground gap-2 min-w-0">
-            {task.assignedTo && (
-              <div className="flex items-center gap-1 min-w-0 flex-1">
-                <User className="h-3 w-3 flex-shrink-0" />
-                <span 
-                  className="truncate"
-                  title={task.assignedTo.length > 12 ? task.assignedTo : undefined}
-                >
-                  {task.assignedTo}
-                </span>
-              </div>
-            )}
+          <div className="flex items-end justify-between text-xs text-muted-foreground gap-2 min-w-0">
+            {/* Left side: Assignee and action buttons below */}
+            <div className="flex flex-col gap-1 min-w-0">
+              {/* Assignee */}
+              {task.assignedTo && (
+                <div className="flex items-center gap-1 min-w-0">
+                  <User className="h-3 w-3 flex-shrink-0" />
+                  <span 
+                    className="truncate max-w-[120px]"
+                    title={task.assignedTo.length > 15 ? task.assignedTo : undefined}
+                  >
+                    {task.assignedTo}
+                  </span>
+                </div>
+              )}
+              
+              {/* Action buttons below assignee */}
+              {showActionsBar && (
+                <div className="flex gap-1 mt-2">
+                  {showEditButton && (
+                    <button 
+                      onClick={handleEditClick}
+                      className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
+                      aria-label="Edit task"
+                      title="Edit task"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  )}
+                  
+                  {showDocumentButton && (
+                    <button 
+                      onClick={handleDocumentClick}
+                      className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
+                      aria-label="Manage documents"
+                      title="Manage documents"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </button>
+                  )}
+                  
+                  {showDeleteButton && (
+                    <button 
+                      onClick={handleDeleteClick}
+                      className="w-8 h-8 rounded-full bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all duration-200 flex items-center justify-center"
+                      aria-label="Delete task"
+                      title="Delete task"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
+            {/* Right side: Date */}
             {task.endDate && (
               <div className="flex items-center gap-1 flex-shrink-0">
                 <Calendar className="h-3 w-3" />
