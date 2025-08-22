@@ -146,7 +146,7 @@ export const LeadCard = ({
     <Card className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
       <div className="space-y-3">
         {/* Lead name */}
-        <h3 className="font-bold text-gray-900 text-base leading-tight">
+        <h3 className="font-bold text-gray-900 text-base leading-tight capitalize">
           {lead.customerName || "Unnamed Lead"}
         </h3>
 
@@ -157,7 +157,7 @@ export const LeadCard = ({
               {getInitials(assignedName)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-gray-600">{assignedName}</span>
+          <span className="text-sm text-gray-600 capitalize">{assignedName}</span>
         </div>
 
         {/* Details section */}

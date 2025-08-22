@@ -172,7 +172,7 @@ export function CreateStaffModal({
         break;
       case "lastName":
         if (!value || value.trim() === "") return "Last name is required";
-        if (value.length < 2) return "Last name must be at least 2 characters";
+        // if (value.length < 2) return "Last name must be at least 2 characters";
         break;
       case "emailAddress":
         if (!value || value.trim() === "") return "Email is required";

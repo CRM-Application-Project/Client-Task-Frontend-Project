@@ -381,9 +381,14 @@ export const UpdateStaffModal = ({
                       date: Dayjs | null,
                       dateString: string | string[]
                     ) => handleDateChange("dateOfBirth", date, dateString)}
-                    disabledDate={(current) =>
-                      current && current > dayjs().endOf("day")
-                    }
+                    disabledDate={(current) => {
+                      if (current && current > dayjs().endOf("day")) {
+                        return true;
+                      }
+                      const fifteenYearsAgo = dayjs().subtract(15, "year");
+                      return current && current > fifteenYearsAgo;
+                    }}
+                    defaultPickerValue={dayjs().subtract(15, "year")}
                   />
                 </div>
 

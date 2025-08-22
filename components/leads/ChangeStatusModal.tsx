@@ -140,8 +140,8 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
   const statusOptions = [
     {
-      value: "NEW",
-      label: "New",
+      value: "NEW LEAD",
+      label: "New Lead",
       description: "Newly created lead",
       color: "text-gray-800",
     },

@@ -1,15 +1,15 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -17,21 +17,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { LeadStatus, LeadSource, LeadPriority } from '../../lib/leads';
-import { useToast } from '@/hooks/use-toast';
-import { updateLead } from '@/app/services/data.service';
-import { useCountryCodes } from '@/hooks/useCountryCodes';
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { LeadStatus, LeadSource, LeadPriority } from "../../lib/leads";
+import { useToast } from "@/hooks/use-toast";
+import { updateLead } from "@/app/services/data.service";
+import { useCountryCodes } from "@/hooks/useCountryCodes";
 
 // Updated Lead interface to match the new structure
 interface Lead {
@@ -57,20 +57,24 @@ interface Lead {
 }
 
 const formSchema = z.object({
-  customerName: z.string().min(1, 'Name is required'),
-  customerEmailAddress: z.string().email('Invalid email address'),
-  customerMobileNumber: z.string()
-    .min(10, 'Phone number must be at least 10 digits')
-    .max(12, 'Phone number cannot exceed 12 digits')
-    .regex(/^\d+$/, 'Phone number must contain only digits'),
-  companyEmailAddress: z.string().email('Invalid company email address').optional().or(z.literal('')),
-  leadAddress: z.string().optional().or(z.literal('')),
-  leadStatus: z.string().min(1, 'Status is required'),
-  leadPriority: z.string().min(1, 'Priority is required'),
-  leadSource: z.string().min(1, 'Source is required'),
-  leadAddedBy: z.string().min(1, 'Assigned to is required'),
-  leadLabel: z.string().optional().or(z.literal('')),
-  leadReference: z.string().optional().or(z.literal('')),
+  customerName: z.string().min(1, "Name is required"),
+  customerEmailAddress: z.string().email("Invalid email address"),
+  customerMobileNumber: z
+    .string()
+    .min(10, "Phone number must be at least 10 digits")
+    .max(12, "Phone number cannot exceed 12 digits")
+    .regex(/^\d+$/, "Phone number must contain only digits"),
+  companyEmailAddress: z
+    .string()
+    .email("Invalid company email address")
+    .optional()
+    .or(z.literal("")),
+  leadAddress: z.string().optional().or(z.literal("")),
+  leadStatus: z.string().min(1, "Status is required"),
+  leadPriority: z.string().min(1, "Priority is required"),
+  leadSource: z.string().min(1, "Source is required"),
+  leadLabel: z.string().optional().or(z.literal("")),
+  leadReference: z.string().optional().or(z.literal("")),
   comment: z.string().optional(),
 });
 
@@ -83,63 +87,64 @@ interface EditLeadModalProps {
   lead: Lead | null;
 }
 
-const EditLeadModal: React.FC<EditLeadModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onUpdateLead, 
-  lead
+const EditLeadModal: React.FC<EditLeadModalProps> = ({
+  isOpen,
+  onClose,
+  onUpdateLead,
+  lead,
 }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedCode, setSelectedCode] = useState("+91");
-  const { codes: countryCodes, loading: loadingCountryCodes } = useCountryCodes();
- 
+  const { codes: countryCodes, loading: loadingCountryCodes } =
+    useCountryCodes();
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    mode: 'onChange', // Enable real-time validation
+    mode: "onChange",
     defaultValues: {
-      customerName: lead?.customerName || '',
-      customerEmailAddress: lead?.customerEmailAddress || '',
-      customerMobileNumber: lead?.customerMobileNumber || '',
-      companyEmailAddress: lead?.companyEmailAddress || '',
-      leadAddress: lead?.leadAddress || '',
-      leadStatus: lead?.leadStatus || '',
-      leadPriority: lead?.leadPriority || '',
-      leadSource: lead?.leadSource || '',
-      leadAddedBy: lead?.leadAddedBy || '',
-      leadLabel: lead?.leadLabel || '',
-      leadReference: lead?.leadReference || '',
-      comment: lead?.comment || '',
+      customerName: lead?.customerName || "",
+      customerEmailAddress: lead?.customerEmailAddress || "",
+      customerMobileNumber: lead?.customerMobileNumber || "",
+      companyEmailAddress: lead?.companyEmailAddress || "",
+      leadAddress: lead?.leadAddress || "",
+      leadStatus: lead?.leadStatus || "",
+      leadPriority: lead?.leadPriority || "",
+      leadSource: lead?.leadSource || "",
+      leadLabel: lead?.leadLabel || "",
+      leadReference: lead?.leadReference || "",
+      comment: lead?.comment || "",
     },
   });
 
   // Watch all form fields to detect changes
   const formValues = form.watch();
-  
+
   // Check if form has changes compared to initial lead data
   useEffect(() => {
     if (!lead) return;
-    
+
     const initialValues = {
       customerName: lead.customerName,
       customerEmailAddress: lead.customerEmailAddress,
       customerMobileNumber: lead.customerMobileNumber,
-      companyEmailAddress: lead.companyEmailAddress || '',
-      leadAddress: lead.leadAddress || '',
+      companyEmailAddress: lead.companyEmailAddress || "",
+      leadAddress: lead.leadAddress || "",
       leadStatus: lead.leadStatus,
-      leadPriority: lead.leadPriority || '',
+      leadPriority: lead.leadPriority || "",
       leadSource: lead.leadSource,
-      leadAddedBy: lead.leadAddedBy,
-      leadLabel: lead.leadLabel || '',
-      leadReference: lead.leadReference || '',
-      comment: lead.comment || '',
+      leadLabel: lead.leadLabel || "",
+      leadReference: lead.leadReference || "",
+      comment: lead.comment || "",
     };
-    
+
     const hasFormChanged = Object.keys(initialValues).some(
-      key => formValues[key as keyof FormData] !== initialValues[key as keyof typeof initialValues]
+      (key) =>
+        formValues[key as keyof FormData] !==
+        initialValues[key as keyof typeof initialValues]
     );
-    
+
     setHasChanges(hasFormChanged);
   }, [formValues, lead]);
 
@@ -154,16 +159,18 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         leadStatus: lead.leadStatus,
         leadPriority: lead.leadPriority,
         leadSource: lead.leadSource,
-        leadAddedBy: lead.leadAddedBy,
-        leadLabel: lead.leadLabel || '',
-        leadReference: lead.leadReference || '',
-        comment: lead.comment || '',
+        leadLabel: lead.leadLabel || "",
+        leadReference: lead.leadReference || "",
+        comment: lead.comment || "",
       });
-      
+
       // Extract country code from stored phone number if available
       if (lead.customerMobileNumber) {
         const codeMatch = lead.customerMobileNumber.match(/^(\+\d+)/);
-        if (codeMatch && countryCodes.some(code => code.code === codeMatch[1] )) {
+        if (
+          codeMatch &&
+          countryCodes.some((code) => code.code === codeMatch[1])
+        ) {
           setSelectedCode(codeMatch[1]);
         }
       }
@@ -172,31 +179,34 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Prepend country code to phone number
-      const phoneWithCode = `${selectedCode}${data.customerMobileNumber.replace(/^\+\d+/, '')}`;
-      
+      const phoneWithCode = `${selectedCode}${data.customerMobileNumber.replace(
+        /^\+\d+/,
+        ""
+      )}`;
+
       const payload = {
         leadId: lead.leadId,
         customerName: data.customerName,
         customerEmailAddress: data.customerEmailAddress,
         customerMobileNumber: phoneWithCode,
-        companyEmailAddress: data.companyEmailAddress || '',
-        leadAddress: data.leadAddress || '',
+        companyEmailAddress: data.companyEmailAddress || "",
+        leadAddress: data.leadAddress || "",
         leadStatus: data.leadStatus as LeadStatus,
         leadPriority: data.leadPriority as LeadPriority,
         leadSource: data.leadSource as LeadSource,
-        leadAddedBy: data.leadAddedBy,
-        leadLabel: data.leadLabel || '',
-        leadReference: data.leadReference || '',
-        comment: data.comment || '',
+        leadAddedBy: lead.leadAddedBy, // Keep the original assigned to value
+        leadLabel: data.leadLabel || "",
+        leadReference: data.leadReference || "",
+        comment: data.comment || "",
       };
 
       const response = await updateLead(payload);
-      
+
       if (response.isSuccess) {
         // Create the updated lead object
         const updatedLead: Lead = {
@@ -204,30 +214,28 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           customerName: data.customerName,
           customerEmailAddress: data.customerEmailAddress,
           customerMobileNumber: phoneWithCode,
-          companyEmailAddress: data.companyEmailAddress || '',
-          leadAddress: data.leadAddress || '',
+          companyEmailAddress: data.companyEmailAddress || "",
+          leadAddress: data.leadAddress || "",
           leadStatus: data.leadStatus as LeadStatus,
           leadPriority: data.leadPriority as LeadPriority,
           leadSource: data.leadSource as LeadSource,
-          leadAddedBy: data.leadAddedBy,
-          leadLabel: data.leadLabel || '',
-          leadReference: data.leadReference || '',
-          comment: data.comment || '',
+          leadLabel: data.leadLabel || "",
+          leadReference: data.leadReference || "",
+          comment: data.comment || "",
           updatedAt: new Date().toISOString(),
         };
 
         // Close modal first
         onClose();
-        
+
         // Update local state immediately
         onUpdateLead(updatedLead);
-        
+
         // Show success toast
         toast({
           title: "Lead updated",
           description: "Lead information has been successfully updated.",
         });
-
       } else {
         toast({
           title: "Error",
@@ -254,7 +262,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
   // Extract phone number without country code for display
   const getPhoneWithoutCode = (phone: string) => {
-    if (!phone) return '';
+    if (!phone) return "";
     const codeMatch = phone.match(/^(\+\d+)(.*)/);
     return codeMatch ? codeMatch[2] : phone;
   };
@@ -293,12 +301,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Customer Email</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="customer@example.com" 
-                        {...field} 
+                      <Input
+                        placeholder="customer@example.com"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
-                          form.trigger('customerEmailAddress');
+                          form.trigger("customerEmailAddress");
                         }}
                       />
                     </FormControl>
@@ -314,17 +322,19 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Mobile Number</FormLabel>
                     <div className="flex">
-                      <Select value={selectedCode} onValueChange={setSelectedCode}>
+                      <Select
+                        value={selectedCode}
+                        onValueChange={setSelectedCode}
+                      >
                         <SelectTrigger className="w-[80px] mr-2">
                           <SelectValue placeholder="+91" />
                         </SelectTrigger>
                         <SelectContent className="w-[240px]">
                           {countryCodes.map((code) => (
                             <SelectItem key={code.code} value={code.code}>
-  {code.code} &nbsp; {code.name}
-</SelectItem>
-
-                            ))}
+                              {code.code} &nbsp; {code.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormControl>
@@ -333,9 +343,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                           {...field}
                           value={getPhoneWithoutCode(field.value)}
                           onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '');
+                            const value = e.target.value.replace(/\D/g, "");
                             field.onChange(value);
-                            form.trigger('customerMobileNumber');
+                            form.trigger("customerMobileNumber");
                           }}
                           maxLength={10}
                         />
@@ -353,12 +363,13 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="company@example.com" 
-                        {...field} 
+                      <Input
+                        placeholder="company@example.com"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
-                          if (e.target.value) form.trigger('companyEmailAddress');
+                          if (e.target.value)
+                            form.trigger("companyEmailAddress");
                         }}
                       />
                     </FormControl>
@@ -374,26 +385,28 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Address (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Street, City, State, ZIP" {...field} />
+                      <Input
+                        placeholder="Street, City, State, ZIP"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="leadAddedBy"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assigned To</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Assignee ID or name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Display Assigned To as read-only */}
+              <FormItem>
+                <FormLabel>Assigned To</FormLabel>
+                <FormControl>
+                  <Input
+                    value={lead?.assignedToName || lead?.leadAddedBy || ""}
+                    readOnly
+                    disabled
+                    className="bg-gray-100"
+                  />
+                </FormControl>
+              </FormItem>
 
               <FormField
                 control={form.control}
@@ -441,7 +454,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         <SelectItem value="QUALIFIED">Qualified</SelectItem>
                         <SelectItem value="PROPOSAL">Proposal</SelectItem>
                         <SelectItem value="DEMO">Demo</SelectItem>
-                        <SelectItem value="NEGOTIATIONS">Negotiations</SelectItem>
+                        <SelectItem value="NEGOTIATIONS">
+                          Negotiations
+                        </SelectItem>
                         <SelectItem value="CLOSED_WON">Closed Won</SelectItem>
                         <SelectItem value="CLOSED_LOST">Closed Lost</SelectItem>
                       </SelectContent>
@@ -490,7 +505,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                       <SelectContent>
                         <SelectItem value="WEBSITE">Website</SelectItem>
                         <SelectItem value="REFERRAL">Referral</SelectItem>
-                        <SelectItem value="SOCIAL_MEDIA">Social Media</SelectItem>
+                        <SelectItem value="SOCIAL_MEDIA">
+                          Social Media
+                        </SelectItem>
                         <SelectItem value="EMAIL">Email</SelectItem>
                         <SelectItem value="PHONE">Phone</SelectItem>
                         <SelectItem value="EVENT">Event</SelectItem>
@@ -525,10 +542,16 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                  disabled={isSubmitting || !hasChanges || !form.formState.isValid}
-                  className={`${(isSubmitting || !hasChanges || !form.formState.isValid) ? "btn-disabled" : ""}`}
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting || !hasChanges || !form.formState.isValid
+                }
+                className={`${
+                  isSubmitting || !hasChanges || !form.formState.isValid
+                    ? "btn-disabled"
+                    : ""
+                }`}
               >
                 {isSubmitting ? "Updating..." : "Update Lead"}
               </Button>
