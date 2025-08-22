@@ -160,6 +160,14 @@ export const UpdateStaffModal = ({
     });
   };
 
+  useEffect(() => {
+    if (isOpen) {
+      setError("");
+    }
+  }, [isOpen]);
+
+  
+
   const handleDateChange = (
     fieldName: string,
     date: Dayjs | null,
