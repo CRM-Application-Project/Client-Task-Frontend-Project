@@ -78,6 +78,13 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     },
   });
 
+  // Watch form fields to determine if button should be enabled
+  const nextFollowupDate = form.watch("nextFollowupDate");
+  const followUpType = form.watch("followUpType");
+  
+  // Check if required fields are filled
+  const isFormValid = nextFollowupDate && followUpType;
+
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
 
@@ -274,87 +281,6 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
               )}
             />
 
-            {/* <div>
-              <FormLabel className="block text-sm font-medium text-gray-700 mb-2">
-                Attachments (Optional)
-              </FormLabel>
-
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors relative ${
-                  dragActive
-                    ? "border-blue-400 bg-blue-50"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById("file-input")?.click()}
-                style={{ cursor: "pointer" }}
-              >
-                <div className="flex flex-col items-center justify-center space-y-2">
-                  <Upload className="h-8 w-8 text-gray-400" />
-                  <p className="text-sm text-gray-600 font-medium">
-                    Drag and drop files here, or click to browse
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Supported formats: JPG, PNG, GIF, PDF, DOC, XLS, PPT, TXT
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Maximum file size: 5MB
-                  </p>
-                </div>
-                <input
-                  id="file-input"
-                  type="file"
-                  multiple
-                  onChange={handleFileInput}
-                  className="hidden"
-                  accept=".jpg,.jpeg,.png,.gif,.mp4,.mov,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
-                />
-              </div>
-
-              {attachments.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs text-gray-500 mb-1">
-                    {attachments.length} file
-                    {attachments.length !== 1 ? "s" : ""} attached
-                  </p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {attachments.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 p-3 rounded-md"
-                      >
-                        <div className="flex items-center space-x-3 min-w-0">
-                          <div className="bg-gray-200 p-1 rounded">
-                            <Upload className="h-4 w-4 text-gray-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-700 truncate">
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {formatFileSize(file.size)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAttachment(index)}
-                          className="h-8 w-8 p-0 hover:bg-gray-200"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div> */}
-
             <div className="flex justify-end space-x-2 pt-2">
               <Button
                 type="button"
@@ -365,12 +291,14 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                className="px-4 h-9 text-white text-sm"
-                style={{ backgroundColor: "#636363" }}
-                disabled={isLoading}
-              >
+           <Button
+  type="submit"
+  className={`px-4 h-9 text-white text-sm ${
+    (isLoading || !isFormValid) ? "btn-disabled" : ""
+  }`}
+  style={{ backgroundColor: "#636363" }}
+  disabled={isLoading || !isFormValid}
+>
                 {isLoading ? (
                   <span className="flex items-center">
                     <svg

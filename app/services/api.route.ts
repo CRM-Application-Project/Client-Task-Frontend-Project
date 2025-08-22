@@ -65,5 +65,7 @@ export const API_CONSTANTS = {
     CHANGE_PASSWORD: "/tenant/users/:userId/change-password",
     CHANGE_STATUS: "/lead/change-status",
      TRACK_BY_LEAD_ID: "/track/fetchByLeadId",
+     CREATE_STAGE:"/stage/create",
+     FETCH_STAGE: "/stage/fetch",
   },
 };

@@ -17,6 +17,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@/components/ui/form';
 import {
   Select,
@@ -56,6 +57,13 @@ const LeadSortingModal: React.FC<LeadSortingModalProps> = ({
       sortOrder: currentSort?.sortOrder || 'asc',
     },
   });
+
+  // Watch form values to determine if button should be enabled
+  const sortBy = form.watch('sortBy');
+  const sortOrder = form.watch('sortOrder');
+  
+  // Check if both fields are selected
+  const isFormValid = sortBy && sortOrder;
 
   React.useEffect(() => {
     if (currentSort) {
@@ -102,9 +110,12 @@ const LeadSortingModal: React.FC<LeadSortingModalProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Sort By</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                  >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className={!field.value ? "border-destructive" : ""}>
                         <SelectValue placeholder="Select field to sort by" />
                       </SelectTrigger>
                     </FormControl>
@@ -116,6 +127,7 @@ const LeadSortingModal: React.FC<LeadSortingModalProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -142,6 +154,7 @@ const LeadSortingModal: React.FC<LeadSortingModalProps> = ({
                       </div>
                     </RadioGroup>
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -150,7 +163,13 @@ const LeadSortingModal: React.FC<LeadSortingModalProps> = ({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="submit">Apply Sort</Button>
+              <Button 
+                type="submit" 
+                disabled={!isFormValid}
+   className={!isFormValid ? "btn-disabled" : ""}
+            >
+                Apply Sort
+              </Button>
             </DialogFooter>
           </form>
         </Form>

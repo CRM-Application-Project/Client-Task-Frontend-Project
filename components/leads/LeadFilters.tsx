@@ -31,6 +31,7 @@ import { useEffect, useState } from "react";
 import { DateRangePicker } from "../task/DateRangePicker";
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
+import { LeadStage } from "@/lib/data";
 
 interface DateRange {
   from: Date;
@@ -38,6 +39,7 @@ interface DateRange {
 }
 
 interface ExtendedLeadFilters extends LeadFiltersType {
+    status?: LeadStatus;
   label?: string;
   assignedTo?: string;
   followUpDate?: string;
@@ -48,6 +50,7 @@ interface LeadFiltersProps {
   filters: ExtendedLeadFilters;
   onFiltersChange: (filters: ExtendedLeadFilters) => void;
   onAddLead: () => void;
+  onAddStage: () => void; // Added this prop
   searchQuery: string;
   onSearchChange: (query: string) => void;
   viewMode: "kanban" | "grid";
@@ -56,12 +59,15 @@ interface LeadFiltersProps {
   onImportLead: () => void;
   onApplyFilters: () => void;
   onSortLeads: () => void;
+    leadStages: LeadStage[]; 
+
 }
 
 export const LeadFilters = ({
   filters,
   onFiltersChange,
   onAddLead,
+  onAddStage, // Added this prop
   searchQuery,
   onSearchChange,
   viewMode,
@@ -167,6 +173,16 @@ export const LeadFilters = ({
           <div className="flex items-center gap-3">
             {permissions.canCreate && !permissionsLoading && (
               <Button
+                onClick={onAddStage}
+                variant="outline"
+                className="border-gray-300 text-gray-700 rounded-md shadow-sm flex items-center px-3 py-2"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Stage
+              </Button>
+            )}
+            {permissions.canCreate && !permissionsLoading && (
+              <Button
                 onClick={onAddLead}
                 className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
               >
@@ -186,7 +202,7 @@ export const LeadFilters = ({
             <Button
               variant="outline"
               size="icon"
-              onClick={onSortLeads} // Use the passed handler
+              onClick={onSortLeads}
               className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
               title="Sort Leads"
             >
@@ -396,7 +412,6 @@ export const LeadFilters = ({
             </Select>
 
             {/* Action Buttons */}
-
             <Button
               onClick={handleApply}
               className="bg-gray-800 hover:bg-gray-700 text-white w-full"

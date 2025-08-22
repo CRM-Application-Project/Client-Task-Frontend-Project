@@ -5,7 +5,6 @@ import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadColumn } from "@/components/leads/LeadColumn";
 import AddLeadModal from "@/components/leads/AddLeadModal";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
-import { LeadStatus } from "../../lib/leads";
 import { LeadPriority } from "../../lib/leads";
 import { LeadSource } from "../../lib/leads";
 import {
@@ -18,6 +17,9 @@ import {
   getLeadById,
   ChangeLeadStatusRequest,
   changeLeadStatus,
+  createLeadStage,
+  fetchLeadStages,
+  
 } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
@@ -28,7 +30,8 @@ import AddFollowUpModal from "@/components/leads/AddFollowUpModal";
 import EditLeadModal from "@/components/leads/EditLeadModal";
 import ViewLeadModal from "@/components/leads/ViewLeadModal";
 import { format } from "date-fns";
-import { FilterLeadsParams } from "@/lib/data";
+import { CreateLeadStageRequest, FilterLeadsParams, LeadStage } from "@/lib/data";
+import { CreateLeadStageModal } from "@/components/leads/LeadStageModal";
 
 // Updated Lead interface
 interface Lead {
@@ -49,12 +52,12 @@ interface Lead {
   company?: string;
   createdAt: string;
   updatedAt: string;
-  // Additional properties for display
-  assignedToName?: string; // For display purposes
+  assignedToName?: string;
 }
+
 type LeadFiltersType = {
   status?: LeadStatus;
-  priority?: LeadPriority;
+    priority?: LeadPriority;
   source?: LeadSource;
   assignedTo?: string;
   label?: string;
@@ -68,10 +71,12 @@ type LeadFiltersType = {
 
 const Leads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadStages, setLeadStages] = useState<LeadStage[]>([]);
   const [filters, setFilters] = useState<LeadFiltersType>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "grid">("kanban");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCreateStageModalOpen, setIsCreateStageModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,16 +98,59 @@ const Leads = () => {
 
   const { toast } = useToast();
 
-  const statuses: LeadStatus[] = [
-    "NEW",
-    "CONTACTED",
-    "QUALIFIED",
-    "PROPOSAL",
-    "DEMO",
-    "NEGOTIATIONS",
-    "CLOSED_WON",
-    "CLOSED_LOST",
-  ];
+  // Fetch lead stages from API
+  const fetchLeadStagesData = async () => {
+    try {
+      const response = await fetchLeadStages();
+      if (response.isSuccess && response.data) {
+        // Sort stages by priority for consistent ordering
+        const sortedStages = response.data.sort((a, b) => a.leadStagePriority - b.leadStagePriority);
+        setLeadStages(sortedStages);
+      }
+    } catch (error) {
+      console.error("Failed to fetch lead stages:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch lead stages",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Create new lead stage
+  const handleCreateStage = async (stageData: { name: string; description: string; orderNumber: number }) => {
+    try {
+      const createStageRequest: CreateLeadStageRequest = {
+        leadStageName: stageData.name,
+        leadStageDescription: stageData.description,
+        leadStagePriority: stageData.orderNumber,
+      };
+
+      const response = await createLeadStage(createStageRequest);
+      
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Lead stage created successfully",
+        });
+        // Refresh lead stages
+        await fetchLeadStagesData();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to create lead stage",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Failed to create lead stage:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create lead stage",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchAssignOptions = async () => {
@@ -117,6 +165,7 @@ const Leads = () => {
     };
 
     fetchAssignOptions();
+    fetchLeadStagesData();
   }, []);
 
   const getAssignedToLabel = (id: string | undefined): string | null => {
@@ -133,12 +182,10 @@ const Leads = () => {
     return {
       ...lead,
       assignedToName: assignee ? assignee.label : lead.leadAddedBy,
-      // Ensure company field is populated if not present
       company: lead.company || lead.companyEmailAddress,
     };
   };
 
-  // FIXED: Simplified add lead handler
   const handleAddNewLead = (apiLeadData: any) => {
     if (!apiLeadData) return;
 
@@ -151,6 +198,10 @@ const Leads = () => {
     setIsAddModalOpen(true);
     fetchLeads();
     fetchFilteredLeads();
+  };
+
+  const handleAddStage = () => {
+    setIsCreateStageModalOpen(true);
   };
 
   const handleAddNewLeadOptimistic = (formData: any) => {
@@ -186,7 +237,6 @@ const Leads = () => {
     try {
       setIsLoading(true);
 
-      // Prepare filter parameters with proper type conversion
       const filterParams: FilterLeadsParams = {
         startDate: filters.dateRange?.from
           ? format(filters.dateRange.from, "yyyy-MM-dd")
@@ -203,7 +253,6 @@ const Leads = () => {
         direction: filters.sortOrder || null,
       };
 
-      // Clean null/undefined values
       const cleanedParams = Object.fromEntries(
         Object.entries(filterParams).filter(
           ([_, value]) => value !== null && value !== undefined
@@ -229,19 +278,16 @@ const Leads = () => {
     }
   };
 
-  // FIXED: Improved useEffect for filters
   useEffect(() => {
     const hasActiveFilters = Object.keys(filters).length > 0;
 
     if (hasActiveFilters && !searchQuery) {
       fetchFilteredLeads();
     } else if (!hasActiveFilters && !searchQuery) {
-      // If no filters, fetch all leads
       fetchLeads();
     }
   }, [filters]);
 
-  // Fetch leads only on initial load
   const fetchLeads = async (showLoading: boolean = true) => {
     try {
       if (showLoading) {
@@ -270,10 +316,8 @@ const Leads = () => {
   };
 
   useEffect(() => {
-    // Refresh leads when assignOptions are loaded to update names
     if (assignOptions.length > 0 && leads.length > 0) {
       const updatedLeads = leads.map((lead) => {
-        // If we only have IDs but not names, update them
         if (lead.leadAddedBy && !lead.assignedToName) {
           const assignee = assignOptions.find(
             (opt) => opt.id === lead.leadAddedBy
@@ -294,23 +338,20 @@ const Leads = () => {
   }, []);
 
   useEffect(() => {
-  // Refresh assignee options periodically or when leads change significantly
-  const refreshAssignOptions = async () => {
-    try {
-      const response = await getAssignDropdown();
-      if (response.isSuccess && response.data) {
-        setAssignOptions(response.data);
+    const refreshAssignOptions = async () => {
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data) {
+          setAssignOptions(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to refresh assign options:", error);
       }
-    } catch (error) {
-      console.error("Failed to refresh assign options:", error);
-    }
-  };
+    };
 
-  // Refresh assign options when leads change significantly
-  refreshAssignOptions();
-}, [leads.length]); // Refresh when lead count changes
+    refreshAssignOptions();
+  }, [leads.length]);
 
-  // FIXED: Filter leads based on search and filters (local filtering for search)
   const filteredLeads = searchQuery
     ? leads.filter((lead) => {
         return (
@@ -327,7 +368,6 @@ const Leads = () => {
       })
     : leads;
 
-  // Custom drag and drop handlers
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, lead: Lead) => {
     setDraggedLead(lead);
     e.dataTransfer.setData("text/plain", lead.leadId);
@@ -336,7 +376,7 @@ const Leads = () => {
 
   const handleDragOver = (
     e: React.DragEvent<HTMLDivElement>,
-    status: LeadStatus
+    stageName: string
   ) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -344,23 +384,20 @@ const Leads = () => {
 
   const handleDrop = async (
     e: React.DragEvent<HTMLDivElement>,
-    newStatus: LeadStatus
+    newStatus: string
   ) => {
     e.preventDefault();
 
     if (!draggedLead) return;
 
-    // Don't do anything if dropped in the same status
     if (draggedLead.leadStatus === newStatus) return;
 
     try {
-      // Find the lead being dragged
       const leadToUpdate = leads.find(
         (lead) => lead.leadId === draggedLead.leadId
       );
       if (!leadToUpdate) return;
 
-      // Optimistically update local state first
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
           lead.leadId === draggedLead.leadId
@@ -373,17 +410,14 @@ const Leads = () => {
         )
       );
 
-      // Prepare payload for API call using the new endpoint
       const payload: ChangeLeadStatusRequest = {
         leadId: leadToUpdate.leadId,
         leadStatus: newStatus,
       };
 
-      // Make API call to update status using the dedicated endpoint
       const response = await changeLeadStatus(payload);
 
       if (!response.isSuccess) {
-        // Revert local state if API call fails
         setLeads((prevLeads) =>
           prevLeads.map((lead) =>
             lead.leadId === draggedLead.leadId
@@ -397,7 +431,6 @@ const Leads = () => {
           variant: "destructive",
         });
       } else {
-        // Update with the actual timestamp from the server if available
         if (response.data) {
           setLeads((prevLeads) =>
             prevLeads.map((lead) =>
@@ -414,7 +447,6 @@ const Leads = () => {
       }
     } catch (error: any) {
       console.error("Failed to update lead status:", error);
-      // Revert local state on error
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
           lead.leadId === draggedLead.leadId
@@ -432,7 +464,7 @@ const Leads = () => {
     }
   };
 
-  // Update existing lead in local state
+  // Other handler functions remain the same...
   const handleUpdateLead = (updatedLead: Lead) => {
     setLeads((prevLeads) =>
       prevLeads.map((lead) =>
@@ -457,7 +489,6 @@ const Leads = () => {
     try {
       const response = await deleteLeadById(leadToDelete.leadId);
       if (response.isSuccess) {
-        // Remove from local state immediately
         setLeads((prevLeads) =>
           prevLeads.filter((l) => l.leadId !== leadToDelete.leadId)
         );
@@ -697,6 +728,7 @@ const Leads = () => {
           filters={filters}
           onFiltersChange={setFilters}
           onAddLead={handleAddLead}
+          onAddStage={handleAddStage}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           viewMode={viewMode}
@@ -709,25 +741,50 @@ const Leads = () => {
           onImportLead={() => setIsImportModalOpen(true)}
           onApplyFilters={() => fetchFilteredLeads()}
           onSortLeads={() => setIsSortingModalOpen(true)}
+          leadStages={leadStages}
         />
 
         {viewMode === "kanban" && (
           <div className="flex gap-4 overflow-x-auto pb-6">
-            {statuses.map((status) => (
+            {leadStages.map((stage) => (
               <LeadColumn
-                key={status}
-                status={status}
+                key={stage.leadStageId}
+                stage={stage}
                 leads={filteredLeads.filter(
-                  (lead) => lead.leadStatus === status
+                  (lead) => lead.leadStatus === stage.leadStageName
                 )}
                 onEditLead={handleEditLead}
                 onDeleteLead={handleDeleteClick}
-                onViewLead={handleViewLead}
-                onAddFollowUp={handleAddFollowUp}
-                onChangeAssign={handleChangeAssign}
-                onImportLead={handleImportLead}
-                onLeadSorting={handleLeadSorting}
-                onChangeStatus={handleChangeStatus}
+                onViewLead={async (lead) => {
+                  setSelectedLead(lead);
+                  setIsViewModalOpen(true);
+                  try {
+                    const response = await getLeadById(lead.leadId);
+                    if (response.isSuccess && response.data) {
+                      const detailedLead = enhanceLeadWithAssigneeName(
+                        response.data,
+                        assignOptions
+                      );
+                      setSelectedLead(detailedLead);
+                    }
+                  } catch (error: any) {
+                    console.error("Failed to fetch lead details:", error);
+                  }
+                }}
+                onAddFollowUp={(lead) => {
+                  setSelectedLead(lead);
+                  setIsFollowUpModalOpen(true);
+                }}
+                onChangeAssign={(lead) => {
+                  setSelectedLead(lead);
+                  setIsChangeAssignModalOpen(true);
+                }}
+                onImportLead={() => setIsImportModalOpen(true)}
+                onLeadSorting={() => setIsSortingModalOpen(true)}
+                onChangeStatus={(lead) => {
+                  setSelectedLead(lead);
+                  setIsChangeStatusModalOpen(true);
+                }}
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
@@ -736,7 +793,7 @@ const Leads = () => {
           </div>
         )}
 
-        {/* Grid View */}
+        {/* Grid View - Updated to use dynamic stages */}
         {viewMode === "grid" && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -794,26 +851,8 @@ const Leads = () => {
                         {lead.companyEmailAddress}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            lead.leadStatus === "NEW"
-                              ? "bg-blue-100 text-blue-800"
-                              : lead.leadStatus === "CONTACTED"
-                              ? "bg-indigo-100 text-indigo-800"
-                              : lead.leadStatus === "QUALIFIED"
-                              ? "bg-green-100 text-green-800"
-                              : lead.leadStatus === "PROPOSAL"
-                              ? "bg-teal-100 text-teal-800"
-                              : lead.leadStatus === "DEMO"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : lead.leadStatus === "NEGOTIATIONS"
-                              ? "bg-orange-100 text-orange-800"
-                              : lead.leadStatus === "CLOSED_WON"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {lead.leadStatus.replace("_", " ")}
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {lead.leadStatus}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -878,11 +917,20 @@ const Leads = () => {
           </div>
         )}
 
+        {/* All Modals */}
         <AddLeadModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
-          onAddLead={handleAddNewLeadOptimistic} // Try this if the API response method doesn't work
-          onNewLeadCreated={handleAddNewLead} // Keep this for API response method
+          onAddLead={handleAddNewLeadOptimistic}
+          onNewLeadCreated={handleAddNewLead}
+          leadStages={leadStages}
+        />
+
+        <CreateLeadStageModal
+          isOpen={isCreateStageModalOpen}
+          onClose={() => setIsCreateStageModalOpen(false)}
+          onSubmit={handleCreateStage}
+          existingStagesCount={leadStages.length}
         />
 
         <ConfirmationModal
@@ -895,6 +943,7 @@ const Leads = () => {
           cancelText="Cancel"
         />
 
+        {/* Other modals remain the same... */}
         <ViewLeadModal
           isOpen={isViewModalOpen}
           onClose={() => setIsViewModalOpen(false)}
@@ -907,9 +956,10 @@ const Leads = () => {
           //@ts-ignore
           onUpdateLead={handleUpdateLead}
           lead={selectedLead}
+          leadStages={leadStages}
         />
 
-        <AddFollowUpModal
+                <AddFollowUpModal
           isOpen={isFollowUpModalOpen}
           onClose={() => setIsFollowUpModalOpen(false)}
           lead={selectedLead}

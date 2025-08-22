@@ -1,6 +1,9 @@
 import {
   ChangePasswordRequest,
   ChangePasswordResponse,
+  CreateLeadStageRequest,
+  CreateLeadStageResponse,
+  FetchLeadStagesResponse,
   FetchLeadTrackResponse,
   FilterLeadsParams,
   FilterLeadsResponse,
@@ -676,6 +679,17 @@ export const createTaskStage = async (
   return res as CreateStageResponse;
 };
 
+
+export const createLeadStage = async (
+  stageData: CreateLeadStageRequest
+): Promise<CreateLeadStageResponse> => {
+  const res = await postRequest(API_CONSTANTS.LEAD.CREATE_STAGE, stageData);
+  return res as CreateLeadStageResponse;
+};
+export const fetchLeadStages = async (): Promise<FetchLeadStagesResponse> => {
+  const res = await getRequest(API_CONSTANTS.LEAD.FETCH_STAGE);
+  return res as FetchLeadStagesResponse;
+};
 export interface ChangeLeadStatusRequest {
   leadId: string;
   leadStatus: string;

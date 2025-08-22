@@ -72,6 +72,12 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     },
   });
 
+  // Watch the transferToId field to determine if button should be enabled
+  const transferToId = form.watch("transferToId");
+  
+  // Check if a valid assignee is selected
+  const isFormValid = transferToId && transferToId.length > 0;
+
   // Fetch assignees when modal opens
   React.useEffect(() => {
     const fetchAssignees = async () => {
@@ -231,9 +237,16 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting || loadingAssignees}>
-                {isSubmitting ? "Transferring..." : "Transfer Lead"}
-              </Button>
+              <Button 
+  type="submit" 
+  disabled={isSubmitting || loadingAssignees || !isFormValid}
+  className={`${
+    (isSubmitting || loadingAssignees || !isFormValid) ? "btn-disabled" : ""
+  }`}
+>
+  {isSubmitting ? "Transferring..." : "Transfer Lead"}
+</Button>
+
             </DialogFooter>
           </form>
         </Form>
