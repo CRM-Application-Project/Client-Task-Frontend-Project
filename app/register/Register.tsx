@@ -114,7 +114,7 @@ export default function RegisterPage() {
         return "";
       case "emailAddress":
       case "companyEmailAddress":
-        if (!value.trim()) return "Email is required";
+        if (!value.trim()) return "Email address is required";
         if (!EMAIL_REGEX.test(value))
           return "Enter a valid email address (e.g., name@domain.com)";
         return "";

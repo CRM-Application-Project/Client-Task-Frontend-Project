@@ -46,6 +46,7 @@ interface UpdateTaskRequest {
   endDate?: string | null;
   assignee?: string;
   acceptanceCriteria?: string;
+  comment?: string;
 }
 
 interface UpdateTaskResponse {
