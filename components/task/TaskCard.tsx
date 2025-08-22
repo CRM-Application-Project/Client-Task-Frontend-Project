@@ -69,7 +69,7 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: number) => void;
   onDocumentUpdate?: (taskId: number, documents: TaskDocument[]) => void;
-  onTaskClick?: (taskId: number) => void; // Updated to pass taskId instead of no params
+  onTaskClick?: (taskId: number) => void;
   onDragStart?: () => void;
   draggable?: boolean;
   isDragging?: boolean;
@@ -110,20 +110,16 @@ export const TaskCard = ({
       return;
     }
 
-    // Call the column's onDragStart to reset its drag over state
     onDragStart?.();
 
-    // Set the data to be transferred
     const dragData = {
       taskId: task.id,
       sourceStageId: task.taskStageId,
-      task: task // Include full task data
+      task: task
     };
     
     e.dataTransfer.setData("application/json", JSON.stringify(dragData));
     e.dataTransfer.effectAllowed = "move";
-    
-    // Add a subtle visual indication without changing the original card
     e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 10, 10);
   };
 
@@ -163,11 +159,9 @@ export const TaskCard = ({
   };
 
   const handleCardClick = () => {
-    // Prevent opening during drag operations
     if (isDragging) return;
     
     if (permissions.canView) {
-      // Pass the task ID to the click handler
       if (onTaskClick) {
         onTaskClick(task.id);
       }
@@ -336,6 +330,26 @@ export const TaskCard = ({
     }
   };
 
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
+
+  // Helper function to get words up to a certain character limit
+  const truncateByWords = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text;
+    
+    const truncated = text.substring(0, maxLength);
+    const lastSpaceIndex = truncated.lastIndexOf(' ');
+    
+    if (lastSpaceIndex > maxLength * 0.7) { // If we can fit at least 70% by breaking at word
+      return truncated.substring(0, lastSpaceIndex).trim() + '...';
+    }
+    
+    return truncated.trim() + '...';
+  };
+
   if (permissionsLoading || !permissions.canView) {
     return null;
   }
@@ -407,13 +421,31 @@ export const TaskCard = ({
         )}
         
         <div className="space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-foreground flex-1">
-              {task.subject}
-            </h3>
+          {/* Title and Priority Row with proper spacing */}
+          <div className="flex items-start justify-between gap-3">
+            {/* Subject with truncation and tooltip */}
+            <div className="flex-1 min-w-0">
+              <h3 
+                className="font-medium text-foreground leading-tight break-words"
+                title={task.subject.length > 45 ? task.subject : undefined}
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.3',
+                  maxHeight: '2.6em' // 2 lines * 1.3 line-height
+                }}
+              >
+                {task.subject}
+              </h3>
+            </div>
+
+            {/* Priority Badge */}
             <Badge 
               variant="outline" 
-              className={`${priorityColors[task.priority]} whitespace-nowrap transition-transform duration-200 ${
+              className={`${priorityColors[task.priority]} whitespace-nowrap flex-shrink-0 transition-transform duration-200 ${
                 showActionsBar ? 'group-hover:-translate-x-[var(--translate-distance)]' : ''
               }`}
               style={{ '--translate-distance': translateDistance } as React.CSSProperties}
@@ -422,44 +454,81 @@ export const TaskCard = ({
             </Badge>
           </div>
 
+          {/* Description with proper truncation */}
           {task.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2 ml-1">
-              {task.description}
-            </p>
-          )}
-
-          {task.labels.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              <Tag className="h-3 w-3 text-muted-foreground" />
-              {task.labels.map((label: string) => (
-                <Badge key={label} variant="secondary" className="text-xs">
-                  {label}
-                </Badge>
-              ))}
+            <div className="min-w-0">
+              <p 
+                className="text-sm text-muted-foreground leading-relaxed break-words"
+                title={task.description.length > 80 ? task.description : undefined}
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.4',
+                  maxHeight: '2.8em' // 2 lines * 1.4 line-height
+                }}
+              >
+                {task.description}
+              </p>
             </div>
           )}
 
+          {/* Labels */}
+          {task.labels.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap min-w-0">
+              <Tag className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <div className="flex flex-wrap gap-1 min-w-0">
+                {task.labels.map((label: string) => (
+                  <Badge 
+                    key={label} 
+                    variant="secondary" 
+                    className="text-xs max-w-full"
+                    title={label.length > 15 ? label : undefined}
+                  >
+                    <span className="truncate max-w-[80px]">
+                      {label}
+                    </span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Document count */}
           {documents.length > 0 && (
-            <div className="flex items-center gap-1 ml-1">
-              <FileText className="h-3 w-3 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
               <span className="text-xs text-muted-foreground">
                 {documents.length} document{documents.length !== 1 ? 's' : ''}
               </span>
             </div>
           )}
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground ml-1">
+          {/* Footer with assignee and date */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground gap-2 min-w-0">
             {task.assignedTo && (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span>{task.assignedTo}</span>
+              <div className="flex items-center gap-1 min-w-0 flex-1">
+                <User className="h-3 w-3 flex-shrink-0" />
+                <span 
+                  className="truncate"
+                  title={task.assignedTo.length > 12 ? task.assignedTo : undefined}
+                >
+                  {task.assignedTo}
+                </span>
               </div>
             )}
 
             {task.endDate && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <Calendar className="h-3 w-3" />
-                <span>{new Date(task.endDate).toLocaleDateString()}</span>
+                <span className="whitespace-nowrap">
+                  {new Date(task.endDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </span>
               </div>
             )}
           </div>
@@ -497,7 +566,7 @@ export const TaskCard = ({
                   </Button>
                 </div>
                 {uploadProgress && (
-                  <p className="text-sm text-muted-foreground">{uploadProgress}</p>
+                  <p className="text-sm text-muted-foreground break-words">{uploadProgress}</p>
                 )}
               </div>
             )}
@@ -511,20 +580,23 @@ export const TaskCard = ({
                 documents.map((document) => (
                   <div
                     key={document.docId}
-                    className="flex items-center justify-between p-2 border rounded-md"
+                    className="flex items-center justify-between p-2 border rounded-md gap-2"
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">
+                        <p 
+                          className="text-sm font-medium truncate"
+                          title={document.fileName}
+                        >
                           {document.fileName}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground truncate">
                           {document.fileType}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"

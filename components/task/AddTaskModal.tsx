@@ -224,40 +224,199 @@ export const AddTaskModal = ({
   };
 
   // Format date for <input type="date">
-  const formatDateForInput = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "";
-      return date.toISOString().slice(0, 10); // YYYY-MM-DD only
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return "";
-    }
-  };
+
 
   // Handle date changes safely
-  const handleDateChange = (value: string, field: 'startDate' | 'endDate') => {
-    try {
-      if (!value) {
-        setFormData({ ...formData, [field]: "" });
-        return;
-      }
+  // Handle date changes safely
+// Replace the existing handleDateChange and related functions in your AddTaskModal component
+
+// Helper function to get local ISO string without timezone conversion
+const getLocalISOString = (date: Date): string => {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
+// Helper function to add minutes to current time and round up to next 5-minute interval
+const getAdjustedCurrentTime = (): Date => {
+  const now = new Date();
+  const currentMinutes = now.getMinutes();
+  const currentSeconds = now.getSeconds();
+  
+  // If we're past the current minute (has seconds), add 1 minute
+  if (currentSeconds > 0) {
+    now.setMinutes(currentMinutes + 1);
+  }
+  
+  // Round up to next 5-minute interval
+  const minutesToAdd = 5 - (now.getMinutes() % 5);
+  if (minutesToAdd < 5) {
+    now.setMinutes(now.getMinutes() + minutesToAdd);
+  } else {
+    // If already on 5-minute mark, add 5 more minutes
+    now.setMinutes(now.getMinutes() + 5);
+  }
+  
+  // Reset seconds and milliseconds
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  
+  return now;
+};
+
+// Updated handleDateChange function
+const handleDateChange = (value: string, field: 'startDate' | 'endDate') => {
+  try {
+    if (!value) {
+      setFormData({ ...formData, [field]: "" });
+      return;
+    }
+    
+    if (field === 'startDate') {
+      const selectedDate = new Date(value);
+      const today = new Date();
       
+      // Check if selected date is today (compare year, month, day only)
+      const isToday = 
+        selectedDate.getDate() === today.getDate() &&
+        selectedDate.getMonth() === today.getMonth() &&
+        selectedDate.getFullYear() === today.getFullYear();
+      
+      if (isToday) {
+        // For today's date, use adjusted current time (next 5-minute interval)
+        const adjustedTime = getAdjustedCurrentTime();
+        
+        // Combine the selected date with the adjusted time
+        const finalDate = new Date(selectedDate);
+        finalDate.setHours(adjustedTime.getHours());
+        finalDate.setMinutes(adjustedTime.getMinutes());
+        finalDate.setSeconds(0);
+        finalDate.setMilliseconds(0);
+        
+        // Convert to local ISO string (no timezone conversion)
+        const localISOTime = getLocalISOString(finalDate);
+        setFormData({
+          ...formData,
+          [field]: localISOTime,
+        });
+      } else {
+        // For future dates, set time to 9:00 AM in local time
+        selectedDate.setHours(9, 0, 0, 0);
+        const localISOTime = getLocalISOString(selectedDate);
+        setFormData({
+          ...formData,
+          [field]: localISOTime,
+        });
+      }
+    } else {
+      // For end date, set to end of day (23:59:59) in local time
       const date = new Date(value);
       if (isNaN(date.getTime())) {
         console.error("Invalid date:", value);
         return;
       }
       
+      date.setHours(23, 59, 59, 0); // Changed milliseconds to 0 for cleaner time
+      const localISOTime = getLocalISOString(date);
+      
       setFormData({
         ...formData,
-        [field]: date.toISOString(),
+        [field]: localISOTime,
       });
-    } catch (error) {
-      console.error("Error handling date change:", error);
     }
-  };
+  } catch (error) {
+    console.error("Error handling date change:", error);
+  }
+};
+
+// Updated formatDateForInput function to handle local time correctly
+const formatDateForInput = (dateString: string) => {
+  if (!dateString) return "";
+  try {
+    let date: Date;
+    
+    if (dateString.includes('T')) {
+      // If it's a local ISO string (no timezone), treat as local time
+      if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+        // This is a local ISO string, parse it as local time
+        const [datePart, timePart] = dateString.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second] = timePart.split(':').map(Number);
+        date = new Date(year, month - 1, day, hour, minute, second || 0);
+      } else {
+        // This has timezone info, parse normally
+        date = new Date(dateString);
+      }
+    } else {
+      // If it's just a date string, create date in local timezone
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    }
+    
+    if (isNaN(date.getTime())) return "";
+    
+    // Return date in YYYY-MM-DD format for the input
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "";
+  }
+};
+
+// Updated initialization in useEffect (replace the existing formData initialization)
+useEffect(() => {
+  if (!isOpen) {
+    setFormInitialized(false);
+    return;
+  }
+
+  // Prevent re-initialization if already initialized for the same task
+  if (formInitialized && editingTaskId === editingTask?.id) {
+    return;
+  }
+
+  if (editingTask) {
+    setFormData({
+      subject: editingTask.subject || "",
+      description: editingTask.description || "",
+      priority: editingTask.priority || "LOW",
+      taskStageId: editingTask.taskStageId || 0,
+      startDate: editingTask.startDate || getLocalISOString(getAdjustedCurrentTime()),
+      endDate: editingTask.endDate || "",
+      assignee: editingTask.assignee?.id || "",
+    });
+  } else {
+    // Reset form for new task with adjusted current time
+    const adjustedTime = getAdjustedCurrentTime();
+    setFormData({
+      subject: "",
+      description: "",
+      priority: "LOW",
+      taskStageId: 0,
+      startDate: getLocalISOString(adjustedTime),
+      endDate: "",
+      assignee: "",
+    });
+  }
+  
+  setFormInitialized(true);
+}, [editingTask, isOpen, editingTaskId]);
+
+// Example usage in console to test the time adjustment:
+console.log('Current time:', new Date().toLocaleTimeString());
+console.log('Adjusted time:', getAdjustedCurrentTime().toLocaleTimeString());
+console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
 
   if (!isOpen) return null;
 
