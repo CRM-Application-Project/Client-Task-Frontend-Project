@@ -116,6 +116,31 @@ export default function LoginPage() {
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const router = useRouter();
+    const [error, setError] = useState("");
+  interface EmailValidationResult {
+    isValid: boolean;
+    message?: string;
+  }
+  
+  const validateEmail = (value: string): boolean => {
+    // Regex for Gmail addresses only
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!value) {
+      setError("Email is required.");
+      return false;
+    } else if (!emailRegex.test(value)) {
+      setError("Please enter a valid email address.");
+      return false;
+    } else {
+      setError("");
+      return true;
+    }
+  };
+
+  const handleBlur = () => {
+    validateEmail(email);
+  };
+
   const dispatch = useDispatch();
 
   // Check if email domain is personal (like gmail.com, yahoo.com etc)
@@ -660,29 +685,28 @@ export default function LoginPage() {
             <CardContent className="p-8">
               {!forgotPasswordMode ? (
                 <form onSubmit={handleLogin} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="email"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Email Address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setIsEmailVerified(false);
-                        setShowCompanyField(false);
-                        setRequiresCompany(false);
-                        setCompanyName("");
-                      }}
-                      required
-                      className="h-12 bg-background border-input focus:border-primary transition-all duration-200"
-                    />
-                  </div>
+                <div className="space-y-2">
+      <Label
+        htmlFor="email"
+        className="text-sm font-medium text-foreground"
+      >
+        Email Address
+      </Label>
+      <Input
+        id="email"
+        type="email"
+        placeholder="Enter your email address"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setError(""); // clear error while typing
+        }}
+        onBlur={handleBlur} // validate when user leaves the input
+        required
+        className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 ${error ? "border-red-500" : ""}`}
+      />
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+    </div>
 
                   {/* Company Name Field - Show dynamically for personal emails */}
                   {showCompanyField && (
@@ -771,11 +795,13 @@ export default function LoginPage() {
                     </button>
                   </div>
 
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !isEmailVerified}
-                    className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle"
-                  >
+                 <Button
+  type="submit"
+  disabled={isLoading || !isEmailVerified}
+  className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${
+    (isLoading || !isEmailVerified) ? "btn-disabled" : ""
+  }`}
+>
                     {isLoading ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
@@ -843,10 +869,10 @@ export default function LoginPage() {
                         />
                       </div>
                       <Button
-                        onClick={handleVerifyOtp}
-                        disabled={isLoading || !otp}
-                        className="w-full h-12"
-                      >
+  onClick={handleVerifyOtp}
+  disabled={isLoading || !otp}
+  className={`w-full h-12 ${isLoading || !otp ? "btn-disabled" : ""}`}
+>
                         {isLoading ? (
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
@@ -944,11 +970,13 @@ export default function LoginPage() {
                         </div>
                       )}
                       
-                      <Button
-                        onClick={handleResetPassword}
-                        disabled={isLoading || !newPassword || !confirmPassword || passwordErrors.length > 0}
-                        className="w-full h-12"
-                      >
+                    <Button
+  onClick={handleResetPassword}
+  disabled={isLoading || !newPassword || !confirmPassword || passwordErrors.length > 0}
+  className={`w-full h-12 ${
+    (isLoading || !newPassword || !confirmPassword || passwordErrors.length > 0) ? "btn-disabled" : ""
+  }`}
+>
                         {isLoading ? (
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>

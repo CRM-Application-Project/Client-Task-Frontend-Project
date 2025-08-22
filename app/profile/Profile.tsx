@@ -1,4 +1,4 @@
-"use client"; 
+"use client";
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,43 +19,44 @@ export default function ProfileAccountPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-muted/20 p-6">
-      <div className="max-w-4xl mx-auto">
-        <Card className="border-0 shadow-lg bg-white">
-          <CardContent className="p-8">
+    <div>
+      <div>
+        <Card>
+          <CardContent className="p-6 sm:p-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Profile Account</h1>
-              
-              {/* Tab Navigation */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
-                <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 h-auto">
+            <div className="mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Account Settings</h1>
+              <p className="text-gray-500">Manage your personal information and security settings</p>
+            </div>
+            
+            {/* Tab Navigation */}
+            <div className="mb-8">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg h-auto">
                   <TabsTrigger 
                     value="personal-info" 
-                    className="text-gray-600 border-b-2 border-transparent data-[state=active]:border-[#3D2C8D] data-[state=active]:text-[#3D2C8D] data-[state=active]:bg-transparent bg-transparent rounded-none pb-2 px-6"
+                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-700 py-2.5 px-4 rounded-md transition-all"
                   >
                     Personal Info
                   </TabsTrigger>
                   <TabsTrigger 
                     value="change-password"
-                    className="text-gray-600 border-b-2 border-transparent data-[state=active]:border-[#3D2C8D] data-[state=active]:text-[#3D2C8D] data-[state=active]:bg-transparent bg-transparent rounded-none pb-2 px-6"
+                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-700 py-2.5 px-4 rounded-md transition-all"
                   >
                     Change Password
                   </TabsTrigger>
                 </TabsList>
+                
+                {/* Tab Content */}
+                <TabsContent value="personal-info" className="mt-6 focus:outline-none">
+                  <PersonalInfoTab />
+                </TabsContent>
+                
+                <TabsContent value="change-password" className="mt-6 focus:outline-none">
+                  <ChangePasswordTab />
+                </TabsContent>
               </Tabs>
             </div>
-
-            {/* Tab Content */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsContent value="personal-info" className="mt-0">
-                <PersonalInfoTab />
-              </TabsContent>
-              
-              <TabsContent value="change-password" className="mt-0">
-                <ChangePasswordTab />
-              </TabsContent>
-            </Tabs>
           </CardContent>
         </Card>
       </div>

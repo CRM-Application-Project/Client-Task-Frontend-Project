@@ -3,19 +3,14 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
-import { CalendarIcon, Upload, User, Trash2 } from 'lucide-react';
+import { CalendarIcon, Upload, User, Trash2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { UpdateUserRequest } from '@/lib/data';
 import { updateUserProfile } from '@/app/services/data.service';
-
 
 interface StoredUserData {
   id: string;
@@ -62,8 +57,6 @@ export function PersonalInfoTab() {
       birthday: undefined,
     },
   });
-
-
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -141,38 +134,17 @@ export function PersonalInfoTab() {
   return (
     <div className="space-y-8">
       {/* Profile Picture Section */}
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
         <div className="relative group">
-          <Avatar className="h-20 w-20 border-2 border-gray-200 bg-gray-50">
+          <Avatar className="h-24 w-24 border-2 border-white shadow-md">
             <AvatarImage src={imagePreview || profileImage || undefined} alt="Profile" />
-            <AvatarFallback className="bg-gray-100 text-gray-400">
+            <AvatarFallback className="bg-indigo-100 text-indigo-600">
               <User className="h-10 w-10" />
             </AvatarFallback>
           </Avatar>
           
-          {/* Delete overlay on hover when image exists */}
-          {hasImage && (
-            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                 onClick={handleImageDelete}>
-              <Trash2 className="h-6 w-6 text-white" />
-            </div>
-          )}
-        </div>
-        
-        {/* Upload button - only show when no image */}
-        {!hasImage && (
-          <label className="cursor-pointer">
-            <Button
-              type="button"
-              size="sm"
-              className="bg-[#3b3b3b] hover:bg-[#3b3b3b]/90 text-white rounded-md px-4 py-2"
-              asChild
-            >
-              <span>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload
-              </span>
-            </Button>
+          <label className="absolute -bottom-2 -right-2 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full cursor-pointer shadow-md">
+            <Camera className="h-4 w-4" />
             <input
               type="file"
               accept="image/*"
@@ -180,149 +152,129 @@ export function PersonalInfoTab() {
               className="hidden"
             />
           </label>
-        )}
+          
+          {/* Delete button when image exists */}
+          {hasImage && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute -top-2 -right-2 bg-red-100 hover:bg-red-200 text-red-600 h-8 w-8 rounded-full shadow-md"
+              onClick={handleImageDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        
+        <div className="text-center sm:text-left">
+          <h3 className="font-medium text-gray-900">Profile Photo</h3>
+          <p className="text-sm text-gray-500 mt-1 max-w-xs">
+            We recommend an image of at least 400x400px. JPG, PNG or GIF formats.
+          </p>
+        </div>
       </div>
 
-      {/* Form */}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* First Row: First Name & Last Name */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-700 font-medium">First Name</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      placeholder="Enter first name"
-                      className="h-10 border-gray-200 focus:border-[#3D2C8D] focus:ring-1 focus:ring-[#3D2C8D] rounded-md"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-700 font-medium">Last Name</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      placeholder="Enter last name"
-                      className="h-10 border-gray-200 focus:border-[#3D2C8D] focus:ring-1 focus:ring-[#3D2C8D] rounded-md"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Second Row: Email & Phone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="emailAddress"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-700 font-medium">Email</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      type="email"
-                      placeholder="Enter email"
-                      className="h-10 border-gray-200  rounded-md"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-700 font-medium">Phone</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                      placeholder="Enter phone number"
-                      className="h-10 border-gray-200  rounded-md"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Third Row: Birthday - Optional */}
-          {/* <FormField
-            control={form.control}
-            name="birthday"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-gray-700 font-medium">Birthday Date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
+      <div className="border-t border-gray-200 pt-8">
+        <h3 className="text-lg font-medium text-gray-900 mb-6">Personal Information</h3>
+        
+        {/* Form */}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* First Row: First Name & Last Name */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700 font-medium">First Name</FormLabel>
                     <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "h-10 w-full justify-start text-left font-normal border-gray-200 hover:border-[#3D2C8D] rounded-md",
-                          !field.value && "text-gray-400"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "dd-MM-yyyy")
-                        ) : (
-                          <span>dd-MM-yyyy</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
+                      <Input 
+                        {...field} 
+                        placeholder="Enter first name"
+                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                      />
                     </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          /> */}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          {/* Submit Button */}
-          <div className="flex justify-end pt-4">
-            <Button 
-              type="submit" 
-              className="bg-[#3b3b3b] hover:bg-[#3b3b3b]/90 text-white rounded-md px-8 py-2 h-10"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </form>
-      </Form>
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700 font-medium">Last Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        placeholder="Enter last name"
+                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Second Row: Email & Phone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="emailAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700 font-medium">Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        type="email"
+                        placeholder="Enter email"
+                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700 font-medium">Phone</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        placeholder="Enter phone number"
+                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex justify-end pt-4">
+              <Button 
+                type="submit" 
+                className="bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white rounded-lg px-6 py-3 h-11 text-base font-medium"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
     </div>
   );
 }

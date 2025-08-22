@@ -216,6 +216,7 @@ export interface LeadTrack {
   actionBy: string;
   actionTime: string; // ISO timestamp
   actionDescription: string;
+  message: string;
 }
 
 export interface FetchLeadTrackResponse {

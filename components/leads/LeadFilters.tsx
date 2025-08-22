@@ -31,7 +31,7 @@ import { useEffect, useState } from "react";
 import { DateRangePicker } from "../task/DateRangePicker";
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
-import { LeadStage } from "@/lib/data";
+import { LeadStage } from "@/lib/data"; 
 
 interface DateRange {
   from: Date;
@@ -39,7 +39,7 @@ interface DateRange {
 }
 
 interface ExtendedLeadFilters extends LeadFiltersType {
-    status?: LeadStatus;
+  status?: LeadStatus;
   label?: string;
   assignedTo?: string;
   followUpDate?: string;
@@ -50,7 +50,7 @@ interface LeadFiltersProps {
   filters: ExtendedLeadFilters;
   onFiltersChange: (filters: ExtendedLeadFilters) => void;
   onAddLead: () => void;
-  onAddStage: () => void; // Added this prop
+  onAddStage: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   viewMode: "kanban" | "grid";
@@ -59,15 +59,14 @@ interface LeadFiltersProps {
   onImportLead: () => void;
   onApplyFilters: () => void;
   onSortLeads: () => void;
-    leadStages: LeadStage[]; 
-
+  leadStages: LeadStage[];
 }
 
 export const LeadFilters = ({
   filters,
   onFiltersChange,
   onAddLead,
-  onAddStage, // Added this prop
+  onAddStage,
   searchQuery,
   onSearchChange,
   viewMode,
@@ -76,18 +75,9 @@ export const LeadFilters = ({
   onImportLead,
   onApplyFilters,
   onSortLeads,
+  leadStages, // Get leadStages from props
 }: LeadFiltersProps) => {
   const priorities: LeadPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-  const statuses: LeadStatus[] = [
-    "NEW",
-    "CONTACTED",
-    "QUALIFIED",
-    "PROPOSAL",
-    "DEMO",
-    "NEGOTIATIONS",
-    "CLOSED_WON",
-    "CLOSED_LOST",
-  ];
   const sources: LeadSource[] = [
     "WEBSITE",
     "REFERRAL",
@@ -316,7 +306,7 @@ export const LeadFilters = ({
               </SelectContent>
             </Select>
 
-            {/* Status */}
+            {/* Status - Updated to use leadStages from API */}
             <Select
               value={localFilters.status || "all"}
               onValueChange={(value) =>
@@ -331,9 +321,9 @@ export const LeadFilters = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                {statuses.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status.replace("_", " ")}
+                {leadStages.map((stage) => (
+                  <SelectItem key={stage.leadStageId} value={stage.leadStageId}>
+                    {stage.leadStageName}
                   </SelectItem>
                 ))}
               </SelectContent>

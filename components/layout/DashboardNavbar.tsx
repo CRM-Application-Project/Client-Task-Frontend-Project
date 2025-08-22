@@ -108,9 +108,13 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
         {/* Desktop: Title */}
-        <h1 className="hidden lg:block text-lg font-semibold text-gray-900">
-          {pageTitle}
-        </h1>
+    <h1 className="hidden lg:block text-[22px] font-bold text-gray-900">
+  {user
+    ? `Welcome back, ${user.firstName} ${user.lastName}!`
+    : pageTitle}
+</h1>
+
+
       </div>
 
       {/* Right */}

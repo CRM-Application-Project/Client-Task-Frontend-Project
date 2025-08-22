@@ -30,9 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import {
-  createLead,
-} from "@/app/services/data.service";
+import { createLead } from "@/app/services/data.service";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
 import { LeadStage } from "@/lib/data";
 
@@ -61,7 +59,7 @@ interface AddLeadModalProps {
   onClose: () => void;
   onAddLead: (lead: any) => void;
   onNewLeadCreated: (apiLeadData: any) => void; 
-leadStages: LeadStage[];
+  leadStages: LeadStage[];
 }
 
 interface UserData {
@@ -75,7 +73,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   onClose,
   onAddLead,
   onNewLeadCreated,
-  leadStages 
+  leadStages
 }) => {
   const { toast } = useToast();
   const { codes, loading } = useCountryCodes();
@@ -84,9 +82,14 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Filter out CLOSED WON and CLOSED LOST statuses
+  const filteredLeadStages = leadStages.filter(
+    stage => !["CLOSED WON", "CLOSED LOST"].includes(stage.leadStageName.toUpperCase())
+  );
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    mode: 'onChange', // Enable real-time validation
+    mode: 'onChange',
     defaultValues: {
       customerName: "",
       customerEmailAddress: "",
@@ -332,6 +335,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 )}
               />
 
+              {/* Updated Lead Status dropdown using filtered lead stages */}
               <FormField
                 control={form.control}
                 name="leadStatus"
@@ -351,16 +355,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="NEW">New</SelectItem>
-                        <SelectItem value="CONTACTED">Contacted</SelectItem>
-                        <SelectItem value="QUALIFIED">Qualified</SelectItem>
-                        <SelectItem value="PROPOSAL">Proposal</SelectItem>
-                        <SelectItem value="DEMO">Demo</SelectItem>
-                        <SelectItem value="NEGOTIATIONS">
-                          Negotiations
-                        </SelectItem>
-                        <SelectItem value="CLOSED_WON">Closed Won</SelectItem>
-                        <SelectItem value="CLOSED_LOST">Closed Lost</SelectItem>
+                        {filteredLeadStages.length > 0 ? (
+                          filteredLeadStages.map((stage) => (
+                            <SelectItem 
+                              key={stage.leadStageId} 
+                              value={stage.leadStageId}
+                            >
+                              {stage.leadStageName}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-options" disabled>
+                            No available statuses
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                     {fieldState.error && <FormMessage />}
@@ -512,16 +520,15 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-           <Button 
-  type="submit" 
-  disabled={isSubmitting || !hasChanges || !form.formState.isValid}
-  className={`${
-    (isSubmitting || !hasChanges || !form.formState.isValid) ? "btn-disabled" : ""
-  }`}
->
-  {isSubmitting ? "Creating..." : "Add Lead"}
-</Button>
-
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !hasChanges || !form.formState.isValid}
+                className={`${
+                  (isSubmitting || !hasChanges || !form.formState.isValid) ? "btn-disabled" : ""
+                }`}
+              >
+                {isSubmitting ? "Creating..." : "Add Lead"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
