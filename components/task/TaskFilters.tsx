@@ -312,27 +312,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
             </Select>
 
             {/* Created By Filter */}
-            <Select
-              value={localFilters.createdBy || "all"}
-              onValueChange={(value) =>
-                handleFilterChange(
-                  "createdBy",
-                  value === "all" ? undefined : value
-                )
-              }
-            >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
-                <SelectValue placeholder="Created By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Created By</SelectItem>
-                {users.map((user) => (
-                  <SelectItem key={user.userId} value={user.userId}>
-                    {`${user.firstName} ${user.lastName}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          
 
             {/* Assigned To Filter */}
             <Select
