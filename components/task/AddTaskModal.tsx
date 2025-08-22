@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { X, Calendar, ChevronDown, Check, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Smile, Code, List, ListOrdered, Link, Image, Quote, Strikethrough, Subscript, Superscript, Palette, Type, MoreHorizontal } from "lucide-react";
 import {
   Dialog,
@@ -74,6 +74,615 @@ interface GetTaskByIdResponse {
   };
 }
 
+// Rich Text Editor Component
+interface RichTextEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEditorProps) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const [textAlignment, setTextAlignment] = useState<string>('left');
+
+  // Comprehensive emoji collection
+  const emojiCategories = {
+    "Frequently Used": ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😔", "😪"],
+    "Gestures": ["👍", "👎", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄", "💋"],
+    "Symbols": ["✅", "❌", "⚡", "🛡️", "🎯", "🚀", "⭐", "🔥", "💡", "🔧", "📊", "📱", "💻", "🌟", "⚠️", "🎉", "📝", "🔍", "🎨", "🔒", "📈", "⏰", "🏆", "🎪", "💎", "🔑", "🎁", "🏅", "🎊", "💥", "✨", "🌈", "⭐", "🔮", "💫", "🌙", "☀️", "⭐", "🌟"],
+    "Objects": ["📱", "💻", "🖥️", "⌨️", "🖱️", "🖨️", "📷", "📹", "🎥", "📞", "☎️", "📠", "📺", "📻", "🎙️", "🎚️", "🎛️", "🕹️", "💾", "💿", "📀", "💽", "💻", "📱", "☎️", "📞", "📟", "📠", "📺", "📻", "🎙️", "⏰", "⏲️", "⏱️", "🕰️", "📡", "🔋", "🔌", "💡", "🔦", "🕯️", "🧯", "🛢️"],
+    "Activities": ["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥽", "🥼", "🦺", "⛷️", "🏂", "🪂", "🏋️", "🤼", "🤸", "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏃", "🚶", "🧎", "🧍"]
+  };
+
+  // Check active formats
+  const checkActiveFormats = () => {
+    if (!editorRef.current) return;
+    
+    const newActiveFormats = new Set<string>();
+    const alignmentCommands: Record<string, string> = {
+      'justifyLeft': 'left',
+      'justifyCenter': 'center',
+      'justifyRight': 'right',
+      'justifyFull': 'justify'
+    };
+    
+    // Check text formatting
+    if (document.queryCommandState('bold')) newActiveFormats.add('bold');
+    if (document.queryCommandState('italic')) newActiveFormats.add('italic');
+    if (document.queryCommandState('underline')) newActiveFormats.add('underline');
+    if (document.queryCommandState('strikeThrough')) newActiveFormats.add('strikeThrough');
+    
+    // Check alignment
+    for (const [command, alignment] of Object.entries(alignmentCommands)) {
+      if (document.queryCommandState(command)) {
+        newActiveFormats.add(alignment);
+        setTextAlignment(alignment);
+        break;
+      }
+    }
+    
+    // Check lists
+    if (document.queryCommandState('insertUnorderedList')) newActiveFormats.add('unorderedList');
+    if (document.queryCommandState('insertOrderedList')) newActiveFormats.add('orderedList');
+    
+    setActiveFormats(newActiveFormats);
+  };
+
+  // Initialize editor content only once
+  useEffect(() => {
+    if (editorRef.current && !isInitialized) {
+      if (value) {
+        if (value.includes('<')) {
+          editorRef.current.innerHTML = value;
+        } else {
+          editorRef.current.innerHTML = value.replace(/\n/g, '<br>');
+        }
+      } else {
+        editorRef.current.innerHTML = '';
+      }
+      setIsInitialized(true);
+    }
+  }, [value, isInitialized]);
+
+  // Reset initialization when modal reopens
+  useEffect(() => {
+    setIsInitialized(false);
+  }, []);
+
+  const handleInput = (e: any) => {
+    if (editorRef.current) {
+      const htmlContent = editorRef.current.innerHTML;
+      onChange(htmlContent);
+      checkActiveFormats();
+    }
+  };
+
+
+
+  // Add event listener for selection changes
+
+
+  const executeFormat = (command: string, value?: string) => {
+    // Ensure the editor is focused
+    editorRef.current?.focus();
+    
+    // Execute the command
+    const success = document.execCommand(command, false, value);
+    
+    if (!success && command === 'bold') {
+      // Fallback for bold if execCommand fails
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed) {
+          const bold = document.createElement('strong');
+          try {
+            range.surroundContents(bold);
+          } catch (e) {
+            bold.appendChild(range.extractContents());
+            range.insertNode(bold);
+          }
+        }
+      }
+    }
+    
+    // Trigger change event
+    setTimeout(() => {
+      handleInput(null);
+      checkActiveFormats();
+    }, 10);
+  };
+
+  const insertAtCursor = (html: string) => {
+    editorRef.current?.focus();
+    
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      let range = selection.getRangeAt(0);
+      range.deleteContents();
+      
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      const frag = document.createDocumentFragment();
+      let node, lastNode;
+      while ((node = div.firstChild)) {
+        lastNode = frag.appendChild(node);
+      }
+      range.insertNode(frag);
+      
+      if (lastNode) {
+        const newRange = range.cloneRange();
+        newRange.setStartAfter(lastNode);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    }
+    
+    handleInput(null);
+  };
+
+  const insertEmoji = (emoji: string) => {
+    insertAtCursor(emoji);
+    setShowEmojiPicker(false);
+  };
+
+const toggleList = (ordered: boolean) => {
+  editorRef.current?.focus();
+  
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  
+  // Check if we're already in a list of the same type
+  let listParent = findParentList(range.commonAncestorContainer as HTMLElement);
+  
+  if (listParent) {
+    // If we're in a list of the same type, toggle it off
+    if ((ordered && listParent.tagName === 'OL') || (!ordered && listParent.tagName === 'UL')) {
+      // Convert list items to paragraphs
+      const listItems = Array.from(listParent.querySelectorAll('li'));
+      listItems.forEach(li => {
+        const p = document.createElement('p');
+        p.innerHTML = li.innerHTML;
+        li.parentNode?.replaceChild(p, li);
+      });
+      
+      // Remove the empty list
+      listParent.parentNode?.removeChild(listParent);
+    } else {
+      // Convert to the other list type
+      convertListType(listParent, ordered ? 'OL' : 'UL');
+    }
+  } else {
+    // Create a new list
+    const list = document.createElement(ordered ? 'ol' : 'ul');
+    const listItem = document.createElement('li');
+    
+    // If there's selected text, put it in the list item
+    if (!range.collapsed) {
+      listItem.appendChild(range.extractContents());
+    } else {
+      // Add a zero-width space to make the list item visible
+      listItem.innerHTML = '&#8203;';
+    }
+    
+    list.appendChild(listItem);
+    range.insertNode(list);
+    
+    // Place cursor inside the list item
+    const newRange = document.createRange();
+    newRange.setStart(listItem, 0);
+    newRange.setEnd(listItem, 0);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+  }
+  
+  handleInput(null);
+  checkActiveFormats();
+};
+
+// Helper function to find if an element is inside a list
+const findParentList = (element: HTMLElement): HTMLElement | null => {
+  let parent = element.parentElement;
+  while (parent && parent !== editorRef.current) {
+    if (parent.tagName === 'UL' || parent.tagName === 'OL') {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+};
+const insertNumberedList = () => {
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    
+    // Create a new paragraph with the numbered list prefix
+    const p = document.createElement('p');
+    p.innerHTML = '1. ';
+    
+    // Insert it at the cursor position
+    range.insertNode(p);
+    
+    // Move cursor after the "1. "
+    const newRange = document.createRange();
+    newRange.setStart(p, 1);
+    newRange.setEnd(p, 1);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    
+    handleInput(null);
+  }
+};
+
+const insertBulletList = () => {
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    
+    // Create a new paragraph with the bullet list prefix
+    const p = document.createElement('p');
+    p.innerHTML = '• ';
+    
+    // Insert it at the cursor position
+    range.insertNode(p);
+    
+    // Move cursor after the "• "
+    const newRange = document.createRange();
+    newRange.setStart(p, 1);
+    newRange.setEnd(p, 1);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    
+    handleInput(null);
+  }
+};
+
+// Replace the toggleList function with these simpler functions
+// Remove the old toggleList, findParentList, and convertListType functions
+// Helper function to convert list type
+const convertListType = (listElement: HTMLElement, newType: string) => {
+  const newList = document.createElement(newType);
+  
+  // Copy all list items to the new list
+  while (listElement.firstChild) {
+    const listItem = document.createElement('li');
+    listItem.innerHTML = (listElement.firstChild as HTMLElement).innerHTML;
+    newList.appendChild(listItem);
+    listElement.removeChild(listElement.firstChild);
+  }
+  
+  // Replace the old list with the new one
+  listElement.parentNode?.replaceChild(newList, listElement);
+};
+// Empty dependency array since checkActiveFormats doesn't change
+
+// Add event listener for selection changes
+const handleSelectionChange = useCallback(() => {
+  checkActiveFormats();
+}, []); // Empty dependency array since checkActiveFormats doesn't change
+
+// Add event listener for selection changes
+useEffect(() => {
+  document.addEventListener('selectionchange', handleSelectionChange);
+  return () => {
+    document.removeEventListener('selectionchange', handleSelectionChange);
+  };
+}, [handleSelectionChange]); // Now this dependency is stable // Now this dependency is stable
+  const setAlignment = (alignment: string) => {
+    const commands: Record<string, string> = {
+      'left': 'justifyLeft',
+      'center': 'justifyCenter',
+      'right': 'justifyRight',
+      'justify': 'justifyFull'
+    };
+    executeFormat(commands[alignment]);
+  };
+
+  const addLink = () => {
+    const url = prompt('Enter URL:');
+    if (url) {
+      executeFormat('createLink', url);
+    }
+  };
+
+  const addImage = () => {
+    const url = prompt('Enter image URL:');
+    if (url) {
+      executeFormat('insertImage', url);
+    }
+  };
+
+  const makeHeading = () => {
+    executeFormat('formatBlock', 'H3');
+  };
+
+  const addHorizontalRule = () => {
+    executeFormat('insertHorizontalRule');
+  };
+
+  return (
+    <div className={`border border-gray-300 rounded-md bg-white ${className}`}>
+      {/* Comprehensive Formatting Toolbar */}
+      <div className="flex flex-wrap items-center gap-1 px-3 py-2 bg-gray-100 border-b">
+        {/* Text Formatting Group */}
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant={activeFormats.has('bold') ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('bold')}
+            className={`h-8 w-8 p-0 ${activeFormats.has('bold') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Bold"
+          >
+            <Bold className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={activeFormats.has('italic') ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('italic')}
+            className={`h-8 w-8 p-0 ${activeFormats.has('italic') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Italic"
+          >
+            <Italic className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={activeFormats.has('underline') ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('underline')}
+            className={`h-8 w-8 p-0 ${activeFormats.has('underline') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Underline"
+          >
+            <Underline className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={activeFormats.has('strikeThrough') ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('strikeThrough')}
+            className={`h-8 w-8 p-0 ${activeFormats.has('strikeThrough') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Strikethrough"
+          >
+            <Strikethrough className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Alignment Group */}
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant={textAlignment === 'left' ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setAlignment('left')}
+            className={`h-8 w-8 p-0 ${textAlignment === 'left' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Align Left"
+          >
+            <AlignLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={textAlignment === 'center' ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setAlignment('center')}
+            className={`h-8 w-8 p-0 ${textAlignment === 'center' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Align Center"
+          >
+            <AlignCenter className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={textAlignment === 'right' ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setAlignment('right')}
+            className={`h-8 w-8 p-0 ${textAlignment === 'right' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Align Right"
+          >
+            <AlignRight className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={textAlignment === 'justify' ? "secondary" : "ghost"}
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setAlignment('justify')}
+            className={`h-8 w-8 p-0 ${textAlignment === 'justify' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+            title="Justify"
+          >
+            <AlignJustify className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Advanced Formatting */}
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('superscript')}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Superscript"
+          >
+            <Superscript className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('subscript')}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Subscript"
+          >
+            <Subscript className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('formatBlock', 'pre')}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Code Block"
+          >
+            <Code className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => executeFormat('formatBlock', 'blockquote')}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Quote"
+          >
+            <Quote className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Lists Group */}
+       <div className="flex items-center gap-0.5">
+  <Button
+    type="button"
+    variant={activeFormats.has('orderedList') ? "secondary" : "ghost"}
+    size="sm"
+    onMouseDown={(e) => e.preventDefault()}
+    onClick={insertNumberedList}
+    className={`h-8 w-8 p-0 ${activeFormats.has('orderedList') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+    title="Numbered List"
+  >
+    <ListOrdered className="h-4 w-4" />
+  </Button>
+  <Button
+    type="button"
+    variant={activeFormats.has('unorderedList') ? "secondary" : "ghost"}
+    size="sm"
+    onMouseDown={(e) => e.preventDefault()}
+    onClick={insertBulletList}
+    className={`h-8 w-8 p-0 ${activeFormats.has('unorderedList') ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+    title="Bullet List"
+  >
+    <List className="h-4 w-4" />
+  </Button>
+</div>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Media & Links */}
+       
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Emoji Picker */}
+        <div className="relative">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Insert Emoji"
+          >
+            <Smile className="h-4 w-4" />
+          </Button>
+          
+          {showEmojiPicker && (
+            <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto">
+              {Object.entries(emojiCategories).map(([category, emojis]) => (
+                <div key={category} className="p-2">
+                  <div className="text-xs font-medium text-gray-600 mb-1 sticky top-0 bg-white">
+                    {category}
+                  </div>
+                  <div className="grid grid-cols-10 gap-1">
+                    {emojis.map((emoji, index) => (
+                      <button
+                        key={`${category}-${index}`}
+                        type="button"
+                        className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded text-sm"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => insertEmoji(emoji)}
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Additional Tools */}
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={makeHeading}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Heading"
+          >
+            <Type className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={addHorizontalRule}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
+            title="Horizontal Rule"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Content Editable Area */}
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        className="min-h-[200px] p-4 focus:outline-none text-sm leading-relaxed"
+        style={{ wordWrap: 'break-word' }}
+        data-placeholder={placeholder}
+      />
+
+      {/* Support Text */}
+      <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-600 rounded-b-md">
+        Rich text editor with full formatting support
+      </div>
+    </div>
+  );
+};
+
+// The rest of your AddTaskModal component remains the same...
 export const AddTaskModal = ({
   isOpen,
   onClose,
@@ -84,9 +693,7 @@ export const AddTaskModal = ({
 }: AddTaskModalProps) => {
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
     subject: "",
@@ -112,127 +719,14 @@ export const AddTaskModal = ({
     "URGENT",
   ];
 
-  // Default acceptance criteria template with bold formatting
+  // Default acceptance criteria template
   const getDefaultAcceptanceCriteria = () => {
-    return `**Given** the user is on the login page
-**When** they enter valid credentials
-**Then** they should be redirected to the dashboard
-
-**Given** the user submits invalid data
-**When** the form is processed
-**Then** appropriate error messages should be displayed
-
-**Acceptance Criteria:**
-• **Performance**: Page should load within 2 seconds
-• **Security**: All inputs must be validated
-• **Accessibility**: Form should be keyboard navigable
-• **Browser Support**: Must work on Chrome, Firefox, and Safari`;
+    return `<strong>Given</strong> Dummy acceptance criteria edit your acceptance criteria here.<br><br>`;
   };
 
-  // Comprehensive emoji collection
-  const emojiCategories = {
-    "Frequently Used": ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😔", "😪"],
-    "Gestures": ["👍", "👎", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄", "💋"],
-    "Symbols": ["✅", "❌", "⚡", "🛡️", "🎯", "🚀", "⭐", "🔥", "💡", "🔧", "📊", "📱", "💻", "🌟", "⚠️", "🎉", "📝", "🔍", "🎨", "🔒", "📈", "⏰", "🏆", "🎪", "💎", "🔑", "🎁", "🏅", "🎊", "💥", "✨", "🌈", "⭐", "🔮", "💫", "🌙", "☀️", "⭐", "🌟"],
-    "Objects": ["📱", "💻", "🖥️", "⌨️", "🖱️", "🖨️", "📷", "📹", "🎥", "📞", "☎️", "📠", "📺", "📻", "🎙️", "🎚️", "🎛️", "🕹️", "💾", "💿", "📀", "💽", "💻", "📱", "☎️", "📞", "📟", "📠", "📺", "📻", "🎙️", "⏰", "⏲️", "⏱️", "🕰️", "📡", "🔋", "🔌", "💡", "🔦", "🕯️", "🧯", "🛢️"],
-    "Activities": ["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥽", "🥼", "🦺", "⛷️", "🏂", "🪂", "🏋️", "🤼", "🤸", "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏃", "🚶", "🧎", "🧍"]
-  };
-
-const hasPreSelectedStage = useMemo(() => {
+  const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
-
-  // Enhanced HTML to Markdown conversion that preserves formatting exactly
- const convertHtmlToMarkdown = (html: string): string => {
-    console.log('🔄 Converting HTML to Markdown:', html);
-    
-    if (!html) {
-      console.log('❌ No HTML content to convert');
-      return "";
-    }
-    
-    let markdown = html;
-    
-    // Check if content is already in markdown format (no HTML tags)
-    if (!html.includes('<') && !html.includes('>')) {
-      console.log('✅ Content appears to already be in markdown format');
-      return html;
-    }
-    
-    // Enhanced conversion with better handling of nested formatting
-    // Handle line breaks first to preserve structure
-    markdown = markdown.replace(/<br\s*\/?>/gi, '\n');
-    markdown = markdown.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
-    
-    // Handle headings
-    markdown = markdown.replace(/<h([1-6])[^>]*>(.*?)<\/h[1-6]>/gi, (match, level, content) => {
-      const hashes = '#'.repeat(parseInt(level));
-      return `${hashes} ${content}\n`;
-    });
-    
-    // Handle formatting tags with better regex to preserve nested content
-    markdown = markdown.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
-    markdown = markdown.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
-    markdown = markdown.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
-    markdown = markdown.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
-    markdown = markdown.replace(/<del[^>]*>(.*?)<\/del>/gi, '~~$1~~');
-    markdown = markdown.replace(/<s[^>]*>(.*?)<\/s>/gi, '~~$1~~');
-    markdown = markdown.replace(/<strike[^>]*>(.*?)<\/strike>/gi, '~~$1~~');
-    markdown = markdown.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
-    
-    // Handle blockquotes with better structure preservation
-    markdown = markdown.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (match, content) => {
-      // Fix: Add explicit type annotation for the line parameter
-      const lines = content.split('\n').map((line: string) => line.trim() ? `> ${line}` : '>').join('\n');
-      return lines;
-    });
-    
-    // Handle lists with proper nesting and spacing
-    markdown = markdown.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (match, content) => {
-      let counter = 1;
-      const listItems = content.replace(/<li[^>]*>(.*?)<\/li>/gi, () => {
-        return `${counter++}. $1\n`;
-      });
-      return '\n' + listItems.trim() + '\n';
-    });
-    
-    markdown = markdown.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
-      const listItems = content.replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n');
-      return '\n' + listItems.trim() + '\n';
-    });
-    
-    // Handle standalone list items
-    markdown = markdown.replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1');
-    
-    // Handle special HTML tags that should be preserved (underline, sup, sub)
-    // These stay as HTML since markdown doesn't support them natively
-    
-    // Handle alignment divs - preserve them as HTML
-    // markdown = markdown.replace(/<div style="text-align:\s*(left|center|right|justify)"[^>]*>(.*?)<\/div>/gi, '<div style="text-align: $1">$2</div>');
-    
-    // Handle center tags
-    // markdown = markdown.replace(/<center[^>]*>(.*?)<\/center>/gi, '<center>$1</center>');
-    
-    // Clean up paragraph tags
-    markdown = markdown.replace(/<p[^>]*>/gi, '');
-    markdown = markdown.replace(/<\/p>/gi, '\n');
-    
-    // Clean up div tags (except alignment ones)
-    markdown = markdown.replace(/<div(?![^>]*text-align)[^>]*>/gi, '');
-    markdown = markdown.replace(/<\/div>(?![^<]*<\/div>)/gi, '');
-    
-    // Remove any other HTML tags we haven't specifically handled
-    // But preserve underline, superscript, subscript, and alignment tags
-    markdown = markdown.replace(/<(?!\/?(?:u|sup|sub|center|div\s+style="text-align))[^>]+>/gi, '');
-    
-    // Clean up excessive whitespace and line breaks
-    markdown = markdown.replace(/\n\s*\n\s*\n/g, '\n\n'); // Multiple line breaks to double
-    markdown = markdown.replace(/^\s+|\s+$/g, ''); // Trim start and end
-    markdown = markdown.replace(/[ \t]+/g, ' '); // Multiple spaces to single space
-    
-    console.log('✅ Final converted Markdown:', markdown);
-    return markdown;
-  };
 
   // Helper function to compare values (handles dates properly)
   const areValuesEqual = (original: any, current: any): boolean => {
@@ -269,83 +763,6 @@ const hasPreSelectedStage = useMemo(() => {
       
       setDirtyFields(newDirtyFields);
     }
-  };
-
-  // Enhanced markdown to HTML conversion
-  const convertToHtml = (text: string): string => {
-    if (!text) return "";
-    
-    let html = text;
-    
-    // Convert markdown formatting to HTML with better handling
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
-    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>'); // Italic (not part of bold)
-    html = html.replace(/~~(.*?)~~/g, '<del>$1</del>'); // Strikethrough
-    html = html.replace(/`(.*?)`/g, '<code>$1</code>'); // Code
-    
-    // Convert quotes
-    html = html.replace(/^>\s*(.*$)/gm, '<blockquote>$1</blockquote>');
-    
-    // Convert headings
-    html = html.replace(/^(#{1,6})\s+(.*$)/gm, (match, hashes, content) => {
-      const level = hashes.length;
-      return `<h${level}>${content}</h${level}>`;
-    });
-    
-    // Convert lists with better structure
-    const lines = html.split('\n');
-    let inOrderedList = false;
-    let inUnorderedList = false;
-    let result = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const orderedMatch = line.match(/^(\d+)\.\s+(.*)/);
-      const unorderedMatch = line.match(/^[•*-]\s+(.*)/);
-      
-      if (orderedMatch) {
-        if (!inOrderedList) {
-          if (inUnorderedList) {
-            result.push('</ul>');
-            inUnorderedList = false;
-          }
-          result.push('<ol>');
-          inOrderedList = true;
-        }
-        result.push(`<li>${orderedMatch[2]}</li>`);
-      } else if (unorderedMatch) {
-        if (!inUnorderedList) {
-          if (inOrderedList) {
-            result.push('</ol>');
-            inOrderedList = false;
-          }
-          result.push('<ul>');
-          inUnorderedList = true;
-        }
-        result.push(`<li>${unorderedMatch[1]}</li>`);
-      } else {
-        if (inOrderedList) {
-          result.push('</ol>');
-          inOrderedList = false;
-        }
-        if (inUnorderedList) {
-          result.push('</ul>');
-          inUnorderedList = false;
-        }
-        result.push(line);
-      }
-    }
-    
-    // Close any remaining lists
-    if (inOrderedList) result.push('</ol>');
-    if (inUnorderedList) result.push('</ul>');
-    
-    html = result.join('\n');
-    
-    // Convert line breaks
-    html = html.replace(/\n/g, '<br>');
-    
-    return html;
   };
 
   // Helper function to get local ISO string without timezone conversion
@@ -387,16 +804,8 @@ const hasPreSelectedStage = useMemo(() => {
 
   // MAIN EFFECT: Reset and initialize form when modal opens/closes or when key props change
   useEffect(() => {
-    console.log('🚀 Main effect triggered:', {
-      isOpen,
-      editingTaskId: editingTask?.id,
-      preSelectedStageId,
-      acceptanceCriteria: editingTask?.acceptanceCriteria
-    });
-    
     if (!isOpen) {
       // Reset everything when modal closes
-      console.log('🔄 Modal closed - resetting form');
       setOriginalFormData(null);
       setDirtyFields(new Set());
       return;
@@ -405,12 +814,6 @@ const hasPreSelectedStage = useMemo(() => {
     // Initialize form data when modal opens
     if (editingTask) {
       // EDIT MODE: Initialize with existing task data
-      console.log('📝 Edit mode - setting up form with existing data');
-      console.log('Original acceptance criteria from API:', editingTask.acceptanceCriteria);
-      
-      // Convert HTML back to markdown for editing - with enhanced conversion
-      const convertedAcceptanceCriteria = convertHtmlToMarkdown(editingTask.acceptanceCriteria || "");
-      
       const initialData = {
         subject: editingTask.subject || "",
         description: editingTask.description || "",
@@ -419,18 +822,14 @@ const hasPreSelectedStage = useMemo(() => {
         startDate: editingTask.startDate || new Date().toISOString(),
         endDate: editingTask.endDate || "",
         assignee: editingTask.assignee?.id || "",
-        acceptanceCriteria: convertedAcceptanceCriteria,
+        acceptanceCriteria: editingTask.acceptanceCriteria || "",
       };
-      
-      console.log('✅ Final form data for edit:', initialData);
-      console.log('📋 Acceptance criteria set to:', initialData.acceptanceCriteria);
       
       setFormData(initialData);
       setOriginalFormData(initialData);
       setDirtyFields(new Set());
     } else {
       // NEW TASK MODE: Initialize with defaults and pre-selected stage + prefilled acceptance criteria
-      console.log('➕ New task mode - setting up form with defaults and prefilled acceptance criteria');
       const adjustedTime = getAdjustedCurrentTime();
       const newTaskData = {
         subject: "",
@@ -440,10 +839,9 @@ const hasPreSelectedStage = useMemo(() => {
         startDate: getLocalISOString(adjustedTime),
         endDate: "",
         assignee: "",
-        acceptanceCriteria: getDefaultAcceptanceCriteria(), // Prefill with default template
+        acceptanceCriteria: getDefaultAcceptanceCriteria(),
       };
       
-      console.log('✅ New task data with prefilled acceptance criteria:', newTaskData);
       setFormData(newTaskData);
       setOriginalFormData(null);
       setDirtyFields(new Set());
@@ -461,7 +859,6 @@ const hasPreSelectedStage = useMemo(() => {
 
         if (stagesRes?.isSuccess && stagesRes.data) {
           setStages(stagesRes.data);
-          console.log('Stages loaded:', stagesRes.data);
         } else {
           console.error("Failed to fetch stages:", stagesRes?.message);
           toast({
@@ -485,89 +882,6 @@ const hasPreSelectedStage = useMemo(() => {
 
     fetchData();
   }, [isOpen, toast]);
-
-  // Formatting functions for acceptance criteria
-  const insertAtCursor = (text: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = formData.acceptanceCriteria || "";
-    
-    const newText = currentText.substring(0, start) + text + currentText.substring(end);
-    
-    updateFormField('acceptanceCriteria', newText);
-    
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + text.length, start + text.length);
-    }, 0);
-  };
-
-  const wrapSelectedText = (prefix: string, suffix: string = prefix) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = formData.acceptanceCriteria || "";
-    const selectedText = currentText.substring(start, end);
-    
-    if (selectedText) {
-      const wrappedText = prefix + selectedText + suffix;
-      const newText = currentText.substring(0, start) + wrappedText + currentText.substring(end);
-      updateFormField('acceptanceCriteria', newText);
-      
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start, start + wrappedText.length);
-      }, 0);
-    } else {
-      insertAtCursor(prefix + suffix);
-      setTimeout(() => {
-        textarea.setSelectionRange(start + prefix.length, start + prefix.length);
-      }, 0);
-    }
-  };
-
-  const formatBold = () => wrapSelectedText("**", "**");
-  const formatItalic = () => wrapSelectedText("*", "*");
-  const formatUnderline = () => wrapSelectedText("<u>", "</u>");
-  const formatStrikethrough = () => wrapSelectedText("~~", "~~");
-  const formatCode = () => wrapSelectedText("`", "`");
-  const formatQuote = () => insertAtCursor("> ");
-  
-  const insertNumberedList = () => insertAtCursor("\n1. ");
-  const insertBulletList = () => insertAtCursor("\n• ");
-  
-  const insertAlignment = (alignment: 'left' | 'center' | 'right' | 'justify') => {
-    const alignTags = {
-      left: '<div style="text-align: left;">',
-      center: '<center>',
-      right: '<div style="text-align: right;">',
-      justify: '<div style="text-align: justify;">'
-    };
-    const closeTags = {
-      left: '</div>',
-      center: '</center>',
-      right: '</div>',
-      justify: '</div>'
-    };
-    wrapSelectedText(alignTags[alignment], closeTags[alignment]);
-  };
-
-  const insertEmoji = (emoji: string) => {
-    insertAtCursor(emoji);
-    setShowEmojiPicker(false);
-  };
-
-  const insertLink = () => {
-    wrapSelectedText("[", "](url)");
-  };
-
-  const insertSuperscript = () => wrapSelectedText("<sup>", "</sup>");
-  const insertSubscript = () => wrapSelectedText("<sub>", "</sub>");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -629,9 +943,6 @@ const hasPreSelectedStage = useMemo(() => {
           if (field === 'endDate' && formData[field] === '') {
             // Handle empty endDate specially - send null or don't send at all
             (updatePayload as any)[field] = null;
-          } else if (field === 'acceptanceCriteria') {
-            // Convert acceptance criteria to HTML before sending
-            updatePayload[field] = convertToHtml(formData[field] || "");
           } else {
             (updatePayload as any)[field] = formData[field];
           }
@@ -642,14 +953,9 @@ const hasPreSelectedStage = useMemo(() => {
         
         onSubmit(updatePayload, true);
       } else {
-        // For new tasks, send all required fields with HTML conversion for acceptance criteria
-        const submitData = {
-          ...formData,
-          acceptanceCriteria: convertToHtml(formData.acceptanceCriteria || "")
-        };
-        
-        console.log('Submitting new task:', submitData);
-        onSubmit(submitData, false);
+        // For new tasks, send all required fields
+        console.log('Submitting new task:', formData);
+        onSubmit(formData, false);
       }
       
       onClose();
@@ -755,11 +1061,9 @@ const hasPreSelectedStage = useMemo(() => {
 
   if (!isOpen) return null;
 
-  console.log('RENDER - formData.taskStageId:', formData.taskStageId, 'preSelectedStageId:', preSelectedStageId);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-foreground">
             {editingTask ? "Edit Task" : "Add Task"}
@@ -849,7 +1153,6 @@ const hasPreSelectedStage = useMemo(() => {
               {hasPreSelectedStage ? (
                 // Display locked stage when pre-selected
                 <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                 
                   <span className="text-sm">
                     {stages.find(stage => stage.id === preSelectedStageId)?.name || "Selected Stage"}
                   </span>
@@ -866,7 +1169,6 @@ const hasPreSelectedStage = useMemo(() => {
                   onValueChange={(value) => {
                     const numValue = parseInt(value, 10);
                     if (!isNaN(numValue)) {
-                      console.log('Stage selection changed to:', numValue);
                       updateFormField('taskStageId', numValue);
                     }
                   }}
@@ -969,7 +1271,7 @@ const hasPreSelectedStage = useMemo(() => {
             />
           </div>
 
-          {/* Enhanced Acceptance Criteria - Reference UI Style */}
+          {/* Rich Text Editor for Acceptance Criteria */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground text-blue-600">
               Acceptance Criteria
@@ -978,283 +1280,12 @@ const hasPreSelectedStage = useMemo(() => {
               )}
             </Label>
             
-            <div className="border border-gray-300 rounded-md bg-white">
-              {/* Comprehensive Formatting Toolbar */}
-              <div className="flex flex-wrap items-center gap-1 px-3 py-2 bg-gray-100 border-b">
-                {/* Text Formatting Group */}
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={formatBold}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Bold"
-                  >
-                    <Bold className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={formatItalic}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Italic"
-                  >
-                    <Italic className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={formatUnderline}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Underline"
-                  >
-                    <Underline className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={formatStrikethrough}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Strikethrough"
-                  >
-                    <Strikethrough className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-
-                {/* Alignment Group */}
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAlignment('left')}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Align Left"
-                  >
-                    <AlignLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAlignment('center')}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Align Center"
-                  >
-                    <AlignCenter className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAlignment('right')}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Align Right"
-                  >
-                    <AlignRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAlignment('justify')}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Justify"
-                  >
-                    <AlignJustify className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-
-                {/* Advanced Formatting */}
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={insertSuperscript}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Superscript"
-                  >
-                    <Superscript className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={insertSubscript}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Subscript"
-                  >
-                    <Subscript className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={formatCode}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Code"
-                  >
-                    <Code className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={formatQuote}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Quote"
-                  >
-                    <Quote className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-
-                {/* Lists Group */}
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={insertBulletList}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Bullet List"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={insertNumberedList}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Numbered List"
-                  >
-                    <ListOrdered className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-
-                {/* Media & Links */}
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={insertLink}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Insert Link"
-                  >
-                    <Link className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAtCursor("![image](url)")}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Insert Image"
-                  >
-                    <Image className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-
-                {/* Emoji Picker */}
-                <div className="relative">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Insert Emoji"
-                  >
-                    <Smile className="h-4 w-4" />
-                  </Button>
-                  
-                  {showEmojiPicker && (
-                    <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto">
-                      {Object.entries(emojiCategories).map(([category, emojis]) => (
-                        <div key={category} className="p-2">
-                          <div className="text-xs font-medium text-gray-600 mb-1 sticky top-0 bg-white">
-                            {category}
-                          </div>
-                          <div className="grid grid-cols-10 gap-1">
-                            {emojis.map((emoji, index) => (
-                              <button
-                                key={`${category}-${index}`}
-                                type="button"
-                                className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded text-sm"
-                                onClick={() => insertEmoji(emoji)}
-                                title={emoji}
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-
-                {/* Additional Tools */}
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAtCursor("# ")}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Heading"
-                  >
-                    <Type className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => insertAtCursor("---\n")}
-                    className="h-8 w-8 p-0 hover:bg-gray-200"
-                    title="Horizontal Rule"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Text Area */}
-              <Textarea
-                ref={textareaRef}
-                value={formData.acceptanceCriteria || ""}
-                onChange={(e) => {
-                  console.log('📝 Acceptance criteria changed to:', e.target.value);
-                  updateFormField('acceptanceCriteria', e.target.value);
-                }}
-                placeholder="Start typing your acceptance criteria..."
-                rows={10}
-                className="resize-none border-0 focus:ring-0 focus:outline-none rounded-none font-mono text-sm p-4"
-              />
-
-              {/* Support Text */}
-              <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-600 rounded-b-md">
-                We support markdown, you can convert this field.
-              </div>
-            </div>
+            <RichTextEditor
+              value={formData.acceptanceCriteria || ""}
+              onChange={(value) => updateFormField('acceptanceCriteria', value)}
+              placeholder="Start typing your acceptance criteria..."
+              className=""
+            />
           </div>
 
           {/* Actions */}
