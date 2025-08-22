@@ -1120,6 +1120,12 @@ const { toast } = useToast();
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
+                                <button
+                                onClick={ ()=>{handleTaskClick(task.id)}}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                View
+                              </button>
                               <button
                                 onClick={() => handleEditTask(task)}
                                 className="text-indigo-600 hover:text-indigo-900"
