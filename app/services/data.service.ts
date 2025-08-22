@@ -14,6 +14,8 @@ import {
   ResetRequest,
   ResetResponse,
   TaskStagesDropdownResponse,
+  UpdateLeadStageRequest,
+  UpdateLeadStageResponse,
   UpdateUserRequest,
   UpdateUserResponse,
   VerifyOtpRequest,
@@ -689,6 +691,32 @@ export const createLeadStage = async (
 export const fetchLeadStages = async (): Promise<FetchLeadStagesResponse> => {
   const res = await getRequest(API_CONSTANTS.LEAD.FETCH_STAGE);
   return res as FetchLeadStagesResponse;
+};
+
+export const updateLeadStage = async (
+  stageData: UpdateLeadStageRequest
+): Promise<UpdateLeadStageResponse> => {
+  const res = await putRequest(API_CONSTANTS.LEAD.UPDATE_STAGE, stageData);
+  return res as UpdateLeadStageResponse;
+};
+
+
+export interface DeleteLeadStageResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
+}
+
+// Function to delete a lead stage by ID
+export const deleteLeadStage = async (
+  leadStageId: string
+): Promise<DeleteLeadStageResponse> => {
+  const url = `${API_CONSTANTS.LEAD.DELETE_STAGE}?leadStageId=${leadStageId}`;
+  const res = await deleteRequest(url);
+  return res as DeleteLeadStageResponse;
 };
 export interface ChangeLeadStatusRequest {
   leadId: string;

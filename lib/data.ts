@@ -257,3 +257,19 @@ export interface FetchLeadStagesResponse {
   message: string;
   data: LeadStage[];
 }
+
+export interface UpdateLeadStageRequest {
+  leadStageId: string;
+  leadStageName: string;
+  leadStageDescription: string;
+  leadStagePriority: number;
+}
+
+export interface UpdateLeadStageResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
+}
