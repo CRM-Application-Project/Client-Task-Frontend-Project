@@ -128,34 +128,50 @@ const Leads = () => {
   };
 
   // Handle stage updates - with proper reordering
-  const handleStageUpdate = (updatedStage: LeadStage) => {
-    setLeadStages((prevStages) => {
-      const updatedStages = prevStages.map((stage) =>
-        stage.leadStageId === updatedStage.leadStageId ? updatedStage : stage
-      );
+  // in Leads component
+  const handleStageUpdate = async (updatedStage: LeadStage) => {
+    // Capture the old stage BEFORE mutating state (to rewrite leads if the name changed)
+    const oldStage = leadStages.find(
+      (s) => s.leadStageId === updatedStage.leadStageId
+    );
 
-      // Re-sort stages by priority to maintain proper order
-      return updatedStages.sort(
-        (a, b) => a.leadStagePriority - b.leadStagePriority
+    // Immutably replace and re-sort (avoid mutating the same array reference)
+    setLeadStages((prev) => {
+      const next = prev.map((s) =>
+        s.leadStageId === updatedStage.leadStageId
+          ? { ...s, ...updatedStage }
+          : s
+      );
+      return [...next].sort(
+        (a, b) =>
+          Number(a.leadStagePriority ?? 0) - Number(b.leadStagePriority ?? 0)
       );
     });
 
-    // Also update any leads that might have the old stage name
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) => {
-        // Find the original stage name to update leads
-        const originalStage = leadStages.find(
-          (stage) => stage.leadStageId === updatedStage.leadStageId
+    // If the stage name changed, keep leads in sync
+    if (oldStage && oldStage.leadStageName !== updatedStage.leadStageName) {
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) =>
+          lead.leadStatus === oldStage.leadStageName
+            ? { ...lead, leadStatus: updatedStage.leadStageName }
+            : lead
+        )
+      );
+    }
+
+    // Belt-and-suspenders: pull fresh order from the server (handles collisions/renumbering)
+    try {
+      const resp = await fetchLeadStages();
+      if (resp.isSuccess && resp.data) {
+        const sorted = [...resp.data].sort(
+          (a, b) =>
+            Number(a.leadStagePriority ?? 0) - Number(b.leadStagePriority ?? 0)
         );
-        if (originalStage && lead.leadStatus === originalStage.leadStageName) {
-          return {
-            ...lead,
-            leadStatus: updatedStage.leadStageName,
-          };
-        }
-        return lead;
-      })
-    );
+        setLeadStages(sorted);
+      }
+    } catch {
+      // non-fatal; local state already updated
+    }
   };
 
   // Handle stage deletion
@@ -848,7 +864,7 @@ const Leads = () => {
           <div className="flex gap-4 overflow-x-auto pb-6">
             {leadStages.map((stage, index) => (
               <LeadColumn
-                key={stage.leadStageId}
+                key={`${stage.leadStageId}-${stage.leadStagePriority}`}
                 stage={stage}
                 stageIndex={index}
                 leads={filteredLeads.filter(
