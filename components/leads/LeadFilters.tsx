@@ -322,7 +322,7 @@ export const LeadFilters = ({
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 {leadStages.map((stage) => (
-                  <SelectItem key={stage.leadStageId} value={stage.leadStageId}>
+                  <SelectItem key={stage.leadStageId} value={stage.leadStageName}>
                     {stage.leadStageName}
                   </SelectItem>
                 ))}
