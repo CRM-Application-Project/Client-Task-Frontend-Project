@@ -825,13 +825,15 @@ export interface HistoryRecord {
 
 export interface FilterHistoryParams {
   taskId: number;
-  event?: string;
-  performedBy?: string;
-  startDate?: string;
-  endDate?: string;
+  doneById?: string;
+  eventTypes?: string;
+  createdAfter?: string;
+  createdBefore?: string;
   page?: number;
   limit?: number;
+  sortDirection?: "asc" | "desc";
 }
+
 
 export interface FilterHistoryResponse {
   isSuccess: boolean;
@@ -856,12 +858,13 @@ export const filterHistory = async (
   query.append('taskId', String(params.taskId));
   
   // Only append optional parameters if they have values
-  if (params.event) query.append('event', params.event);
-  if (params.performedBy) query.append('performedBy', params.performedBy);
-  if (params.startDate) query.append('startDate', params.startDate);
-  if (params.endDate) query.append('endDate', params.endDate);
+  if (params.doneById) query.append('doneById', params.doneById);
+  if (params.eventTypes) query.append('eventTypes', params.eventTypes);
+  if (params.createdAfter) query.append('createdAfter', params.createdAfter);
+  if (params.createdBefore) query.append('createdBefore', params.createdBefore);
   if (params.page !== undefined) query.append('page', String(params.page));
   if (params.limit !== undefined) query.append('limit', String(params.limit));
+  if (params.sortDirection !== undefined) query.append('sortDirection', String(params.sortDirection));
 
   const url = `${API_CONSTANTS.TASK.HISTORY.FILTER_HISTORY}?${query.toString()}`;
   const res = await getRequest(url);
@@ -896,9 +899,9 @@ export interface ReorderStagesResponse {
 }
 
 export interface UpdateStageRequest {
-  name: string;
-  description: string;
-  orderNumber: number;
+  name?: string;
+  description?: string;
+  
 }
 
 export interface UpdateStageResponse {

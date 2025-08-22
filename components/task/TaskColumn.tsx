@@ -2,7 +2,7 @@
 import { TaskStatus } from "@/lib/task";
 import { TaskCard } from "./TaskCard";
 import { Badge } from "@/components/ui/badge";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { updateTask, reorderTaskStages, updateTaskStage, deleteTaskStage } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -239,11 +239,54 @@ export const TaskColumn = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isColumnDragging, setIsColumnDragging] = useState(false);
   const [isColumnDraggedOver, setIsColumnDraggedOver] = useState(false);
-  
+   
   const { toast } = useToast();
   const stageColors = getStageColors(stageIndex, stage.name);
   const dragCounterRef = useRef(0);
-  const { permissions, loading: permissionsLoading } = usePermissions('task_stage');
+ const { permissions: stagePermissions, loading: stagePermissionsLoading } = usePermissions("task_stage");
+const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePermissions("task");
+ const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const kanbanBoardRef = useRef<HTMLDivElement>(null);
+
+
+
+  // Clean up intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Function to handle auto-scrolling during drag operations
+  const handleAutoScroll = useCallback((e: React.DragEvent) => {
+    // Find the kanban board container
+    const kanbanBoard = document.querySelector('.kanban-board-container');
+    if (!kanbanBoard) return;
+    
+    const boardRect = kanbanBoard.getBoundingClientRect();
+    const scrollThreshold = 100; // Distance from edge to trigger scrolling
+    const scrollSpeed = 20; // Pixels to scroll per interval
+    
+    // Clear any existing scroll interval
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+    
+    // Check if we're near the edges and need to scroll
+    const isNearLeftEdge = e.clientX < boardRect.left + scrollThreshold;
+    const isNearRightEdge = e.clientX > boardRect.right - scrollThreshold;
+    
+    if (isNearLeftEdge || isNearRightEdge) {
+      scrollIntervalRef.current = setInterval(() => {
+        const scrollAmount = isNearLeftEdge ? -scrollSpeed : scrollSpeed;
+        kanbanBoard.scrollLeft += scrollAmount;
+      }, 16); // ~60fps
+    }
+  }, []);
 
   const handleDragStart = () => {
     setIsDraggedOver(false);
@@ -258,6 +301,9 @@ export const TaskColumn = ({
     if (dragData) {
       setIsDraggedOver(true);
     }
+    
+    // Handle auto-scrolling during drag
+    handleAutoScroll(e);
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -285,6 +331,12 @@ export const TaskColumn = ({
       setIsDraggedOver(false);
       dragCounterRef.current = 0;
     }
+    
+    // Stop auto-scrolling when leaving the area
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
   };
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -292,6 +344,12 @@ export const TaskColumn = ({
     setIsDraggedOver(false);
     setIsColumnDraggedOver(false);
     dragCounterRef.current = 0;
+
+    // Stop auto-scrolling
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
 
     try {
       const dragDataString = e.dataTransfer.getData("application/json");
@@ -359,9 +417,7 @@ export const TaskColumn = ({
       setDraggedTaskId(taskId);
 
       const updateData = {
-      
         taskStageId: stage.id,
-
       };
 
       const response = await updateTask(taskId, updateData);
@@ -408,6 +464,12 @@ export const TaskColumn = ({
 
   const handleStageDragEnd = () => {
     setIsColumnDragging(false);
+    
+    // Stop auto-scrolling when drag ends
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
   };
 
   const handleStageDragOver = (e: React.DragEvent) => {
@@ -424,10 +486,19 @@ export const TaskColumn = ({
     } catch (error) {
       // Ignore parsing errors
     }
+    
+    // Handle auto-scrolling during stage drag
+    handleAutoScroll(e);
   };
 
   const handleStageDragLeave = () => {
     setIsColumnDraggedOver(false);
+    
+    // Stop auto-scrolling when leaving the area
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
   };
 
   const handleStageMenuToggle = (e: React.MouseEvent) => {
@@ -516,7 +587,8 @@ export const TaskColumn = ({
   };
 
   return (
-    <div 
+      <div 
+      ref={columnRef}
       className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
         isColumnDraggedOver 
           ? 'bg-gray-50 border-2 border-gray-300 border-dashed' 
@@ -535,7 +607,7 @@ export const TaskColumn = ({
       }}
     >
       {/* Stage Header */}
-      <div 
+     <div 
         className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200 cursor-move"
         draggable={true}
         onDragStart={handleStageDragStart}
@@ -551,6 +623,7 @@ export const TaskColumn = ({
             </Badge>
    
             {/* Add Task Icon */}
+            {taskPermissions.canCreate && (
             <button
               onClick={() => onAddTaskForStage(stage.id)}
               className="p-1.5 rounded hover:bg-white/20 transition-colors ml-2"
@@ -570,8 +643,9 @@ export const TaskColumn = ({
                 />
               </svg>
             </button>
-    
+            )}
             {/* Three dots menu for stage operations */}
+            {stagePermissions.canDelete && stagePermissions.canEdit && (
             <div className="relative">
               <button
                 onClick={handleStageMenuToggle}
@@ -594,8 +668,9 @@ export const TaskColumn = ({
                   />
                   
                   {/* Menu */}
+                  
                   <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    {permissions.canEdit && (
+                    {stagePermissions.canEdit && (
                     <button
                      onClick={(e) => {
       e.stopPropagation();
@@ -612,7 +687,7 @@ export const TaskColumn = ({
                     </button>
                     )}
                     <hr className="my-1 border-gray-200" />
-                    {permissions.canDelete && (
+                    {stagePermissions.canDelete && (
                     <button
                     onClick={(e) => {
       e.stopPropagation();
@@ -631,7 +706,7 @@ export const TaskColumn = ({
                   </div>
                 </>
               )}
-            </div>
+            </div>)}
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ import {
   User as ServiceUser,
   updateTaskStage,
   deleteTaskStage,
+  UpdateStageRequest,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
 import { useRouter } from "next/navigation";
@@ -238,30 +239,27 @@ interface EditStageModalProps {
   stage: TaskStageEdit;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (stageData: { name: string; description: string; orderNumber: number }) => void;
+  onSave: (stageData: { name: string; description: string }) => void; // Remove orderNumber
 }
 
 const EditStageModal = ({ stage, isOpen, onClose, onSave }: EditStageModalProps) => {
   const [name, setName] = useState(stage.name);
   const [description, setDescription] = useState(stage.description || '');
-  const [orderNumber, setOrderNumber] = useState(stage.orderNumber || 1);
 
   // Reset form when stage changes
   useEffect(() => {
     setName(stage.name);
     setDescription(stage.description || '');
-    setOrderNumber(stage.orderNumber || 1);
   }, [stage]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() && orderNumber > 0) {
+    if (name.trim()) {
       onSave({ 
         name: name.trim(), 
-        description: description.trim(),
-        orderNumber: orderNumber
+        description: description.trim()
       });
       onClose();
     }
@@ -303,7 +301,7 @@ const EditStageModal = ({ stage, isOpen, onClose, onSave }: EditStageModalProps)
               {/* Stage Name Field */}
               <div>
                 <label htmlFor="stageName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Stage Name <span className="text-red-500">*</span>
+                  Stage Name
                 </label>
                 <input
                   id="stageName"
@@ -315,9 +313,6 @@ const EditStageModal = ({ stage, isOpen, onClose, onSave }: EditStageModalProps)
                   required
                 />
               </div>
-              
-              {/* Order Number Field */}
-             
               
               {/* Description Field */}
               <div>
@@ -670,18 +665,27 @@ const { toast } = useToast();
     setIsEditStageModalOpen(true);
   }, []);
 
-  const handleSaveStage = useCallback(async (stageData: { name: string; description: string; orderNumber: number }) => {
-    if (!editingStage) return;
+ const handleSaveStage = useCallback(async (stageData: { name: string; description: string }) => {
+  if (!editingStage) return;
+  
+  setIsUpdatingStage(true);
+  
+  try {
+    // Create payload with only changed fields (excluding orderNumber)
+    const updateData: UpdateStageRequest = {};
     
-    setIsUpdatingStage(true);
+    if (stageData.name !== editingStage.name) {
+      updateData.name = stageData.name;
+    }
     
-    try {
-      const updateData = {
-        name: stageData.name,
-        description: stageData.description,
-        orderNumber: stageData.orderNumber
-      };
-
+    if (stageData.description !== (editingStage.description || '')) {
+      updateData.description = stageData.description;
+    }
+    
+    // Completely remove orderNumber from payload
+    
+    // Only send request if there are changes
+    if (Object.keys(updateData).length > 0) {
       const response = await updateTaskStage(editingStage.id.toString(), updateData);
 
       if (response.isSuccess) {
@@ -697,19 +701,27 @@ const { toast } = useToast();
       } else {
         throw new Error(response.message || "Failed to update stage");
       }
-    } catch (error) {
-      console.error("Error updating stage:", error);
+    } else {
+      // No changes were made
       toast({
-        title: "Error",
-        description: "Failed to update stage. Please try again.",
-        variant: "destructive",
+        title: "No Changes",
+        description: "No changes were made to the stage.",
+        variant: "default",
       });
-    } finally {
-      setIsUpdatingStage(false);
-      setIsEditStageModalOpen(false);
-      setEditingStage(null);
     }
-  }, [editingStage, fetchStages, fetchTasks, toast]);
+  } catch (error) {
+    console.error("Error updating stage:", error);
+    toast({
+      title: "Error",
+      description: "Failed to update stage. Please try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsUpdatingStage(false);
+    setIsEditStageModalOpen(false);
+    setEditingStage(null);
+  }
+}, [editingStage, fetchStages, fetchTasks, toast]);
 
   const handleDeleteStage = useCallback(async (stage: TaskStage) => {
     // Check if stage has tasks
@@ -965,59 +977,59 @@ const { toast } = useToast();
     
 
                 {/* Kanban Board Container with Enhanced Smooth Scrolling */}
-               <div 
-      ref={kanbanScrollRef}
-      className="flex gap-4 overflow-x-auto pb-6 px-1"
-      style={{
-        scrollBehavior: 'smooth',
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#cbd5e1 #f1f5f9',
-        WebkitOverflowScrolling: 'touch', // For iOS smooth scrolling
-      }}
-    >
-                  {/* Custom scrollbar styles */}
-                 <style jsx>{`
-        div::-webkit-scrollbar {
-          height: 8px;
-        }
-        div::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 4px;
-        }
-        div::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 4px;
-          transition: background 0.2s ease;
-        }
-        div::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
+             <div 
+  ref={kanbanScrollRef}
+  className="kanban-board-container flex gap-4 overflow-x-auto pb-6 px-1" // Added class name here
+  style={{
+    scrollBehavior: 'smooth',
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#cbd5e1 #f1f5f9',
+    WebkitOverflowScrolling: 'touch',
+  }}
+>
+  {/* Custom scrollbar styles */}
+  <style jsx>{`
+    .kanban-board-container::-webkit-scrollbar {
+      height: 8px;
+    }
+    .kanban-board-container::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .kanban-board-container::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+      transition: background 0.2s ease;
+    }
+    .kanban-board-container::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  `}</style>
                   
                   {stages.map((stage, index) => (
-         <TaskColumn
-                      key={stage.id}
-                      stage={stage}
-                      tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
-                      onEditTask={handleEditTask}
-                      onDeleteTask={handleDeleteTask}
-                      onTaskClick={handleTaskClick}
-                      onAddTaskForStage={handleAddTaskForStage}
-                      stageIndex={index}
-                      onTaskUpdate={() => fetchTasks(undefined, true)}
-                      onStageUpdate={() => {
-                        fetchStages();
-                        fetchTasks(undefined, true);
-                      }}
-                      allStages={stages}
-                      onStageReorder={(reorderedStages) => {
-                        setStages(reorderedStages);
-                      }}
-                      // Pass the new handlers for stage operations
-                      onEditStage={handleEditStage}
-                      onDeleteStage={handleDeleteStage}
-                    />
-      ))}
+    <TaskColumn
+      key={stage.id}
+      stage={stage}
+      tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
+      onEditTask={handleEditTask}
+      onDeleteTask={handleDeleteTask}
+      onTaskClick={handleTaskClick}
+      onAddTaskForStage={handleAddTaskForStage}
+      stageIndex={index}
+      onTaskUpdate={() => fetchTasks(undefined, true)}
+      onStageUpdate={() => {
+        fetchStages();
+        fetchTasks(undefined, true);
+      }}
+      allStages={stages}
+      onStageReorder={(reorderedStages) => {
+        setStages(reorderedStages);
+      }}
+      onEditStage={handleEditStage}
+      onDeleteStage={handleDeleteStage}
+    />
+  ))}
+
                 </div>
               </div>
             )}
@@ -1158,15 +1170,15 @@ const { toast } = useToast();
           onSubmit={handleCreateStage}
           existingStagesCount={stages.length}
         />
-          <EditStageModal
-          stage={editingStage || { id: 0, name: '', description: '', orderNumber: 1 }}
-          isOpen={isEditStageModalOpen}
-          onClose={() => {
-            setIsEditStageModalOpen(false);
-            setEditingStage(null);
-          }}
-          onSave={handleSaveStage}
-        />
+       <EditStageModal
+  stage={editingStage || { id: 0, name: '', description: '' }} // Remove orderNumber
+  isOpen={isEditStageModalOpen}
+  onClose={() => {
+    setIsEditStageModalOpen(false);
+    setEditingStage(null);
+  }}
+  onSave={handleSaveStage}
+/>
          <DeleteStageModal
           isOpen={isDeleteModalOpen}
           onClose={cancelDeleteStage}

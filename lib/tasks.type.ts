@@ -1,4 +1,4 @@
-interface CreateTaskRequest {
+ interface CreateTaskRequest {
   subject: string;
   description: string; // HTML preferred
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -27,8 +27,13 @@ interface CreateTaskResponse {
       id: string;
       label: string;
     };
+    documents: any[]; // if you know structure, replace `any` with proper type
+    acceptanceInfo: {
+      acceptanceCriteria: string;
+    };
   };
 }
+
 
 
 
@@ -40,6 +45,7 @@ interface UpdateTaskRequest {
   startDate?: string;
   endDate?: string | null;
   assignee?: string;
+  acceptanceCriteria?: string;
 }
 
 interface UpdateTaskResponse {
@@ -59,6 +65,10 @@ interface UpdateTaskResponse {
     assignee: {
       id: string;
       label: string;
+    };
+     documents: any[]; // if you know structure, replace `any` with proper type
+    acceptanceInfo: {
+      acceptanceCriteria: string;
     };
   };
 }
