@@ -20,7 +20,6 @@ import {
   createLeadStage,
   fetchLeadStages,
   updateLeadStage,
-  
 } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
@@ -35,8 +34,6 @@ import {
   CreateLeadStageRequest,
   FilterLeadsParams,
   LeadStage,
-  UpdateLeadStageRequest,
-  
 } from "@/lib/data";
 import { CreateLeadStageModal } from "@/components/leads/LeadStageModal";
 import { ChangeStatusConfirmModal } from "@/components/leads/ChangeStatusDragConfirmModal";
@@ -106,10 +103,6 @@ const Leads = () => {
     useState(false);
   const [targetStatus, setTargetStatus] = useState<string>("");
   const [statusChangeMessage, setStatusChangeMessage] = useState("");
-  const [draggedColumn, setDraggedColumn] = useState<LeadStage | null>(null);
-  const [dragOverColumnIndex, setDragOverColumnIndex] = useState<number | null>(
-    null
-  );
 
   const { toast } = useToast();
 
@@ -247,96 +240,6 @@ const Leads = () => {
         variant: "destructive",
       });
     }
-  };
-
-  // Handle column drag start
-  const handleColumnDragStart = (e: React.DragEvent, stage: LeadStage) => {
-    e.dataTransfer.setData("stageId", stage.leadStageId);
-    e.dataTransfer.effectAllowed = "move";
-    setDraggedColumn(stage);
-  };
-
-  // Handle column drag over
-  const handleColumnDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverColumnIndex(index);
-  };
-
-// Handle column drop - Fixed version
-const handleColumnDrop = async (e: React.DragEvent, targetIndex: number) => {
-  e.preventDefault();
-  
-  if (!draggedColumn) return;
-  
-  const sourceIndex = leadStages.findIndex(
-    stage => stage.leadStageId === draggedColumn.leadStageId
-  );
-  
-  if (sourceIndex === targetIndex) {
-    setDragOverColumnIndex(null);
-    setDraggedColumn(null);
-    return;
-  }
-
-  // Create new ordered stages array
-  const newStages = [...leadStages];
-  const [movedStage] = newStages.splice(sourceIndex, 1);
-  newStages.splice(targetIndex, 0, movedStage);
-
-  // Update priorities based on new order
-  const stagesWithUpdatedPriorities = newStages.map((stage, index) => ({
-    ...stage,
-    leadStagePriority: index + 1
-  }));
-
-  try {
-    // Update UI optimistically
-    setLeadStages(stagesWithUpdatedPriorities);
-
-    // Update ALL affected stages - this was the missing part
-    const updatePromises = stagesWithUpdatedPriorities.map(async (stage) => {
-      const updateRequest: UpdateLeadStageRequest = {
-        leadStageId: stage.leadStageId,
-        leadStageName: stage.leadStageName,
-        leadStageDescription: stage.leadStageDescription,
-        leadStagePriority: stage.leadStagePriority
-      };
-      
-      return updateLeadStage(updateRequest);
-    });
-
-    // Wait for all updates to complete
-    const responses = await Promise.all(updatePromises);
-    
-    // Check if any update failed
-    const hasErrors = responses.some(response => !response.isSuccess);
-    
-    if (hasErrors) {
-      // Revert on any error
-      setLeadStages(leadStages);
-     
-    } else {
-      toast({
-        title: "Success",
-        description: "Stages reordered successfully",
-      });
-    }
-  } catch (error: any) {
-    console.error("Failed to reorder stages:", error);
-    // Revert on error
-    setLeadStages(leadStages);
-   
-  } finally {
-    setDragOverColumnIndex(null);
-    setDraggedColumn(null);
-  }
-};
-
-  // Handle column drag end
-  const handleColumnDragEnd = () => {
-    setDragOverColumnIndex(null);
-    setDraggedColumn(null);
   };
 
   useEffect(() => {
@@ -941,79 +844,58 @@ const handleColumnDrop = async (e: React.DragEvent, targetIndex: number) => {
           onSortLeads={() => setIsSortingModalOpen(true)}
           leadStages={leadStages}
         />
-      
-{viewMode === "kanban" && (
-  <div className="flex gap-4 overflow-x-auto pb-6">
-    {leadStages.map((stage, index) => (
-      <div
-        key={stage.leadStageId}
-        // Remove these drag handlers from the wrapper div since LeadColumn handles it internally
-        className={`transition-all duration-200 ${
-          dragOverColumnIndex === index
-            ? "border-2 border-dashed border-blue-500"
-            : ""
-        } ${
-          draggedColumn?.leadStageId === stage.leadStageId
-            ? "opacity-50"
-            : ""
-        }`}
-      >
-        <LeadColumn
-          stage={stage}
-          stageIndex={index}
-          leads={filteredLeads.filter(
-            (lead) => lead.leadStatus === stage.leadStageName
-          )}
-          onEditLead={handleEditLead}
-          onDeleteLead={handleDeleteClick}
-          onViewLead={async (lead) => {
-            setSelectedLead(lead);
-            setIsViewModalOpen(true);
-            try {
-              const response = await getLeadById(lead.leadId);
-              if (response.isSuccess && response.data) {
-                const detailedLead = enhanceLeadWithAssigneeName(
-                  response.data,
-                  assignOptions
-                );
-                setSelectedLead(detailedLead);
-              }
-            } catch (error: any) {
-              console.error("Failed to fetch lead details:", error);
-            }
-          }}
-          onAddFollowUp={(lead) => {
-            setSelectedLead(lead);
-            setIsFollowUpModalOpen(true);
-          }}
-          onChangeAssign={(lead) => {
-            setSelectedLead(lead);
-            setIsChangeAssignModalOpen(true);
-          }}
-          onImportLead={() => setIsImportModalOpen(true)}
-          onLeadSorting={() => setIsSortingModalOpen(true)}
-          onChangeStatus={(lead) => {
-            setSelectedLead(lead);
-            setIsChangeStatusModalOpen(true);
-          }}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          isDragOver={dragOverStage === stage.leadStageName}
-          onStageUpdate={handleStageUpdate}
-          onStageDelete={handleStageDelete}
-          // Add these missing column drag props:
-          onColumnDragStart={handleColumnDragStart}
-          onColumnDragOver={handleColumnDragOver}
-          onColumnDrop={handleColumnDrop}
-          isColumnDragOver={dragOverColumnIndex === index}
-          isDraggingColumn={draggedColumn?.leadStageId === stage.leadStageId}
-        />
-      </div>
-    ))}
-  </div>
-)}
-
+        {viewMode === "kanban" && (
+          <div className="flex gap-4 overflow-x-auto pb-6">
+            {leadStages.map((stage, index) => (
+              <LeadColumn
+                key={stage.leadStageId}
+                stage={stage}
+                stageIndex={index}
+                leads={filteredLeads.filter(
+                  (lead) => lead.leadStatus === stage.leadStageName
+                )}
+                onEditLead={handleEditLead}
+                onDeleteLead={handleDeleteClick}
+                onViewLead={async (lead) => {
+                  setSelectedLead(lead);
+                  setIsViewModalOpen(true);
+                  try {
+                    const response = await getLeadById(lead.leadId);
+                    if (response.isSuccess && response.data) {
+                      const detailedLead = enhanceLeadWithAssigneeName(
+                        response.data,
+                        assignOptions
+                      );
+                      setSelectedLead(detailedLead);
+                    }
+                  } catch (error: any) {
+                    console.error("Failed to fetch lead details:", error);
+                  }
+                }}
+                onAddFollowUp={(lead) => {
+                  setSelectedLead(lead);
+                  setIsFollowUpModalOpen(true);
+                }}
+                onChangeAssign={(lead) => {
+                  setSelectedLead(lead);
+                  setIsChangeAssignModalOpen(true);
+                }}
+                onImportLead={() => setIsImportModalOpen(true)}
+                onLeadSorting={() => setIsSortingModalOpen(true)}
+                onChangeStatus={(lead) => {
+                  setSelectedLead(lead);
+                  setIsChangeStatusModalOpen(true);
+                }}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                isDragOver={dragOverStage === stage.leadStageName}
+                onStageUpdate={handleStageUpdate}
+                onStageDelete={handleStageDelete}
+              />
+            ))}
+          </div>
+        )}
         {/* Grid View - Updated to use dynamic stages */}
         {viewMode === "grid" && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
