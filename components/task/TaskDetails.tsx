@@ -147,7 +147,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
 
   if (isLoading) {
     return (
-      <div className="max-w-md mx-auto space-y-4">
+      <div className="max-w-2xl mx-auto space-y-4"> {/* Changed from max-w-md to max-w-2xl */}
         <Skeleton className="h-28 rounded-lg" />
         <Skeleton className="h-28 rounded-lg" />
         <Skeleton className="h-28 rounded-lg" />
@@ -157,7 +157,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
 
   if (!task) {
     return (
-      <div className="max-w-md mx-auto bg-white shadow-sm rounded-lg border p-6 text-center">
+      <div className="max-w-2xl mx-auto bg-white shadow-sm rounded-lg border p-6 text-center"> {/* Changed from max-w-md to max-w-2xl */}
         <AlertCircle className="h-10 w-10 text-gray-400 mx-auto mb-2" />
         <p className="text-sm text-gray-600">Task not found</p>
       </div>
@@ -165,7 +165,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-4">
+    <div className="max-w-2xl mx-auto space-y-4 "> {/* Changed from max-w-md to max-w-2xl */}
       {/* Task Overview */}
       <div className="bg-white shadow-sm rounded-lg border p-4">
         <div className="flex justify-between items-start mb-3">
@@ -184,18 +184,17 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         </div>
 
         {task.progress !== undefined && (
-  <div className="mb-3">
-    <p className="text-xs text-gray-500 mb-1">Progress</p>
-    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-      <div
-        className="h-full bg-blue-500 transition-all duration-300"
-        style={{ width: `${task.progress}%` }}
-      />
-    </div>
-    <p className="text-xs text-gray-500 mt-1">{task.progress}%</p>
-  </div>
-)}
-
+          <div className="mb-3">
+            <p className="text-xs text-gray-500 mb-1">Progress</p>
+            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${task.progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{task.progress}%</p>
+          </div>
+        )}
 
         {task.description && (
           <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
@@ -296,8 +295,8 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
                 key={document.id}
                 className="flex items-center justify-between p-3 border rounded-md"
               >
-                <div>
-                  <p className="font-medium text-sm text-gray-900 truncate max-w-[150px]">
+                <div className="flex-1 min-w-0"> {/* Added to handle text overflow better */}
+                  <p className="font-medium text-sm text-gray-900 truncate">
                     {document.fileName}
                   </p>
                   <p className="text-xs text-gray-500">

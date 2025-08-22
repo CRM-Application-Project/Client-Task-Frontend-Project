@@ -590,7 +590,7 @@ export const TaskCard = ({
                           title={document.fileName}
                         >
                           {document.fileName}
-                        </p>
+                        </p>  
                         <p className="text-xs text-muted-foreground truncate">
                           {document.fileType}
                         </p>

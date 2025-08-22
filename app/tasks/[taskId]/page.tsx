@@ -41,7 +41,7 @@ export default function TaskDetailPage() {
 
   return (
     <DashboardLayout>
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-2">
       {/* Back Button */}
       <button
         onClick={() => window.history.back()}
@@ -55,7 +55,7 @@ export default function TaskDetailPage() {
 
       {/* Side by Side Layout */}
       {/* Side by Side Layout */}
-<div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
+<div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-3">
   {/* Left Side - Task Details */}
   <div className="space-y-3">
     <TaskDetails taskId={taskId} />

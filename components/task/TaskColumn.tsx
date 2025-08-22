@@ -2,9 +2,10 @@
 import { TaskStatus } from "@/lib/task";
 import { TaskCard } from "./TaskCard";
 import { Badge } from "@/components/ui/badge";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { updateTask } from "@/app/services/data.service";
+import { updateTask, reorderTaskStages, updateTaskStage, deleteTaskStage } from "@/app/services/data.service";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Define the Task type to match the one from Task.tsx
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -33,17 +34,166 @@ interface Task {
 interface TaskStage {
   id: number;
   name: string;
+  description?: string;
+  orderNumber?: number;
 }
 
 interface TaskColumnProps {
   stage: TaskStage;
   tasks: Task[];
-  onEditTask?: (task: Task) => void;
-  onDeleteTask?: (taskId: number) => void;
-  onTaskClick?: (taskId: number) => void;
+  onEditTask: (task: Task) => void;
+  onDeleteTask: (taskId: number) => void;
+  onTaskClick: (taskId: number) => void;
+  onAddTaskForStage: (stageId: number) => void;
   stageIndex: number;
-  onTaskUpdate?: () => void;
+  onTaskUpdate: () => void;
+  onStageUpdate: () => void;
+   onEditStage?: (stage: TaskStage) => void;
+  onDeleteStage?: (stage: TaskStage) => void;
+  allStages: TaskStage[];
+  onStageReorder: (reorderedStages: TaskStage[]) => void;
 }
+
+// Enhanced EditStageModal component with orderNumber field and gray styling
+interface EditStageModalProps {
+  stage: TaskStage;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (stageData: { name: string; description: string; orderNumber: number }) => void;
+}
+
+const EditStageModal = ({ stage, isOpen, onClose, onSave }: EditStageModalProps) => {
+  const [name, setName] = useState(stage.name);
+  const [description, setDescription] = useState(stage.description || '');
+  const [orderNumber, setOrderNumber] = useState(stage.orderNumber || 1);
+
+  // Reset form when stage changes
+  useEffect(() => {
+    setName(stage.name);
+    setDescription(stage.description || '');
+    setOrderNumber(stage.orderNumber || 1);
+  }, [stage]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim() && orderNumber > 0) {
+      onSave({ 
+        name: name.trim(), 
+        description: description.trim(),
+        orderNumber: orderNumber
+      });
+      onClose();
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
+      {/* Modal Container */}
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Edit Stage</h2>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+              type="button"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        {/* Modal Body */}
+        <div className="p-6">
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-5">
+              {/* Stage Name Field */}
+              <div>
+                <label htmlFor="stageName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stage Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="stageName"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400"
+                  placeholder="Enter stage name"
+                  required
+                />
+              </div>
+              
+              {/* Order Number Field */}
+              <div>
+                <label htmlFor="orderNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                  Order Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="orderNumber"
+                  type="number"
+                  min="1"
+                  value={orderNumber}
+                  onChange={(e) => setOrderNumber(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Determines the display order of this stage
+                </p>
+              </div>
+              
+              {/* Description Field */}
+              <div>
+                <label htmlFor="stageDescription" className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="stageDescription"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
+                  placeholder="Enter stage description (optional)"
+                />
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-[#636363] text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 transition-colors font-medium shadow-sm"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Dynamic color assignment based on stage position in the array
 const getStageColors = (stageIndex: number, stageName: string) => {
@@ -60,6 +210,7 @@ const getStageColors = (stageIndex: number, stageName: string) => {
     { color: "bg-orange-600", textColor: "text-white" },
   ];
 
+
   const colorIndex = stageIndex % stageColorsByPosition.length;
   return stageColorsByPosition[colorIndex];
 };
@@ -71,17 +222,30 @@ export const TaskColumn = ({
   onDeleteTask, 
   onTaskClick,
   stageIndex,
-  onTaskUpdate
+  onTaskUpdate,
+  onEditStage,
+  onDeleteStage,
+  onAddTaskForStage, 
+  onStageUpdate,
+  allStages = [],
+  onStageReorder
 }: TaskColumnProps) => {
   const [isDraggedOver, setIsDraggedOver] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  
+  // Stage management states
+  const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isColumnDragging, setIsColumnDragging] = useState(false);
+  const [isColumnDraggedOver, setIsColumnDraggedOver] = useState(false);
+  
   const { toast } = useToast();
   const stageColors = getStageColors(stageIndex, stage.name);
   const dragCounterRef = useRef(0);
+  const { permissions, loading: permissionsLoading } = usePermissions('task_stage');
 
   const handleDragStart = () => {
-    // Reset drag over state when dragging starts from this column
     setIsDraggedOver(false);
     dragCounterRef.current = 0;
   };
@@ -90,7 +254,6 @@ export const TaskColumn = ({
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     
-    // Check if we're dragging from external source (not from this column)
     const dragData = e.dataTransfer.types.includes('application/json');
     if (dragData) {
       setIsDraggedOver(true);
@@ -101,18 +264,15 @@ export const TaskColumn = ({
     e.preventDefault();
     dragCounterRef.current++;
     
-    // Only show drag over state if dragging from external source
     try {
       const dragDataString = e.dataTransfer.getData("application/json");
       if (dragDataString) {
         const dragData = JSON.parse(dragDataString);
-        // Only show drag over effect if dragging from a different stage
         if (dragData.sourceStageId !== stage.id) {
           setIsDraggedOver(true);
         }
       }
     } catch (error) {
-      // If we can't parse drag data, assume it's external
       setIsDraggedOver(true);
     }
   };
@@ -121,7 +281,6 @@ export const TaskColumn = ({
     e.preventDefault();
     dragCounterRef.current--;
     
-    // Only reset drag over state when completely leaving the column
     if (dragCounterRef.current <= 0) {
       setIsDraggedOver(false);
       dragCounterRef.current = 0;
@@ -131,22 +290,60 @@ export const TaskColumn = ({
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggedOver(false);
+    setIsColumnDraggedOver(false);
     dragCounterRef.current = 0;
 
     try {
       const dragDataString = e.dataTransfer.getData("application/json");
-      if (!dragDataString) {
-        console.error("No drag data found");
-        return;
-      }
+      if (!dragDataString) return;
 
       const dragData = JSON.parse(dragDataString);
-      const { taskId, sourceStageId, task } = dragData;
-
-      // Don't do anything if dropped on the same stage
-      if (sourceStageId === stage.id) {
+      
+      // Handle stage reordering
+      if (dragData.type === 'stage') {
+        const { stageId, sourceIndex } = dragData;
+        const targetIndex = stageIndex;
+        
+        if (sourceIndex !== targetIndex && onStageReorder) {
+          const reorderedStages = [...allStages];
+          const [movedStage] = reorderedStages.splice(sourceIndex, 1);
+          reorderedStages.splice(targetIndex, 0, movedStage);
+          
+          const stageIdsInOrder = reorderedStages.map(stage => stage.id);
+          
+          setIsUpdating(true);
+          
+          try {
+            const response = await reorderTaskStages(stageIdsInOrder);
+            
+            if (response.isSuccess) {
+              onStageReorder(reorderedStages);
+              toast({
+                title: "Stages Reordered",
+                description: "Stage order has been updated successfully.",
+                variant: "default",
+              });
+            } else {
+              throw new Error(response.message || "Failed to reorder stages");
+            }
+          } catch (error) {
+            console.error("Error reordering stages:", error);
+            toast({
+              title: "Error",
+              description: "Failed to reorder stages. Please try again.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsUpdating(false);
+          }
+        }
         return;
       }
+
+      // Handle task moving
+      const { taskId, sourceStageId, task } = dragData;
+
+      if (sourceStageId === stage.id) return;
 
       if (!task) {
         console.error("No task data found in drag data");
@@ -161,18 +358,12 @@ export const TaskColumn = ({
       setIsUpdating(true);
       setDraggedTaskId(taskId);
 
-      // Prepare update data
       const updateData = {
-        subject: task.subject,
-        description: task.description,
-        priority: task.priority,
-        taskStageId: stage.id, // Move to new stage
-        startDate: new Date(task.startDate).toISOString(),
-        endDate: task.endDate ? new Date(task.endDate).toISOString() : "",
-        assignee: task.assignee.id
+      
+        taskStageId: stage.id,
+
       };
 
-      // Call the update API
       const response = await updateTask(taskId, updateData);
 
       if (response.isSuccess) {
@@ -182,7 +373,6 @@ export const TaskColumn = ({
           variant: "default",
         });
 
-        // Refresh the task board immediately
         if (onTaskUpdate) {
           onTaskUpdate();
         }
@@ -203,26 +393,246 @@ export const TaskColumn = ({
     }
   };
 
+  // Stage drag and drop handlers
+  const handleStageDragStart = (e: React.DragEvent) => {
+    setIsColumnDragging(true);
+    const dragData = {
+      type: 'stage',
+      stageId: stage.id,
+      sourceIndex: stageIndex,
+      stage: stage
+    };
+    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleStageDragEnd = () => {
+    setIsColumnDragging(false);
+  };
+
+  const handleStageDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    
+    try {
+      const dragDataString = e.dataTransfer.getData("application/json");
+      if (dragDataString) {
+        const dragData = JSON.parse(dragDataString);
+        if (dragData.type === 'stage' && dragData.stageId !== stage.id) {
+          setIsColumnDraggedOver(true);
+        }
+      }
+    } catch (error) {
+      // Ignore parsing errors
+    }
+  };
+
+  const handleStageDragLeave = () => {
+    setIsColumnDraggedOver(false);
+  };
+
+  const handleStageMenuToggle = (e: React.MouseEvent) => {
+    setIsStageMenuOpen(!isStageMenuOpen);
+  };
+
+  const handleEditStage = async (stageData: { name: string; description: string; orderNumber: number }) => {
+    setIsUpdating(true);
+    
+    try {
+      const updateData = {
+        name: stageData.name,
+        description: stageData.description,
+        orderNumber: stageData.orderNumber
+      };
+
+      const response = await updateTaskStage(stage.id.toString(), updateData);
+
+      if (response.isSuccess) {
+        toast({
+          title: "Stage Updated",
+          description: `Stage "${stageData.name}" has been updated successfully.`,
+          variant: "default",
+        });
+        
+        if (onStageUpdate) {
+          onStageUpdate();
+        }
+      } else {
+        throw new Error(response.message || "Failed to update stage");
+      }
+    } catch (error) {
+      console.error("Error updating stage:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update stage. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteStage = async () => {
+    if (tasks.length > 0) {
+      toast({
+        title: "Cannot Delete Stage",
+        description: "Please move or delete all tasks in this stage before deleting it.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete the stage "${stage.name}"?`)) {
+      return;
+    }
+
+    setIsUpdating(true);
+    
+    try {
+      const response = await deleteTaskStage(stage.id.toString());
+
+      if (response.isSuccess) {
+        toast({
+          title: "Stage Deleted",
+          description: `Stage "${stage.name}" has been deleted successfully.`,
+          variant: "default",
+        });
+        
+        if (onStageUpdate) {
+          onStageUpdate();
+        }
+      } else {
+        throw new Error(response.message || "Failed to delete stage");
+      }
+    } catch (error) {
+      console.error("Error deleting stage:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete stage. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div 
-      className="flex-shrink-0 min-w-[280px] max-w-[320px] bg-gray-50 rounded-xl border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-md"
+      className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
+        isColumnDraggedOver 
+          ? 'bg-gray-50 border-2 border-gray-300 border-dashed' 
+          : 'bg-gray-50 border-gray-200'
+      } ${
+        isColumnDragging ? 'opacity-50 scale-95' : ''
+      }`}
       data-stage-id={stage.id}
       data-stage-name={stage.name}
+      onDragOver={handleStageDragOver}
+      onDragLeave={handleStageDragLeave}
+      onDrop={handleDrop}
       style={{
-        // Ensure smooth transitions and prevent layout shifts
         willChange: 'transform, box-shadow',
-        transform: 'translateZ(0)', // Enable hardware acceleration
+        transform: 'translateZ(0)',
       }}
     >
       {/* Stage Header */}
-      <div className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200">
+      <div 
+        className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200 cursor-move"
+        draggable={true}
+        onDragStart={handleStageDragStart}
+        onDragEnd={handleStageDragEnd}
+      >
         <div className={`${stageColors.color} ${stageColors.textColor} px-4 py-3 rounded-t-xl flex items-center justify-between shadow-sm transition-all duration-200`}>
           <h2 className="font-semibold text-sm uppercase tracking-wide truncate">
             {stage.name}
           </h2>
-          <Badge variant="secondary" className="bg-white/20 text-white border-white/30 flex-shrink-0 ml-2">
-            {tasks.length}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 flex-shrink-0">
+              {tasks.length}
+            </Badge>
+   
+            {/* Add Task Icon */}
+            <button
+              onClick={() => onAddTaskForStage(stage.id)}
+              className="p-1.5 rounded hover:bg-white/20 transition-colors ml-2"
+              title={`Add task to ${stage.name}`}
+            >
+              <svg 
+                className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
+                />
+              </svg>
+            </button>
+    
+            {/* Three dots menu for stage operations */}
+            <div className="relative">
+              <button
+                onClick={handleStageMenuToggle}
+                className="p-1.5 rounded hover:bg-white/20 transition-colors"
+                title="Stage options"
+                type="button"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+      
+              {/* Dropdown Menu */}
+              {isStageMenuOpen && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setIsStageMenuOpen(false)}
+                  />
+                  
+                  {/* Menu */}
+                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    {permissions.canEdit && (
+                    <button
+                     onClick={(e) => {
+      e.stopPropagation();
+      setIsStageMenuOpen(false);
+      // Instead of opening modal locally, call parent handler
+      onEditStage?.(stage);
+    }}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit Stage
+                    </button>
+                    )}
+                    <hr className="my-1 border-gray-200" />
+                    {permissions.canDelete && (
+                    <button
+                    onClick={(e) => {
+      e.stopPropagation();
+      setIsStageMenuOpen(false);
+      // Call the parent handler which will open the confirmation modal
+      onDeleteStage?.(stage);
+    }}
+                      className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete Stage
+                    </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       
@@ -230,15 +640,13 @@ export const TaskColumn = ({
       <div 
         className={`h-[calc(100vh-280px)] min-h-[550px] p-3 transition-all duration-300 ease-in-out ${
           isDraggedOver 
-            ? 'bg-blue-50/50 border-2 border-blue-300 border-dashed shadow-inner' 
+            ? 'bg-gray-50/50 border-2 border-gray-300 border-dashed shadow-inner' 
             : 'bg-transparent'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDragEnter={handleDragEnter}
-        onDrop={handleDrop}
         style={{
-          // Smooth scrolling properties
           overflowY: 'auto',
           scrollBehavior: 'smooth',
           scrollbarWidth: 'thin',
@@ -267,10 +675,12 @@ export const TaskColumn = ({
 
         {/* Loading indicator */}
         {isUpdating && (
-          <div className="flex items-center justify-center py-6 mb-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-3 text-blue-700">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm font-medium">Moving task...</span>
+          <div className="flex items-center justify-center py-6 mb-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-3 text-gray-700">
+              <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm font-medium">
+                {draggedTaskId ? 'Moving task...' : 'Updating stage...'}
+              </span>
             </div>
           </div>
         )}
@@ -282,7 +692,6 @@ export const TaskColumn = ({
               key={task.id}
               className="transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
               style={{
-                // Stagger animation delay for smooth loading
                 animationDelay: `${index * 50}ms`,
                 willChange: 'transform, opacity',
               }}
@@ -303,11 +712,10 @@ export const TaskColumn = ({
         {/* Empty state */}
         {tasks.length === 0 && !isUpdating && (
           <div className="text-center py-2">
-            <div className=" rounded-xl p-8  transition-all duration-200 hover:border-gray-400">
-             
+            <div className="rounded-xl p-8 transition-all duration-200">
               <p className="text-sm text-gray-500 mb-2">No tasks in this stage</p>
               {isDraggedOver && (
-                <p className="text-sm text-blue-600 font-medium animate-pulse">
+                <p className="text-sm text-gray-600 font-medium animate-pulse">
                   Drop task here
                 </p>
               )}
@@ -317,7 +725,7 @@ export const TaskColumn = ({
 
         {/* Drop indicator when dragging over non-empty column */}
         {isDraggedOver && tasks.length > 0 && (
-          <div className="mt-4 text-center py-6 text-blue-600 bg-blue-50 rounded-xl border-2 border-blue-300 border-dashed transition-all duration-200 animate-pulse">
+          <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-300 border-dashed transition-all duration-200 animate-pulse">
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -327,6 +735,14 @@ export const TaskColumn = ({
           </div>
         )}
       </div>
+
+      {/* Edit Stage Modal */}
+      <EditStageModal
+        stage={stage}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleEditStage}
+      />
     </div>
   );
 };

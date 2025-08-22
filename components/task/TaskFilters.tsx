@@ -25,6 +25,7 @@ import { useState, useEffect } from "react";
 import { TaskPriority } from "../../lib/task";
 import { TaskStage } from "@/lib/data";
 import { User } from "@/app/services/data.service";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface ExtendedTaskFilters {
   priority?: string;
@@ -70,7 +71,7 @@ export const TaskFilters = ({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
-
+  const { permissions, loading: permissionsLoading } = usePermissions('task_stage');
   useEffect(() => {
     setLocalFilters(filters);
   }, [filters]);
@@ -136,25 +137,23 @@ export const TaskFilters = ({
 
           <div className="flex items-center gap-3">
             {/* Add Stage Button */}
-            {onAddStage && (
-              <Button
-                onClick={onAddStage}
-                variant="outline"
-                className="border-gray-300 text-gray-700 rounded-md shadow-sm flex items-center px-3 py-2"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Stage
-              </Button>
-            )}
+           {permissions.canCreate && (
+  <>
+    {onAddStage && (
+      <Button
+        onClick={onAddStage}
+        variant="outline"
+        className="border-gray-300 text-gray-700 rounded-md shadow-sm flex items-center px-3 py-2"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Add Stage
+      </Button>
+    )}
+  </>
+)}
 
             {/* Add Task Button */}
-            <Button
-              onClick={onAddTask}
-              className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
+           
 
             {/* Import Task Button */}
             {onImportTask && (
