@@ -736,6 +736,7 @@ export const deleteLeadStage = async (
 export interface ChangeLeadStatusRequest {
   leadId: string;
   leadStatus: string;
+  message?: string;
 }
 
 export interface ChangeLeadStatusResponse {

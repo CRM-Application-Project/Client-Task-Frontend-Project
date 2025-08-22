@@ -11,6 +11,8 @@ import {
   removeModuleAccess,
   GrantModuleAccessPayload,
   UpdateModuleAccessPayload,
+  getDepartments,
+  Department,
 } from "@/app/services/data.service";
 import { CreateStaffModal } from "./createUserModal";
 import { UpdateStaffModal } from "./updateUserModal";
@@ -63,6 +65,38 @@ export default function StaffPage() {
     canCreate: false,
   });
   const { toast } = useToast();
+  const [togglingUsers, setTogglingUsers] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [getAllDepartments, setGetAllDepartments] = useState<Department[]>([]);
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await getDepartments();
+      if (response.isSuccess) {
+        setGetAllDepartments(response.data);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.message || "Failed to fetch departments",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to fetch departments",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchAvailableModules();
+    fetchDepartments();
+  }, []);
 
   interface FormatUserRoleFn {
     (role: string | null | undefined): string | null;
@@ -83,16 +117,16 @@ export default function StaffPage() {
       const response = await getUsers();
       if (response.isSuccess) {
         setUsers(response.data);
-        const uniqueDepartments = Array.from(
-          new Set(
-            response.data.map((user) => ({
-              id: user.departmentId,
-              name: user.departmentName,
-              role: user.userRole,
-            }))
-          )
-        );
-        setDepartments(uniqueDepartments);
+        // const uniqueDepartments = Array.from(
+        //   new Set(
+        //     response.data.map((user) => ({
+        //       id: user.departmentId,
+        //       name: user.departmentName,
+        //       role: user.userRole,
+        //     }))
+        //   )
+        // );
+        // setDepartments(uniqueDepartments);
       } else {
         toast({
           variant: "destructive",
@@ -172,17 +206,20 @@ export default function StaffPage() {
 
   const handleToggleStatus = async (userId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
+
+    // Get current status before toggling
+    const currentUser = users.find((user) => user.userId === userId);
+    if (!currentUser) return;
+
+    const currentStatus = currentUser.isActive;
+
     try {
-      // Optimistically update the UI
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.userId === userId ? { ...user, isActive: !user.isActive } : user
-        )
-      );
+      // Show loading state
+      setTogglingUsers((prev) => ({ ...prev, [userId]: true }));
 
       const response = await toggleUserStatus(userId);
-      if (!response.isSuccess) {
-        // Revert if API call fails
+      if (response.isSuccess) {
+        // Update UI only on success
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.userId === userId
@@ -191,23 +228,26 @@ export default function StaffPage() {
           )
         );
         toast({
+          title: "Success",
+          description: "User status updated successfully",
+        });
+      } else {
+        // Don't update UI on error, just show error message
+        toast({
           variant: "destructive",
           title: "Error",
           description: response.message || "Failed to update user status",
         });
-      } else {
-        toast({
-          title: "Success",
-          description: "User status updated successfully",
-        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error toggling user status:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update user status",
+        description: error.message || "Failed to update user status",
       });
+    } finally {
+      setTogglingUsers((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -532,13 +572,27 @@ export default function StaffPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+            <Tooltip
+              title={
+                getAllDepartments.length === 0
+                  ? "No departments available. Please add departments first."
+                  : ""
+              }
+              placement="top"
             >
-              <Plus className="h-4 w-4" />
-              Add Staff
-            </button>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                disabled={getAllDepartments.length === 0}
+                className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
+                  getAllDepartments.length === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#3b3b3b] hover:bg-[#2b2b2b]"
+                }`}
+              >
+                <Plus className="h-4 w-4" />
+                Add Staff
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -640,9 +694,45 @@ export default function StaffPage() {
                                   onChange={() =>
                                     handleToggleStatus(user.userId)
                                   }
+                                  disabled={togglingUsers[user.userId]}
                                   className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3b3b3b]"></div>
+                                <div
+                                  className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${
+                                    user.isActive
+                                      ? "peer-checked:bg-[#3b3b3b]"
+                                      : "bg-gray-400"
+                                  } ${
+                                    togglingUsers[user.userId]
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : ""
+                                  }`}
+                                >
+                                  {togglingUsers[user.userId] && (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <svg
+                                        className="animate-spin h-3 w-3 text-white"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <circle
+                                          className="opacity-25"
+                                          cx="12"
+                                          cy="12"
+                                          r="10"
+                                          stroke="currentColor"
+                                          strokeWidth="4"
+                                        ></circle>
+                                        <path
+                                          className="opacity-75"
+                                          fill="currentColor"
+                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
+                                      </svg>
+                                    </div>
+                                  )}
+                                </div>
                               </label>
                             </div>
                           </td>
@@ -779,8 +869,10 @@ export default function StaffPage() {
                                                       </span>
                                                     </div>
                                                     <div className="ml-4">
-                                                      <div className="text-sm font-medium text-gray-900">
-                                                        {module.moduleName}
+                                                      <div className="text-sm font-medium text-gray-900 capitalize">
+                                                        {formatUserRole(
+                                                          module.moduleName
+                                                        )}
                                                       </div>
                                                       <div className="text-xs text-gray-500">
                                                         Granted on{" "}
@@ -1323,13 +1415,27 @@ export default function StaffPage() {
                             : "Add a new staff member to get started"}
                         </p>
                         {!searchTerm && (
-                          <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          <Tooltip
+                            title={
+                              getAllDepartments.length === 0
+                                ? "No departments available. Please add departments first."
+                                : ""
+                            }
+                            placement="top"
                           >
-                            <Plus className="-ml-1 mr-2 h-4 w-4" />
-                            Add Staff Member
-                          </button>
+                            <button
+                              onClick={() => setIsCreateModalOpen(true)}
+                              disabled={getAllDepartments.length === 0}
+                              className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
+                                getAllDepartments.length === 0
+                                  ? "bg-gray-400 cursor-not-allowed"
+                                  : "bg-[#3b3b3b] hover:bg-[#2b2b2b]"
+                              }`}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Staff
+                            </button>
+                          </Tooltip>
                         )}
                       </td>
                     </tr>

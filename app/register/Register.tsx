@@ -675,6 +675,8 @@ export default function RegisterPage() {
                                 handleInputChange("gstNumber", e.target.value.toUpperCase())
                               }
                               onBlur={() => handleBlur("gstNumber")}
+                              maxLength={15}
+                              minLength={15}
                               required
                               className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
                                 touchedFields.gstNumber && fieldErrors.gstNumber
