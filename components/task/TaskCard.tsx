@@ -472,7 +472,7 @@ export const TaskCard = ({
           <DialogHeader>
             <DialogTitle>Task Documents</DialogTitle>
             <DialogDescription>
-              {`Manage documents for "${task.subject}"`}
+              {`Manage documents for ${task.subject}`}
             </DialogDescription>
           </DialogHeader>
 
@@ -571,7 +571,7 @@ export const TaskCard = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              {`This action cannot be undone. This will permanently delete the task "${task.subject}".`}
+              {`This action cannot be undone. This will permanently delete the task ${task.subject}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
