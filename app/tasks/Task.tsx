@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
+ 
 import {
   createTask,
   deleteTask,
@@ -12,9 +13,12 @@ import {
   updateTask,
   createTaskStage,
   User as ServiceUser,
+  updateTaskStage,
+  deleteTaskStage,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 // ========== TYPE DEFINITIONS ==========
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -28,6 +32,12 @@ interface Assignee {
 interface TaskStage {
   id: number;
   name: string;
+}
+interface TaskStageEdit {
+  id: number;
+  name: string;
+  description?: string;
+  orderNumber?: number;
 }
 
 type User = ServiceUser;
@@ -141,7 +151,212 @@ interface CreateStageRequest {
   description: string;
   orderNumber: number;
 }
+interface DeleteStageModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  stageName: string;
+  isLoading?: boolean;
+}
 
+const DeleteStageModal = ({ isOpen, onClose, onConfirm, stageName, isLoading = false }: DeleteStageModalProps) => {
+  if (!isOpen) return null;
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
+      {/* Modal Container */}
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Delete Stage</h2>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+              type="button"
+              disabled={isLoading}
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        {/* Modal Body */}
+        <div className="p-6">
+          <div className="space-y-4">
+           
+            
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {`Are you sure you want to delete ${stageName}?`}
+              </h3>
+              <p className="text-sm text-gray-500">
+                This action cannot be undone. All tasks in this stage will need to be moved to another stage first.
+              </p>
+            </div>
+          </div>
+          
+          {/* Modal Footer */}
+          <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium disabled:opacity-50"
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              disabled={isLoading}
+            >
+              {isLoading && (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              )}
+              Delete Stage
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+interface EditStageModalProps {
+  stage: TaskStageEdit;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (stageData: { name: string; description: string; orderNumber: number }) => void;
+}
+
+const EditStageModal = ({ stage, isOpen, onClose, onSave }: EditStageModalProps) => {
+  const [name, setName] = useState(stage.name);
+  const [description, setDescription] = useState(stage.description || '');
+  const [orderNumber, setOrderNumber] = useState(stage.orderNumber || 1);
+
+  // Reset form when stage changes
+  useEffect(() => {
+    setName(stage.name);
+    setDescription(stage.description || '');
+    setOrderNumber(stage.orderNumber || 1);
+  }, [stage]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim() && orderNumber > 0) {
+      onSave({ 
+        name: name.trim(), 
+        description: description.trim(),
+        orderNumber: orderNumber
+      });
+      onClose();
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
+      {/* Modal Container */}
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Edit Stage</h2>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+              type="button"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        {/* Modal Body */}
+        <div className="p-6">
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-5">
+              {/* Stage Name Field */}
+              <div>
+                <label htmlFor="stageName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stage Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="stageName"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400"
+                  placeholder="Enter stage name"
+                  required
+                />
+              </div>
+              
+              {/* Order Number Field */}
+             
+              
+              {/* Description Field */}
+              <div>
+                <label htmlFor="stageDescription" className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="stageDescription"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
+                  placeholder="Enter stage description (optional)"
+                />
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-[#636363] text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 transition-colors font-medium shadow-sm"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
 // ========== MAIN COMPONENT ==========
 const statuses: TaskStatus[] = [
   "BACKLOG",
@@ -174,6 +389,13 @@ export default function TaskBoard() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'grid'>('kanban');
   const [isCreateStageModalOpen, setIsCreateStageModalOpen] = useState(false);
+   const [editingStage, setEditingStage] = useState<TaskStageEdit | null>(null);
+  const [isEditStageModalOpen, setIsEditStageModalOpen] = useState(false);
+   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [stageToDelete, setStageToDelete] = useState<TaskStage | null>(null);
+  const [isUpdatingStage, setIsUpdatingStage] = useState(false);
+  // New state for pre-selected stage
+  const [preSelectedStageId, setPreSelectedStageId] = useState<number | null>(null);
   
   const router = useRouter();
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
@@ -405,34 +627,31 @@ export default function TaskBoard() {
     [fetchTasks]
   );
 
-  const handleAddTask = useCallback(async (taskData: CreateTaskRequest) => {
-    try {
-      let response;
-      
-      if (editingTask) {
-        const updateData: UpdateTaskRequest = {
-          subject: taskData.subject,
-          description: taskData.description,
-          priority: taskData.priority,
-          taskStageId: taskData.taskStageId,
-          startDate: taskData.startDate,
-          endDate: taskData.endDate,
-          assignee: taskData.assignee
-        };
-        response = await updateTask(editingTask.id, updateData);
-      } else {
-        response = await createTask(taskData);
-      }
-
-      if (response.isSuccess) {
-        await fetchTasks(undefined, true);
-        handleCloseModal();
-      }
-    } catch (error) {
-      console.error("Error saving task:", error);
+ const handleAddTask = useCallback(async (
+  taskData: CreateTaskRequest | Partial<UpdateTaskRequest>, 
+  isEdit: boolean
+) => {
+  try {
+    let response;
+    
+    if (isEdit && editingTask) {
+      // For updates, taskData is Partial<UpdateTaskRequest> with only changed fields
+      console.log('Updating task with only changed fields:', taskData);
+      response = await updateTask(editingTask.id, taskData as Partial<UpdateTaskRequest>);
+    } else {
+      // For new tasks, taskData is complete CreateTaskRequest
+      response = await createTask(taskData as CreateTaskRequest);
     }
-  }, [editingTask, fetchTasks]);
 
+    if (response.isSuccess) {
+      await fetchTasks(undefined, true);
+      handleCloseModal();
+    }
+  } catch (error) {
+    console.error("Error saving task:", error);
+  }
+}, [editingTask, fetchTasks]);
+const { toast } = useToast(); 
   const handleCreateStage = useCallback(async (stageData: CreateStageRequest) => {
     try {
       const response = await createTaskStage(stageData);
@@ -446,7 +665,112 @@ export default function TaskBoard() {
       console.error("Error creating stage:", error);
     }
   }, [fetchStages]);
+ const handleEditStage = useCallback((stage: TaskStageEdit) => {
+    setEditingStage(stage);
+    setIsEditStageModalOpen(true);
+  }, []);
 
+  const handleSaveStage = useCallback(async (stageData: { name: string; description: string; orderNumber: number }) => {
+    if (!editingStage) return;
+    
+    setIsUpdatingStage(true);
+    
+    try {
+      const updateData = {
+        name: stageData.name,
+        description: stageData.description,
+        orderNumber: stageData.orderNumber
+      };
+
+      const response = await updateTaskStage(editingStage.id.toString(), updateData);
+
+      if (response.isSuccess) {
+        toast({
+          title: "Stage Updated",
+          description: `Stage "${stageData.name}" has been updated successfully.`,
+          variant: "default",
+        });
+        
+        // Refresh stages and tasks
+        await fetchStages();
+        await fetchTasks(undefined, false);
+      } else {
+        throw new Error(response.message || "Failed to update stage");
+      }
+    } catch (error) {
+      console.error("Error updating stage:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update stage. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingStage(false);
+      setIsEditStageModalOpen(false);
+      setEditingStage(null);
+    }
+  }, [editingStage, fetchStages, fetchTasks, toast]);
+
+  const handleDeleteStage = useCallback(async (stage: TaskStage) => {
+    // Check if stage has tasks
+    const stageTasks = tasks.filter(task => task.taskStageId === stage.id);
+    if (stageTasks.length > 0) {
+      toast({
+        title: "Cannot Delete Stage",
+        description: "Please move or delete all tasks in this stage before deleting it.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Set the stage to delete and open confirmation modal
+    setStageToDelete(stage);
+    setIsDeleteModalOpen(true);
+  }, [tasks, toast]);
+
+  // Add a new function to handle the actual deletion
+  const confirmDeleteStage = useCallback(async () => {
+    if (!stageToDelete) return;
+
+    setIsUpdatingStage(true);
+    
+    try {
+      const response = await deleteTaskStage(stageToDelete.id.toString());
+
+      if (response.isSuccess) {
+        toast({
+          title: "Stage Deleted",
+          description: `Stage "${stageToDelete.name}" has been deleted successfully.`,
+          variant: "default",
+        });
+        
+        // Refresh stages and tasks
+        await fetchStages();
+        await fetchTasks(undefined, false);
+        
+        // Close the modal
+        setIsDeleteModalOpen(false);
+        setStageToDelete(null);
+      } else {
+        throw new Error(response.message || "Failed to delete stage");
+      }
+    } catch (error) {
+      console.error("Error deleting stage:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete stage. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingStage(false);
+    }
+  }, [stageToDelete, fetchStages, fetchTasks, toast]);
+
+  // Add a function to cancel deletion
+  const cancelDeleteStage = useCallback(() => {
+    setIsDeleteModalOpen(false);
+    setStageToDelete(null);
+  }, []);
   const handleEditTask = useCallback((task: Task) => {
     const editingTaskData: EditingTaskResponse = {
       id: task.id,
@@ -463,12 +787,21 @@ export default function TaskBoard() {
     };
 
     setEditingTask(editingTaskData);
+    setPreSelectedStageId(null); // Clear pre-selected stage when editing
+    setIsAddModalOpen(true);
+  }, []);
+
+  // New function to handle add task for specific stage
+  const handleAddTaskForStage = useCallback((stageId: number) => {
+    setPreSelectedStageId(stageId);
+    setEditingTask(undefined); // Clear editing task
     setIsAddModalOpen(true);
   }, []);
 
   const handleCloseModal = useCallback(() => {
     setIsAddModalOpen(false);
     setEditingTask(undefined);
+    setPreSelectedStageId(null); // Clear pre-selected stage
   }, []);
 
   const handleCloseTaskDetails = useCallback(() => {
@@ -601,77 +934,90 @@ export default function TaskBoard() {
         {/* Task Board - Only show if stages exist */}
         {stages.length > 0 && (
           <>
-            {viewMode === 'kanban' && (
-              <div className="relative">
-                {/* Scroll Navigation Buttons - Only show if there are more than 3 stages */}
-                {stages.length > 3 && (
-                  <>
-                    {/* Left scroll button */}
-                    <button
-                      onClick={scrollLeft}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
-                      style={{ marginLeft: '-12px' }}
-                    >
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    
-                    {/* Right scroll button */}
-                    <button
-                      onClick={scrollRight}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
-                      style={{ marginRight: '-12px' }}
-                    >
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </>
-                )}
+           {viewMode === 'kanban' && (
+  <div className="relative">
+    {/* Scroll Navigation Buttons - Only show if there are more than 3 stages */}
+    {stages.length > 3 && (
+      <>
+        {/* Left scroll button */}
+        <button
+          onClick={scrollLeft}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
+          style={{ marginLeft: '-12px' }}
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        {/* Right scroll button */}
+        <button
+          onClick={scrollRight}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
+          style={{ marginRight: '-12px' }}
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </>
+    )}
+    
 
                 {/* Kanban Board Container with Enhanced Smooth Scrolling */}
-                <div 
-                  ref={kanbanScrollRef}
-                  className="flex gap-4 overflow-x-auto pb-6 px-1"
-                  style={{
-                    scrollBehavior: 'smooth',
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#cbd5e1 #f1f5f9',
-                    WebkitOverflowScrolling: 'touch', // For iOS smooth scrolling
-                  }}
-                >
+               <div 
+      ref={kanbanScrollRef}
+      className="flex gap-4 overflow-x-auto pb-6 px-1"
+      style={{
+        scrollBehavior: 'smooth',
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#cbd5e1 #f1f5f9',
+        WebkitOverflowScrolling: 'touch', // For iOS smooth scrolling
+      }}
+    >
                   {/* Custom scrollbar styles */}
-                  <style jsx>{`
-                    div::-webkit-scrollbar {
-                      height: 8px;
-                    }
-                    div::-webkit-scrollbar-track {
-                      background: #f1f5f9;
-                      border-radius: 4px;
-                    }
-                    div::-webkit-scrollbar-thumb {
-                      background: #cbd5e1;
-                      border-radius: 4px;
-                      transition: background 0.2s ease;
-                    }
-                    div::-webkit-scrollbar-thumb:hover {
-                      background: #94a3b8;
-                    }
-                  `}</style>
+                 <style jsx>{`
+        div::-webkit-scrollbar {
+          height: 8px;
+        }
+        div::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        div::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+          transition: background 0.2s ease;
+        }
+        div::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
                   
                   {stages.map((stage, index) => (
-                    <TaskColumn
+         <TaskColumn
                       key={stage.id}
                       stage={stage}
                       tasks={filteredTasks.filter(task => task.taskStageId === stage.id)}
                       onEditTask={handleEditTask}
                       onDeleteTask={handleDeleteTask}
                       onTaskClick={handleTaskClick}
+                      onAddTaskForStage={handleAddTaskForStage}
                       stageIndex={index}
                       onTaskUpdate={() => fetchTasks(undefined, true)}
+                      onStageUpdate={() => {
+                        fetchStages();
+                        fetchTasks(undefined, true);
+                      }}
+                      allStages={stages}
+                      onStageReorder={(reorderedStages) => {
+                        setStages(reorderedStages);
+                      }}
+                      // Pass the new handlers for stage operations
+                      onEditStage={handleEditStage}
+                      onDeleteStage={handleDeleteStage}
                     />
-                  ))}
+      ))}
                 </div>
               </div>
             )}
@@ -796,11 +1142,12 @@ export default function TaskBoard() {
         )}
 
         {/* Add Task Modal */}
-        <AddTaskModal
+          <AddTaskModal
           isOpen={isAddModalOpen}
           onClose={handleCloseModal}
           onSubmit={handleAddTask}
           editingTask={editingTask}
+          preSelectedStageId={preSelectedStageId} // THIS LINE WAS MISSING!
           users={users}
         />
 
@@ -810,6 +1157,22 @@ export default function TaskBoard() {
           onClose={() => setIsCreateStageModalOpen(false)}
           onSubmit={handleCreateStage}
           existingStagesCount={stages.length}
+        />
+          <EditStageModal
+          stage={editingStage || { id: 0, name: '', description: '', orderNumber: 1 }}
+          isOpen={isEditStageModalOpen}
+          onClose={() => {
+            setIsEditStageModalOpen(false);
+            setEditingStage(null);
+          }}
+          onSave={handleSaveStage}
+        />
+         <DeleteStageModal
+          isOpen={isDeleteModalOpen}
+          onClose={cancelDeleteStage}
+          onConfirm={confirmDeleteStage}
+          stageName={stageToDelete?.name || ''}
+          isLoading={isUpdatingStage}
         />
          
       </>

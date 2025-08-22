@@ -38,6 +38,9 @@ export const API_CONSTANTS = {
     FILTER: "/tasks/filter",
     DROPDOWN: "/task/stages/dropdown",
     ADD_STAGE: "/task/stages/",
+     UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
+    DELETE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
+    REORDER_STAGES: "/task/stages/reorder",
     DOCUMENT: {
       UPLOAD_URL: (taskId: string) => `/tasks/${taskId}/documents/upload-url`,
       VERIFY_UPLOAD: (docId: string) => `/tasks/documents/${docId}/verify`,

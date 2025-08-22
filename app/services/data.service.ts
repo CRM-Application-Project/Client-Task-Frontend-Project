@@ -83,12 +83,27 @@ export const createTask = async (
 
 export const updateTask = async (
   taskId: number,
-  updateData: UpdateTaskRequest
+  updateData: Partial<UpdateTaskRequest>
 ): Promise<UpdateTaskResponse> => {
+  // Log the partial update data for debugging
+  console.log(`Updating task ${taskId} with partial data:`, updateData);
+  
+  // Only send fields that are present in updateData
+  const filteredData = Object.entries(updateData).reduce((acc, [key, value]) => {
+    // Include field if value is not undefined
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as Record<string, any>);
+  
+  console.log('Filtered update payload:', filteredData);
+  
   const url = API_CONSTANTS.TASK.UPDATE.replace("{taskId}", String(taskId));
-  const res = await putRequest(url, updateData);
+  const res = await putRequest(url, filteredData);
   return res as UpdateTaskResponse;
 };
+
 
 export const getTaskById = async (
   taskId: number
@@ -839,4 +854,75 @@ export interface HistoryEventsDropdownResponse {
 export const getHistoryEventsDropdown = async (): Promise<HistoryEventsDropdownResponse> => {
   const res = await getRequest(API_CONSTANTS.TASK.HISTORY.EVENTS_DROPDOWN);
   return res as HistoryEventsDropdownResponse;
+};
+// Add these interfaces to your existing types
+export interface ReorderStagesRequest {
+  order: number[]; // Array of stage IDs in the desired order
+}
+
+export interface ReorderStagesResponse {
+  isSuccess: boolean;
+  message: string;
+  data?: null; // Typically reorder operations don't return data
+}
+
+export interface UpdateStageRequest {
+  name: string;
+  description: string;
+  orderNumber: number;
+}
+
+export interface UpdateStageResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: number;
+    name: string;
+    description: string;
+    orderNumber: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export interface DeleteStageResponse {
+  isSuccess: boolean;
+  message: string;
+  data?: null;
+}
+
+// Data service functions
+export const reorderTaskStages = async (
+  stageIds: number[] // Array of stage IDs in the desired order
+): Promise<ReorderStagesResponse> => {
+  try {
+    // Send the request with the correct format
+    const res = await putRequest(API_CONSTANTS.TASK.REORDER_STAGES, { 
+      order: stageIds 
+    });
+    return res as ReorderStagesResponse;
+  } catch (error) {
+    console.error("Error reordering stages:", error);
+    return {
+      isSuccess: false,
+      message: error instanceof Error ? error.message : "Failed to reorder stages"
+    };
+  }
+};
+export const updateTaskStage = async (
+  taskId: string,
+  payload: UpdateStageRequest
+): Promise<UpdateStageResponse> => {
+  const res = await putRequest(
+    API_CONSTANTS.TASK.UPDATE_STAGE(taskId),
+    payload
+  );
+  return res as UpdateStageResponse;
+};
+
+export const deleteTaskStage = async (
+  taskId: string
+): Promise<DeleteStageResponse> => {
+  const res = await deleteRequest(API_CONSTANTS.TASK.DELETE_STAGE(taskId));
+  return res as DeleteStageResponse;
 };
