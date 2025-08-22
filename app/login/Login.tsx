@@ -20,32 +20,42 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { generateOtp, loginUser, resetPassword, verifyOtp, verifyUser } from "../services/data.service";
+import {
+  generateOtp,
+  loginUser,
+  resetPassword,
+  verifyOtp,
+  verifyUser,
+} from "../services/data.service";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
 import { z } from "zod";
 
 // Password regex: at least 8 characters, uppercase, lowercase, number, and special character
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 // Password validation schema
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string()
-    .min(1, 'New password is required')
-    .regex(PASSWORD_REGEX, {
-      message: 'Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character'
-    }),
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
-})
-.refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-})
-.refine((data) => data.currentPassword !== data.newPassword, {
-  message: "New password must be different from current password",
-  path: ["newPassword"],
-});
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(1, "New password is required")
+      .regex(PASSWORD_REGEX, {
+        message:
+          "Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character",
+      }),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"],
+  });
 
 interface VerifyUserResponse {
   isSuccess: boolean;
@@ -116,15 +126,15 @@ export default function LoginPage() {
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const router = useRouter();
-    const [error, setError] = useState("");
+  const [error, setError] = useState("");
   interface EmailValidationResult {
     isValid: boolean;
     message?: string;
   }
-  
+
   const validateEmail = (value: string): boolean => {
     // Regex for Gmail addresses only
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!value) {
       setError("Email is required.");
       return false;
@@ -166,7 +176,8 @@ export default function LoginPage() {
     e.preventDefault();
     toast({
       title: "Copy not allowed",
-      description: "Copying from password fields is not allowed for security reasons",
+      description:
+        "Copying from password fields is not allowed for security reasons",
       variant: "destructive",
     });
   };
@@ -176,7 +187,8 @@ export default function LoginPage() {
     e.preventDefault();
     toast({
       title: "Paste not allowed",
-      description: "Pasting into password fields is not allowed for security reasons",
+      description:
+        "Pasting into password fields is not allowed for security reasons",
       variant: "destructive",
     });
   };
@@ -188,13 +200,13 @@ export default function LoginPage() {
       changePasswordSchema.parse({
         currentPassword: "dummyCurrentPassword123!",
         newPassword: password,
-        confirmPassword: confirmPassword
+        confirmPassword: confirmPassword,
       });
       setPasswordErrors([]);
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors = error.errors.map(err => err.message);
+        const errors = error.errors.map((err) => err.message);
         setPasswordErrors(errors);
         return false;
       }
@@ -225,7 +237,7 @@ export default function LoginPage() {
       const response = (await verifyUser(
         emailAddress,
         "web",
-        company  // Now properly passing company name
+        company // Now properly passing company name
       )) as VerifyUserResponse;
 
       if (response.isSuccess) {
@@ -245,11 +257,12 @@ export default function LoginPage() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       setIsEmailVerified(false);
       toast({
         title: "Error",
-        description: "An error occurred while verifying your email",
+        description:
+          error.message || "An error occurred while verifying your email",
         variant: "destructive",
       });
     } finally {
@@ -314,19 +327,19 @@ export default function LoginPage() {
       // Only verify email if it's not already verified
       if (!isEmailVerified) {
         await verifyUserEmail(email, requiresCompany ? companyName : undefined);
-        
+
         // If verification still fails after trying, exit
         if (!isEmailVerified) {
           return;
         }
       }
-      
+
       // Generate OTP - include company name if required
       const otpPayload: any = {
         emailAddress: email,
         deviceType: "web",
       };
-      
+
       if (requiresCompany) {
         otpPayload.companyName = companyName;
       }
@@ -349,10 +362,11 @@ export default function LoginPage() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred while processing your request",
+        description:
+          error.message || "An error occurred while processing your request",
         variant: "destructive",
       });
     } finally {
@@ -392,10 +406,10 @@ export default function LoginPage() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred while verifying OTP",
+        description: error.message || "An error occurred while verifying OTP",
         variant: "destructive",
       });
     } finally {
@@ -442,7 +456,7 @@ export default function LoginPage() {
           description: "Your password has been reset successfully",
           variant: "default",
         });
-        
+
         // Reset the state and go back to login
         setForgotPasswordMode(false);
         setOtpSent(false);
@@ -458,10 +472,10 @@ export default function LoginPage() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred while resetting your password",
+        description: error.message || "An error occurred while resetting your password",
         variant: "destructive",
       });
     } finally {
@@ -470,50 +484,51 @@ export default function LoginPage() {
   };
 
   const getFirstAccessibleModule = (modules: UserModuleAccess[]): string => {
-    if (!modules || modules.length === 0) return '/not-found';
-    
+    if (!modules || modules.length === 0) return "/not-found";
+
     // Define module priority order
-    const modulePriority = ['lead', 'task', 'employees', 'department', 'user'];
-    
+    const modulePriority = ["lead", "task", "employees", "department", "user"];
+
     // Find the first accessible module based on priority
     for (const moduleName of modulePriority) {
-      const module = modules.find(m => 
-        m.moduleName.toLowerCase() === moduleName.toLowerCase() && m.canView
+      const module = modules.find(
+        (m) =>
+          m.moduleName.toLowerCase() === moduleName.toLowerCase() && m.canView
       );
       if (module) {
         const routeMap: { [key: string]: string } = {
-          'lead': '/leads',
-          'leads': '/leads',
-          'task': '/tasks',
-          'tasks': '/tasks',
-          'employees': '/employees',
-          'employee': '/employees',
-          'department': '/employees/department',
-          'user': '/employees/staff',
-          'users': '/employees/staff'
+          lead: "/leads",
+          leads: "/leads",
+          task: "/tasks",
+          tasks: "/tasks",
+          employees: "/employees",
+          employee: "/employees",
+          department: "/employees/department",
+          user: "/employees/staff",
+          users: "/employees/staff",
         };
-        return routeMap[moduleName.toLowerCase()] || '/not-found';
+        return routeMap[moduleName.toLowerCase()] || "/not-found";
       }
     }
-    
+
     // If no prioritized module found, return the first accessible module
-    const firstAccessible = modules.find(m => m.canView);
+    const firstAccessible = modules.find((m) => m.canView);
     if (firstAccessible) {
       const routeMap: { [key: string]: string } = {
-        'lead': '/leads',
-        'leads': '/leads',
-        'task': '/tasks',
-        'tasks': '/tasks',
-        'employees': '/employees',
-        'employee': '/employees',
-        'department': '/employees/department',
-        'user': '/employees/staff',
-        'users': '/employees/staff'
+        lead: "/leads",
+        leads: "/leads",
+        task: "/tasks",
+        tasks: "/tasks",
+        employees: "/employees",
+        employee: "/employees",
+        department: "/employees/department",
+        user: "/employees/staff",
+        users: "/employees/staff",
       };
-      return routeMap[firstAccessible.moduleName.toLowerCase()] || '/not-found';
+      return routeMap[firstAccessible.moduleName.toLowerCase()] || "/not-found";
     }
-    
-    return '/not-found';
+
+    return "/not-found";
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -531,92 +546,107 @@ export default function LoginPage() {
         ...(requiresCompany && { companyName }),
       };
 
-      const response = await loginUser(loginData) as unknown as LoginResponse;
-      
+      const response = (await loginUser(loginData)) as unknown as LoginResponse;
+
       if (response.isSuccess) {
         const { profileResponse, authTokenResponse } = response.data;
-        
+
         // Store tokens in localStorage
         if (authTokenResponse.token) {
-          localStorage.setItem('authToken', authTokenResponse.token);
+          localStorage.setItem("authToken", authTokenResponse.token);
         }
         if (authTokenResponse.refreshToken) {
-          localStorage.setItem('refreshToken', authTokenResponse.refreshToken);
+          localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
         }
 
         // Convert userModuleAccessList to modules format
-        const modules = profileResponse.userModuleAccessList?.map(access => ({
-          id: access.moduleId || parseInt(access.id?.toString() || '0'),
-          moduleId: access.moduleId || parseInt(access.id?.toString() || '0'),
-          moduleName: access.moduleName ? access.moduleName.charAt(0).toUpperCase() + access.moduleName.slice(1) : 'Unknown',
-          canView: access.canView ?? true,
-          canEdit: access.canEdit ?? false,
-          canCreate: access.canCreate ?? false,
-          canDelete: access.canDelete ?? false,
-          createdAt: access.createdAt || new Date().toISOString(),
-          updatedAt: access.updatedAt || new Date().toISOString()
-        })) || [];
+        const modules =
+          profileResponse.userModuleAccessList?.map((access) => ({
+            id: access.moduleId || parseInt(access.id?.toString() || "0"),
+            moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
+            moduleName: access.moduleName
+              ? access.moduleName.charAt(0).toUpperCase() +
+                access.moduleName.slice(1)
+              : "Unknown",
+            canView: access.canView ?? true,
+            canEdit: access.canEdit ?? false,
+            canCreate: access.canCreate ?? false,
+            canDelete: access.canDelete ?? false,
+            createdAt: access.createdAt || new Date().toISOString(),
+            updatedAt: access.updatedAt || new Date().toISOString(),
+          })) || [];
 
         // Create complete user profile
         const completeUserProfile = {
           ...profileResponse,
           modules,
           userId: profileResponse.id,
-          contactNumber: profileResponse.phoneNumber || '',
-          dateOfBirth: '',
-          dateOfJoin: '',
-          profileImage: '',
-          address: '',
-          status: 'active',
-          departmentId: 0, 
-          departmentName: '',
-          isActive: true
+          contactNumber: profileResponse.phoneNumber || "",
+          dateOfBirth: "",
+          dateOfJoin: "",
+          profileImage: "",
+          address: "",
+          status: "active",
+          departmentId: 0,
+          departmentName: "",
+          isActive: true,
         };
 
         // Store user data in localStorage
-        localStorage.setItem('currentUser', JSON.stringify(completeUserProfile));
-        localStorage.setItem('userModules', JSON.stringify(modules));
-        localStorage.setItem('userId', response.data.profileResponse.id);
-        localStorage.setItem('user', JSON.stringify(response.data.profileResponse));
-        
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify(completeUserProfile)
+        );
+        localStorage.setItem("userModules", JSON.stringify(modules));
+        localStorage.setItem("userId", response.data.profileResponse.id);
+        localStorage.setItem(
+          "user",
+          JSON.stringify(response.data.profileResponse)
+        );
+
         // Dispatch login success with the user data
-        dispatch(loginSuccess({ 
-          user: completeUserProfile, 
-          allUsers: [completeUserProfile] 
-        }));
-        
+        dispatch(
+          loginSuccess({
+            user: completeUserProfile,
+            allUsers: [completeUserProfile],
+          })
+        );
+
         // Show success toast
         toast({
           title: "Login successful",
           description: `Welcome back, ${profileResponse.firstName}!`,
           variant: "default",
         });
-        
+
         // Determine where to redirect
-        let redirectPath = '/not-found';
-        
+        let redirectPath = "/not-found";
+
         if (!profileResponse.isPasswordUpdated) {
-          redirectPath = '/reset-password';
+          redirectPath = "/reset-password";
         } else {
           redirectPath = getFirstAccessibleModule(modules);
         }
-        
+
         // Add a small delay before navigation
         setTimeout(() => {
           router.push(redirectPath);
         }, 500);
       } else {
-        toast({ 
-          title: "Login failed", 
-          description: response.message, 
-          variant: "destructive" 
+        toast({
+          title: "Login failed",
+          description: response.message,
+          variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred during login",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred during login",
         variant: "destructive",
       });
     } finally {
@@ -653,8 +683,8 @@ export default function LoginPage() {
                 {forgotPasswordMode ? "Reset Password" : "Welcome Back"}
               </h2>
               <p className="text-muted-foreground">
-                {forgotPasswordMode 
-                  ? "Follow the steps to reset your password" 
+                {forgotPasswordMode
+                  ? "Follow the steps to reset your password"
                   : "Please sign in to your account to continue"}
               </p>
             </div>
@@ -685,28 +715,30 @@ export default function LoginPage() {
             <CardContent className="p-8">
               {!forgotPasswordMode ? (
                 <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-2">
-      <Label
-        htmlFor="email"
-        className="text-sm font-medium text-foreground"
-      >
-        Email Address
-      </Label>
-      <Input
-        id="email"
-        type="email"
-        placeholder="Enter your email address"
-        value={email}
-        onChange={(e) => {
-          setEmail(e.target.value);
-          setError(""); // clear error while typing
-        }}
-        onBlur={handleBlur} // validate when user leaves the input
-        required
-        className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 ${error ? "border-red-500" : ""}`}
-      />
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-    </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="email"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setError(""); // clear error while typing
+                      }}
+                      onBlur={handleBlur} // validate when user leaves the input
+                      required
+                      className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 ${
+                        error ? "border-red-500" : ""
+                      }`}
+                    />
+                    {error && <p className="text-red-500 text-sm">{error}</p>}
+                  </div>
 
                   {/* Company Name Field - Show dynamically for personal emails */}
                   {showCompanyField && (
@@ -756,7 +788,9 @@ export default function LoginPage() {
                         required
                         disabled={!isEmailVerified}
                         className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 ${
-                          !isEmailVerified ? "opacity-50 cursor-not-allowed" : ""
+                          !isEmailVerified
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
                         }`}
                         onCopy={handleCopyPrevention}
                         onPaste={handlePastePrevention}
@@ -795,13 +829,13 @@ export default function LoginPage() {
                     </button>
                   </div>
 
-                 <Button
-  type="submit"
-  disabled={isLoading || !isEmailVerified}
-  className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${
-    (isLoading || !isEmailVerified) ? "btn-disabled" : ""
-  }`}
->
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !isEmailVerified}
+                    className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${
+                      isLoading || !isEmailVerified ? "btn-disabled" : ""
+                    }`}
+                  >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
@@ -860,7 +894,7 @@ export default function LoginPage() {
                           Verification Code
                         </Label>
                         <Input
-                          id="otp"  
+                          id="otp"
                           type="text"
                           placeholder="Enter the code sent to your email"
                           value={otp}
@@ -869,10 +903,12 @@ export default function LoginPage() {
                         />
                       </div>
                       <Button
-  onClick={handleVerifyOtp}
-  disabled={isLoading || !otp}
-  className={`w-full h-12 ${isLoading || !otp ? "btn-disabled" : ""}`}
->
+                        onClick={handleVerifyOtp}
+                        disabled={isLoading || !otp}
+                        className={`w-full h-12 ${
+                          isLoading || !otp ? "btn-disabled" : ""
+                        }`}
+                      >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
@@ -908,7 +944,9 @@ export default function LoginPage() {
                             type={showNewPassword ? "text" : "password"}
                             placeholder="Enter your new password"
                             value={newPassword}
-                            onChange={(e) => handleNewPasswordChange(e.target.value)}
+                            onChange={(e) =>
+                              handleNewPasswordChange(e.target.value)
+                            }
                             className="h-12 pr-12 bg-background border-input focus:border-primary"
                             onCopy={handleCopyPrevention}
                             onPaste={handlePastePrevention}
@@ -939,14 +977,18 @@ export default function LoginPage() {
                             type={showConfirmPassword ? "text" : "password"}
                             placeholder="Confirm your new password"
                             value={confirmPassword}
-                            onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+                            onChange={(e) =>
+                              handleConfirmPasswordChange(e.target.value)
+                            }
                             className="h-12 pr-12 bg-background border-input focus:border-primary"
                             onCopy={handleCopyPrevention}
                             onPaste={handlePastePrevention}
                           />
                           <button
                             type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                           >
                             {showConfirmPassword ? (
@@ -957,11 +999,13 @@ export default function LoginPage() {
                           </button>
                         </div>
                       </div>
-                      
+
                       {/* Password validation errors */}
                       {passwordErrors.length > 0 && (
                         <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                          <p className="text-destructive text-sm font-medium mb-1">Password requirements:</p>
+                          <p className="text-destructive text-sm font-medium mb-1">
+                            Password requirements:
+                          </p>
                           <ul className="text-destructive text-xs list-disc pl-4 space-y-1">
                             {passwordErrors.map((error, index) => (
                               <li key={index}>{error}</li>
@@ -969,14 +1013,24 @@ export default function LoginPage() {
                           </ul>
                         </div>
                       )}
-                      
-                    <Button
-  onClick={handleResetPassword}
-  disabled={isLoading || !newPassword || !confirmPassword || passwordErrors.length > 0}
-  className={`w-full h-12 ${
-    (isLoading || !newPassword || !confirmPassword || passwordErrors.length > 0) ? "btn-disabled" : ""
-  }`}
->
+
+                      <Button
+                        onClick={handleResetPassword}
+                        disabled={
+                          isLoading ||
+                          !newPassword ||
+                          !confirmPassword ||
+                          passwordErrors.length > 0
+                        }
+                        className={`w-full h-12 ${
+                          isLoading ||
+                          !newPassword ||
+                          !confirmPassword ||
+                          passwordErrors.length > 0
+                            ? "btn-disabled"
+                            : ""
+                        }`}
+                      >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
