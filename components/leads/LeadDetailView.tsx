@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { LeadTrack } from "@/lib/data";
 import Link from "next/link";
+
 interface Lead {
   leadId: string;
   leadStatus: string;
@@ -66,43 +67,44 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
       .slice(0, 2);
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "LOW":
-        return "bg-gray-100 text-gray-800 border-gray-300";
-      case "MEDIUM":
-        return "bg-blue-50 text-blue-800 border-blue-200";
-      case "HIGH":
-        return "bg-orange-50 text-orange-800 border-orange-200";
-      case "URGENT":
-        return "bg-red-50 text-red-800 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
-    }
-  };
+const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case "LOW":
+      return "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
+    case "MEDIUM":
+      return "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:border-blue-300";
+    case "HIGH":
+      return "bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 hover:border-orange-300";
+    case "URGENT":
+      return "bg-red-50 text-red-800 border-red-200 hover:bg-red-100 hover:border-red-300";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
+  }
+};
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "NEW":
-        return "bg-blue-50 text-blue-800 border-blue-200";
-      case "CONTACTED":
-        return "bg-indigo-50 text-indigo-800 border-indigo-200";
-      case "QUALIFIED":
-        return "bg-green-50 text-green-800 border-green-200";
-      case "PROPOSAL":
-        return "bg-teal-50 text-teal-800 border-teal-200";
-      case "DEMO":
-        return "bg-yellow-50 text-yellow-800 border-yellow-200";
-      case "NEGOTIATIONS":
-        return "bg-orange-50 text-orange-800 border-orange-200";
-      case "CLOSED_WON":
-        return "bg-emerald-50 text-emerald-800 border-emerald-200";
-      case "CLOSED_LOST":
-        return "bg-red-50 text-red-800 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
-    }
-  };
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "NEW":
+      return "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:border-blue-300";
+    case "CONTACTED":
+      return "bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300";
+    case "QUALIFIED":
+      return "bg-green-50 text-green-800 border-green-200 hover:bg-green-100 hover:border-green-300";
+    case "PROPOSAL":
+      return "bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100 hover:border-teal-300";
+    case "DEMO":
+      return "bg-yellow-50 text-yellow-800 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300";
+    case "NEGOTIATIONS":
+      return "bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 hover:border-orange-300";
+    case "CLOSED_WON":
+      return "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300";
+    case "CLOSED_LOST":
+      return "bg-red-50 text-red-800 border-red-200 hover:bg-red-100 hover:border-red-300";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
+  }
+};
+
 
   const shouldDisplay = (value: any): boolean => {
     return value !== null && value !== undefined && value !== "";
@@ -124,16 +126,39 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
   };
 
   const formatTrackDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (error) {
-      return dateString;
+    let date: Date;
+    
+    if (/^\d+$/.test(dateString)) {
+      const timestamp = parseInt(dateString);
+      date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
+    } else {
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMinutes < 1) {
+      return 'Just now';
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes}m ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    } else {
+      // Format as DD-MM-YYYY for older dates
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
     }
   };
 
@@ -169,7 +194,6 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Leads
         </Link>
-   
       </div>
 
       <div className="p-6">
@@ -448,59 +472,61 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
                 </button>
               </h3>
 
-              {/* Timeline */}
+              {/* Activity Timeline */}
               {leadTracks.length > 0 ? (
-                <div className="space-y-6 max-h-[calc(120vh-200px)] overflow-y-auto pr-2">
-                  {leadTracks.map((track, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-[40px_1fr] gap-4 items-start"
-                    >
-                      {/* Timeline column */}
-                      <div className="flex flex-col items-center relative">
-                        {/* Circle */}
-                        <div className="h-4 w-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 shadow-md border-2 border-white z-10" />
-                        {/* Line (except last item) */}
-                        {index !== leadTracks.length - 1 && (
-                          <div className="flex-1 w-px bg-gradient-to-b from-blue-400 to-purple-400" />
-                        )}
-                      </div>
-
-                      {/* Card column */}
-                      <div className="bg-white/80 backdrop-blur rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-xs">
-                              {track.actionBy?.charAt(0) ?? "?"}
+                <div className="max-h-[600px] overflow-y-auto px-1 py-2 pb-11">
+                  <div className="space-y-3">
+                    {leadTracks.map((track, index) => (
+                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          {/* Avatar */}
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-medium text-white">
+                                {track.actionBy?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                              </span>
                             </div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {track.actionBy}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-1">
+                              <div>
+                                <h4 className="font-medium text-gray-900 text-sm">
+                                  {track.actionBy || 'Unknown User'}
+                                </h4>
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {formatTrackDate(track.actionTime)}
+                              </span>
+                            </div>
+
+                            {/* Activity Description */}
+                            <p className="text-sm text-gray-700 mb-2">
+                              {track.actionDescription}
                             </p>
+                            
+                            {/* Message content if available */}
+                            {shouldDisplay(track.message) && (
+                              <div className="bg-gray-50 rounded-md p-3 mt-2 border border-gray-200">
+                                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                  {track.message}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          <span className="text-[11px] font-mono px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
-                            {formatTrackDate(track.actionTime)}
-                          </span>
                         </div>
-
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {track.actionDescription}
-                        </p>
-
-                        {track.actionDescription.includes("changed from") && (
-                          <div className="mt-2 flex items-center gap-1 text-xs text-blue-500 font-medium">
-                            <ArrowRight className="h-3 w-3" />
-                            Status updated
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <p className="text-gray-500 text-sm">
-                    ✨ No activity history yet
-                  </p>
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <History className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500 text-sm">No activity yet</p>
                 </div>
               )}
             </div>

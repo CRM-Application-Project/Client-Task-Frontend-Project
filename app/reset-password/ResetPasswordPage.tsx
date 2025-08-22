@@ -12,7 +12,7 @@ import { changePassword } from '../services/data.service';
 import { z } from 'zod';
 
 // Password regex: at least 8 characters, uppercase, lowercase, number, and special character
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[*@#$%^&+=!])[A-Za-z\d*@#$%^&+=!]{8,16}$/;
 
 // Define the validation schema
 const changePasswordSchema = z.object({
