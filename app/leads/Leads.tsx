@@ -315,11 +315,7 @@ const handleColumnDrop = async (e: React.DragEvent, targetIndex: number) => {
     if (hasErrors) {
       // Revert on any error
       setLeadStages(leadStages);
-      toast({
-        title: "Error",
-        description: "Failed to reorder some stages",
-        variant: "destructive",
-      });
+     
     } else {
       toast({
         title: "Success",
@@ -330,11 +326,7 @@ const handleColumnDrop = async (e: React.DragEvent, targetIndex: number) => {
     console.error("Failed to reorder stages:", error);
     // Revert on error
     setLeadStages(leadStages);
-    toast({
-      title: "Error",
-      description: error.message || "Failed to reorder stages",
-      variant: "destructive",
-    });
+   
   } finally {
     setDragOverColumnIndex(null);
     setDraggedColumn(null);
