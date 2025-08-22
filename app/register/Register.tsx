@@ -35,7 +35,7 @@ export default function RegisterPage() {
     gstNumber: "",
     companyType: "",
   });
-  
+
   const [fieldErrors, setFieldErrors] = useState({
     emailAddress: "",
     password: "",
@@ -43,7 +43,7 @@ export default function RegisterPage() {
     companyContactNumber: "",
     gstNumber: "",
   });
-  
+
   const [touchedFields, setTouchedFields] = useState({
     emailAddress: false,
     password: false,
@@ -51,7 +51,7 @@ export default function RegisterPage() {
     companyContactNumber: false,
     gstNumber: false,
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCompanyInfo, setShowCompanyInfo] = useState(false);
@@ -70,10 +70,12 @@ export default function RegisterPage() {
   ];
 
   // Password pattern regex
-  const PASSWORD_REGEX = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$%^&+=!]).{8,}$/;
-  
+  const PASSWORD_REGEX =
+    /^(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$%^&+=!]).{8,}$/;
+
   // GST number pattern (15 alphanumeric characters)
-  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+  const GST_REGEX =
+    /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
 
   // Validate individual fields in real-time
   interface ValidationErrors {
@@ -88,7 +90,7 @@ export default function RegisterPage() {
 
   const validateField = (fieldName: FieldName, value: string): string => {
     let error: string = "";
-    
+
     switch (fieldName) {
       case "emailAddress":
       case "companyEmailAddress":
@@ -98,7 +100,8 @@ export default function RegisterPage() {
         break;
       case "password":
         if (value && !PASSWORD_REGEX.test(value)) {
-          error = "Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character (@#$%^&+=!)";
+          error =
+            "Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character (@#$%^&+=!)";
         }
         break;
       case "companyContactNumber":
@@ -108,136 +111,160 @@ export default function RegisterPage() {
         break;
       case "gstNumber":
         if (value && !GST_REGEX.test(value)) {
-          error = "Please enter a valid GST number (15 alphanumeric characters)";
+          error =
+            "Please enter a valid GST number (15 alphanumeric characters)";
         }
         break;
       default:
         break;
     }
-    
+
     return error;
   };
 
   // Check if all required fields are filled and valid
   const checkFormValidity = () => {
-    // Check personal information fields
-    if (!formData.firstName || !formData.lastName || !formData.emailAddress || !formData.password) {
+    // Check personal info first
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.emailAddress ||
+      !formData.password
+    ) {
       return false;
     }
-    
-    // Check if email is valid
-    if (fieldErrors.emailAddress || validateField("emailAddress", formData.emailAddress)) {
+
+    // Validate email
+    const emailError = validateField("emailAddress", formData.emailAddress);
+    if (emailError || fieldErrors.emailAddress) return false;
+
+    // Validate password
+    const passwordError = validateField("password", formData.password);
+    if (passwordError || fieldErrors.password) return false;
+
+    // ✅ Always validate company info, even if collapsed
+    if (
+      !formData.companyName ||
+      !formData.companyType ||
+      !formData.companyEmailAddress ||
+      !formData.companyContactNumber ||
+      !formData.gstNumber
+    ) {
       return false;
     }
-    
-    // Check if password is valid
-    if (fieldErrors.password || validateField("password", formData.password)) {
-      return false;
-    }
-    
-    // If company info is shown, check those fields too
-    if (showCompanyInfo) {
-      if (!formData.companyName || !formData.companyType || !formData.companyEmailAddress || 
-          !formData.companyContactNumber || !formData.gstNumber) {
-        return false;
-      }
-      
-      // Check if company email is valid
-      if (fieldErrors.companyEmailAddress || validateField("companyEmailAddress", formData.companyEmailAddress)) {
-        return false;
-      }
-      
-      // Check if company contact number is valid
-      if (fieldErrors.companyContactNumber || validateField("companyContactNumber", formData.companyContactNumber)) {
-        return false;
-      }
-      
-      // Check if GST number is valid
-      if (fieldErrors.gstNumber || validateField("gstNumber", formData.gstNumber)) {
-        return false;
-      }
-    }
-    
+
+    const companyEmailError = validateField(
+      "companyEmailAddress",
+      formData.companyEmailAddress
+    );
+    if (companyEmailError || fieldErrors.companyEmailAddress) return false;
+
+    const contactError = validateField(
+      "companyContactNumber",
+      formData.companyContactNumber
+    );
+    if (contactError || fieldErrors.companyContactNumber) return false;
+
+    const gstError = validateField("gstNumber", formData.gstNumber);
+    if (gstError || fieldErrors.gstNumber) return false;
+
     return true;
   };
-
-  // Update touched fields
-  const handleBlur = (fieldName: FieldName): void => {
-    setTouchedFields(prev => ({ ...prev, [fieldName]: true }));
-    
-    // Validate the field when it loses focus
-    const error = validateField(fieldName, formData[fieldName]);
-    setFieldErrors(prev => ({ ...prev, [fieldName]: error }));
-  };
-
-  // Update field errors when form data changes
-  useEffect(() => {
-    // Validate email when it changes (if it's been touched)
-    if (touchedFields.emailAddress) {
-      const error = validateField("emailAddress", formData.emailAddress);
-      setFieldErrors(prev => ({ ...prev, emailAddress: error }));
-    }
-    
-    // Validate password when it changes (if it's been touched)
-    if (touchedFields.password) {
-      const error = validateField("password", formData.password);
-      setFieldErrors(prev => ({ ...prev, password: error }));
-    }
-    
-    // Validate company email when it changes (if it's been touched)
-    if (touchedFields.companyEmailAddress) {
-      const error = validateField("companyEmailAddress", formData.companyEmailAddress);
-      setFieldErrors(prev => ({ ...prev, companyEmailAddress: error }));
-    }
-    
-    // Validate phone number when it changes (if it's been touched)
-    if (touchedFields.companyContactNumber) {
-      const error = validateField("companyContactNumber", formData.companyContactNumber);
-      setFieldErrors(prev => ({ ...prev, companyContactNumber: error }));
-    }
-    
-    // Validate GST number when it changes (if it's been touched)
-    if (touchedFields.gstNumber) {
-      const error = validateField("gstNumber", formData.gstNumber);
-      setFieldErrors(prev => ({ ...prev, gstNumber: error }));
-    }
-    
-    // Check if the form is valid
-    setIsFormValid(checkFormValidity());
-  }, [
-    formData,
-    touchedFields,
-    showCompanyInfo,
-    fieldErrors.emailAddress,
-    fieldErrors.password,
-    fieldErrors.companyEmailAddress,
-    fieldErrors.companyContactNumber,
-    fieldErrors.gstNumber
-  ]);
 
   const validateForm = () => {
     const errors = {
       emailAddress: validateField("emailAddress", formData.emailAddress),
       password: validateField("password", formData.password),
-      companyEmailAddress: showCompanyInfo ? validateField("companyEmailAddress", formData.companyEmailAddress) : "",
-      companyContactNumber: showCompanyInfo ? validateField("companyContactNumber", formData.companyContactNumber) : "",
-      gstNumber: showCompanyInfo ? validateField("gstNumber", formData.gstNumber) : "",
+      companyEmailAddress: showCompanyInfo
+        ? validateField("companyEmailAddress", formData.companyEmailAddress)
+        : "",
+      companyContactNumber: showCompanyInfo
+        ? validateField("companyContactNumber", formData.companyContactNumber)
+        : "",
+      gstNumber: showCompanyInfo
+        ? validateField("gstNumber", formData.gstNumber)
+        : "",
     };
-    
+
     setFieldErrors(errors);
     setTouchedFields({
       emailAddress: true,
       password: true,
-      companyEmailAddress: true,
-      companyContactNumber: true,
-      gstNumber: true,
+      companyEmailAddress: showCompanyInfo, // Only mark as touched if section is expanded
+      companyContactNumber: showCompanyInfo, // Only mark as touched if section is expanded
+      gstNumber: showCompanyInfo, // Only mark as touched if section is expanded
     });
-    
+
     // Check if there are any errors
-    const hasErrors = Object.values(errors).some(error => error !== "");
-    
+    const hasErrors = Object.values(errors).some((error) => error !== "");
+
     return !hasErrors;
   };
+
+  // Update touched fields
+  const handleBlur = (fieldName: FieldName): void => {
+    setTouchedFields((prev) => ({ ...prev, [fieldName]: true }));
+
+    // Validate the field when it loses focus
+    const error = validateField(fieldName, formData[fieldName]);
+    setFieldErrors((prev) => ({ ...prev, [fieldName]: error }));
+  };
+
+  // Update field errors when form data changes
+  useEffect(() => {
+    setIsFormValid(checkFormValidity());
+  }, [
+    formData.firstName,
+    formData.lastName,
+    formData.emailAddress,
+    formData.password,
+    formData.companyName,
+    formData.companyType,
+    formData.companyEmailAddress,
+    formData.companyContactNumber,
+    formData.gstNumber,
+    touchedFields.emailAddress,
+    touchedFields.password,
+    touchedFields.companyEmailAddress,
+    touchedFields.companyContactNumber,
+    touchedFields.gstNumber,
+    fieldErrors.emailAddress,
+    fieldErrors.password,
+    fieldErrors.companyEmailAddress,
+    fieldErrors.companyContactNumber,
+    fieldErrors.gstNumber,
+    showCompanyInfo, // Add this to the dependency array
+  ]);
+
+  // const validateForm = () => {
+  //   const errors = {
+  //     emailAddress: validateField("emailAddress", formData.emailAddress),
+  //     password: validateField("password", formData.password),
+  //     companyEmailAddress: showCompanyInfo
+  //       ? validateField("companyEmailAddress", formData.companyEmailAddress)
+  //       : "",
+  //     companyContactNumber: showCompanyInfo
+  //       ? validateField("companyContactNumber", formData.companyContactNumber)
+  //       : "",
+  //     gstNumber: showCompanyInfo
+  //       ? validateField("gstNumber", formData.gstNumber)
+  //       : "",
+  //   };
+
+  //   setFieldErrors(errors);
+  //   setTouchedFields({
+  //     emailAddress: true,
+  //     password: true,
+  //     companyEmailAddress: true,
+  //     companyContactNumber: true,
+  //     gstNumber: true,
+  //   });
+
+  //   // Check if there are any errors
+  //   const hasErrors = Object.values(errors).some((error) => error !== "");
+
+  //   return !hasErrors;
+  // };
 
   // Define type for form data fields
   interface FormData {
@@ -251,12 +278,12 @@ export default function RegisterPage() {
     gstNumber: string;
     companyType: string;
   }
-  
+
   // Define a type for the field names
   type FormFieldName = keyof FormData;
-  
+
   const handleInputChange = (field: FormFieldName, value: string): void => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   interface RegisterResponse {
@@ -278,7 +305,9 @@ export default function RegisterPage() {
     gstNumber: string;
   }
 
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleRegister = async (
+    e: React.FormEvent<HTMLFormElement>
+  ): Promise<void> => {
     e.preventDefault();
     if (!validateForm()) {
       return;
@@ -333,9 +362,11 @@ export default function RegisterPage() {
   };
 
   // Helper function to render validation status
-  const renderValidationStatus = (fieldName: keyof ValidationErrors): React.ReactNode => {
+  const renderValidationStatus = (
+    fieldName: keyof ValidationErrors
+  ): React.ReactNode => {
     if (!touchedFields[fieldName]) return null;
-    
+
     if (fieldErrors[fieldName]) {
       return (
         <div className="flex items-center gap-1 mt-1 text-destructive text-xs">
@@ -392,7 +423,11 @@ export default function RegisterPage() {
             {/* Registration Form */}
             <Card className="border border-border shadow-elevated animate-scale-in rounded-xl">
               <CardContent className="p-8">
-                <form onSubmit={handleRegister} className="space-y-6">
+                <form
+                  onSubmit={handleRegister}
+                  className="space-y-6"
+                  autoComplete="off"
+                >
                   {/* Personal Information */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
@@ -459,10 +494,13 @@ export default function RegisterPage() {
                         className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
                           touchedFields.emailAddress && fieldErrors.emailAddress
                             ? "border-destructive"
-                            : touchedFields.emailAddress && !fieldErrors.emailAddress && formData.emailAddress
+                            : touchedFields.emailAddress &&
+                              !fieldErrors.emailAddress &&
+                              formData.emailAddress
                             ? "border-green-500"
                             : ""
                         }`}
+                        autoComplete="email"
                       />
                       {renderValidationStatus("emailAddress")}
                     </div>
@@ -488,10 +526,13 @@ export default function RegisterPage() {
                           className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
                             touchedFields.password && fieldErrors.password
                               ? "border-destructive"
-                              : touchedFields.password && !fieldErrors.password && formData.password
+                              : touchedFields.password &&
+                                !fieldErrors.password &&
+                                formData.password
                               ? "border-green-500"
                               : ""
                           }`}
+                          autoComplete="new-password"
                         />
                         <button
                           type="button"
@@ -530,7 +571,7 @@ export default function RegisterPage() {
                           </div>
                         </div>
                       )} */}
-                    </div>  
+                    </div>
                   </div>
 
                   {/* Company Information */}
@@ -616,9 +657,12 @@ export default function RegisterPage() {
                             onBlur={() => handleBlur("companyEmailAddress")}
                             required
                             className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
-                              touchedFields.companyEmailAddress && fieldErrors.companyEmailAddress
+                              touchedFields.companyEmailAddress &&
+                              fieldErrors.companyEmailAddress
                                 ? "border-destructive"
-                                : touchedFields.companyEmailAddress && !fieldErrors.companyEmailAddress && formData.companyEmailAddress
+                                : touchedFields.companyEmailAddress &&
+                                  !fieldErrors.companyEmailAddress &&
+                                  formData.companyEmailAddress
                                 ? "border-green-500"
                                 : ""
                             }`}
@@ -650,9 +694,12 @@ export default function RegisterPage() {
                               onBlur={() => handleBlur("companyContactNumber")}
                               required
                               className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
-                                touchedFields.companyContactNumber && fieldErrors.companyContactNumber
+                                touchedFields.companyContactNumber &&
+                                fieldErrors.companyContactNumber
                                   ? "border-destructive"
-                                  : touchedFields.companyContactNumber && !fieldErrors.companyContactNumber && formData.companyContactNumber
+                                  : touchedFields.companyContactNumber &&
+                                    !fieldErrors.companyContactNumber &&
+                                    formData.companyContactNumber
                                   ? "border-green-500"
                                   : ""
                               }`}
@@ -672,7 +719,10 @@ export default function RegisterPage() {
                               placeholder="Enter GST number (e.g., 29ABCDE1234F1Z5)"
                               value={formData.gstNumber}
                               onChange={(e) =>
-                                handleInputChange("gstNumber", e.target.value.toUpperCase())
+                                handleInputChange(
+                                  "gstNumber",
+                                  e.target.value.toUpperCase()
+                                )
                               }
                               onBlur={() => handleBlur("gstNumber")}
                               maxLength={15}
@@ -681,7 +731,9 @@ export default function RegisterPage() {
                               className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
                                 touchedFields.gstNumber && fieldErrors.gstNumber
                                   ? "border-destructive"
-                                  : touchedFields.gstNumber && !fieldErrors.gstNumber && formData.gstNumber
+                                  : touchedFields.gstNumber &&
+                                    !fieldErrors.gstNumber &&
+                                    formData.gstNumber
                                   ? "border-green-500"
                                   : ""
                               }`}
@@ -696,9 +748,10 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     disabled={!isFormValid || isLoading}
-  className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg ${
-    (!isFormValid || isLoading) ? "btn-disabled" : ""
-  }`}                  >
+                    className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg ${
+                      !isFormValid || isLoading ? "btn-disabled" : ""
+                    }`}
+                  >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
