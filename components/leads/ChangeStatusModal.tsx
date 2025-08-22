@@ -31,8 +31,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { LeadStatus } from "../../lib/leads";
 import { changeLeadStatus } from "@/app/services/data.service";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { ChevronDown, Info, X } from "lucide-react";
 
 const formSchema = z.object({
   status: z.string().min(1, "Please select a status"),
@@ -86,7 +84,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
   // Watch the status field to determine if button should be enabled
   const status = form.watch("status");
-  
+
   // Check if a valid status is selected
   const isFormValid = status && status.length > 0;
 
@@ -106,6 +104,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
       const payload = {
         leadId: lead.leadId,
         leadStatus: data.status,
+        message: data.notes,
       };
 
       const response = await changeLeadStatus(payload);
@@ -197,8 +196,6 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md md:max-w-lg rounded-lg">
-
-
         <DialogHeader className="text-left">
           <DialogTitle className="text-xl font-semibold">
             Update Lead Status
@@ -208,7 +205,6 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               Change the status for{" "}
               <span className="font-medium">{lead?.customerName}</span>
             </span>
-          
           </DialogDescription>
         </DialogHeader>
 
@@ -238,7 +234,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
                         >
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                                {option.label}
+                              {option.label}
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
                               {option.description}
@@ -253,7 +249,26 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               )}
             />
 
-        
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base">
+                    Message<span className="text-red-600">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add a note or message"
+                      className="min-h-[80px]"
+                      {...field}
+                      required
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter className="gap-2 sm:gap-0 flex flex-col-reverse sm:flex-row mt-6">
               <Button
@@ -264,14 +279,13 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               >
                 Cancel
               </Button>
-            <Button 
-  type="submit" 
-  className={`h-11 flex-1 ${!isFormValid ? "btn-disabled" : ""}`}
-  disabled={!isFormValid}
->
-  Update Status
-</Button>
-
+              <Button
+                type="submit"
+                className={`h-11 flex-1 ${!isFormValid ? "btn-disabled" : ""}`}
+                disabled={!isFormValid}
+              >
+                Update Status
+              </Button>
             </DialogFooter>
           </form>
         </Form>
