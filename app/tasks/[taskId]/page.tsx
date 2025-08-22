@@ -13,21 +13,15 @@ export default function TaskDetailPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
-    fetchTaskHistory();
+    fetchTaskHistory({ taskId, page: 0, limit: 50 });
   }, [taskId]);
 
-  const fetchTaskHistory = async () => {
-    if (!taskId) return;
+  const fetchTaskHistory = async (filters: FilterHistoryParams) => {
+    if (!filters.taskId) return;
    
     setIsLoadingHistory(true);
     try {
-      const params: FilterHistoryParams = {
-        taskId,
-        page: 0,
-        limit: 50
-      };
-     
-      const response = await filterHistory(params);
+      const response = await filterHistory(filters);
      
       if (response.isSuccess && response.data) {
         setHistory(response.data.content);
@@ -41,54 +35,40 @@ export default function TaskDetailPage() {
 
   return (
     <DashboardLayout>
-    <div className="container mx-auto p-2">
-      {/* Back Button */}
-      <button
-        onClick={() => window.history.back()}
-        className="mb-6 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
-      >
-        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Task Board
-      </button>
-
-      {/* Side by Side Layout */}
-      {/* Side by Side Layout */}
-<div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-3">
-  {/* Left Side - Task Details */}
-  <div className="space-y-3">
-    <TaskDetails taskId={taskId} />
-  </div>
-
-  {/* Right Side - Activity Timeline */}
-  <div className="space-y-6">
-    <div className="bg-white rounded-lg border shadow-sm">
-      <div className="p-6 border-b">
-        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
+      <div className="container mx-auto p-2">
+        {/* Back Button */}
+        <button
+          onClick={() => window.history.back()}
+          className="mb-6 flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Activity Timeline
-        </h2>
-      </div>
-      <div className="p-6">
-        <TaskHistory
-          history={history}
-          isLoading={isLoadingHistory}
-          taskId={taskId}
-        />
-      </div>
-    </div>
-  </div>
-</div>
+          Back to Task Board
+        </button>
 
-    </div>
+        {/* Side by Side Layout */}
+        <div className="grid grid-cols-1  gap-3">
+          {/* Left Side - Task Details */}
+          <div className="space-y-3">
+            <TaskDetails taskId={taskId} />
+          </div>
+
+          {/* Right Side - Activity Timeline */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border shadow-sm">
+              <div className="p-6">
+                <TaskHistory
+                  history={history}
+                  isLoading={isLoadingHistory}
+                  taskId={taskId}
+                  onFilterChange={fetchTaskHistory}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 }

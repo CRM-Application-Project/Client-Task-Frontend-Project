@@ -71,7 +71,8 @@ export const TaskFilters = ({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
-  const { permissions, loading: permissionsLoading } = usePermissions('task_stage');
+const { permissions: stagePermissions, loading: stagePermissionsLoading } = usePermissions("task_stage");
+const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePermissions("task");
   useEffect(() => {
     setLocalFilters(filters);
   }, [filters]);
@@ -137,7 +138,7 @@ export const TaskFilters = ({
 
           <div className="flex items-center gap-3">
             {/* Add Stage Button */}
-           {permissions.canCreate && (
+           {stagePermissions.canCreate && (
   <>
     {onAddStage && (
       <Button
@@ -153,7 +154,19 @@ export const TaskFilters = ({
 )}
 
             {/* Add Task Button */}
-           
+            {taskPermissions.canCreate && (
+  <>
+   
+       <Button
+              onClick={onAddTask}
+              className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Task
+            </Button>
+    
+  </>
+)}
 
             {/* Import Task Button */}
             {onImportTask && (

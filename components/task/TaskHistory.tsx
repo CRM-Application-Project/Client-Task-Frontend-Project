@@ -1,6 +1,9 @@
 "use client";
-import { History, RefreshCw, ArrowRight } from "lucide-react";
-import { filterHistory, FilterHistoryParams, HistoryRecord } from "@/app/services/data.service";
+import { useState, useEffect } from "react";
+import { History, RefreshCw, ArrowRight, Filter, X } from "lucide-react";
+import { filterHistory, FilterHistoryParams, getHistoryEventsDropdown, getUsers, HistoryRecord, User } from "@/app/services/data.service";
+
+
 
 // Define interfaces locally since the import is failing
 interface UpdateData {
@@ -13,9 +16,80 @@ interface TaskHistoryProps {
   history: HistoryRecord[];
   isLoading: boolean;
   taskId: number;
+  onFilterChange: (filters: FilterHistoryParams) => void;
 }
 
-export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
+interface EventTypeOption {
+  value: string;
+  label: string;
+}
+
+export function TaskHistory({ history, isLoading, taskId, onFilterChange }: TaskHistoryProps) {
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterHistoryParams>({
+    taskId,
+    page: 0,
+    limit: 50
+  });
+  const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  // Fetch event types from API
+  useEffect(() => {
+    const fetchEventTypes = async () => {
+      setIsLoadingEvents(true);
+      try {
+        const response = await getHistoryEventsDropdown();
+        
+        // Handle the API response format
+        if (response?.isSuccess && response.data) {
+          // Convert the object to an array of options
+          const eventOptions = Object.entries(response.data).map(([value, label]) => ({
+            value,
+            label: String(label)
+          }));
+          setEventTypes(eventOptions);
+        } else {
+          console.error("Unexpected API response format:", response);
+          setEventTypes([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch event types:", error);
+        setEventTypes([]);
+      } finally {
+        setIsLoadingEvents(false);
+      }
+    };
+
+    fetchEventTypes();
+  }, []);
+
+  // Fetch users from API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoadingUsers(true);
+      try {
+        const response = await getUsers();
+        
+        if (response?.isSuccess && response.data) {
+          setUsers(response.data);
+        } else {
+          console.error("Unexpected API response format:", response);
+          setUsers([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+        setUsers([]);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
   const formatTrackDate = (dateString: string) => {
     let date: Date;
     
@@ -83,11 +157,152 @@ export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
 
   const handleRefresh = () => {
     console.log("Refreshing task history for task ID:", taskId);
-    window.location.reload();
+    onFilterChange(filters);
+  };
+
+  const handleFilterChange = (key: keyof FilterHistoryParams, value: any) => {
+    const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  const clearFilters = () => {
+    const newFilters = { taskId, page: 0, limit: 50 };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  const hasActiveFilters = () => {
+    const { taskId, page, limit, ...filterFields } = filters;
+    return Object.values(filterFields).some(value => value !== undefined && value !== '');
+  };
+
+  // Format date for API (add time component to make it LocalDateTime compatible)
+  const formatDateForApi = (dateString: string) => {
+    if (!dateString) return undefined;
+    return `${dateString}T00:00:00`; // Add time component to make it LocalDateTime compatible
   };
 
   return (
     <div className="space-y-4">
+      {/* Filter Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Activity Timeline</h3>
+        <div className="flex items-center gap-2">
+          {hasActiveFilters() && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear filters
+            </button>
+          )}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md"
+          >
+            <Filter className="h-4 w-4 mr-1" />
+            Filter
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+            title="Refresh history"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Panel - Only this section has reduced font size and gray shades */}
+      {showFilters && (
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* Done By User Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Done By User
+              </label>
+              <select
+                value={filters.doneById || ''}
+                onChange={(e) => handleFilterChange('doneById', e.target.value || undefined)}
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                disabled={isLoadingUsers}
+              >
+                <option value="">All Users</option>
+                {users.map((user) => (
+                  <option key={user.userId} value={user.userId}>
+                    {user.firstName} {user.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Event Type Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Event Type
+              </label>
+              <select
+                value={filters.eventTypes || ''}
+                onChange={(e) => handleFilterChange('eventTypes', e.target.value || undefined)}
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                disabled={isLoadingEvents}
+              >
+                <option value="">All Events</option>
+                {eventTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Created After Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Created After
+              </label>
+              <input
+                type="date"
+                value={filters.createdAfter ? filters.createdAfter.split('T')[0] : ''}
+                onChange={(e) => handleFilterChange('createdAfter', formatDateForApi(e.target.value))}
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+              />
+            </div>
+
+            {/* Created Before Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Created Before
+              </label>
+              <input
+                type="date"
+                value={filters.createdBefore ? filters.createdBefore.split('T')[0] : ''}
+                onChange={(e) => handleFilterChange('createdBefore', formatDateForApi(e.target.value))}
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+              />
+            </div>
+
+            {/* Sort Direction Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Sort Direction
+              </label>
+              <select
+                value={filters.sortDirection || 'DESC'}
+                onChange={(e) => handleFilterChange('sortDirection', e.target.value)}
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+              >
+                <option value="DESC">Newest First</option>
+                <option value="ASC">Oldest First</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-8 text-gray-500">
@@ -103,6 +318,9 @@ export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
             <History className="h-6 w-6 text-gray-400" />
           </div>
           <p className="text-gray-500 text-sm">No activity yet</p>
+          {hasActiveFilters() && (
+            <p className="text-gray-400 text-xs mt-1">Try adjusting your filters</p>
+          )}
         </div>
       )}
 
@@ -126,21 +344,23 @@ export function TaskHistory({ history, isLoading, taskId }: TaskHistoryProps) {
                   <div className="flex-1 min-w-0">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-1">
-                      <div>
-                        <h4 className="font-medium text-gray-900 text-sm">
-                          {record.doneByName}
-                        </h4>
-                       
-                      </div>
+                        <p className="text-sm text-gray-700 mb-1">
+                      {record.note}
+                    </p>
                       <span className="text-xs text-gray-400">
                         {formatTrackDate(record.createdAt)}
                       </span>
                     </div>
 
                     {/* Activity Description */}
-                    <p className="text-sm text-gray-700 mb-3">
-                      {record.note}
-                    </p>
+                  
+
+                    {/* Event Type Badge */}
+                    {record.eventType && (
+                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-3">
+                        {eventTypes.find(et => et.value === record.eventType)?.label || record.eventType}
+                      </span>
+                    )}
 
                     {/* Update Details */}
                     {record.updateData && record.updateData.length > 0 && (
