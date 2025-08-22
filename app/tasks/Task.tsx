@@ -849,9 +849,9 @@ const { toast } = useToast();
       !filters.priority || task.priority === filters.priority;
     const matchesStage =
       !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
-    const matchesAssignee =
-      !filters.assignedTo ||
-      task.assignedTo.toLowerCase().includes(filters.assignedTo.toLowerCase());
+   const matchesAssignee =
+  !filters.assignedTo ||
+  task.assignee?.id === filters.assignedTo;
 
     const matchesDateRange =
       !filters.dateRange ||
