@@ -33,7 +33,13 @@ interface CreateTaskResponse {
 
 
 interface UpdateTaskRequest {
-  assignee: string;
+  subject?: string;
+  description?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  taskStageId?: number;
+  startDate?: string;
+  endDate?: string | null;
+  assignee?: string;
 }
 
 interface UpdateTaskResponse {

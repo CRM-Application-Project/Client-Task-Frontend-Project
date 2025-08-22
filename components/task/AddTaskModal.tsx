@@ -29,8 +29,9 @@ import { useToast } from "@/hooks/use-toast";
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (task: CreateTaskRequest) => void;
+  onSubmit: (task: CreateTaskRequest | Partial<UpdateTaskRequest>, isEdit: boolean) => void;
   editingTask?: GetTaskByIdResponse["data"];
+  preSelectedStageId?: number | null;
   users: User[];
 }
 
@@ -42,6 +43,16 @@ interface CreateTaskRequest {
   startDate: string;
   endDate: string;
   assignee: string;
+}
+
+interface UpdateTaskRequest {
+  subject?: string;
+  description?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  taskStageId?: number;
+  startDate?: string;
+  endDate?: string;
+  assignee?: string;
 }
 
 interface GetTaskByIdResponse {
@@ -68,11 +79,11 @@ export const AddTaskModal = ({
   onClose,
   onSubmit,
   editingTask,
+  preSelectedStageId,
   users,
 }: AddTaskModalProps) => {
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [formInitialized, setFormInitialized] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
@@ -85,6 +96,12 @@ export const AddTaskModal = ({
     assignee: "",
   });
 
+  // Track original values for comparison
+  const [originalFormData, setOriginalFormData] = useState<CreateTaskRequest | null>(null);
+  
+  // Track which fields have been modified
+  const [dirtyFields, setDirtyFields] = useState<Set<keyof CreateTaskRequest>>(new Set());
+
   const priorities: Array<CreateTaskRequest["priority"]> = [
     "LOW",
     "MEDIUM",
@@ -92,53 +109,132 @@ export const AddTaskModal = ({
     "URGENT",
   ];
 
-  // Memoize the editing task ID to prevent unnecessary re-renders
-  const editingTaskId = useMemo(() => editingTask?.id, [editingTask?.id]);
-  
-  // Initialize form data when modal opens or editingTask changes
+  // Helper function to compare values (handles dates properly)
+  const areValuesEqual = (original: any, current: any): boolean => {
+    if (original === current) return true;
+    
+    // Handle date comparison
+    if (original instanceof Date && typeof current === 'string') {
+      return original.toISOString() === current;
+    }
+    if (typeof original === 'string' && current instanceof Date) {
+      return original === current.toISOString();
+    }
+    
+    // Handle null/undefined/empty string equivalence
+    const normalizeEmpty = (val: any) => val === null || val === undefined || val === '' ? '' : val;
+    return normalizeEmpty(original) === normalizeEmpty(current);
+  };
+
+  // Function to update form data and track dirty fields
+  const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    if (originalFormData && editingTask) {
+      const originalValue = originalFormData[field];
+      const newDirtyFields = new Set(dirtyFields);
+      
+      if (areValuesEqual(originalValue, value)) {
+        // Value matches original, remove from dirty fields
+        newDirtyFields.delete(field);
+      } else {
+        // Value is different from original, add to dirty fields
+        newDirtyFields.add(field);
+      }
+      
+      setDirtyFields(newDirtyFields);
+    }
+  };
+
+  // Helper function to get local ISO string without timezone conversion
+  const getLocalISOString = (date: Date): string => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const seconds = pad(date.getSeconds());
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  };
+
+  // Helper function to add minutes to current time and round up to next 5-minute interval
+  const getAdjustedCurrentTime = (): Date => {
+    const now = new Date();
+    const currentMinutes = now.getMinutes();
+    const currentSeconds = now.getSeconds();
+    
+    if (currentSeconds > 0) {
+      now.setMinutes(currentMinutes + 1);
+    }
+    
+    const minutesToAdd = 5 - (now.getMinutes() % 5);
+    if (minutesToAdd < 5) {
+      now.setMinutes(now.getMinutes() + minutesToAdd);
+    } else {
+      now.setMinutes(now.getMinutes() + 5);
+    }
+    
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+    
+    return now;
+  };
+
+  // MAIN EFFECT: Reset and initialize form when modal opens/closes or when key props change
   useEffect(() => {
+    console.log('Main effect - isOpen:', isOpen, 'editingTask:', editingTask?.id, 'preSelectedStageId:', preSelectedStageId);
+    
     if (!isOpen) {
-      setFormInitialized(false);
+      // Reset everything when modal closes
+      setOriginalFormData(null);
+      setDirtyFields(new Set());
       return;
     }
 
-    // Prevent re-initialization if already initialized for the same task
-    if (formInitialized && editingTaskId === editingTask?.id) {
-      return;
-    }
-
+    // Initialize form data when modal opens
     if (editingTask) {
-      setFormData({
+      // EDIT MODE: Initialize with existing task data
+      const initialData = {
         subject: editingTask.subject || "",
         description: editingTask.description || "",
         priority: editingTask.priority || "LOW",
         taskStageId: editingTask.taskStageId || 0,
-        startDate: editingTask.startDate
-          ? new Date(editingTask.startDate).toISOString()
-          : new Date().toISOString(),
-        endDate: editingTask.endDate
-          ? new Date(editingTask.endDate).toISOString()
-          : "",
+        startDate: editingTask.startDate || new Date().toISOString(),
+        endDate: editingTask.endDate || "",
         assignee: editingTask.assignee?.id || "",
-        
-      });
+      };
+      
+      console.log('Setting edit data:', initialData);
+      setFormData(initialData);
+      setOriginalFormData(initialData);
+      setDirtyFields(new Set());
     } else {
-      // Reset form for new task
-      setFormData({
+      // NEW TASK MODE: Initialize with defaults and pre-selected stage
+      const adjustedTime = getAdjustedCurrentTime();
+      const newTaskData = {
         subject: "",
         description: "",
-        priority: "LOW",
-        taskStageId: 0,
-        startDate: new Date().toISOString(),
+        priority: "LOW" as const,
+        taskStageId: preSelectedStageId || 0, // This is the key line for pre-selection
+        startDate: getLocalISOString(adjustedTime),
         endDate: "",
         assignee: "",
-      });
+      };
+      
+      console.log('Setting new task data:', newTaskData);
+      setFormData(newTaskData);
+      setOriginalFormData(null);
+      setDirtyFields(new Set());
     }
-  }, [editingTask, isOpen]); // Added isOpen to dependencies
+  }, [isOpen, editingTask, preSelectedStageId]); // Dependencies: when any of these change, re-initialize
 
+  // Fetch stages when modal opens
   useEffect(() => {
     const fetchData = async () => {
-      if (!isOpen) return; // Don't fetch if modal is closed
+      if (!isOpen) return;
       
       try {
         setIsLoading(true);
@@ -146,6 +242,7 @@ export const AddTaskModal = ({
 
         if (stagesRes?.isSuccess && stagesRes.data) {
           setStages(stagesRes.data);
+          console.log('Stages loaded:', stagesRes.data);
         } else {
           console.error("Failed to fetch stages:", stagesRes?.message);
           toast({
@@ -211,7 +308,40 @@ export const AddTaskModal = ({
     }
 
     try {
-      onSubmit(formData);
+      if (editingTask) {
+        // For editing, only send changed fields
+        if (dirtyFields.size === 0) {
+          toast({
+            title: "No Changes",
+            description: "No changes were made to the task.",
+            variant: "default",
+          });
+          onClose();
+          return;
+        }
+
+        const updatePayload: Partial<UpdateTaskRequest> = {};
+        
+        // Only include fields that have been modified
+        dirtyFields.forEach(field => {
+          if (field === 'endDate' && formData[field] === '') {
+            // Handle empty endDate specially - send null or don't send at all
+            updatePayload[field] = null as any;
+          } else {
+            updatePayload[field] = formData[field] as any;
+          }
+        });
+
+        console.log('Update payload (only dirty fields):', updatePayload);
+        console.log('Dirty fields:', Array.from(dirtyFields));
+        
+        onSubmit(updatePayload, true);
+      } else {
+        // For new tasks, send all required fields
+        console.log('Submitting new task:', formData);
+        onSubmit(formData, false);
+      }
+      
       onClose();
     } catch (error) {
       console.error("Error submitting task:", error);
@@ -223,202 +353,99 @@ export const AddTaskModal = ({
     }
   };
 
-  // Format date for <input type="date">
-
-
-  // Handle date changes safely
-  // Handle date changes safely
-// Replace the existing handleDateChange and related functions in your AddTaskModal component
-
-// Helper function to get local ISO string without timezone conversion
-const getLocalISOString = (date: Date): string => {
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-};
-
-// Helper function to add minutes to current time and round up to next 5-minute interval
-const getAdjustedCurrentTime = (): Date => {
-  const now = new Date();
-  const currentMinutes = now.getMinutes();
-  const currentSeconds = now.getSeconds();
-  
-  // If we're past the current minute (has seconds), add 1 minute
-  if (currentSeconds > 0) {
-    now.setMinutes(currentMinutes + 1);
-  }
-  
-  // Round up to next 5-minute interval
-  const minutesToAdd = 5 - (now.getMinutes() % 5);
-  if (minutesToAdd < 5) {
-    now.setMinutes(now.getMinutes() + minutesToAdd);
-  } else {
-    // If already on 5-minute mark, add 5 more minutes
-    now.setMinutes(now.getMinutes() + 5);
-  }
-  
-  // Reset seconds and milliseconds
-  now.setSeconds(0);
-  now.setMilliseconds(0);
-  
-  return now;
-};
-
-// Updated handleDateChange function
-const handleDateChange = (value: string, field: 'startDate' | 'endDate') => {
-  try {
-    if (!value) {
-      setFormData({ ...formData, [field]: "" });
-      return;
-    }
-    
-    if (field === 'startDate') {
-      const selectedDate = new Date(value);
-      const today = new Date();
-      
-      // Check if selected date is today (compare year, month, day only)
-      const isToday = 
-        selectedDate.getDate() === today.getDate() &&
-        selectedDate.getMonth() === today.getMonth() &&
-        selectedDate.getFullYear() === today.getFullYear();
-      
-      if (isToday) {
-        // For today's date, use adjusted current time (next 5-minute interval)
-        const adjustedTime = getAdjustedCurrentTime();
-        
-        // Combine the selected date with the adjusted time
-        const finalDate = new Date(selectedDate);
-        finalDate.setHours(adjustedTime.getHours());
-        finalDate.setMinutes(adjustedTime.getMinutes());
-        finalDate.setSeconds(0);
-        finalDate.setMilliseconds(0);
-        
-        // Convert to local ISO string (no timezone conversion)
-        const localISOTime = getLocalISOString(finalDate);
-        setFormData({
-          ...formData,
-          [field]: localISOTime,
-        });
-      } else {
-        // For future dates, set time to 9:00 AM in local time
-        selectedDate.setHours(9, 0, 0, 0);
-        const localISOTime = getLocalISOString(selectedDate);
-        setFormData({
-          ...formData,
-          [field]: localISOTime,
-        });
-      }
-    } else {
-      // For end date, set to end of day (23:59:59) in local time
-      const date = new Date(value);
-      if (isNaN(date.getTime())) {
-        console.error("Invalid date:", value);
+  // Updated handleDateChange function
+  const handleDateChange = (value: string, field: 'startDate' | 'endDate') => {
+    try {
+      if (!value) {
+        updateFormField(field, "");
         return;
       }
       
-      date.setHours(23, 59, 59, 0); // Changed milliseconds to 0 for cleaner time
-      const localISOTime = getLocalISOString(date);
-      
-      setFormData({
-        ...formData,
-        [field]: localISOTime,
-      });
-    }
-  } catch (error) {
-    console.error("Error handling date change:", error);
-  }
-};
-
-// Updated formatDateForInput function to handle local time correctly
-const formatDateForInput = (dateString: string) => {
-  if (!dateString) return "";
-  try {
-    let date: Date;
-    
-    if (dateString.includes('T')) {
-      // If it's a local ISO string (no timezone), treat as local time
-      if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
-        // This is a local ISO string, parse it as local time
-        const [datePart, timePart] = dateString.split('T');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour, minute, second] = timePart.split(':').map(Number);
-        date = new Date(year, month - 1, day, hour, minute, second || 0);
+      if (field === 'startDate') {
+        const selectedDate = new Date(value);
+        const today = new Date();
+        
+        const isToday = 
+          selectedDate.getDate() === today.getDate() &&
+          selectedDate.getMonth() === today.getMonth() &&
+          selectedDate.getFullYear() === today.getFullYear();
+        
+        if (isToday) {
+          const adjustedTime = getAdjustedCurrentTime();
+          const finalDate = new Date(selectedDate);
+          finalDate.setHours(adjustedTime.getHours());
+          finalDate.setMinutes(adjustedTime.getMinutes());
+          finalDate.setSeconds(0);
+          finalDate.setMilliseconds(0);
+          
+          const localISOTime = getLocalISOString(finalDate);
+          updateFormField(field, localISOTime);
+        } else {
+          selectedDate.setHours(9, 0, 0, 0);
+          const localISOTime = getLocalISOString(selectedDate);
+          updateFormField(field, localISOTime);
+        }
       } else {
-        // This has timezone info, parse normally
-        date = new Date(dateString);
+        const date = new Date(value);
+        if (isNaN(date.getTime())) {
+          console.error("Invalid date:", value);
+          return;
+        }
+        
+        date.setHours(23, 59, 59, 0);
+        const localISOTime = getLocalISOString(date);
+        updateFormField(field, localISOTime);
       }
-    } else {
-      // If it's just a date string, create date in local timezone
-      const [year, month, day] = dateString.split('-').map(Number);
-      date = new Date(year, month - 1, day);
+    } catch (error) {
+      console.error("Error handling date change:", error);
     }
-    
-    if (isNaN(date.getTime())) return "";
-    
-    // Return date in YYYY-MM-DD format for the input
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
-  } catch (error) {
-    console.error("Error formatting date:", error);
-    return "";
-  }
-};
+  };
 
-// Updated initialization in useEffect (replace the existing formData initialization)
-useEffect(() => {
-  if (!isOpen) {
-    setFormInitialized(false);
-    return;
-  }
+  // Updated formatDateForInput function
+  const formatDateForInput = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      let date: Date;
+      
+      if (dateString.includes('T')) {
+        if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+          const [datePart, timePart] = dateString.split('T');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hour, minute, second] = timePart.split(':').map(Number);
+          date = new Date(year, month - 1, day, hour, minute, second || 0);
+        } else {
+          date = new Date(dateString);
+        }
+      } else {
+        const [year, month, day] = dateString.split('-').map(Number);
+        date = new Date(year, month - 1, day);
+      }
+      
+      if (isNaN(date.getTime())) return "";
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "";
+    }
+  };
 
-  // Prevent re-initialization if already initialized for the same task
-  if (formInitialized && editingTaskId === editingTask?.id) {
-    return;
-  }
-
-  if (editingTask) {
-    setFormData({
-      subject: editingTask.subject || "",
-      description: editingTask.description || "",
-      priority: editingTask.priority || "LOW",
-      taskStageId: editingTask.taskStageId || 0,
-      startDate: editingTask.startDate || getLocalISOString(getAdjustedCurrentTime()),
-      endDate: editingTask.endDate || "",
-      assignee: editingTask.assignee?.id || "",
-    });
-  } else {
-    // Reset form for new task with adjusted current time
-    const adjustedTime = getAdjustedCurrentTime();
-    setFormData({
-      subject: "",
-      description: "",
-      priority: "LOW",
-      taskStageId: 0,
-      startDate: getLocalISOString(adjustedTime),
-      endDate: "",
-      assignee: "",
-    });
-  }
-  
-  setFormInitialized(true);
-}, [editingTask, isOpen, editingTaskId]);
-
-// Example usage in console to test the time adjustment:
-console.log('Current time:', new Date().toLocaleTimeString());
-console.log('Adjusted time:', getAdjustedCurrentTime().toLocaleTimeString());
-console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
+  // Get the name of the pre-selected stage for display
+  const getPreSelectedStageName = () => {
+    if (preSelectedStageId && stages.length > 0) {
+      const selectedStage = stages.find(stage => stage.id === preSelectedStageId);
+      return selectedStage?.name;
+    }
+    return null;
+  };
 
   if (!isOpen) return null;
+
+  console.log('RENDER - formData.taskStageId:', formData.taskStageId, 'preSelectedStageId:', preSelectedStageId);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -429,10 +456,20 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
             {!editingTask ? (
               <p className="text-xs text-[#636363] mt-1">
                 Create a new task for your team
+                {preSelectedStageId && getPreSelectedStageName() && (
+                  <span className="text-blue-600 ml-1">
+                  {`• Adding to "${getPreSelectedStageName()}" stage`}
+                  </span>
+                )}
               </p>
             ) : (
               <p className="text-xs text-[#636363] mt-1">
                 Edit the task details
+                {dirtyFields.size > 0 && (
+                  <span className="text-blue-600 ml-1">
+                    • {dirtyFields.size} field{dirtyFields.size !== 1 ? 's' : ''} modified
+                  </span>
+                )}
               </p>
             )}
           </DialogTitle>
@@ -450,13 +487,14 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
               className="text-sm font-medium text-foreground"
             >
               Subject: *
+              {dirtyFields.has('subject') && (
+                <span className="text-blue-600 text-xs ml-1">• Modified</span>
+              )}
             </Label>
             <Input
               id="subject"
               value={formData.subject}
-              onChange={(e) =>
-                setFormData({ ...formData, subject: e.target.value })
-              }
+              onChange={(e) => updateFormField('subject', e.target.value)}
               placeholder="Enter Subject"
               required
               className="w-full"
@@ -468,14 +506,14 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Priority: *
+                {dirtyFields.has('priority') && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
               </Label>
               <Select
                 value={formData.priority}
                 onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    priority: value as typeof formData.priority,
-                  })
+                  updateFormField('priority', value as typeof formData.priority)
                 }
               >
                 <SelectTrigger>
@@ -494,13 +532,15 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Stage: *
+                
               </Label>
               <Select
                 value={formData.taskStageId?.toString() || ""}
                 onValueChange={(value) => {
                   const numValue = parseInt(value, 10);
                   if (!isNaN(numValue)) {
-                    setFormData({ ...formData, taskStageId: numValue });
+                    console.log('Stage selection changed to:', numValue);
+                    updateFormField('taskStageId', numValue);
                   }
                 }}
               >
@@ -511,6 +551,7 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
                   {stages.map((stage) => (
                     <SelectItem key={stage.id} value={stage.id.toString()}>
                       {stage.name}
+                    
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -523,6 +564,9 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Start Date: *
+                {dirtyFields.has('startDate') && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
               </Label>
               <Input
                 type="date"
@@ -536,6 +580,9 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 End Date (Optional):
+                {dirtyFields.has('endDate') && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
               </Label>
               <Input
                 type="date"
@@ -546,14 +593,17 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
             </div>
           </div>
 
-          {/* Assignee (Single Select) */}
+          {/* Assignee */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
               Assignee: *
+              {dirtyFields.has('assignee') && (
+                <span className="text-blue-600 text-xs ml-1">• Modified</span>
+              )}
             </Label>
             <Select
               value={formData.assignee}
-              onValueChange={(value) => setFormData({ ...formData, assignee: value })}
+              onValueChange={(value) => updateFormField('assignee', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select assignee" />
@@ -578,12 +628,13 @@ console.log('Local ISO string:', getLocalISOString(getAdjustedCurrentTime()));
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
               Description: *
+              {dirtyFields.has('description') && (
+                <span className="text-blue-600 text-xs ml-1">• Modified</span>
+              )}
             </Label>
             <Textarea
               value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              onChange={(e) => updateFormField('description', e.target.value)}
               placeholder="Enter Description"
               rows={4}
               className="resize-none"
