@@ -70,5 +70,8 @@ export const API_CONSTANTS = {
      TRACK_BY_LEAD_ID: "/track/fetchByLeadId",
      CREATE_STAGE:"/stage/create",
      FETCH_STAGE: "/stage/fetch",
+     UPDATE_STAGE: "/stage/update",
+       DELETE_STAGE: '/stage/deleteById',
+
   },
 };

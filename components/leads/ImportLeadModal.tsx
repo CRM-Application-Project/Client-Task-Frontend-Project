@@ -34,7 +34,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [status] = useState("NEW"); // Default status set to "NEW"
+  const [status] = useState("NEW LEAD"); // Default status set to "NEW"
   const [user, setUser] = useState(""); // User from localStorage
   const { toast } = useToast();
 

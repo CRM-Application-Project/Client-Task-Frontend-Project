@@ -19,7 +19,6 @@ import {
   changeLeadStatus,
   createLeadStage,
   fetchLeadStages,
-  
 } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
@@ -57,7 +56,7 @@ interface Lead {
 
 type LeadFiltersType = {
   status?: LeadStatus;
-    priority?: LeadPriority;
+  priority?: LeadPriority;
   source?: LeadSource;
   assignedTo?: string;
   label?: string;
@@ -115,6 +114,68 @@ const Leads = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Handle stage updates - with proper reordering
+  const handleStageUpdate = (updatedStage: LeadStage) => {
+    setLeadStages(prevStages => {
+      const updatedStages = prevStages.map(stage => 
+        stage.leadStageId === updatedStage.leadStageId 
+          ? updatedStage 
+          : stage
+      );
+      
+      // Re-sort stages by priority to maintain proper order
+      return updatedStages.sort((a, b) => a.leadStagePriority - b.leadStagePriority);
+    });
+
+    // Also update any leads that might have the old stage name
+    setLeads(prevLeads => 
+      prevLeads.map(lead => {
+        // Find the original stage name to update leads
+        const originalStage = leadStages.find(stage => stage.leadStageId === updatedStage.leadStageId);
+        if (originalStage && lead.leadStatus === originalStage.leadStageName) {
+          return {
+            ...lead,
+            leadStatus: updatedStage.leadStageName
+          };
+        }
+        return lead;
+      })
+    );
+  };
+
+  // Handle stage deletion
+  const handleStageDelete = (deletedStageId: string) => {
+    // Get the stage being deleted to find leads that need to be moved
+    const deletedStage = leadStages.find(stage => stage.leadStageId === deletedStageId);
+    
+    if (deletedStage) {
+      // Move leads from deleted stage to the first remaining stage
+      const remainingStages = leadStages.filter(stage => stage.leadStageId !== deletedStageId);
+      const firstRemainingStage = remainingStages.sort((a, b) => a.leadStagePriority - b.leadStagePriority)[0];
+      
+      if (firstRemainingStage) {
+        setLeads(prevLeads => 
+          prevLeads.map(lead => 
+            lead.leadStatus === deletedStage.leadStageName 
+              ? { ...lead, leadStatus: firstRemainingStage.leadStageName }
+              : lead
+          )
+        );
+      } else {
+        // If no stages remain, remove leads with deleted stage
+        setLeads(prevLeads => 
+          prevLeads.filter(lead => lead.leadStatus !== deletedStage.leadStageName)
+        );
+      }
+    }
+
+    // Remove the deleted stage and re-sort
+    setLeadStages(prevStages => {
+      const filteredStages = prevStages.filter(stage => stage.leadStageId !== deletedStageId);
+      return filteredStages.sort((a, b) => a.leadStagePriority - b.leadStagePriority);
+    });
   };
 
   // Create new lead stage
@@ -511,11 +572,10 @@ const Leads = () => {
   };
 
   const handleViewLead = async (lead: Lead) => {
-    setSelectedLead(lead); // Set initial lead data for quick display
+    setSelectedLead(lead);
     setIsViewModalOpen(true);
 
     try {
-      // Fetch detailed lead data from API
       const response = await getLeadById(lead.leadId);
 
       if (response.isSuccess && response.data) {
@@ -569,7 +629,6 @@ const Leads = () => {
     assignedToLabel: string
   ) => {
     try {
-      // Optimistic update first for immediate UI response
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
           lead.leadId === leadId
@@ -584,7 +643,6 @@ const Leads = () => {
         )
       );
 
-      // Refresh all leads to ensure data consistency
       await fetchLeads();
 
       toast({
@@ -593,7 +651,6 @@ const Leads = () => {
       });
     } catch (error: any) {
       console.error("Failed to refresh leads after assignment:", error);
-      // The optimistic update will still show the change
       toast({
         title: "Assignment updated",
         description:
@@ -606,7 +663,6 @@ const Leads = () => {
     setIsImportModalOpen(true);
   };
 
-  // FIXED: Improved import leads handler to prevent duplication
   const handleImportLeads = (importedLeads: any[]) => {
     if (
       !importedLeads ||
@@ -614,7 +670,6 @@ const Leads = () => {
       importedLeads.length === 0
     ) {
       console.warn("No leads to import or invalid data");
-      // Refresh leads after import to ensure consistency
       fetchLeads();
       return;
     }
@@ -624,8 +679,6 @@ const Leads = () => {
         enhanceLeadWithAssigneeName(lead, assignOptions)
       );
 
-      // FIXED: Instead of adding to existing leads, replace with fresh data to avoid duplicates
-      // Option 1: Add only new leads (check for duplicates)
       setLeads((prevLeads) => {
         const existingIds = new Set(prevLeads.map((lead) => lead.leadId));
         const newLeads = enhancedLeads.filter(
@@ -644,7 +697,6 @@ const Leads = () => {
         description: error.message || "Failed to process imported leads",
         variant: "destructive",
       });
-      // Fallback: refresh all leads
       fetchLeads();
     }
   };
@@ -788,6 +840,8 @@ const Leads = () => {
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                onStageUpdate={handleStageUpdate}
+                onStageDelete={handleStageDelete}
               />
             ))}
           </div>
@@ -943,7 +997,6 @@ const Leads = () => {
           cancelText="Cancel"
         />
 
-        {/* Other modals remain the same... */}
         <ViewLeadModal
           isOpen={isViewModalOpen}
           onClose={() => setIsViewModalOpen(false)}
@@ -959,7 +1012,7 @@ const Leads = () => {
           leadStages={leadStages}
         />
 
-                <AddFollowUpModal
+        <AddFollowUpModal
           isOpen={isFollowUpModalOpen}
           onClose={() => setIsFollowUpModalOpen(false)}
           lead={selectedLead}

@@ -144,11 +144,12 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
             <div className="relative">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="focus:outline-none"
+                className="focus:outline-none group" // Added group class
               >
-                <Avatar className="h-8 w-8 cursor-pointer">
-                  <AvatarFallback>
-                    {user.firstName.charAt(0).toUpperCase()}
+                <Avatar className="h-8 w-8 cursor-pointer group-hover:bg-[#3b3b3b] transition-colors duration-200"> {/* Added hover styles */}
+ <AvatarFallback 
+    className="transition-colors duration-200 group-hover:bg-[#3b3b3b] group-hover:text-white"
+  >                    {user.firstName.charAt(0).toUpperCase()}
                     {user.lastName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
