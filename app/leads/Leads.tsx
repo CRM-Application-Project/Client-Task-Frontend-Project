@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadColumn } from "@/components/leads/LeadColumn";
@@ -19,6 +19,7 @@ import {
   changeLeadStatus,
   createLeadStage,
   fetchLeadStages,
+  updateLeadStage,
 } from "../services/data.service";
 import { useToast } from "@/hooks/use-toast";
 import ChangeStatusModal from "@/components/leads/ChangeStatusModal";
@@ -29,8 +30,13 @@ import AddFollowUpModal from "@/components/leads/AddFollowUpModal";
 import EditLeadModal from "@/components/leads/EditLeadModal";
 import ViewLeadModal from "@/components/leads/ViewLeadModal";
 import { format } from "date-fns";
-import { CreateLeadStageRequest, FilterLeadsParams, LeadStage } from "@/lib/data";
+import {
+  CreateLeadStageRequest,
+  FilterLeadsParams,
+  LeadStage,
+} from "@/lib/data";
 import { CreateLeadStageModal } from "@/components/leads/LeadStageModal";
+import { ChangeStatusConfirmModal } from "@/components/leads/ChangeStatusDragConfirmModal";
 
 // Updated Lead interface
 interface Lead {
@@ -92,8 +98,11 @@ const Leads = () => {
     { sortBy: string; sortOrder: "asc" | "desc" } | undefined
   >();
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [isStatusChangeConfirmOpen, setIsStatusChangeConfirmOpen] =
+    useState(false);
+  const [targetStatus, setTargetStatus] = useState<string>("");
+  const [statusChangeMessage, setStatusChangeMessage] = useState("");
 
   const { toast } = useToast();
 
@@ -103,7 +112,9 @@ const Leads = () => {
       const response = await fetchLeadStages();
       if (response.isSuccess && response.data) {
         // Sort stages by priority for consistent ordering
-        const sortedStages = response.data.sort((a, b) => a.leadStagePriority - b.leadStagePriority);
+        const sortedStages = response.data.sort(
+          (a, b) => a.leadStagePriority - b.leadStagePriority
+        );
         setLeadStages(sortedStages);
       }
     } catch (error) {
@@ -118,26 +129,28 @@ const Leads = () => {
 
   // Handle stage updates - with proper reordering
   const handleStageUpdate = (updatedStage: LeadStage) => {
-    setLeadStages(prevStages => {
-      const updatedStages = prevStages.map(stage => 
-        stage.leadStageId === updatedStage.leadStageId 
-          ? updatedStage 
-          : stage
+    setLeadStages((prevStages) => {
+      const updatedStages = prevStages.map((stage) =>
+        stage.leadStageId === updatedStage.leadStageId ? updatedStage : stage
       );
-      
+
       // Re-sort stages by priority to maintain proper order
-      return updatedStages.sort((a, b) => a.leadStagePriority - b.leadStagePriority);
+      return updatedStages.sort(
+        (a, b) => a.leadStagePriority - b.leadStagePriority
+      );
     });
 
     // Also update any leads that might have the old stage name
-    setLeads(prevLeads => 
-      prevLeads.map(lead => {
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) => {
         // Find the original stage name to update leads
-        const originalStage = leadStages.find(stage => stage.leadStageId === updatedStage.leadStageId);
+        const originalStage = leadStages.find(
+          (stage) => stage.leadStageId === updatedStage.leadStageId
+        );
         if (originalStage && lead.leadStatus === originalStage.leadStageName) {
           return {
             ...lead,
-            leadStatus: updatedStage.leadStageName
+            leadStatus: updatedStage.leadStageName,
           };
         }
         return lead;
@@ -148,38 +161,54 @@ const Leads = () => {
   // Handle stage deletion
   const handleStageDelete = (deletedStageId: string) => {
     // Get the stage being deleted to find leads that need to be moved
-    const deletedStage = leadStages.find(stage => stage.leadStageId === deletedStageId);
-    
+    const deletedStage = leadStages.find(
+      (stage) => stage.leadStageId === deletedStageId
+    );
+
     if (deletedStage) {
       // Move leads from deleted stage to the first remaining stage
-      const remainingStages = leadStages.filter(stage => stage.leadStageId !== deletedStageId);
-      const firstRemainingStage = remainingStages.sort((a, b) => a.leadStagePriority - b.leadStagePriority)[0];
-      
+      const remainingStages = leadStages.filter(
+        (stage) => stage.leadStageId !== deletedStageId
+      );
+      const firstRemainingStage = remainingStages.sort(
+        (a, b) => a.leadStagePriority - b.leadStagePriority
+      )[0];
+
       if (firstRemainingStage) {
-        setLeads(prevLeads => 
-          prevLeads.map(lead => 
-            lead.leadStatus === deletedStage.leadStageName 
+        setLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.leadStatus === deletedStage.leadStageName
               ? { ...lead, leadStatus: firstRemainingStage.leadStageName }
               : lead
           )
         );
       } else {
         // If no stages remain, remove leads with deleted stage
-        setLeads(prevLeads => 
-          prevLeads.filter(lead => lead.leadStatus !== deletedStage.leadStageName)
+        setLeads((prevLeads) =>
+          prevLeads.filter(
+            (lead) => lead.leadStatus !== deletedStage.leadStageName
+          )
         );
       }
     }
 
     // Remove the deleted stage and re-sort
-    setLeadStages(prevStages => {
-      const filteredStages = prevStages.filter(stage => stage.leadStageId !== deletedStageId);
-      return filteredStages.sort((a, b) => a.leadStagePriority - b.leadStagePriority);
+    setLeadStages((prevStages) => {
+      const filteredStages = prevStages.filter(
+        (stage) => stage.leadStageId !== deletedStageId
+      );
+      return filteredStages.sort(
+        (a, b) => a.leadStagePriority - b.leadStagePriority
+      );
     });
   };
 
   // Create new lead stage
-  const handleCreateStage = async (stageData: { name: string; description: string; orderNumber: number }) => {
+  const handleCreateStage = async (stageData: {
+    name: string;
+    description: string;
+    orderNumber: number;
+  }) => {
     try {
       const createStageRequest: CreateLeadStageRequest = {
         leadStageName: stageData.name,
@@ -188,7 +217,7 @@ const Leads = () => {
       };
 
       const response = await createLeadStage(createStageRequest);
-      
+
       if (response.isSuccess) {
         toast({
           title: "Success",
@@ -441,6 +470,7 @@ const Leads = () => {
   ) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    setDragOverStage(stageName);
   };
 
   const handleDrop = async (
@@ -448,10 +478,19 @@ const Leads = () => {
     newStatus: string
   ) => {
     e.preventDefault();
+    setDragOverStage(null);
 
     if (!draggedLead) return;
-
     if (draggedLead.leadStatus === newStatus) return;
+
+    // Show confirmation modal instead of immediately updating
+    setTargetStatus(newStatus);
+    setStatusChangeMessage(""); // Reset message
+    setIsStatusChangeConfirmOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!draggedLead || !targetStatus) return;
 
     try {
       const leadToUpdate = leads.find(
@@ -459,12 +498,13 @@ const Leads = () => {
       );
       if (!leadToUpdate) return;
 
+      // Update UI optimistically
       setLeads((prevLeads) =>
         prevLeads.map((lead) =>
           lead.leadId === draggedLead.leadId
             ? {
                 ...lead,
-                leadStatus: newStatus,
+                leadStatus: targetStatus,
                 updatedAt: new Date().toISOString(),
               }
             : lead
@@ -473,12 +513,14 @@ const Leads = () => {
 
       const payload: ChangeLeadStatusRequest = {
         leadId: leadToUpdate.leadId,
-        leadStatus: newStatus,
+        leadStatus: targetStatus,
+        message: statusChangeMessage || undefined, // Include optional message
       };
 
       const response = await changeLeadStatus(payload);
 
       if (!response.isSuccess) {
+        // Revert on error
         setLeads((prevLeads) =>
           prevLeads.map((lead) =>
             lead.leadId === draggedLead.leadId
@@ -498,12 +540,16 @@ const Leads = () => {
               lead.leadId === draggedLead.leadId
                 ? {
                     ...lead,
-                    leadStatus: newStatus,
+                    leadStatus: targetStatus,
                     updatedAt: response.data!.updatedAt,
                   }
                 : lead
             )
           );
+          toast({
+            title: "Status updated",
+            description: "Lead status has been successfully updated.",
+          });
         }
       }
     } catch (error: any) {
@@ -522,6 +568,9 @@ const Leads = () => {
       });
     } finally {
       setDraggedLead(null);
+      setIsStatusChangeConfirmOpen(false);
+      setTargetStatus("");
+      setStatusChangeMessage("");
     }
   };
 
@@ -795,13 +844,13 @@ const Leads = () => {
           onSortLeads={() => setIsSortingModalOpen(true)}
           leadStages={leadStages}
         />
-
         {viewMode === "kanban" && (
           <div className="flex gap-4 overflow-x-auto pb-6">
-            {leadStages.map((stage) => (
+            {leadStages.map((stage, index) => (
               <LeadColumn
                 key={stage.leadStageId}
                 stage={stage}
+                stageIndex={index}
                 leads={filteredLeads.filter(
                   (lead) => lead.leadStatus === stage.leadStageName
                 )}
@@ -840,13 +889,13 @@ const Leads = () => {
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                isDragOver={dragOverStage === stage.leadStageName}
                 onStageUpdate={handleStageUpdate}
                 onStageDelete={handleStageDelete}
               />
             ))}
           </div>
         )}
-
         {/* Grid View - Updated to use dynamic stages */}
         {viewMode === "grid" && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -970,7 +1019,6 @@ const Leads = () => {
             )}
           </div>
         )}
-
         {/* All Modals */}
         <AddLeadModal
           isOpen={isAddModalOpen}
@@ -979,14 +1027,12 @@ const Leads = () => {
           onNewLeadCreated={handleAddNewLead}
           leadStages={leadStages}
         />
-
         <CreateLeadStageModal
           isOpen={isCreateStageModalOpen}
           onClose={() => setIsCreateStageModalOpen(false)}
           onSubmit={handleCreateStage}
           existingStagesCount={leadStages.length}
         />
-
         <ConfirmationModal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
@@ -996,13 +1042,26 @@ const Leads = () => {
           confirmText="Delete"
           cancelText="Cancel"
         />
-
+        <ChangeStatusConfirmModal
+          isOpen={isStatusChangeConfirmOpen}
+          onClose={() => {
+            setIsStatusChangeConfirmOpen(false);
+            setDraggedLead(null);
+            setTargetStatus("");
+            setStatusChangeMessage("");
+          }}
+          onConfirm={handleConfirmStatusChange}
+          leadName={draggedLead?.customerName || "this lead"}
+          currentStatus={draggedLead?.leadStatus || ""}
+          newStatus={targetStatus}
+          message={statusChangeMessage}
+          onMessageChange={setStatusChangeMessage}
+        />
         <ViewLeadModal
           isOpen={isViewModalOpen}
           onClose={() => setIsViewModalOpen(false)}
           lead={selectedLead}
         />
-
         <EditLeadModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
@@ -1011,34 +1070,29 @@ const Leads = () => {
           lead={selectedLead}
           leadStages={leadStages}
         />
-
         <AddFollowUpModal
           isOpen={isFollowUpModalOpen}
           onClose={() => setIsFollowUpModalOpen(false)}
           lead={selectedLead}
           onAddFollowUp={handleCreateFollowUp}
         />
-
         <ChangeAssignModal
           isOpen={isChangeAssignModalOpen}
           onClose={() => setIsChangeAssignModalOpen(false)}
           lead={selectedLead}
           onChangeAssign={handleUpdateAssignment}
         />
-
         <ImportLeadModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
           onImportLeads={handleImportLeads}
         />
-
         <LeadSortingModal
           isOpen={isSortingModalOpen}
           onClose={() => setIsSortingModalOpen(false)}
           onApplySort={handleApplySort}
           currentSort={sortConfig}
         />
-
         <ChangeStatusModal
           isOpen={isChangeStatusModalOpen}
           onClose={() => setIsChangeStatusModalOpen(false)}

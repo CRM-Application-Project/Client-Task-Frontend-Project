@@ -30,6 +30,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import UpdateDepartmentModal from "./UpdateDepartmentModal";
 
 export default function DepartmentsPage() {
@@ -154,86 +160,122 @@ export default function DepartmentsPage() {
           <CreateDepartmentModal onSuccess={fetchDepartments} />
         </div>
       </div>
-      <div className="rounded-sm border shadow-sm">
-        <Table>
-          <TableHeader className="bg-gray-50">
-            <TableRow>
-              <TableHead className="w-20 font-medium text-gray-700">
-                ID
-              </TableHead>
-              <TableHead className="font-medium text-gray-700">Name</TableHead>
-              <TableHead className="font-medium text-gray-700">
-                Created At
-              </TableHead>
-              <TableHead className="font-medium text-gray-700">
-                Updated At
-              </TableHead>
-              <TableHead className="font-medium text-gray-700">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-4 w-10" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : paginatedData.length > 0 ? (
-              paginatedData.map((dept) => (
-                <TableRow key={dept.id} className="bg-white hover:bg-white">
-                  <TableCell className="font-medium">{dept.id}</TableCell>
-                  <TableCell className="font-medium text-blue-600">
-                    {dept.name}
-                  </TableCell>
-                  <TableCell>{formatDate(dept.createdAt)}</TableCell>
-                  <TableCell>{formatDate(dept.updatedAt)}</TableCell>
-                  <TableCell className="flex gap-2">
-                    <UpdateDepartmentModal
-                      department={dept}
-                      onSuccess={fetchDepartments}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setDepartmentToDelete(dept.id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
+      <TooltipProvider>
+        <div className="rounded-sm border shadow-sm">
+          <Table>
+            <TableHeader className="bg-gray-50">
               <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center py-8 text-gray-500"
-                >
-                  No departments found
-                </TableCell>
+                <TableHead className="w-20 font-medium text-gray-700">
+                  ID
+                </TableHead>
+                <TableHead className="font-medium text-gray-700">
+                  Name
+                </TableHead>
+                <TableHead className="font-medium text-gray-700">
+                  User Count
+                </TableHead>
+                <TableHead className="font-medium text-gray-700">
+                  Created At
+                </TableHead>
+                <TableHead className="font-medium text-gray-700">
+                  Updated At
+                </TableHead>
+                <TableHead className="font-medium text-gray-700">
+                  Actions
+                </TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-10" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-20" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : paginatedData.length > 0 ? (
+                paginatedData.map((dept) => (
+                  <TableRow key={dept.id} className="bg-white hover:bg-white">
+                    <TableCell className="font-medium">{dept.id}</TableCell>
+                    <TableCell className="font-medium text-blue-600">
+                      {dept.name}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {dept.userCount}
+                    </TableCell>
+                    <TableCell>{formatDate(dept.createdAt)}</TableCell>
+                    <TableCell>{formatDate(dept.updatedAt)}</TableCell>
+                    <TableCell className="flex gap-2">
+                      <UpdateDepartmentModal
+                        department={dept}
+                        onSuccess={fetchDepartments}
+                      />
+
+                      {dept.userCount > 0 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-disabled="true"
+                                className="cursor-not-allowed opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4 text-gray-400" />
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              Cannot delete a department with users assigned
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDepartmentToDelete(dept.id);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-8 text-gray-500"
+                  >
+                    No departments found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </TooltipProvider>
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
