@@ -360,7 +360,83 @@ const statuses: TaskStatus[] = [
   "IN_REVIEW",
   "DONE",
 ];
+interface DeleteTaskModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  taskName: string;
+  isLoading?: boolean;
+}
 
+const DeleteTaskModal = ({ isOpen, onClose, onConfirm, taskName, isLoading = false }: DeleteTaskModalProps) => {
+  if (!isOpen) return null;
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Delete Task</h2>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+              type="button"
+              disabled={isLoading}
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-6">
+          <div className="space-y-4">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {`Are you sure you want to delete "${taskName}"?`}
+              </h3>
+              <p className="text-sm text-gray-500">
+                This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium disabled:opacity-50"
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              disabled={isLoading}
+            >
+              {isLoading && (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              )}
+              Delete Task
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 export default function TaskBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filters, setFilters] = useState<{
@@ -608,19 +684,7 @@ export default function TaskBoard() {
     [searchQuery, convertFiltersToApiParams, fetchTasks]
   );
 
-  const handleDeleteTask = useCallback(
-    async (taskId: number) => {
-      try {
-        const response = await deleteTask(taskId);
-        if (response.isSuccess) {
-          await fetchTasks(undefined, true);
-        }
-      } catch (error) {
-        console.error("Error deleting task:", error);
-      }
-    },
-    [fetchTasks]
-  );
+
 
  const handleAddTask = useCallback(async (
   taskData: CreateTaskRequest | Partial<UpdateTaskRequest>, 
@@ -664,7 +728,8 @@ const { toast } = useToast();
     setEditingStage(stage);
     setIsEditStageModalOpen(true);
   }, []);
-
+const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+const [isDeleteTaskModalOpen, setIsDeleteTaskModalOpen] = useState(false);
  const handleSaveStage = useCallback(async (stageData: { name: string; description: string }) => {
   if (!editingStage) return;
   
@@ -722,7 +787,42 @@ const { toast } = useToast();
     setEditingStage(null);
   }
 }, [editingStage, fetchStages, fetchTasks, toast]);
+ const handleDeleteTask = useCallback(
+  async (taskId: number) => {
+    try {
+      const response = await deleteTask(taskId);
+      if (response.isSuccess) {
+        await fetchTasks(undefined, true);
+        setIsDeleteTaskModalOpen(false);
+        setTaskToDelete(null);
+        toast({
+          title: "Task Deleted",
+          description: "Task has been deleted successfully.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete task. Please try again.",
+        variant: "destructive",
+      });
+    }
+  },
+  [fetchTasks, toast]
+);
+const confirmDeleteTask = useCallback(() => {
+  if (taskToDelete) {
+    handleDeleteTask(taskToDelete.id);
+  }
+}, [taskToDelete, handleDeleteTask]);
 
+// Add this function to open delete confirmation
+const openDeleteConfirmation = useCallback((task: Task) => {
+  setTaskToDelete(task);
+  setIsDeleteTaskModalOpen(true);
+}, []);
   const handleDeleteStage = useCallback(async (stage: TaskStage) => {
     // Check if stage has tasks
     const stageTasks = tasks.filter(task => task.taskStageId === stage.id);
@@ -1132,12 +1232,12 @@ const { toast } = useToast();
                               >
                                 Edit
                               </button>
-                              <button
-                                onClick={() => handleDeleteTask(task.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
+                             <button
+  onClick={() => openDeleteConfirmation(task)}
+  className="text-red-600 hover:text-red-900"
+>
+  Delete
+</button>
                             </div>
                           </td>
                         </tr>
@@ -1192,6 +1292,16 @@ const { toast } = useToast();
           stageName={stageToDelete?.name || ''}
           isLoading={isUpdatingStage}
         />
+        <DeleteTaskModal
+  isOpen={isDeleteTaskModalOpen}
+  onClose={() => {
+    setIsDeleteTaskModalOpen(false);
+    setTaskToDelete(null);
+  }}
+  onConfirm={confirmDeleteTask}
+  taskName={taskToDelete?.subject || ''}
+  isLoading={isUpdatingStage} // You might want to create a separate loading state for task deletion
+/>
          
       </>
     </div>
