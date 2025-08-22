@@ -359,7 +359,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                           filteredLeadStages.map((stage) => (
                             <SelectItem 
                               key={stage.leadStageId} 
-                              value={stage.leadStageId}
+                             value={stage.leadStageName}
                             >
                               {stage.leadStageName}
                             </SelectItem>
