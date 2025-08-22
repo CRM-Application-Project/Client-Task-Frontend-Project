@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -33,9 +35,27 @@ export default function RegisterPage() {
     gstNumber: "",
     companyType: "",
   });
+  
+  const [fieldErrors, setFieldErrors] = useState({
+    emailAddress: "",
+    password: "",
+    companyEmailAddress: "",
+    companyContactNumber: "",
+    gstNumber: "",
+  });
+  
+  const [touchedFields, setTouchedFields] = useState({
+    emailAddress: false,
+    password: false,
+    companyEmailAddress: false,
+    companyContactNumber: false,
+    gstNumber: false,
+  });
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCompanyInfo, setShowCompanyInfo] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -49,36 +69,216 @@ export default function RegisterPage() {
     "Non-Profit",
   ];
 
-  const validateForm = () => {
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.emailAddress)) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
+  // Password pattern regex
+  const PASSWORD_REGEX = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$%^&+=!]).{8,}$/;
+  
+  // GST number pattern (15 alphanumeric characters)
+  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+
+  // Validate individual fields in real-time
+  interface ValidationErrors {
+    emailAddress: string;
+    password: string;
+    companyEmailAddress: string;
+    companyContactNumber: string;
+    gstNumber: string;
+  }
+
+  type FieldName = keyof ValidationErrors;
+
+  const validateField = (fieldName: FieldName, value: string): string => {
+    let error: string = "";
+    
+    switch (fieldName) {
+      case "emailAddress":
+      case "companyEmailAddress":
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = "Please enter a valid email address";
+        }
+        break;
+      case "password":
+        if (value && !PASSWORD_REGEX.test(value)) {
+          error = "Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character (@#$%^&+=!)";
+        }
+        break;
+      case "companyContactNumber":
+        if (value && !/^\d{10}$/.test(value)) {
+          error = "Phone number must be exactly 10 digits";
+        }
+        break;
+      case "gstNumber":
+        if (value && !GST_REGEX.test(value)) {
+          error = "Please enter a valid GST number (15 alphanumeric characters)";
+        }
+        break;
+      default:
+        break;
+    }
+    
+    return error;
+  };
+
+  // Check if all required fields are filled and valid
+  const checkFormValidity = () => {
+    // Check personal information fields
+    if (!formData.firstName || !formData.lastName || !formData.emailAddress || !formData.password) {
       return false;
     }
-
-    // Password strength check (min 8 chars)
-    if (formData.password.length < 8) {
-      toast({
-        title: "Weak Password",
-        description: "Password must be at least 8 characters long",
-        variant: "destructive",
-      });
+    
+    // Check if email is valid
+    if (fieldErrors.emailAddress || validateField("emailAddress", formData.emailAddress)) {
       return false;
     }
-
+    
+    // Check if password is valid
+    if (fieldErrors.password || validateField("password", formData.password)) {
+      return false;
+    }
+    
+    // If company info is shown, check those fields too
+    if (showCompanyInfo) {
+      if (!formData.companyName || !formData.companyType || !formData.companyEmailAddress || 
+          !formData.companyContactNumber || !formData.gstNumber) {
+        return false;
+      }
+      
+      // Check if company email is valid
+      if (fieldErrors.companyEmailAddress || validateField("companyEmailAddress", formData.companyEmailAddress)) {
+        return false;
+      }
+      
+      // Check if company contact number is valid
+      if (fieldErrors.companyContactNumber || validateField("companyContactNumber", formData.companyContactNumber)) {
+        return false;
+      }
+      
+      // Check if GST number is valid
+      if (fieldErrors.gstNumber || validateField("gstNumber", formData.gstNumber)) {
+        return false;
+      }
+    }
+    
     return true;
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // Update touched fields
+  const handleBlur = (fieldName: FieldName): void => {
+    setTouchedFields(prev => ({ ...prev, [fieldName]: true }));
+    
+    // Validate the field when it loses focus
+    const error = validateField(fieldName, formData[fieldName]);
+    setFieldErrors(prev => ({ ...prev, [fieldName]: error }));
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  // Update field errors when form data changes
+  useEffect(() => {
+    // Validate email when it changes (if it's been touched)
+    if (touchedFields.emailAddress) {
+      const error = validateField("emailAddress", formData.emailAddress);
+      setFieldErrors(prev => ({ ...prev, emailAddress: error }));
+    }
+    
+    // Validate password when it changes (if it's been touched)
+    if (touchedFields.password) {
+      const error = validateField("password", formData.password);
+      setFieldErrors(prev => ({ ...prev, password: error }));
+    }
+    
+    // Validate company email when it changes (if it's been touched)
+    if (touchedFields.companyEmailAddress) {
+      const error = validateField("companyEmailAddress", formData.companyEmailAddress);
+      setFieldErrors(prev => ({ ...prev, companyEmailAddress: error }));
+    }
+    
+    // Validate phone number when it changes (if it's been touched)
+    if (touchedFields.companyContactNumber) {
+      const error = validateField("companyContactNumber", formData.companyContactNumber);
+      setFieldErrors(prev => ({ ...prev, companyContactNumber: error }));
+    }
+    
+    // Validate GST number when it changes (if it's been touched)
+    if (touchedFields.gstNumber) {
+      const error = validateField("gstNumber", formData.gstNumber);
+      setFieldErrors(prev => ({ ...prev, gstNumber: error }));
+    }
+    
+    // Check if the form is valid
+    setIsFormValid(checkFormValidity());
+  }, [
+    formData,
+    touchedFields,
+    showCompanyInfo,
+    fieldErrors.emailAddress,
+    fieldErrors.password,
+    fieldErrors.companyEmailAddress,
+    fieldErrors.companyContactNumber,
+    fieldErrors.gstNumber
+  ]);
+
+  const validateForm = () => {
+    const errors = {
+      emailAddress: validateField("emailAddress", formData.emailAddress),
+      password: validateField("password", formData.password),
+      companyEmailAddress: showCompanyInfo ? validateField("companyEmailAddress", formData.companyEmailAddress) : "",
+      companyContactNumber: showCompanyInfo ? validateField("companyContactNumber", formData.companyContactNumber) : "",
+      gstNumber: showCompanyInfo ? validateField("gstNumber", formData.gstNumber) : "",
+    };
+    
+    setFieldErrors(errors);
+    setTouchedFields({
+      emailAddress: true,
+      password: true,
+      companyEmailAddress: true,
+      companyContactNumber: true,
+      gstNumber: true,
+    });
+    
+    // Check if there are any errors
+    const hasErrors = Object.values(errors).some(error => error !== "");
+    
+    return !hasErrors;
+  };
+
+  // Define type for form data fields
+  interface FormData {
+    firstName: string;
+    lastName: string;
+    emailAddress: string;
+    password: string;
+    companyName: string;
+    companyEmailAddress: string;
+    companyContactNumber: string;
+    gstNumber: string;
+    companyType: string;
+  }
+  
+  // Define a type for the field names
+  type FormFieldName = keyof FormData;
+  
+  const handleInputChange = (field: FormFieldName, value: string): void => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  interface RegisterResponse {
+    isSuccess: boolean;
+    data?: {
+      message?: string;
+    };
+    message?: string;
+  }
+
+  interface RegisterData {
+    firstName: string;
+    lastName: string;
+    emailAddress: string;
+    password: string;
+    companyName: string;
+    companyEmailAddress: string;
+    companyContactNumber: string;
+    gstNumber: string;
+  }
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!validateForm()) {
       return;
@@ -88,7 +288,7 @@ export default function RegisterPage() {
 
     try {
       // Prepare the registration data
-      const registerData: RegisterRequestData = {
+      const registerData: RegisterData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         emailAddress: formData.emailAddress,
@@ -100,13 +300,13 @@ export default function RegisterPage() {
       };
 
       // Call the registration API
-      const response = await registerUser(registerData);
+      const response: RegisterResponse = await registerUser(registerData);
 
       if (response.isSuccess) {
         toast({
           title: "Registration Successful",
           description:
-            response.data.message ||
+            response.data?.message ||
             "Your account has been created successfully!",
         });
         router.push("/login");
@@ -130,6 +330,28 @@ export default function RegisterPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to render validation status
+  const renderValidationStatus = (fieldName: keyof ValidationErrors): React.ReactNode => {
+    if (!touchedFields[fieldName]) return null;
+    
+    if (fieldErrors[fieldName]) {
+      return (
+        <div className="flex items-center gap-1 mt-1 text-destructive text-xs">
+          <AlertCircle className="h-3 w-3" />
+          <span>{fieldErrors[fieldName]}</span>
+        </div>
+      );
+    } else if (formData[fieldName as keyof FormData]) {
+      return (
+        <div className="flex items-center gap-1 mt-1 text-green-600 text-xs">
+          <CheckCircle className="h-3 w-3" />
+          <span>valid</span>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -232,9 +454,17 @@ export default function RegisterPage() {
                         onChange={(e) =>
                           handleInputChange("emailAddress", e.target.value)
                         }
+                        onBlur={() => handleBlur("emailAddress")}
                         required
-                        className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                        className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
+                          touchedFields.emailAddress && fieldErrors.emailAddress
+                            ? "border-destructive"
+                            : touchedFields.emailAddress && !fieldErrors.emailAddress && formData.emailAddress
+                            ? "border-green-500"
+                            : ""
+                        }`}
                       />
+                      {renderValidationStatus("emailAddress")}
                     </div>
 
                     <div className="space-y-2">
@@ -253,8 +483,15 @@ export default function RegisterPage() {
                           onChange={(e) =>
                             handleInputChange("password", e.target.value)
                           }
+                          onBlur={() => handleBlur("password")}
                           required
-                          className="h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                          className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
+                            touchedFields.password && fieldErrors.password
+                              ? "border-destructive"
+                              : touchedFields.password && !fieldErrors.password && formData.password
+                              ? "border-green-500"
+                              : ""
+                          }`}
                         />
                         <button
                           type="button"
@@ -268,7 +505,32 @@ export default function RegisterPage() {
                           )}
                         </button>
                       </div>
-                    </div>
+                      {renderValidationStatus("password")}
+                      {/* {!fieldErrors.password && formData.password && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                            <span>At least 8 characters</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                            <span>Contains uppercase letter</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                            <span>Contains lowercase letter</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                            <span>Contains number</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                            <span>Contains special character (@#$%^&+=!)</span>
+                          </div>
+                        </div>
+                      )} */}
+                    </div>  
                   </div>
 
                   {/* Company Information */}
@@ -351,9 +613,17 @@ export default function RegisterPage() {
                                 e.target.value
                               )
                             }
+                            onBlur={() => handleBlur("companyEmailAddress")}
                             required
-                            className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                            className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
+                              touchedFields.companyEmailAddress && fieldErrors.companyEmailAddress
+                                ? "border-destructive"
+                                : touchedFields.companyEmailAddress && !fieldErrors.companyEmailAddress && formData.companyEmailAddress
+                                ? "border-green-500"
+                                : ""
+                            }`}
                           />
+                          {renderValidationStatus("companyEmailAddress")}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -377,9 +647,17 @@ export default function RegisterPage() {
                                   value
                                 );
                               }}
+                              onBlur={() => handleBlur("companyContactNumber")}
                               required
-                              className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                              className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
+                                touchedFields.companyContactNumber && fieldErrors.companyContactNumber
+                                  ? "border-destructive"
+                                  : touchedFields.companyContactNumber && !fieldErrors.companyContactNumber && formData.companyContactNumber
+                                  ? "border-green-500"
+                                  : ""
+                              }`}
                             />
+                            {renderValidationStatus("companyContactNumber")}
                           </div>
                           <div className="space-y-2">
                             <Label
@@ -391,14 +669,22 @@ export default function RegisterPage() {
                             <Input
                               id="gstNumber"
                               type="text"
-                              placeholder="Enter GST number"
+                              placeholder="Enter GST number (e.g., 29ABCDE1234F1Z5)"
                               value={formData.gstNumber}
                               onChange={(e) =>
-                                handleInputChange("gstNumber", e.target.value)
+                                handleInputChange("gstNumber", e.target.value.toUpperCase())
                               }
+                              onBlur={() => handleBlur("gstNumber")}
                               required
-                              className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                              className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${
+                                touchedFields.gstNumber && fieldErrors.gstNumber
+                                  ? "border-destructive"
+                                  : touchedFields.gstNumber && !fieldErrors.gstNumber && formData.gstNumber
+                                  ? "border-green-500"
+                                  : ""
+                              }`}
                             />
+                            {renderValidationStatus("gstNumber")}
                           </div>
                         </div>
                       </div>
@@ -407,8 +693,8 @@ export default function RegisterPage() {
 
                   <Button
                     type="submit"
-                    disabled={isLoading}
-                    className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle rounded-lg"
+                    disabled={!isFormValid || isLoading}
+                    className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">

@@ -541,9 +541,7 @@ export const TaskCard = ({
           <DialogHeader>
             <DialogTitle>Task Documents</DialogTitle>
             <DialogDescription>
-              <span className="break-words">
-              {`  Manage documents for "{truncateText(task.subject, 30)}"`}
-              </span>
+              {`Manage documents for ${task.subject}`}
             </DialogDescription>
           </DialogHeader>
 
@@ -645,9 +643,7 @@ export const TaskCard = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="break-words">
-                {'This action cannot be undone. This will permanently delete the task "{truncateText(task.subject, 50)}".'}
-              </span>
+              {`This action cannot be undone. This will permanently delete the task ${task.subject}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
