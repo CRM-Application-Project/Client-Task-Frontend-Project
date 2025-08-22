@@ -224,7 +224,7 @@ const getStatusColor = (status: string) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-6">
+        <div className="grid grid-cols-1  gap-6 py-6">
           {/* Left Card - Lead Information */}
           <div className="bg-white border rounded-lg p-5 shadow-sm">
             <div className="space-y-6">
