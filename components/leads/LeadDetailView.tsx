@@ -1,10 +1,4 @@
-import React, { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import React from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,15 +20,16 @@ import {
   FileText,
   PhoneCall,
   MailIcon,
+  ArrowLeft,
 } from "lucide-react";
-import { FetchLeadTrackResponse, LeadTrack } from "@/lib/data";
-import { fetchLeadTrackById } from "@/app/services/data.service";
-
+import { LeadTrack } from "@/lib/data";
+import Link from "next/link";
 interface Lead {
   leadId: string;
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
+  leadAssignedTo: string;
   customerMobileNumber: string;
   companyEmailAddress: string;
   customerName: string;
@@ -43,58 +38,25 @@ interface Lead {
   comment?: string;
   leadLabel?: string;
   leadReference?: string;
-  leadPriority: string;
-  company?: string;
+  leadPriority: LeadPriority;
   companyName?: string;
+  company?: string;
   createdAt: string;
   updatedAt: string;
+  assignedToName?: string;
 }
 
-interface ViewLeadModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  lead: Lead | null;
+interface LeadDetailViewProps {
+  lead: Lead;
+  leadTracks: LeadTrack[];
+  onRefresh: () => void;
 }
 
-const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
-  isOpen,
-  onClose,
+const LeadDetailView: React.FC<LeadDetailViewProps> = ({
   lead,
+  leadTracks,
+  onRefresh,
 }) => {
-  const [leadTracks, setLeadTracks] = useState<LeadTrack[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen && lead) {
-      fetchLeadTracks();
-    }
-  }, [isOpen, lead]);
-
-  const fetchLeadTracks = async () => {
-    if (!lead) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response: FetchLeadTrackResponse = await fetchLeadTrackById(
-        lead.leadId
-      );
-      if (response.isSuccess) {
-        setLeadTracks(response.data);
-      } else {
-        setError(response.message || "Failed to fetch lead tracking data");
-      }
-    } catch (err) {
-      setError("Error fetching lead tracking data");
-      console.error("Error fetching lead tracks:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!lead) return null;
-
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -142,12 +104,10 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
     }
   };
 
-  // Helper function to check if a value exists and should be displayed
   const shouldDisplay = (value: any): boolean => {
     return value !== null && value !== undefined && value !== "";
   };
 
-  // Format date string for display
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -159,7 +119,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
         minute: "2-digit",
       });
     } catch (error) {
-      return dateString; // Return original string if parsing fails
+      return dateString;
     }
   };
 
@@ -177,7 +137,6 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
     }
   };
 
-  // Get icon for different activity types
   const getActivityIcon = (actionDescription: string) => {
     const desc = actionDescription.toLowerCase();
 
@@ -200,37 +159,48 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-start gap-4 pb-4 border-b">
-            <Avatar className="h-14 w-14">
-              <AvatarFallback className="bg-blue-50 text-blue-600 font-medium">
-                {getInitials(lead.customerName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {lead.customerName}
-              </h2>
-              {shouldDisplay(lead.company) && (
-                <p className="text-sm text-gray-600">{lead.company}</p>
-              )}
-              <div className="flex gap-2 pt-1 flex-wrap">
-                <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
-                  {lead.leadStatus.replace("_", " ")}
-                </Badge>
-                <Badge
-                  className={`${getPriorityColor(lead.leadPriority)} border`}
-                >
-                  {lead.leadPriority}
-                </Badge>
-              </div>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+    <div className="bg-white rounded-lg shadow-sm border">
+      {/* Header with back button */}
+      <div className="flex items-center justify-between p-6 border-b">
+        <Link
+          href="/leads"
+          className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Leads
+        </Link>
+   
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-2">
+      <div className="p-6">
+        {/* Lead header */}
+        <div className="flex items-start gap-4 pb-6 border-b">
+          <Avatar className="h-14 w-14">
+            <AvatarFallback className="bg-blue-50 text-blue-600 font-medium">
+              {getInitials(lead.customerName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {lead.customerName}
+            </h2>
+            {shouldDisplay(lead.company) && (
+              <p className="text-sm text-gray-600">{lead.company}</p>
+            )}
+            <div className="flex gap-2 pt-1 flex-wrap">
+              <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
+                {lead.leadStatus.replace("_", " ")}
+              </Badge>
+              <Badge
+                className={`${getPriorityColor(lead.leadPriority)} border`}
+              >
+                {lead.leadPriority}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-6">
           {/* Left Card - Lead Information */}
           <div className="bg-white border rounded-lg p-5 shadow-sm">
             <div className="space-y-6">
@@ -462,6 +432,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
             </div>
           </div>
 
+          {/* Right Card - Activity History */}
           <div className="bg-white/70 backdrop-blur border rounded-xl p-6 shadow-md">
             <div className="space-y-5">
               {/* Header */}
@@ -469,7 +440,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
                 <History className="h-5 w-5 text-blue-600" />
                 Lead Activity History
                 <button
-                  onClick={fetchLeadTracks}
+                  onClick={onRefresh}
                   className="ml-auto p-2 rounded-full hover:bg-blue-50 text-blue-600 transition"
                   title="Sync history"
                 >
@@ -477,38 +448,8 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
                 </button>
               </h3>
 
-              {/* Loading */}
-              {loading && (
-                <div className="flex items-center justify-center py-10 text-gray-500 animate-pulse">
-                  <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                  Loading activity history...
-                </div>
-              )}
-
-              {/* Error */}
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                  <p className="text-red-700 font-medium">{error}</p>
-                  <button
-                    onClick={fetchLeadTracks}
-                    className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
-
-              {/* Empty */}
-              {!loading && !error && leadTracks.length === 0 && (
-                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <p className="text-gray-500 text-sm">
-                    ✨ No activity history yet
-                  </p>
-                </div>
-              )}
-
               {/* Timeline */}
-              {!loading && !error && leadTracks.length > 0 && (
+              {leadTracks.length > 0 ? (
                 <div className="space-y-6 max-h-[calc(120vh-200px)] overflow-y-auto pr-2">
                   {leadTracks.map((track, index) => (
                     <div
@@ -555,13 +496,19 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
                     </div>
                   ))}
                 </div>
+              ) : (
+                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <p className="text-gray-500 text-sm">
+                    ✨ No activity history yet
+                  </p>
+                </div>
               )}
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
-export default ViewLeadModal;
+export default LeadDetailView;
