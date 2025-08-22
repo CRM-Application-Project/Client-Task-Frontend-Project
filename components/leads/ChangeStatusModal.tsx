@@ -84,6 +84,12 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
     },
   });
 
+  // Watch the status field to determine if button should be enabled
+  const status = form.watch("status");
+  
+  // Check if a valid status is selected
+  const isFormValid = status && status.length > 0;
+
   React.useEffect(() => {
     if (lead) {
       form.reset({
@@ -191,16 +197,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md md:max-w-lg rounded-lg">
-        {/* <div className="absolute right-4 top-4">
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-8 w-8 p-0 rounded-full"
-            onClick={handleClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div> */}
+
 
         <DialogHeader className="text-left">
           <DialogTitle className="text-xl font-semibold">
@@ -211,16 +208,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               Change the status for{" "}
               <span className="font-medium">{lead?.customerName}</span>
             </span>
-            {/* {lead && (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-muted-foreground">
-                  Current Status:
-                </span>
-                <Badge variant="outline" className={getCurrentStatus()?.color}>
-                  {getCurrentStatus()?.label}
-                </Badge>
-              </div>
-            )} */}
+          
           </DialogDescription>
         </DialogHeader>
 
@@ -265,26 +253,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               )}
             />
 
-            {/* <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center gap-1">
-                    <FormLabel className="text-base">Add Notes</FormLabel>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Optional: Add details about this status change..."
-                      className="min-h-[100px] resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            /> */}
+        
 
             <DialogFooter className="gap-2 sm:gap-0 flex flex-col-reverse sm:flex-row mt-6">
               <Button
@@ -295,9 +264,14 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               >
                 Cancel
               </Button>
-              <Button type="submit" className="h-11 flex-1">
-                Update Status
-              </Button>
+            <Button 
+  type="submit" 
+  className={`h-11 flex-1 ${!isFormValid ? "btn-disabled" : ""}`}
+  disabled={!isFormValid}
+>
+  Update Status
+</Button>
+
             </DialogFooter>
           </form>
         </Form>

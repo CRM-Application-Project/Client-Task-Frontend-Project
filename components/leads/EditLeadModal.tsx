@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { LeadStatus, LeadSource, LeadPriority } from '../../lib/leads';
 import { useToast } from '@/hooks/use-toast';
 import { updateLead } from '@/app/services/data.service';
+import { useCountryCodes } from '@/hooks/useCountryCodes';
 
 // Updated Lead interface to match the new structure
 interface Lead {
@@ -58,7 +59,10 @@ interface Lead {
 const formSchema = z.object({
   customerName: z.string().min(1, 'Name is required'),
   customerEmailAddress: z.string().email('Invalid email address'),
-  customerMobileNumber: z.string().min(1, 'Phone number is required'),
+  customerMobileNumber: z.string()
+    .min(10, 'Phone number must be at least 10 digits')
+    .max(12, 'Phone number cannot exceed 12 digits')
+    .regex(/^\d+$/, 'Phone number must contain only digits'),
   companyEmailAddress: z.string().email('Invalid company email address').optional().or(z.literal('')),
   leadAddress: z.string().optional().or(z.literal('')),
   leadStatus: z.string().min(1, 'Status is required'),
@@ -86,10 +90,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   lead
 }) => {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [selectedCode, setSelectedCode] = useState("+91");
+  const { codes: countryCodes, loading: loadingCountryCodes } = useCountryCodes();
  
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange', // Enable real-time validation
     defaultValues: {
       customerName: lead?.customerName || '',
       customerEmailAddress: lead?.customerEmailAddress || '',
@@ -106,7 +114,36 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     },
   });
 
-  React.useEffect(() => {
+  // Watch all form fields to detect changes
+  const formValues = form.watch();
+  
+  // Check if form has changes compared to initial lead data
+  useEffect(() => {
+    if (!lead) return;
+    
+    const initialValues = {
+      customerName: lead.customerName,
+      customerEmailAddress: lead.customerEmailAddress,
+      customerMobileNumber: lead.customerMobileNumber,
+      companyEmailAddress: lead.companyEmailAddress || '',
+      leadAddress: lead.leadAddress || '',
+      leadStatus: lead.leadStatus,
+      leadPriority: lead.leadPriority || '',
+      leadSource: lead.leadSource,
+      leadAddedBy: lead.leadAddedBy,
+      leadLabel: lead.leadLabel || '',
+      leadReference: lead.leadReference || '',
+      comment: lead.comment || '',
+    };
+    
+    const hasFormChanged = Object.keys(initialValues).some(
+      key => formValues[key as keyof FormData] !== initialValues[key as keyof typeof initialValues]
+    );
+    
+    setHasChanges(hasFormChanged);
+  }, [formValues, lead]);
+
+  useEffect(() => {
     if (lead) {
       form.reset({
         customerName: lead.customerName,
@@ -122,8 +159,16 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         leadReference: lead.leadReference || '',
         comment: lead.comment || '',
       });
+      
+      // Extract country code from stored phone number if available
+      if (lead.customerMobileNumber) {
+        const codeMatch = lead.customerMobileNumber.match(/^(\+\d+)/);
+        if (codeMatch && countryCodes.some(code => code.code === codeMatch[1] )) {
+          setSelectedCode(codeMatch[1]);
+        }
+      }
     }
-  }, [lead, form]);
+  }, [lead, form, countryCodes]);
 
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
@@ -131,11 +176,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     setIsSubmitting(true);
     
     try {
+      // Prepend country code to phone number
+      const phoneWithCode = `${selectedCode}${data.customerMobileNumber.replace(/^\+\d+/, '')}`;
+      
       const payload = {
         leadId: lead.leadId,
         customerName: data.customerName,
         customerEmailAddress: data.customerEmailAddress,
-        customerMobileNumber: data.customerMobileNumber,
+        customerMobileNumber: phoneWithCode,
         companyEmailAddress: data.companyEmailAddress || '',
         leadAddress: data.leadAddress || '',
         leadStatus: data.leadStatus as LeadStatus,
@@ -155,7 +203,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           ...lead,
           customerName: data.customerName,
           customerEmailAddress: data.customerEmailAddress,
-          customerMobileNumber: data.customerMobileNumber,
+          customerMobileNumber: phoneWithCode,
           companyEmailAddress: data.companyEmailAddress || '',
           leadAddress: data.leadAddress || '',
           leadStatus: data.leadStatus as LeadStatus,
@@ -204,6 +252,13 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     onClose();
   };
 
+  // Extract phone number without country code for display
+  const getPhoneWithoutCode = (phone: string) => {
+    if (!phone) return '';
+    const codeMatch = phone.match(/^(\+\d+)(.*)/);
+    return codeMatch ? codeMatch[2] : phone;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -238,7 +293,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Customer Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="customer@example.com" {...field} />
+                      <Input 
+                        placeholder="customer@example.com" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.trigger('customerEmailAddress');
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -251,11 +313,34 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Number</FormLabel>
-                    <FormControl>
-                      <Input 
-                      maxLength={12}
-                      placeholder="+1 (555) 123-4567" {...field} />
-                    </FormControl>
+                    <div className="flex">
+                      <Select value={selectedCode} onValueChange={setSelectedCode}>
+                        <SelectTrigger className="w-[80px] mr-2">
+                          <SelectValue placeholder="+91" />
+                        </SelectTrigger>
+                        <SelectContent className="w-[240px]">
+                          {countryCodes.map((code) => (
+                            <SelectItem key={code.code} value={code.code}>
+  {code.code} &nbsp; {code.name}
+</SelectItem>
+
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormControl>
+                        <Input
+                          placeholder="1234567890"
+                          {...field}
+                          value={getPhoneWithoutCode(field.value)}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            field.onChange(value);
+                            form.trigger('customerMobileNumber');
+                          }}
+                          maxLength={10}
+                        />
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -268,7 +353,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="company@example.com" {...field} />
+                      <Input 
+                        placeholder="company@example.com" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (e.target.value) form.trigger('companyEmailAddress');
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -433,7 +525,11 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                  disabled={isSubmitting || !hasChanges || !form.formState.isValid}
+                  className={`${(isSubmitting || !hasChanges || !form.formState.isValid) ? "btn-disabled" : ""}`}
+              >
                 {isSubmitting ? "Updating..." : "Update Lead"}
               </Button>
             </div>

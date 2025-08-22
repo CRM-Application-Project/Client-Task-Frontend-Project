@@ -34,11 +34,16 @@ import {
   createLead,
 } from "@/app/services/data.service";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
+import { LeadStage } from "@/lib/data";
 
+// Enhanced validation schema with better phone validation
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerEmailAddress: z.string().email("Invalid email address"),
-  customerMobileNumber: z.string().min(1, "Mobile number is required"),
+  customerMobileNumber: z.string()
+    .min(10, 'Phone number must be at least 10 digits')
+    .max(10, 'Phone number cannot exceed 10 digits')
+    .regex(/^\d+$/, 'Phone number must contain only digits'),
   companyEmailAddress: z.string().email("Invalid company email address").optional().or(z.literal("")),
   leadStatus: z.string().min(1, "Lead status is required"),
   leadSource: z.string().min(1, "Lead source is required"),
@@ -56,6 +61,7 @@ interface AddLeadModalProps {
   onClose: () => void;
   onAddLead: (lead: any) => void;
   onNewLeadCreated: (apiLeadData: any) => void; 
+leadStages: LeadStage[];
 }
 
 interface UserData {
@@ -69,16 +75,18 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   onClose,
   onAddLead,
   onNewLeadCreated,
+  leadStages 
 }) => {
   const { toast } = useToast();
   const { codes, loading } = useCountryCodes();
   const [selectedCode, setSelectedCode] = useState("+91");
-  const [phone, setPhone] = useState("");
   const [user, setUser] = useState<UserData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange', // Enable real-time validation
     defaultValues: {
       customerName: "",
       customerEmailAddress: "",
@@ -93,6 +101,32 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       comment: "",
     },
   });
+
+  // Watch all form fields to detect changes
+  const formValues = form.watch();
+  
+  // Check if form has changes compared to initial values
+  useEffect(() => {
+    const initialValues = {
+      customerName: "",
+      customerEmailAddress: "",
+      customerMobileNumber: "",
+      companyEmailAddress: "",
+      leadStatus: "",
+      leadSource: "",
+      leadAddedBy: "",
+      leadLabel: "",
+      leadReference: "",
+      leadAddress: "",
+      comment: "",
+    };
+    
+    const hasFormChanged = Object.keys(initialValues).some(
+      key => formValues[key as keyof FormData] !== initialValues[key as keyof typeof initialValues]
+    );
+    
+    setHasChanges(hasFormChanged);
+  }, [formValues]);
 
   useEffect(() => {
     // Get user data from localStorage
@@ -194,13 +228,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="customerName"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Customer Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter customer name" {...field} />
+                      <Input 
+                        placeholder="Enter customer name" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.trigger('customerName');
+                        }}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -208,13 +249,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="customerEmailAddress"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Customer Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="customer@example.com" {...field} />
+                      <Input 
+                        placeholder="customer@example.com" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.trigger('customerEmailAddress');
+                        }}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -222,7 +270,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="customerMobileNumber"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Mobile Number</FormLabel>
                     <div className="flex gap-2">
@@ -247,11 +295,18 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                       </Select>
                       <FormControl>
                         <Input 
-                        maxLength={10}
-                        placeholder="Enter  mobile number" {...field} />
+                          placeholder="Enter mobile number" 
+                          {...field} 
+                          maxLength={10}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            field.onChange(value);
+                            form.trigger('customerMobileNumber');
+                          }}
+                        />
                       </FormControl>
                     </div>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -259,13 +314,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="companyEmailAddress"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="contact@company.com" {...field} />
+                      <Input 
+                        placeholder="contact@company.com" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (e.target.value) form.trigger('companyEmailAddress');
+                        }}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -273,11 +335,14 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="leadStatus"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Lead Status</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.trigger('leadStatus');
+                      }}
                       defaultValue={field.value}
                     >
                       <FormControl>
@@ -298,7 +363,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                         <SelectItem value="CLOSED_LOST">Closed Lost</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -306,11 +371,14 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="leadSource"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Lead Source</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.trigger('leadSource');
+                      }}
                       defaultValue={field.value}
                     >
                       <FormControl>
@@ -330,7 +398,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                         <SelectItem value="OTHER">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -338,7 +406,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="leadAddedBy"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Added By</FormLabel>
                     <FormControl>
@@ -349,7 +417,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                         className="bg-gray-100"
                       />
                     </FormControl>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -357,13 +425,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="leadLabel"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Lead Label (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter lead label" {...field} />
+                      <Input 
+                        placeholder="Enter lead label" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.trigger('leadLabel');
+                        }}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -371,13 +446,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <FormField
                 control={form.control}
                 name="leadReference"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Lead Reference (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter reference number" {...field} />
+                      <Input 
+                        placeholder="Enter reference number" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.trigger('leadReference');
+                        }}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
               />
@@ -386,13 +468,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
             <FormField
               control={form.control}
               name="leadAddress"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter address" {...field} />
+                    <Input 
+                      placeholder="Enter address" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        form.trigger('leadAddress');
+                      }}
+                    />
                   </FormControl>
-                  <FormMessage />
+                  {fieldState.error && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -400,7 +489,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
             <FormField
               control={form.control}
               name="comment"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Comment (Optional)</FormLabel>
                   <FormControl>
@@ -408,9 +497,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                       placeholder="Enter any additional comments..."
                       className="min-h-[100px]"
                       {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        form.trigger('comment');
+                      }}
                     />
                   </FormControl>
-                  <FormMessage />
+                  {fieldState.error && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -419,9 +512,16 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Add Lead"}
-              </Button>
+           <Button 
+  type="submit" 
+  disabled={isSubmitting || !hasChanges || !form.formState.isValid}
+  className={`${
+    (isSubmitting || !hasChanges || !form.formState.isValid) ? "btn-disabled" : ""
+  }`}
+>
+  {isSubmitting ? "Creating..." : "Add Lead"}
+</Button>
+
             </DialogFooter>
           </form>
         </Form>

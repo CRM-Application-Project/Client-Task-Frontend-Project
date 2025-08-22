@@ -105,8 +105,13 @@
   transition: none !important;
 }
 
-.btn-disabled {
+
+.cursor-not-allowed {
   cursor: not-allowed !important;
-  opacity: 0.5;
-  pointer-events: auto !important;
 }
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: auto !important; 
+}
+
