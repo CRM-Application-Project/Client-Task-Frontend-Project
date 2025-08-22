@@ -1147,17 +1147,9 @@ export default function StaffPage() {
                                                 user
                                               ).map((module) => ({
                                                 value: module.id,
-                                                label: module.name
-                                                  .toLowerCase()
-                                                  .split(" ")
-                                                  .map(
-                                                    (word) =>
-                                                      word
-                                                        .charAt(0)
-                                                        .toUpperCase() +
-                                                      word.slice(1)
-                                                  )
-                                                  .join(" "),
+                                                label: formatUserRole(
+                                                  module.name
+                                                ),
                                               }))}
                                             />
                                           </div>

@@ -6,9 +6,18 @@ import {
   updateUser,
   getDepartments,
   UpdateUserPayload,
+  getRoleScopeDropdown,
+  RoleScope,
 } from "@/app/services/data.service";
 import { useToast } from "@/hooks/use-toast";
-import { DatePicker, Select } from "antd";
+import { DatePicker, Select as AntdSelect } from "antd";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import dayjs, { Dayjs } from "dayjs";
@@ -58,6 +67,7 @@ export const UpdateStaffModal = ({
     { id: number; name: string }[]
   >([]);
   const { toast } = useToast();
+  const [roleScopes, setRoleScopes] = useState<RoleScope[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -102,6 +112,31 @@ export const UpdateStaffModal = ({
       }
     };
     fetchDepartments();
+  }, []);
+
+  useEffect(() => {
+    const fetchRoleScopes = async () => {
+      try {
+        const res = await getRoleScopeDropdown();
+        if (res.isSuccess) {
+          setRoleScopes(res.data);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: res.message || "Failed to fetch roles",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description:
+            error.message || "An error occurred while fetching roles",
+        });
+      }
+    };
+    fetchRoleScopes();
   }, []);
 
   // Check if form is dirty whenever formData changes
@@ -192,6 +227,14 @@ export const UpdateStaffModal = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatText = (text: string) => {
+    return text
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   if (!isOpen || !user) return null;
@@ -369,7 +412,7 @@ export const UpdateStaffModal = ({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Department *
                   </label>
-                  <Select
+                  <AntdSelect
                     className="w-full"
                     value={formData.departmentId}
                     onChange={(value) =>
@@ -385,26 +428,29 @@ export const UpdateStaffModal = ({
 
                 {/* Role */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role *
-                  </label>
+                  <Label>User Role</Label>
                   <Select
-                    className="w-full"
                     value={formData.userRole}
-                    onChange={(value) => handleSelectChange("userRole", value)}
-                    options={[
-                      { value: "ADMIN", label: "Admin" },
-                      { value: "TESTER_QA", label: "Tester/QA" },
-                      { value: "SALES_EXECUTIVE", label: "Sales Executive" },
-                      { value: "PROJECT_MANAGER", label: "Project Manager" },
-                      { value: "SALES_MANAGER", label: "Sales Manager" },
-                      { value: "SUPER_ADMIN", label: "Super Admin" },
-                      { value: "TEAM_LEAD", label: "Team Lead" },
-                      { value: "DEVELOPER", label: "Developer" },
-                      { value: "HR", label: "HR" },
-                    ]}
-                    placeholder="Select Role"
-                  />
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, userRole: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roleScopes.map((role) => (
+                        <SelectItem key={role.role} value={role.role}>
+                          <span className="text-md font-medium">
+                            {formatText(role.role)}{" "}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatText(role.scope)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Active */}

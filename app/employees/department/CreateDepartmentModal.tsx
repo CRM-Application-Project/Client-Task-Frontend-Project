@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createDepartment } from "@/app/services/data.service";
 import {
   Dialog,
@@ -22,46 +22,56 @@ export default function CreateDepartmentModal({
   onSuccess?: () => void;
 }) {
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false); // control modal
+  const [open, setOpen] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string }>({});
+  const [touched, setTouched] = useState<{ name?: boolean }>({});
+
+  // ✅ validation rules
+  const validateField = (value: string) => {
+    if (!value.trim())
+      return touched.name ? "Department name is required" : undefined;
+    if (value.length < 2) return "Name must be at least 2 characters";
+    if (value.length > 50) return "Name cannot exceed 50 characters";
+    if (!/^[A-Za-z0-9\s\-&]+$/.test(value))
+      return "Name can only contain letters, numbers, spaces, - and &";
+    return undefined;
+  };
+
+  // validate whole form
+  const validateForm = () => {
+    const newErrors = { name: validateField(name) };
+    setErrors(newErrors);
+    return !newErrors.name;
+  };
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      toast({
-        title: "Error",
-        description: "Department name is required",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
-      const res = await createDepartment({ name, description });
+      const res = await createDepartment({ name: name.trim() });
       if (res.isSuccess) {
         toast({ title: "Success", description: res.message });
         setName("");
-        setDescription("");
+        setErrors({}); // clear errors
         setOpen(false);
         if (onSuccess) onSuccess();
       } else {
-        toast({
-          title: "Error",
-          description: res.message,
-          variant: "destructive",
-        });
+        // 👇 Instead of just toast, also set field error
+        setErrors({ name: res.message });
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create department",
-        variant: "destructive",
-      });
+      setErrors({ name: error.message || "Failed to create department" });
     } finally {
       setLoading(false);
     }
   };
+
+  // ✅ live validation
+  useEffect(() => {
+    if (name) setErrors({ name: validateField(name) });
+  }, [name]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -77,24 +87,39 @@ export default function CreateDepartmentModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Name field */}
           <div className="space-y-2">
-            <Label htmlFor="name" className="mb-6">
-              Department Name
-            </Label>
+            <Label htmlFor="name">Department Name</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => {
+                setTouched({ name: true });
+                setErrors({ name: validateField(name) });
+              }}
               placeholder="Enter department name"
-              className="outline-none border border-gray-300 rounded-md p-2 focus:outline-none"
+              className={`outline-none border ${
+                errors.name ? "border-red-500" : "border-gray-300"
+              } rounded-md p-2`}
             />
+            {errors.name && (
+              <p className="text-sm text-red-600">{errors.name}</p>
+            )}
           </div>
 
+          {/* Actions */}
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleCreate} disabled={loading}>
+            <Button
+              onClick={handleCreate}
+              disabled={loading || !name.trim() || !!errors.name}
+              className={
+                loading || !name.trim() || !!errors.name ? "btn-disabled" : ""
+              }
+            >
               {loading ? "Creating..." : "Create"}
             </Button>
           </div>

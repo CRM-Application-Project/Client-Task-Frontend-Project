@@ -95,7 +95,6 @@
   }
 }
 
-
 /* Add to your global CSS file */
 [data-rbd-drag-handle-draggable-id] {
   -webkit-transform: none !important;
@@ -104,4 +103,10 @@
 
 [data-rbd-draggable-id] {
   transition: none !important;
+}
+
+.btn-disabled {
+  cursor: not-allowed !important;
+  opacity: 0.5;
+  pointer-events: auto !important;
 }
