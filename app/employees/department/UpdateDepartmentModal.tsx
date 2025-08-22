@@ -20,7 +20,6 @@ interface UpdateDepartmentModalProps {
   department: {
     id: number;
     name: string;
-    description?: string;
   };
   onSuccess?: () => void;
 }
@@ -30,47 +29,53 @@ export default function UpdateDepartmentModal({
   onSuccess,
 }: UpdateDepartmentModalProps) {
   const [name, setName] = useState(department.name || "");
-  const [description, setDescription] = useState(department.description || "");
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Reset values when modal opens
   useEffect(() => {
     if (open) {
       setName(department.name || "");
-      setDescription(department.description || "");
+      setError(null);
     }
   }, [open, department]);
 
-  const handleUpdate = async () => {
-    if (!name.trim()) {
-      toast({
-        title: "Error",
-        description: "Department name is required",
-        variant: "destructive",
-      });
-      return;
+  // Validate name instantly
+  useEffect(() => {
+    const trimmed = name.trim();
+
+    if (!trimmed) {
+      setError("Department name is required");
+    } else if (trimmed === department.name.trim()) {
+      setError("Name must be different from the current one");
+    } else if (trimmed.length < 2) {
+      setError("Name must be at least 2 characters");
+    } else if (trimmed.length > 50) {
+      setError("Name cannot exceed 50 characters");
+    } else if (!/^[A-Za-z0-9\s\-&]+$/.test(trimmed)) {
+      setError("Only letters, numbers, spaces, - and & are allowed");
+    } else {
+      setError(null);
     }
+  }, [name, department.name]);
+
+  const handleUpdate = async () => {
+    if (error) return;
 
     setLoading(true);
     try {
-      const res = await updateDepartment(department.id, { name, description });
+      const res = await updateDepartment(department.id, { name: name.trim() });
       if (res.isSuccess) {
         toast({ title: "Success", description: res.message });
-        setOpen(false); // Close modal
+        setOpen(false);
         if (onSuccess) onSuccess();
       } else {
-        toast({
-          title: "Error",
-          description: res.message || "Failed to update department",
-          variant: "destructive",
-        });
+        // 👇 Inline error under field
+        setError(res.message || "Failed to update department");
       }
-    } catch (error:any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update department",
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      setError(err.message || "Failed to update department");
     } finally {
       setLoading(false);
     }
@@ -85,11 +90,12 @@ export default function UpdateDepartmentModal({
       </DialogTrigger>
 
       <DialogContent>
-        <DialogHeader className="flex items-center justify-between">
+        <DialogHeader>
           <DialogTitle>Update Department</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Name field */}
           <div className="space-y-2">
             <Label htmlFor="name">Department Name</Label>
             <Input
@@ -97,24 +103,23 @@ export default function UpdateDepartmentModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter department name"
+              className={`outline-none border ${
+                error ? "border-red-500" : "border-gray-300"
+              } rounded-md p-2`}
             />
+            {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
 
-          {/* <div>
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter description"
-            />
-          </div> */}
-
+          {/* Actions */}
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleUpdate} disabled={loading}>
+            <Button
+              onClick={handleUpdate}
+              disabled={loading || !!error}
+              className={loading || !!error ? "btn-disabled" : ""}
+            >
               {loading ? "Updating..." : "Update"}
             </Button>
           </div>
