@@ -220,8 +220,7 @@ const DeleteStageModal = ({
                 {`Are you sure you want to delete ${stageName}?`}
               </h3>
               <p className="text-sm text-gray-500">
-                This action cannot be undone. All tasks in this stage will need
-                to be moved to another stage first.
+                This action cannot be undone.The stage will be removed permanently.
               </p>
             </div>
           </div>
