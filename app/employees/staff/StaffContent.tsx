@@ -204,35 +204,32 @@ export default function StaffPage() {
     setIsUpdateModalOpen(true);
   };
 
+  // tighten toggle → clear editing/grant state when disabling
   const handleToggleStatus = async (userId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-
-    // Get current status before toggling
-    const currentUser = users.find((user) => user.userId === userId);
+    const currentUser = users.find((u) => u.userId === userId);
     if (!currentUser) return;
-
-    const currentStatus = currentUser.isActive;
+    const wasActive = currentUser.isActive;
 
     try {
-      // Show loading state
-      setTogglingUsers((prev) => ({ ...prev, [userId]: true }));
-
+      setTogglingUsers((p) => ({ ...p, [userId]: true }));
       const response = await toggleUserStatus(userId);
       if (response.isSuccess) {
-        // Update UI only on success
-        setUsers((prevUsers) =>
-          prevUsers.map((user) =>
-            user.userId === userId
-              ? { ...user, isActive: !user.isActive }
-              : user
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.userId === userId ? { ...u, isActive: !u.isActive } : u
           )
         );
+        // if we just turned the user OFF, nuke any editing/grant UI state
+        if (wasActive) {
+          setIsEditingModule(null);
+          setSelectedModuleToGrant(null);
+        }
         toast({
           title: "Success",
           description: "User status updated successfully",
         });
       } else {
-        // Don't update UI on error, just show error message
         toast({
           variant: "destructive",
           title: "Error",
@@ -247,11 +244,21 @@ export default function StaffPage() {
         description: error.message || "Failed to update user status",
       });
     } finally {
-      setTogglingUsers((prev) => ({ ...prev, [userId]: false }));
+      setTogglingUsers((p) => ({ ...p, [userId]: false }));
     }
   };
 
   const handleGrantModuleAccess = async (userId: string) => {
+    const u = users.find((x) => x.userId === userId);
+    if (!u?.isActive) {
+      toast({
+        variant: "destructive",
+        title: "Inactive user",
+        description: "Activate the user to grant modules",
+      });
+      return;
+    }
+
     if (!selectedModuleToGrant) {
       toast({
         variant: "destructive",
@@ -394,7 +401,15 @@ export default function StaffPage() {
     }
   };
 
-  const startEditingModule = (module: any) => {
+  const startEditingModule = (module: any, isActive: boolean) => {
+    if (!isActive) {
+      toast({
+        variant: "destructive",
+        title: "Inactive user",
+        description: "Activate the user to edit module permissions",
+      });
+      return;
+    }
     setIsEditingModule(module.id.toString());
     setEditPermissions({
       canView: module.canView,
@@ -738,8 +753,19 @@ export default function StaffPage() {
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
-                              className="text-blue-600 hover:text-blue-900 mr-3 flex items-center gap-1 p-1 rounded hover:bg-blue-50 transition-colors"
-                              onClick={(e) => handleEditClick(user, e)}
+                              className={`text-blue-600 hover:text-blue-900 mr-3 flex items-center gap-1 p-1 rounded transition-colors
+    ${
+      !user.isActive
+        ? "opacity-40 cursor-not-allowed pointer-events-none"
+        : "hover:bg-blue-50"
+    }`}
+                              onClick={(e) =>
+                                user.isActive && handleEditClick(user, e)
+                              }
+                              disabled={!user.isActive}
+                              title={
+                                user.isActive ? "Edit" : "Activate user to edit"
+                              }
                             >
                               <Pencil className="h-4 w-4" />
                               <span className="hidden sm:inline">Edit</span>
@@ -1118,27 +1144,57 @@ export default function StaffPage() {
                                                       <button
                                                         onClick={() =>
                                                           startEditingModule(
-                                                            module
+                                                            module,
+                                                            user.isActive
                                                           )
                                                         }
-                                                        className="inline-flex items-center p-1.5 border border-gray-300 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                                                        title="Edit permissions"
+                                                        className={`inline-flex items-center p-1.5 border rounded-full
+    ${
+      user.isActive
+        ? "border-gray-300 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+        : "opacity-40 cursor-not-allowed pointer-events-none"
+    }`}
+                                                        disabled={
+                                                          !user.isActive
+                                                        }
+                                                        title={
+                                                          user.isActive
+                                                            ? "Edit permissions"
+                                                            : "Activate user to edit"
+                                                        }
                                                       >
                                                         <Pencil className="h-4 w-4" />
                                                       </button>
                                                       <button
                                                         onClick={() =>
+                                                          user.isActive &&
                                                           handleRemoveModuleAccess(
                                                             module.id.toString()
                                                           )
                                                         }
                                                         disabled={
+                                                          !user.isActive ||
                                                           moduleAccessLoading[
                                                             `remove-${module.id}`
                                                           ]
                                                         }
-                                                        className="inline-flex items-center p-1.5 border border-gray-300 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50"
-                                                        title="Remove access"
+                                                        aria-disabled={
+                                                          !user.isActive ||
+                                                          moduleAccessLoading[
+                                                            `remove-${module.id}`
+                                                          ]
+                                                        }
+                                                        className={`inline-flex items-center p-1.5 border rounded-full transition-colors
+    ${
+      !user.isActive
+        ? "opacity-40 cursor-not-allowed pointer-events-none border-gray-200 text-gray-300"
+        : "border-gray-300 text-gray-500 hover:text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+    }`}
+                                                        title={
+                                                          user.isActive
+                                                            ? "Remove access"
+                                                            : "Activate user to modify modules"
+                                                        }
                                                       >
                                                         {moduleAccessLoading[
                                                           `remove-${module.id}`
@@ -1156,12 +1212,12 @@ export default function StaffPage() {
                                                               r="10"
                                                               stroke="currentColor"
                                                               strokeWidth="4"
-                                                            ></circle>
+                                                            />
                                                             <path
                                                               className="opacity-75"
                                                               fill="currentColor"
                                                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                            ></path>
+                                                            />
                                                           </svg>
                                                         ) : (
                                                           <Trash2 className="h-4 w-4" />
