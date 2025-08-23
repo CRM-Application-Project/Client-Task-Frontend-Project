@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadColumn } from "@/components/leads/LeadColumn";
@@ -127,35 +127,45 @@ const Leads = () => {
     }
   };
 
+  // Always render by sorted priority so any priority change reorders instantly
+  const sortedLeadStages = useMemo(
+    () =>
+      [...leadStages].sort((a, b) => a.leadStagePriority - b.leadStagePriority),
+    [leadStages]
+  );
+
   // Handle stage updates - with proper reordering
+  // Handle stage updates - merge then let memoized sorter handle the order
   const handleStageUpdate = (updatedStage: LeadStage) => {
-    setLeadStages((prevStages) => {
-      const updatedStages = prevStages.map((stage) =>
-        stage.leadStageId === updatedStage.leadStageId ? updatedStage : stage
-      );
+    setLeadStages((prevStages) =>
+      prevStages.map((s) =>
+        s.leadStageId === updatedStage.leadStageId
+          ? { ...s, ...updatedStage }
+          : s
+      )
+    );
 
-      // Re-sort stages by priority to maintain proper order
-      return updatedStages.sort(
-        (a, b) => a.leadStagePriority - b.leadStagePriority
-      );
-    });
-
-    // Also update any leads that might have the old stage name
+    // If the name changed, sync lead cards too (same as you were doing)
     setLeads((prevLeads) =>
       prevLeads.map((lead) => {
-        // Find the original stage name to update leads
-        const originalStage = leadStages.find(
-          (stage) => stage.leadStageId === updatedStage.leadStageId
+        // Find the previous version (from the latest known array)
+        const previous = leadStages.find(
+          (st) => st.leadStageId === updatedStage.leadStageId
         );
-        if (originalStage && lead.leadStatus === originalStage.leadStageName) {
-          return {
-            ...lead,
-            leadStatus: updatedStage.leadStageName,
-          };
+        if (
+          previous &&
+          previous.leadStageName !== updatedStage.leadStageName &&
+          lead.leadStatus === previous.leadStageName
+        ) {
+          return { ...lead, leadStatus: updatedStage.leadStageName };
         }
         return lead;
       })
     );
+
+    // Optional but robust (server may normalize priorities): refresh from API
+    // (no await needed; UI already updates optimistically)
+    fetchLeadStagesData();
   };
 
   // Handle stage deletion
