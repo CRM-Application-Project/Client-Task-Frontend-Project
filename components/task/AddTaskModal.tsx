@@ -1294,17 +1294,6 @@ export const AddTaskModal = ({
                 {dirtyFields.has("taskStageId") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
-                {editingTask && (
-                  <span
-                    className={`ml-2 text-xs ${
-                      stageChanged ? "text-red-600" : "text-gray-500"
-                    }`}
-                  >
-                    {stageChanged
-                      ? "Comment required (stage changed)"
-                      : "Comment optional"}
-                  </span>
-                )}
               </Label>
 
               {hasPreSelectedStage ? (
@@ -1345,6 +1334,33 @@ export const AddTaskModal = ({
               )}
             </div>
           </div>
+
+          {/* Comment field - Only show in edit mode when stage is changed */}
+          {editingTask && stageChanged && (
+            <div className="space-y-2 ">
+              <Label className="text-sm font-medium text-foreground">
+                Comment <span className="text-red-600">*</span>
+                <span className="text-xs text-gray-600 ml-2">
+                  Required because stage was changed
+                </span>
+              </Label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Explain the reason for changing the stage..."
+                rows={3}
+                className={`resize-none ${
+                  !comment.trim() ? "border-red-300 focus:border-red-400" : ""
+                }`}
+                required
+              />
+              {!comment.trim() && (
+                <p className="text-xs text-gray-600">
+                  Comment is required when changing the stage.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Dates */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1444,38 +1460,6 @@ export const AddTaskModal = ({
               className=""
             />
           </div>
-
-          {/* EDIT MODE: Comment field (required if stage changed) */}
-          {editingTask && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">
-                Comment{" "}
-                {stageChanged ? (
-                  <span className="text-red-600">*</span>
-                ) : (
-                  <span className="text-gray-500 text-xs">(optional)</span>
-                )}
-              </Label>
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder={
-                  stageChanged
-                    ? "Explain the reason for changing the stage..."
-                    : "Add an optional comment..."
-                }
-                rows={3}
-                className={`resize-none ${
-                  stageChanged && !comment.trim() ? "border-destructive" : ""
-                }`}
-              />
-              {stageChanged && !comment.trim() && (
-                <p className="text-xs text-destructive">
-                  Comment is required when changing the stage.
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">

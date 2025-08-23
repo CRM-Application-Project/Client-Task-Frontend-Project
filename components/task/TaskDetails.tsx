@@ -352,8 +352,12 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
       
       {/* Task Overview Card */}
       <div className="bg-white shadow-sm rounded-lg border p-4">
-        <div className="flex justify-between items-start mb-3">
-          <h1 className="text-base font-semibold text-gray-900">
+        {/* Subject Section */}
+        <div className="mb-4">
+          <h3 className="font-medium text-gray-700 text-sm mb-2 flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Subject
+          </h3>
+          <h1 className="text-base font-semibold text-gray-900 bg-gray-50 p-3 rounded-md">
             {task.subject}
           </h1>
         </div>
@@ -379,44 +383,50 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           </div>
         )}
 
-        {isEditingDescription ? (
-          <div className="mb-3">
-            <Textarea
-              value={editedDescription}
-              onChange={(e) => setEditedDescription(e.target.value)}
-              className="w-full"
-              rows={3}
-            />
-            <div className="flex justify-end gap-2 mt-2">
-              <Button size="sm" variant="outline" onClick={() => cancelEdit('description')}>
-                <X className="h-4 w-4 mr-1" /> Cancel
-              </Button>
-              <Button size="sm" onClick={handleSaveDescription}>
-                <Save className="h-4 w-4 mr-1" /> Save
-              </Button>
+        {/* Description Section */}
+        <div className="mb-3">
+          <h3 className="font-medium text-gray-700 text-sm mb-2 flex items-center gap-2">
+            <Edit className="h-4 w-4" /> Description
+          </h3>
+          {isEditingDescription ? (
+            <div>
+              <Textarea
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                className="w-full"
+                rows={3}
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <Button size="sm" variant="outline" onClick={() => cancelEdit('description')}>
+                  <X className="h-4 w-4 mr-1" /> Cancel
+                </Button>
+                <Button size="sm" onClick={handleSaveDescription}>
+                  <Save className="h-4 w-4 mr-1" /> Save
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="relative group">
-            {task.description ? (
-              <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                {task.description}
-              </p>
-            ) : (
-              <p className="text-sm text-gray-400 italic p-3 rounded-md border border-dashed">
-                No description provided
-              </p>
-            )}
-            {permissions.canEdit && (
-              <button
-                onClick={() => setIsEditingDescription(true)}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white rounded border shadow-sm"
-              >
-                <Edit className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-        )}
+          ) : (
+            <div className="relative group">
+              {task.description ? (
+                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+                  {task.description}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-400 italic p-3 rounded-md border border-dashed">
+                  No description provided
+                </p>
+              )}
+              {permissions.canEdit && (
+                <button
+                  onClick={() => setIsEditingDescription(true)}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white rounded border shadow-sm"
+                >
+                  <Edit className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Enhanced Acceptance Criteria Section */}
