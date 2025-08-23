@@ -3,52 +3,67 @@ import { useState, useEffect } from "react";
 interface CreateLeadStageModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (stageData: { name: string; description: string; orderNumber: number }) => void;
+  onSubmit: (stageData: {
+    name: string;
+    description: string;
+    orderNumber: number;
+  }) => void;
   existingStagesCount: number;
 }
 
-export function CreateLeadStageModal({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  existingStagesCount 
+export function CreateLeadStageModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  existingStagesCount,
 }: CreateLeadStageModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    orderNumber: existingStagesCount + 1
+    orderNumber: existingStagesCount + 1,
   });
 
-  const [errors, setErrors] = useState<{ name?: string; orderNumber?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; orderNumber?: string }>(
+    {}
+  );
   const [isFormValid, setIsFormValid] = useState(false);
+  const [touched, setTouched] = useState<{
+    name?: boolean;
+    orderNumber?: boolean;
+  }>({});
 
-  // Real-time validation
+  // Validation with touched logic
   useEffect(() => {
     const newErrors: { name?: string; orderNumber?: string } = {};
-    
-    // Validate name
-    if (!formData.name.trim()) {
-      newErrors.name = "Stage name is required";
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = "Stage name must be at least 2 characters";
-    } else if (formData.name.trim().length > 50) {
-      newErrors.name = "Stage name cannot exceed 50 characters";
+
+    if (touched.name) {
+      if (!formData.name.trim()) {
+        newErrors.name = "Stage name is required";
+      } else if (formData.name.trim().length < 2) {
+        newErrors.name = "Stage name must be at least 2 characters";
+      } else if (formData.name.trim().length > 50) {
+        newErrors.name = "Stage name cannot exceed 50 characters";
+      }
     }
-    
-    // Validate order number
-    if (formData.orderNumber < 1) {
-      newErrors.orderNumber = "Order number must be at least 1";
-    } else if (!Number.isInteger(formData.orderNumber)) {
-      newErrors.orderNumber = "Order number must be a whole number";
+
+    if (touched.orderNumber) {
+      if (formData.orderNumber < 1) {
+        newErrors.orderNumber = "Order number must be at least 1";
+      } else if (!Number.isInteger(formData.orderNumber)) {
+        newErrors.orderNumber = "Order number must be a whole number";
+      }
     }
-    
+
     setErrors(newErrors);
     setIsFormValid(Object.keys(newErrors).length === 0);
-  }, [formData]);
+  }, [formData, touched]);
 
   const handleSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
-    
+
+    // Force all fields to touched on submit
+    setTouched({ name: true, orderNumber: true });
+
     if (!isFormValid) return;
 
     onSubmit(formData);
@@ -59,17 +74,18 @@ export function CreateLeadStageModal({
     setFormData({
       name: "",
       description: "",
-      orderNumber: existingStagesCount + 1
+      orderNumber: existingStagesCount + 1,
     });
     setErrors({});
+    setTouched({});
     onClose();
   };
 
   // Update order number when existingStagesCount changes
   useEffect(() => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      orderNumber: existingStagesCount + 1
+      orderNumber: existingStagesCount + 1,
     }));
   }, [existingStagesCount]);
 
@@ -85,8 +101,18 @@ export function CreateLeadStageModal({
             className="text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Close modal"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -99,9 +125,12 @@ export function CreateLeadStageModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              onBlur={() => setTouched({ ...touched, name: true })}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+                errors.name ? "border-red-500" : "border-gray-300"
               }`}
               placeholder="Enter stage name (e.g., New Lead, Contacted, Qualified)"
             />
@@ -116,7 +145,9 @@ export function CreateLeadStageModal({
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
               placeholder="Optional description for this lead stage"
@@ -130,10 +161,16 @@ export function CreateLeadStageModal({
             <input
               type="number"
               value={formData.orderNumber}
-              onChange={(e) => setFormData({ ...formData, orderNumber: parseInt(e.target.value) || 1 })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  orderNumber: parseInt(e.target.value) || 1,
+                })
+              }
+              onBlur={() => setTouched({ ...touched, orderNumber: true })}
               min="1"
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
-                errors.orderNumber ? 'border-red-500' : 'border-gray-300'
+                errors.orderNumber ? "border-red-500" : "border-gray-300"
               }`}
             />
             {errors.orderNumber ? (
@@ -158,9 +195,9 @@ export function CreateLeadStageModal({
               onClick={handleSubmit}
               disabled={!isFormValid}
               className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
-                isFormValid 
-                  ? 'bg-[#636363] hover:bg-gray-700 cursor-pointer' 
-                  : 'bg-gray-400 cursor-not-allowed'
+                isFormValid
+                  ? "bg-[#636363] hover:bg-gray-700 cursor-pointer"
+                  : "bg-gray-400 cursor-not-allowed"
               }`}
             >
               Create Lead Stage
