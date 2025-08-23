@@ -705,28 +705,6 @@ export const TaskColumn = ({
               {tasks.length}
             </Badge>
 
-            {/* Add Task Icon */}
-            {taskPermissions.canCreate && (
-              <button
-                onClick={() => onAddTaskForStage(stage.id)}
-                className="p-1.5 rounded hover:bg-white/20 transition-colors ml-2"
-                title={`Add task to ${stage.name}`}
-              >
-                <svg
-                  className="w-5 h-5 group-hover:scale-110 transition-transform duration-200"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-              </button>
-            )}
             {/* Three dots menu for stage operations */}
             {stagePermissions.canDelete && stagePermissions.canEdit && (
               <div className="relative">
@@ -898,6 +876,34 @@ export const TaskColumn = ({
           ))}
         </div>
 
+        {/* Add Task Button - Only show for first column (stageIndex === 0) */}
+        {stageIndex === 0 && taskPermissions.canCreate && (
+          <div className="mt-4">
+            <button
+              onClick={() => onAddTaskForStage(stage.id)}
+              className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group"
+              type="button"
+            >
+              <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-gray-700">
+                <svg
+                  className="w-5 h-5 transition-transform duration-200 group-hover:scale-110"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                <span className="text-sm font-medium">Add Task</span>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Empty state */}
         {tasks.length === 0 && !isUpdating && (
           <div className="text-center py-2">
@@ -986,7 +992,7 @@ export const TaskColumn = ({
                   <p className="text-sm text-gray-600">
                     {`You're moving `}
                     <span className="font-medium text-gray-900">
-                      “{pendingMove?.task.subject}”
+                      {pendingMove?.task.subject}
                     </span>
                     {` to `}
                     <span className="font-medium text-gray-900">

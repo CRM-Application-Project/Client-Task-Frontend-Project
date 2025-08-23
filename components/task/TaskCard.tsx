@@ -527,101 +527,114 @@ export const TaskCard = ({
         </div>
       </Card>
 
-      {/* Document management dialog */}
+      {/* Document management dialog with fixed overflow */}
       <Dialog open={showDocumentDialog} onOpenChange={setShowDocumentDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Task Documents</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="break-words">Task Documents</DialogTitle>
+            <DialogDescription className="break-words">
               {`Manage documents for ${task.subject}`}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-hidden flex flex-col space-y-4 min-h-0">
             {permissions.canEdit && (
-              <div className="space-y-2">
+              <div className="flex-shrink-0 space-y-2">
                 <div className="flex gap-2">
                   <Input
                     ref={fileInputRef}
                     type="file"
                     onChange={handleFileUpload}
                     disabled={isUploading}
-                    className="flex-1"
+                    className="flex-1 min-w-0"
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={isUploading}
                     onClick={() => fileInputRef.current?.click()}
+                    className="flex-shrink-0"
                   >
                     <Upload className="h-4 w-4" />
                   </Button>
                 </div>
                 {uploadProgress && (
-                  <p className="text-sm text-muted-foreground break-words">{uploadProgress}</p>
+                  <p className="text-sm text-muted-foreground break-words overflow-hidden">
+                    {uploadProgress}
+                  </p>
                 )}
               </div>
             )}
 
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {documents.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No documents uploaded yet
-                </p>
-              ) : (
-                documents.map((document) => (
-                  <div
-                    key={document.docId}
-                    className="flex items-center justify-between p-2 border rounded-md gap-2"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p 
-                          className="text-sm font-medium truncate"
-                          title={document.fileName}
-                        >
-                          {document.fileName}
-                        </p>  
-                        <p className="text-xs text-muted-foreground truncate">
-                          {document.fileType}
-                        </p>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="space-y-2 pr-2">
+                {documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No documents uploaded yet
+                  </p>
+                ) : (
+                  documents.map((document) => (
+                    <div
+                      key={document.docId}
+                      className="flex items-center justify-between p-3 border rounded-md gap-3 min-w-0"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <p 
+                            className="text-sm font-medium break-all leading-tight mb-1"
+                            title={document.fileName}
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              wordBreak: 'break-all',
+                              lineHeight: '1.2'
+                            }}
+                          >
+                            {document.fileName}
+                          </p>  
+                          <p className="text-xs text-muted-foreground truncate">
+                            {document.fileType}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadDocument(document)}
-                        disabled={downloadingDocId === document.docId}
-                        className="h-8 w-8 p-0"
-                        title="Download document"
-                      >
-                        {downloadingDocId === document.docId ? (
-                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        ) : (
-                          <Download className="h-3 w-3" />
-                        )}
-                      </Button>
-                      {permissions.canEdit && (
+                      <div className="flex gap-1 flex-shrink-0">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteDocument(document)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          title="Delete document"
+                          onClick={() => handleDownloadDocument(document)}
+                          disabled={downloadingDocId === document.docId}
+                          className="h-8 w-8 p-0"
+                          title="Download document"
                         >
-                          <X className="h-3 w-3" />
+                          {downloadingDocId === document.docId ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          ) : (
+                            <Download className="h-3 w-3" />
+                          )}
                         </Button>
-                      )}
+                        {permissions.canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteDocument(document)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            title="Delete document"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => setShowDocumentDialog(false)}>
               Close
             </Button>
