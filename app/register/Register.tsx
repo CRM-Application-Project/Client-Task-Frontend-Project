@@ -86,7 +86,7 @@ export default function RegisterPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCompanyInfo, setShowCompanyInfo] = useState(false);
+  const [showCompanyInfo, setShowCompanyInfo] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
   const { toast } = useToast();
   const router = useRouter();

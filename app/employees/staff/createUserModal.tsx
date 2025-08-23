@@ -24,7 +24,6 @@ import {
 } from "@/app/services/data.service";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
-import { Popover, PopoverContent } from "@/components/ui/popover";
 import { X, AlertCircle } from "lucide-react";
 import {
   Tooltip,
@@ -96,6 +95,11 @@ export function CreateStaffModal({
     }[],
   });
 
+  // ===== Regex patterns (aligned with Register form expectations) =====
+  const NAME_REGEX = /^[A-Za-z][A-Za-z\s'.-]{0,49}$/; // letters, spaces, apostrophes, periods, dashes; starts with a letter; up to 50 chars
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
+  const PHONE_REGEX = /^\d{10}$/; // exactly 10 digits
+
   const formatText = (text: string) => {
     return text
       .toLowerCase()
@@ -104,6 +108,7 @@ export function CreateStaffModal({
       .join(" ");
   };
 
+  // Recompute overall validity on any relevant change
   useEffect(() => {
     setIsFormValid(validateForm());
   }, [formData, dateOfBirth, dateOfJoin, sendMail]);
@@ -113,6 +118,7 @@ export function CreateStaffModal({
     dateOfJoin: false,
   });
 
+  // ===== Live validation for dates =====
   useEffect(() => {
     if (!dateFieldFocused.dateOfBirth && touchedFields.dateOfBirth) {
       const error = validateField("dateOfBirth", dateOfBirth);
@@ -127,25 +133,45 @@ export function CreateStaffModal({
     }
   }, [dateOfJoin, touchedFields.dateOfJoin, dateFieldFocused.dateOfJoin]);
 
-  // Update handleDateChange to handle focus state
-  const handleDateChange = (field: string, date: dayjs.Dayjs | null) => {
-    const dateValue = date ? date.toDate() : undefined;
+  // ===== Shared live-change handler for text/select fields =====
+  const setField = (name: keyof typeof formData, raw: string | number) => {
+    let value: any = raw;
 
-    if (field === "dateOfBirth") {
-      setDateOfBirth(dateValue);
-    } else if (field === "dateOfJoin") {
-      setDateOfJoin(dateValue);
+    if (name === "firstName" || name === "lastName") {
+      // Trim left spaces only; allow internal multiple spaces but validate by regex
+      value = String(raw).replace(/^\s+/, "");
     }
 
-    // Mark field as touched
-    setTouchedFields((prev) => ({ ...prev, [field]: true }));
+    if (name === "contactNumber") {
+      value = String(raw).replace(/\D/g, "").slice(0, 10); // keep 10 digits max
+    }
 
-    // Validate immediately when date changes
+    if (name === "departmentId") {
+      value = typeof raw === "string" ? parseInt(raw) || 0 : raw;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setTouchedFields((prev) => ({ ...prev, [name]: true }));
+
+    // live-validate this single field immediately
+    const error =
+      name === "departmentId"
+        ? validateField(name, Number(value))
+        : validateField(name as string, value);
+    setValidationErrors((prev) => ({ ...prev, [name]: error }));
+  };
+
+  // ===== Date handlers (already live) =====
+  const handleDateChange = (field: string, date: dayjs.Dayjs | null) => {
+    const dateValue = date ? date.toDate() : undefined;
+    if (field === "dateOfBirth") setDateOfBirth(dateValue);
+    if (field === "dateOfJoin") setDateOfJoin(dateValue);
+
+    setTouchedFields((prev) => ({ ...prev, [field]: true }));
     const error = validateField(field, dateValue);
     setValidationErrors((prev) => ({ ...prev, [field]: error }));
   };
 
-  // Add handlers for date picker focus/blur
   const handleDateFocus = (field: string) => {
     setDateFieldFocused((prev) => ({ ...prev, [field]: true }));
   };
@@ -154,7 +180,6 @@ export function CreateStaffModal({
     setDateFieldFocused((prev) => ({ ...prev, [field]: false }));
     setTouchedFields((prev) => ({ ...prev, [field]: true }));
 
-    // Validate the field
     let value;
     if (field === "dateOfBirth") value = dateOfBirth;
     else if (field === "dateOfJoin") value = dateOfJoin;
@@ -163,56 +188,75 @@ export function CreateStaffModal({
     setValidationErrors((prev) => ({ ...prev, [field]: error }));
   };
 
-  // Validation functions
+  // ===== Validation rules =====
   const validateField = (name: string, value: any): string | undefined => {
     switch (name) {
-      case "firstName":
-        if (!value || value.trim() === "") return "First name is required";
-        if (value.length < 2) return "First name must be at least 2 characters";
+      case "firstName": {
+        if (!value || String(value).trim() === "")
+          return "First name is required";
+        const v = String(value).trim();
+        if (v.length < 2) return "First name must be at least 2 characters";
+        if (!NAME_REGEX.test(v))
+          return "Only letters, spaces, apostrophes, periods, and dashes";
         break;
-      case "lastName":
-        if (!value || value.trim() === "") return "Last name is required";
-        // if (value.length < 2) return "Last name must be at least 2 characters";
+      }
+      case "lastName": {
+        if (!value || String(value).trim() === "")
+          return "Last name is required";
+        const v = String(value).trim();
+        if (!NAME_REGEX.test(v))
+          return "Only letters, spaces, apostrophes, periods, and dashes";
         break;
-      case "emailAddress":
-        if (!value || value.trim() === "") return "Email is required";
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+      }
+      case "emailAddress": {
+        if (!value || String(value).trim() === "") return "Email is required";
+        if (!EMAIL_REGEX.test(String(value)))
           return "Please enter a valid email address";
         break;
-      case "contactNumber":
-        if (!value || value.trim() === "") return "Contact number is required";
-        if (!/^\d{10}$/.test(value))
+      }
+      case "contactNumber": {
+        if (!value || String(value).trim() === "")
+          return "Contact number is required";
+        if (!PHONE_REGEX.test(String(value)))
           return "Contact number must be exactly 10 digits";
         break;
-      case "userRole":
-        if (!value || value.trim() === "") return "User role is required";
+      }
+      case "userRole": {
+        if (!value || String(value).trim() === "")
+          return "User role is required";
         break;
-      case "departmentId":
-        if (!value || value === 0) return "Department is required";
+      }
+      case "departmentId": {
+        if (!value || Number(value) === 0) return "Department is required";
         break;
-      case "password":
-        if (!sendMail && (!value || value.trim() === ""))
+      }
+      case "password": {
+        if (!sendMail && (!value || String(value).trim() === ""))
           return "Password is required when not sending email";
-        if (!sendMail && value.length < 8)
+        if (!sendMail && String(value).length < 8)
           return "Password must be at least 8 characters";
         break;
-      case "dateOfBirth":
+      }
+      case "dateOfBirth": {
         if (!value) return "Date of birth is required";
         if (value > new Date()) return "Date of birth cannot be in the future";
-        // Check if user is at least 15 years old
         const fifteenYearsAgo = new Date();
         fifteenYearsAgo.setFullYear(fifteenYearsAgo.getFullYear() - 15);
         if (value > fifteenYearsAgo)
           return "User must be at least 15 years old";
         break;
-      case "dateOfJoin":
+      }
+      case "dateOfJoin": {
         if (!value) return "Date of join is required";
+        // Allow future join dates if desired; uncomment to block future dates
         // if (value > new Date()) return "Date of join cannot be in the future";
         break;
-      case "moduleAccess":
+      }
+      case "moduleAccess": {
         if (formData.moduleAccess.length === 0)
           return "At least one module access is required";
         break;
+      }
       default:
         return undefined;
     }
@@ -243,7 +287,6 @@ export function CreateStaffModal({
   const handleBlur = (fieldName: string) => {
     setTouchedFields((prev) => ({ ...prev, [fieldName]: true }));
 
-    // Validate the field that was just blurred
     let error: string | undefined;
 
     if (fieldName === "dateOfBirth") {
@@ -253,10 +296,7 @@ export function CreateStaffModal({
     } else if (fieldName === "moduleAccess") {
       error = validateField("moduleAccess", formData.moduleAccess);
     } else {
-      error = validateField(
-        fieldName,
-        formData[fieldName as keyof typeof formData]
-      );
+      error = validateField(fieldName, (formData as any)[fieldName]);
     }
 
     setValidationErrors((prev) => ({ ...prev, [fieldName]: error }));
@@ -265,7 +305,6 @@ export function CreateStaffModal({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // fetch modules
         const moduleRes = await getModuleDropdown();
         if (moduleRes.isSuccess) {
           setModules(moduleRes.data);
@@ -277,14 +316,10 @@ export function CreateStaffModal({
           });
         }
 
-        // fetch departments
         const deptRes = await getDepartments();
         if (deptRes.isSuccess) {
           setDepartments(deptRes.data);
-          setFormData((prev) => ({
-            ...prev,
-            departmentId: 0,
-          }));
+          setFormData((prev) => ({ ...prev, departmentId: 0 }));
         } else {
           toast({
             variant: "destructive",
@@ -293,7 +328,6 @@ export function CreateStaffModal({
           });
         }
 
-        // fetch roles
         const roleRes = await getRoleScopeDropdown();
         if (roleRes.isSuccess) {
           setRoles(roleRes.data);
@@ -359,7 +393,6 @@ export function CreateStaffModal({
     });
     setTouchedFields(touchedAll);
 
-    // Validate the entire form
     if (!validateForm()) {
       toast({
         variant: "destructive",
@@ -418,9 +451,8 @@ export function CreateStaffModal({
     setFormData((prev) => {
       const updatedModuleAccess = prev.moduleAccess.map((module) => {
         if (module.moduleId === moduleId) {
-          const updatedModule = { ...module, [field]: value };
+          const updatedModule = { ...module, [field]: value } as typeof module;
 
-          // Ensure edit/delete permissions require create permission
           if (
             (field === "canEdit" || field === "canDelete") &&
             value &&
@@ -435,7 +467,6 @@ export function CreateStaffModal({
             });
           }
 
-          // If create permission is removed, also remove edit and delete
           if (field === "canCreate" && !value) {
             updatedModule.canEdit = false;
             updatedModule.canDelete = false;
@@ -455,15 +486,15 @@ export function CreateStaffModal({
       return { ...prev, moduleAccess: updatedModuleAccess };
     });
 
-    // Validate module access if it's been touched
-    if (touchedFields.moduleAccess) {
-      const error = validateField("moduleAccess", formData.moduleAccess);
-      setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
-    }
+    // mark as touched and validate live
+    setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
+    const error = validateField("moduleAccess", formData.moduleAccess);
+    setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
   };
 
   const addModule = () => {
     if (!selectedModule) {
+      setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
       setValidationErrors((prev) => ({
         ...prev,
         moduleAccess: "Please select a module to add",
@@ -474,8 +505,8 @@ export function CreateStaffModal({
     const module = modules.find((m) => m.id === selectedModule);
     if (!module) return;
 
-    // Check if module already exists
     if (formData.moduleAccess.some((ma) => ma.moduleId === selectedModule)) {
+      setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
       setValidationErrors((prev) => ({
         ...prev,
         moduleAccess: "Module already added",
@@ -500,10 +531,10 @@ export function CreateStaffModal({
 
     setSelectedModule(null);
 
-    // Clear module access error if we've added one
-    if (validationErrors.moduleAccess) {
-      setValidationErrors((prev) => ({ ...prev, moduleAccess: undefined }));
-    }
+    // Clear error after adding
+    setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
+    const error = validateField("moduleAccess", formData.moduleAccess);
+    setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
   };
 
   const removeModule = (moduleId: number) => {
@@ -512,11 +543,9 @@ export function CreateStaffModal({
       moduleAccess: prev.moduleAccess.filter((ma) => ma.moduleId !== moduleId),
     }));
 
-    // Validate module access if it's been touched
-    if (touchedFields.moduleAccess) {
-      const error = validateField("moduleAccess", formData.moduleAccess);
-      setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
-    }
+    setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
+    const error = validateField("moduleAccess", formData.moduleAccess);
+    setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
   };
 
   const getAvailableModules = () => {
@@ -562,9 +591,7 @@ export function CreateStaffModal({
                 id="firstName"
                 placeholder="Enter first name"
                 value={formData.firstName}
-                onChange={(e) =>
-                  setFormData({ ...formData, firstName: e.target.value })
-                }
+                onChange={(e) => setField("firstName", e.target.value)}
                 onBlur={() => handleBlur("firstName")}
                 required
                 className={
@@ -585,9 +612,7 @@ export function CreateStaffModal({
                 id="lastName"
                 placeholder="Enter last name"
                 value={formData.lastName}
-                onChange={(e) =>
-                  setFormData({ ...formData, lastName: e.target.value })
-                }
+                onChange={(e) => setField("lastName", e.target.value)}
                 onBlur={() => handleBlur("lastName")}
                 required
                 className={
@@ -609,9 +634,7 @@ export function CreateStaffModal({
                 type="email"
                 placeholder="Enter email"
                 value={formData.emailAddress}
-                onChange={(e) =>
-                  setFormData({ ...formData, emailAddress: e.target.value })
-                }
+                onChange={(e) => setField("emailAddress", e.target.value)}
                 onBlur={() => handleBlur("emailAddress")}
                 autoComplete="email"
                 required
@@ -633,10 +656,7 @@ export function CreateStaffModal({
                 id="contact"
                 placeholder="Enter contact number"
                 value={formData.contactNumber}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, "");
-                  setFormData({ ...formData, contactNumber: value });
-                }}
+                onChange={(e) => setField("contactNumber", e.target.value)}
                 onBlur={() => handleBlur("contactNumber")}
                 maxLength={10}
                 minLength={10}
@@ -654,7 +674,7 @@ export function CreateStaffModal({
                   </p>
                 )}
             </div>
-            {/* Password Field */}
+            {/* Password is optional when sendMail = true */}
             {/* <div className="space-y-2">
               <Label htmlFor="password">
                 Password {!sendMail && <span className="text-red-500">*</span>}
@@ -664,22 +684,14 @@ export function CreateStaffModal({
                 type="password"
                 placeholder="Enter password"
                 value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
+                onChange={(e) => setField("password", e.target.value)}
                 onBlur={() => handleBlur("password")}
                 autoComplete="new-password"
                 required={!sendMail}
-                className={
-                  touchedFields.password && validationErrors.password
-                    ? "border-red-500"
-                    : ""
-                }
+                className={touchedFields.password && validationErrors.password ? "border-red-500" : ""}
               />
               {touchedFields.password && validationErrors.password && (
-                <p className="text-red-500 text-xs">
-                  {validationErrors.password}
-                </p>
+                <p className="text-red-500 text-xs">{validationErrors.password}</p>
               )}
             </div> */}
             {/* Dropdowns */}
@@ -687,9 +699,7 @@ export function CreateStaffModal({
               <Label>User Role</Label>
               <Select
                 value={formData.userRole}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, userRole: value })
-                }
+                onValueChange={(value) => setField("userRole", value)}
                 onOpenChange={(open) => {
                   if (!open) handleBlur("userRole");
                 }}
@@ -726,9 +736,7 @@ export function CreateStaffModal({
                 value={
                   formData.departmentId ? formData.departmentId.toString() : ""
                 }
-                onValueChange={(value) =>
-                  setFormData({ ...formData, departmentId: parseInt(value) })
-                }
+                onValueChange={(value) => setField("departmentId", value)}
                 onOpenChange={(open) => {
                   if (!open) handleBlur("departmentId");
                 }}
@@ -772,9 +780,7 @@ export function CreateStaffModal({
                 onFocus={() => handleDateFocus("dateOfBirth")}
                 onBlur={() => handleDateBlur("dateOfBirth")}
                 disabledDate={(current) => {
-                  if (current && current > dayjs().endOf("day")) {
-                    return true;
-                  }
+                  if (current && current > dayjs().endOf("day")) return true;
                   const fifteenYearsAgo = dayjs().subtract(15, "year");
                   return current && current > fifteenYearsAgo;
                 }}
@@ -813,13 +819,9 @@ export function CreateStaffModal({
               )}
             </div>
 
-            {/* Send Mail Checkbox */}
+            {/* Send Mail Checkbox (optional UI) */}
             {/* <div className="flex items-center space-x-2 pt-6">
-              <Checkbox
-                id="sendMail"
-                checked={sendMail}
-                onCheckedChange={(checked) => setSendMail(Boolean(checked))}
-              />
+              <Checkbox id="sendMail" checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
               <Label htmlFor="sendMail">Send email with credentials</Label>
             </div> */}
             {/* Active Status */}
