@@ -632,7 +632,7 @@ export default function TaskBoard() {
       
       if (hasRealToDate) {
       
-        apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
+        apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
       }
     }
 
