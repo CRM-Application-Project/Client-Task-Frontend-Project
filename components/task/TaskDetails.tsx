@@ -13,25 +13,6 @@ import {
   Save,
   X,
   Target,
-  Bold,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  Smile,
-  Code,
-  List,
-  ListOrdered,
-  Link,
-  Image,
-  Quote,
-  Strikethrough,
-  Subscript,
-  Superscript,
-  Type,
-  MoreHorizontal
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +22,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "./Richtaskeditor";
+
 
 interface TaskDetailsProps {
   taskId: number;
@@ -137,8 +120,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         setEditedAssignee(response.data.assignee?.id || "");
         setEditedStartDate(response.data.startDate || "");
         setEditedEndDate(response.data.endDate || "");
-        // Convert HTML to plain text for editing
-        setEditedAcceptanceCriteria(htmlToText(response.data.acceptanceInfo?.acceptanceCriteria || ""));
+        setEditedAcceptanceCriteria(response.data.acceptanceInfo?.acceptanceCriteria || "");
       } else {
         console.error("Failed to fetch task details:", response.message);
       }
@@ -171,187 +153,6 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
       setIsLoadingUsers(false);
     }
   };
-
-  // Helper function to convert HTML to plain text for editing
-  const htmlToText = (html: string): string => {
-  console.log('🔄 Converting HTML to Text:', html);
-  
-  if (!html) {
-    console.log('❌ No HTML content to convert');
-    return "";
-  }
-  
-  let text = html;
-  
-  // Check if content is already in markdown format (no HTML tags)
-  if (!html.includes('<') && !html.includes('>')) {
-    console.log('✅ Content appears to already be in markdown format');
-    return html;
-  }
-  
-  // Enhanced conversion with better handling of nested formatting
-  // Handle line breaks first to preserve structure
-  text = text.replace(/<br\s*\/?>/gi, '\n');
-  text = text.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
-  
-  // Handle headings
-  text = text.replace(/<h([1-6])[^>]*>(.*?)<\/h[1-6]>/gi, (match, level, content) => {
-    const hashes = '#'.repeat(parseInt(level));
-    return `${hashes} ${content}\n`;
-  });
-  
-  // Handle formatting tags with better regex to preserve nested content
-  text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
-  text = text.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
-  text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
-  text = text.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
-  text = text.replace(/<del[^>]*>(.*?)<\/del>/gi, '~~$1~~');
-  text = text.replace(/<s[^>]*>(.*?)<\/s>/gi, '~~$1~~');
-  text = text.replace(/<strike[^>]*>(.*?)<\/strike>/gi, '~~$1~~');
-  text = text.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
-  
-  // Handle blockquotes with better structure preservation
-  text = text.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (match, content) => {
-    const lines = content.split('\n').map((line: string) => line.trim() ? `> ${line}` : '>').join('\n');
-    return lines;
-  });
-  
-  // Handle lists with proper nesting and spacing
-  text = text.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (match, content) => {
-    let counter = 1;
-    const listItems = content.replace(/<li[^>]*>(.*?)<\/li>/gi, () => {
-      return `${counter++}. $1\n`;
-    });
-    return '\n' + listItems.trim() + '\n';
-  });
-  
-  text = text.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
-    const listItems = content.replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n');
-    return '\n' + listItems.trim() + '\n';
-  });
-  
-  // Handle standalone list items
-  text = text.replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1');
-  
-  // Handle special HTML tags that should be preserved (underline, sup, sub)
-  // These stay as HTML since markdown doesn't support them natively
-  
-  // Handle alignment divs - preserve them as HTML for now
-  // text = text.replace(/<div style="text-align:\s*(left|center|right|justify)"[^>]*>(.*?)<\/div>/gi, '<div style="text-align: $1">$2</div>');
-  
-  // Handle center tags
-  // text = text.replace(/<center[^>]*>(.*?)<\/center>/gi, '<center>$1</center>');
-  
-  // Clean up paragraph tags
-  text = text.replace(/<p[^>]*>/gi, '');
-  text = text.replace(/<\/p>/gi, '\n');
-  
-  // Clean up div tags (except alignment ones) - be more careful
-  text = text.replace(/<div(?![^>]*text-align)[^>]*>/gi, '');
-  text = text.replace(/<\/div>/gi, '');
-  
-  // Remove any other HTML tags we haven't specifically handled
-  // But preserve underline, superscript, subscript, and alignment tags
-  text = text.replace(/<(?!\/?(?:u|sup|sub|center|div\s+style="text-align))[^>]+>/gi, '');
-  
-  // Clean up excessive whitespace and line breaks
-  text = text.replace(/\n\s*\n\s*\n/g, '\n\n'); // Multiple line breaks to double
-  text = text.replace(/^\s+|\s+$/g, ''); // Trim start and end
-  text = text.replace(/[ \t]+/g, ' '); // Multiple spaces to single space
-  
-  console.log('✅ Final converted Text:', text);
-  return text;
-};
-
-// Also replace the textToHtml function with this enhanced version
-
-const textToHtml = (text: string): string => {
-  console.log('🔄 Converting Text to HTML:', text);
-  
-  if (!text) {
-    console.log('❌ No text content to convert');
-    return "";
-  }
-  
-  let html = text;
-  
-  // Convert markdown formatting to HTML with better handling
-  // Handle line breaks first to preserve structure
-  html = html.replace(/\n/g, '<br>');
-  
-  // Handle headings
-  html = html.replace(/^(#{1,6})\s+(.*$)/gm, (match, hashes, content) => {
-    const level = hashes.length;
-    return `<h${level}>${content}</h${level}>`;
-  });
-  
-  // Handle formatting tags with better regex to preserve nested content
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
-  html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>'); // Italic (not part of bold)
-  html = html.replace(/~~(.*?)~~/g, '<del>$1</del>'); // Strikethrough
-  html = html.replace(/`(.*?)`/g, '<code>$1</code>'); // Code
-  
-  // Handle blockquotes
-  html = html.replace(/^>\s*(.*$)/gm, '<blockquote>$1</blockquote>');
-  
-  // Handle lists with better structure
-  const lines = html.split('<br>');
-  let inOrderedList = false;
-  let inUnorderedList = false;
-  let result = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const orderedMatch = line.match(/^(\d+)\.\s+(.*)/);
-    const unorderedMatch = line.match(/^[•*-]\s+(.*)/);
-    
-    if (orderedMatch) {
-      if (!inOrderedList) {
-        if (inUnorderedList) {
-          result.push('</ul>');
-          inUnorderedList = false;
-        }
-        result.push('<ol>');
-        inOrderedList = true;
-      }
-      result.push(`<li>${orderedMatch[2]}</li>`);
-    } else if (unorderedMatch) {
-      if (!inUnorderedList) {
-        if (inOrderedList) {
-          result.push('</ol>');
-          inOrderedList = false;
-        }
-        result.push('<ul>');
-        inUnorderedList = true;
-      }
-      result.push(`<li>${unorderedMatch[1]}</li>`);
-    } else {
-      if (inOrderedList) {
-        result.push('</ol>');
-        inOrderedList = false;
-      }
-      if (inUnorderedList) {
-        result.push('</ul>');
-        inUnorderedList = false;
-      }
-      result.push(line);
-    }
-  }
-  
-  // Close any remaining lists
-  if (inOrderedList) result.push('</ol>');
-  if (inUnorderedList) result.push('</ul>');
-  
-  html = result.join('<br>');
-  
-  // Clean up excessive <br> tags
-  html = html.replace(/(<br>){3,}/g, '<br><br>');
-  
-  console.log('✅ Final converted HTML:', html);
-  return html;
-};
-  // Helper function to convert plain text to HTML
-
 
   const handleSaveDescription = async () => {
     try {
@@ -427,16 +228,13 @@ const textToHtml = (text: string): string => {
 
   const handleSaveAcceptanceCriteria = async () => {
     try {
-      // Convert the text to HTML before sending
-      const htmlAcceptanceCriteria = textToHtml(editedAcceptanceCriteria);
-      
       const response = await updateTask(taskId, { 
-        acceptanceCriteria: htmlAcceptanceCriteria
+        acceptanceCriteria: editedAcceptanceCriteria
       });
       if (response.isSuccess) {
         setTask(prev => prev ? {
           ...prev, 
-          acceptanceInfo: { acceptanceCriteria: htmlAcceptanceCriteria }
+          acceptanceInfo: { acceptanceCriteria: editedAcceptanceCriteria }
         } : null);
         setIsEditingAcceptanceCriteria(false);
       } else {
@@ -466,95 +264,12 @@ const textToHtml = (text: string): string => {
         setIsEditingEndDate(false);
         break;
       case 'acceptanceCriteria':
-        setEditedAcceptanceCriteria(htmlToText(task?.acceptanceInfo?.acceptanceCriteria || ""));
+        setEditedAcceptanceCriteria(task?.acceptanceInfo?.acceptanceCriteria || "");
         setIsEditingAcceptanceCriteria(false);
         setShowEmojiPicker(false);
         break;
     }
   };
-
-  // Formatting functions for acceptance criteria
-  const insertAtCursor = (text: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = editedAcceptanceCriteria || "";
-    
-    const newText = currentText.substring(0, start) + text + currentText.substring(end);
-    
-    setEditedAcceptanceCriteria(newText);
-    
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + text.length, start + text.length);
-    }, 0);
-  };
-
-  const wrapSelectedText = (prefix: string, suffix: string = prefix) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = editedAcceptanceCriteria || "";
-    const selectedText = currentText.substring(start, end);
-    
-    if (selectedText) {
-      const wrappedText = prefix + selectedText + suffix;
-      const newText = currentText.substring(0, start) + wrappedText + currentText.substring(end);
-      setEditedAcceptanceCriteria(newText);
-      
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start, start + wrappedText.length);
-      }, 0);
-    } else {
-      insertAtCursor(prefix + suffix);
-      setTimeout(() => {
-        textarea.setSelectionRange(start + prefix.length, start + prefix.length);
-      }, 0);
-    }
-  };
-
-  const formatBold = () => wrapSelectedText("**", "**");
-  const formatItalic = () => wrapSelectedText("*", "*");
-  const formatUnderline = () => wrapSelectedText("<u>", "</u>");
-  const formatStrikethrough = () => wrapSelectedText("~~", "~~");
-  const formatCode = () => wrapSelectedText("`", "`");
-  const formatQuote = () => insertAtCursor("> ");
-  
-  const insertNumberedList = () => insertAtCursor("\n1. ");
-  const insertBulletList = () => insertAtCursor("\n• ");
-  
-  const insertAlignment = (alignment: 'left' | 'center' | 'right' | 'justify') => {
-    const alignTags = {
-      left: '<div style="text-align: left;">',
-      center: '<center>',
-      right: '<div style="text-align: right;">',
-      justify: '<div style="text-align: justify;">'
-    };
-    const closeTags = {
-      left: '</div>',
-      center: '</center>',
-      right: '</div>',
-      justify: '</div>'
-    };
-    wrapSelectedText(alignTags[alignment], closeTags[alignment]);
-  };
-
-  const insertEmoji = (emoji: string) => {
-    insertAtCursor(emoji);
-    setShowEmojiPicker(false);
-  };
-
-  const insertLink = () => {
-    wrapSelectedText("[", "](url)");
-  };
-
-  const insertSuperscript = () => wrapSelectedText("<sup>", "</sup>");
-  const insertSubscript = () => wrapSelectedText("<sub>", "</sub>");
 
   const priorityColors = {
     LOW: "bg-green-100 text-green-700",
@@ -712,278 +427,13 @@ const textToHtml = (text: string): string => {
         
         {isEditingAcceptanceCriteria ? (
           <div className="space-y-2">
-            {/* Comprehensive Formatting Toolbar */}
-            <div className="flex flex-wrap items-center gap-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-t-md">
-              {/* Text Formatting Group */}
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatBold}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Bold"
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatItalic}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Italic"
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatUnderline}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Underline"
-                >
-                  <Underline className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatStrikethrough}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Strikethrough"
-                >
-                  <Strikethrough className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 mx-1" />
-
-              {/* Alignment Group */}
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAlignment('left')}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Align Left"
-                >
-                  <AlignLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAlignment('center')}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Align Center"
-                >
-                  <AlignCenter className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAlignment('right')}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Align Right"
-                >
-                  <AlignRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAlignment('justify')}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Justify"
-                >
-                  <AlignJustify className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 mx-1" />
-
-              {/* Advanced Formatting */}
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={insertSuperscript}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Superscript"
-                >
-                  <Superscript className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={insertSubscript}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Subscript"
-                >
-                  <Subscript className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatCode}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Code"
-                >
-                  <Code className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatQuote}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Quote"
-                >
-                  <Quote className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 mx-1" />
-
-              {/* Lists Group */}
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={insertBulletList}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Bullet List"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={insertNumberedList}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Numbered List"
-                >
-                  <ListOrdered className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 mx-1" />
-
-              {/* Media & Links */}
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={insertLink}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Insert Link"
-                >
-                  <Link className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAtCursor("![image](url)")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Insert Image"
-                >
-                  <Image className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 mx-1" />
-
-              {/* Emoji Picker */}
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Insert Emoji"
-                >
-                  <Smile className="h-4 w-4" />
-                </Button>
-                
-                {showEmojiPicker && (
-                  <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto">
-                    {Object.entries(emojiCategories).map(([category, emojis]) => (
-                      <div key={category} className="p-2">
-                        <div className="text-xs font-medium text-gray-600 mb-1 sticky top-0 bg-white">
-                          {category}
-                        </div>
-                        <div className="grid grid-cols-10 gap-1">
-                          {emojis.map((emoji, index) => (
-                            <button
-                              key={`${category}-${index}`}
-                              type="button"
-                              className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded text-sm"
-                              onClick={() => insertEmoji(emoji)}
-                              title={emoji}
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 mx-1" />
-
-              {/* Additional Tools */}
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAtCursor("# ")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Heading"
-                >
-                  <Type className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertAtCursor("---\n")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200"
-                  title="Horizontal Rule"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Text Area */}
-            <Textarea
-              ref={textareaRef}
+            {/* Use the RichTextEditor component */}
+            <RichTextEditor
               value={editedAcceptanceCriteria}
-              onChange={(e) => setEditedAcceptanceCriteria(e.target.value)}
+              onChange={setEditedAcceptanceCriteria}
               placeholder="Start typing your acceptance criteria..."
-              rows={10}
-              className="resize-none border border-t-0 border-gray-300 focus:ring-0 focus:outline-none rounded-b-none font-mono text-sm p-4"
+              className=""
             />
-
-            {/* Support Text */}
-            <div className="px-4 py-2 bg-gray-50 border border-t-0 border-gray-300 text-xs text-gray-600 rounded-b-md">
-              We support markdown, you can convert this field.
-            </div>
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-2 mt-2">

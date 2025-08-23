@@ -26,6 +26,7 @@ import { TaskPriority } from "../../lib/task";
 import { TaskStage } from "@/lib/data";
 import { User } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
+import { TaskDateRangePicker } from "./Taskdaterangepicker";
 
 interface ExtendedTaskFilters {
   priority?: string;
@@ -113,6 +114,17 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
   };
 
   const formatDateRange = (range: { from: Date; to: Date }) => {
+  // Helper functions to check if dates are placeholder dates
+  const isPlaceholderFromDate = (date: Date) => 
+    date.getTime() <= new Date('1970-01-02').getTime();
+  
+  const isPlaceholderToDate = (date: Date) => 
+    date.getTime() >= new Date('2099-12-30').getTime();
+
+  const hasRealFromDate = range.from && !isPlaceholderFromDate(range.from);
+  const hasRealToDate = range.to && !isPlaceholderToDate(range.to);
+  
+  if (hasRealFromDate && hasRealToDate) {
     return `${range.from.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -120,7 +132,20 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
       month: "short",
       day: "numeric",
     })}`;
-  };
+  } else if (hasRealFromDate) {
+    return `From ${range.from.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })}`;
+  } else if (hasRealToDate) {
+    return `Until ${range.to.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })}`;
+  }
+  
+  return "Date Range";
+};
 
   return (
     <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
@@ -231,39 +256,41 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
 
             {/* Date Range */}
             <div className="relative w-full">
-              <Button
-                variant={localFilters.dateRange ? "secondary" : "outline"}
-                onClick={() => setIsDatePickerOpen(true)}
-                className={`w-full rounded-lg flex items-center justify-between gap-2 ${
-                  localFilters.dateRange
-                    ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                    : "border-gray-300"
-                }`}
-              >
-                <span className="flex items-center gap-2 text-[#636363]">
-                  <Calendar className="h-4 w-4" />
-                  {localFilters.dateRange
-                    ? formatDateRange(localFilters.dateRange)
-                    : "Date Range"}
-                </span>
-                {localFilters.dateRange && (
-                  <X
-                    className="h-4 w-4 hover:text-blue-900"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearDateRange();
-                    }}
-                  />
-                )}
-              </Button>
+  <Button
+    variant={localFilters.dateRange ? "secondary" : "outline"}
+    onClick={() => setIsDatePickerOpen(true)}
+    className={`w-full rounded-lg flex items-center justify-between gap-2 ${
+      localFilters.dateRange
+        ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+        : "border-gray-300"
+    }`}
+  >
+    <span className="flex items-center gap-2 text-[#636363] truncate">
+      <Calendar className="h-4 w-4 flex-shrink-0" />
+      <span className="truncate">
+        {localFilters.dateRange
+          ? formatDateRange(localFilters.dateRange)
+          : "Date Range"}
+      </span>
+    </span>
+    {localFilters.dateRange && (
+      <X
+        className="h-4 w-4 hover:text-blue-900 flex-shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          clearDateRange();
+        }}
+      />
+    )}
+  </Button>
 
-              <DateRangePicker
-                isOpen={isDatePickerOpen}
-                onClose={() => setIsDatePickerOpen(false)}
-                onSelect={handleDateRangeSelect}
-                initialRange={localFilters.dateRange}
-              />
-            </div>
+  <TaskDateRangePicker
+    isOpen={isDatePickerOpen}
+    onClose={() => setIsDatePickerOpen(false)}
+    onSelect={handleDateRangeSelect}
+    initialRange={localFilters.dateRange}
+  />
+</div>
 
             {/* Priority Filter */}
             <Select

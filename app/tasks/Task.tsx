@@ -600,30 +600,47 @@ export default function TaskBoard() {
   );
 
   // Convert filter object to API parameters
-  const convertFiltersToApiParams = useCallback(
-    (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
-      const apiParams: FilterTasksParams = {};
+ const convertFiltersToApiParams = useCallback(
+  (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
+    const apiParams: FilterTasksParams = {};
 
-      if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
-      if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
-      if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
-      if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
+    if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
+    if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
+    if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
+    if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
 
-      if (uiFilters.dateRange) {
-        const formatDateWithTime = (date: Date) => {
-          return date.toISOString().split("T")[0] + "T00:00:00";
-        };
+    if (uiFilters.dateRange) {
+      const formatDateWithTime = (date: Date) => {
+        return date.toISOString().split("T")[0] + "T00:00:00";
+      };
 
+      // Helper functions to check if dates are placeholder dates
+      const isPlaceholderFromDate = (date: Date) => 
+        date.getTime() <= new Date('1970-01-02').getTime();
+      
+      const isPlaceholderToDate = (date: Date) => 
+        date.getTime() >= new Date('2099-12-30').getTime();
+
+      // Handle partial date ranges
+      const hasRealFromDate = uiFilters.dateRange.from && !isPlaceholderFromDate(uiFilters.dateRange.from);
+      const hasRealToDate = uiFilters.dateRange.to && !isPlaceholderToDate(uiFilters.dateRange.to);
+
+      if (hasRealFromDate) {
         apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
-        apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
-        apiParams.endDateFrom = formatDateWithTime(uiFilters.dateRange.from);
+        // Also set endDateFrom if we want tasks that end after the from date
+        
+      }
+      
+      if (hasRealToDate) {
+      
         apiParams.endDateTo = formatDateWithTime(uiFilters.dateRange.to);
       }
+    }
 
-      return apiParams;
-    },
-    []
-  );
+    return apiParams;
+  },
+  []
+);
 
   // Optimized task fetching function
   const fetchTasks = useCallback(
@@ -1016,32 +1033,69 @@ export default function TaskBoard() {
   }, [fetchTasks]);
 
   // Client-side filtering for immediate UI response
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+const filteredTasks = tasks.filter((task) => {
+  const matchesSearch =
+    searchQuery === "" ||
+    task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    task.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesPriority =
-      !filters.priority || task.priority === filters.priority;
-    const matchesStage =
-      !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
-    const matchesAssignee =
-      !filters.assignedTo || task.assignee?.id === filters.assignedTo;
+  const matchesPriority =
+    !filters.priority || task.priority === filters.priority;
+  const matchesStage =
+    !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
+  const matchesAssignee =
+    !filters.assignedTo || task.assignee?.id === filters.assignedTo;
 
-    const matchesDateRange =
-      !filters.dateRange ||
-      (task.startDate >= filters.dateRange.from &&
-        task.startDate <= filters.dateRange.to);
+  // Enhanced date range matching
+  const matchesDateRange = (() => {
+    if (!filters.dateRange) return true;
+    
+    const { from, to } = filters.dateRange;
+    const taskStartDate = task.startDate;
+    const taskEndDate = task.endDate;
+    
+    // Helper functions to check if dates are placeholder dates
+    const isPlaceholderFromDate = (date: Date) => 
+      date.getTime() <= new Date('1970-01-02').getTime();
+    
+    const isPlaceholderToDate = (date: Date) => 
+      date.getTime() >= new Date('2099-12-30').getTime();
+    
+    // Check if we have real dates (not placeholders)
+    const hasRealFromDate = from && !isPlaceholderFromDate(from);
+    const hasRealToDate = to && !isPlaceholderToDate(to);
+    
+    if (hasRealFromDate && hasRealToDate) {
+      // Both dates specified - show tasks that overlap with the date range
+      // A task overlaps if:
+      // 1. Task starts within the range, OR
+      // 2. Task ends within the range, OR  
+      // 3. Task spans the entire range (starts before and ends after)
+      const taskStartsInRange = taskStartDate >= from && taskStartDate <= to;
+      const taskEndsInRange = taskEndDate && taskEndDate >= from && taskEndDate <= to;
+      const taskSpansRange = taskStartDate <= from && taskEndDate && taskEndDate >= to;
+      
+      return taskStartsInRange || taskEndsInRange || taskSpansRange;
+    } else if (hasRealFromDate) {
+      // Only from date specified - show tasks that start on or after this date
+      // OR tasks that are still ongoing (end date is after the from date)
+      return taskStartDate >= from || (taskEndDate && taskEndDate >= from);
+    } else if (hasRealToDate) {
+      // Only to date specified - show tasks that start on or before this date
+      return taskStartDate <= to;
+    }
+    
+    return true;
+  })();
 
-    return (
-      matchesSearch &&
-      matchesPriority &&
-      matchesStage &&
-      matchesAssignee &&
-      matchesDateRange
-    );
-  });
+  return (
+    matchesSearch &&
+    matchesPriority &&
+    matchesStage &&
+    matchesAssignee &&
+    matchesDateRange
+  );
+});
 
   // Smooth scroll navigation functions
   const scrollLeft = () => {
