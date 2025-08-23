@@ -1,15 +1,29 @@
 import axios, { AxiosRequestConfig, AxiosError } from "axios";
 import http from "../http-common";
 
-function extractErrorMessage(error: unknown): string {
+export interface ApiError {
+  generalMessage?: string;
+  fieldErrors?: Record<string, string>;
+}
+
+function extractError(error: unknown): Error {
   if (axios.isAxiosError(error)) {
-    const apiMessage =
-      error.response?.data?.errorMessage || // your backend message
-      error.response?.data?.message || // fallback
-      error.message; // axios default
-    return apiMessage;
+    const responseData = error.response?.data;
+
+    if (responseData?.fieldErrors) {
+      const messages = Object.values(responseData.fieldErrors).join("\n");
+      return new Error(messages);
+    }
+
+    return new Error(
+      responseData?.errorMessage ||
+        responseData?.message ||
+        error.message ||
+        "An unexpected error occurred"
+    );
   }
-  return "An unexpected error occurred";
+
+  return new Error("An unexpected error occurred");
 }
 
 // GET Request
@@ -21,7 +35,7 @@ export const getRequest = async <T>(
     const res = await http.get(url, config);
     return res.data;
   } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    throw extractError(error);
   }
 };
 
@@ -35,7 +49,7 @@ export const postRequest = async <T>(
     const res = await http.post(url, data, config);
     return res.data;
   } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    throw extractError(error);
   }
 };
 
@@ -49,7 +63,7 @@ export const putRequest = async <T>(
     const res = await http.put(url, data, config);
     return res.data;
   } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    throw extractError(error);
   }
 };
 
@@ -66,7 +80,7 @@ export const deleteRequest = async <T>(
     });
     return res.data;
   } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    throw extractError(error);
   }
 };
 
@@ -87,7 +101,7 @@ export const postRequestFormData = async <T>(
     const res = await http.post(url, data, updatedConfig);
     return res.data;
   } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    throw extractError(error);
   }
 };
 
@@ -100,6 +114,6 @@ export const patchRequest = async <T>(
     const res = await http.patch(url, data, config);
     return res.data;
   } catch (error) {
-    throw new Error(extractErrorMessage(error));
+    throw extractError(error);
   }
 };

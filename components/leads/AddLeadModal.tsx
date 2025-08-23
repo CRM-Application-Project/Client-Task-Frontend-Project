@@ -38,11 +38,16 @@ import { LeadStage } from "@/lib/data";
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerEmailAddress: z.string().email("Invalid email address"),
-  customerMobileNumber: z.string()
-    .min(10, 'Phone number must be at least 10 digits')
-    .max(10, 'Phone number cannot exceed 10 digits')
-    .regex(/^\d+$/, 'Phone number must contain only digits'),
-  companyEmailAddress: z.string().email("Invalid company email address").optional().or(z.literal("")),
+  customerMobileNumber: z
+    .string()
+    .min(10, "Phone number must be at least 10 digits")
+    .max(10, "Phone number cannot exceed 10 digits")
+    .regex(/^\d+$/, "Phone number must contain only digits"),
+  companyEmailAddress: z
+    .string()
+    .email("Invalid company email address")
+    .optional()
+    .or(z.literal("")),
   leadStatus: z.string().min(1, "Lead status is required"),
   leadSource: z.string().min(1, "Lead source is required"),
   leadAddedBy: z.string().min(1, "Lead added by is required"),
@@ -58,7 +63,7 @@ interface AddLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddLead: (lead: any) => void;
-  onNewLeadCreated: (apiLeadData: any) => void; 
+  onNewLeadCreated: (apiLeadData: any) => void;
   leadStages: LeadStage[];
 }
 
@@ -73,7 +78,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   onClose,
   onAddLead,
   onNewLeadCreated,
-  leadStages
+  leadStages,
 }) => {
   const { toast } = useToast();
   const { codes, loading } = useCountryCodes();
@@ -84,12 +89,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
 
   // Filter out CLOSED WON and CLOSED LOST statuses
   const filteredLeadStages = leadStages.filter(
-    stage => !["CLOSED WON", "CLOSED LOST"].includes(stage.leadStageName.toUpperCase())
+    (stage) =>
+      !["CLOSED WON", "CLOSED LOST"].includes(stage.leadStageName.toUpperCase())
   );
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    mode: 'onChange',
+    mode: "onChange",
     defaultValues: {
       customerName: "",
       customerEmailAddress: "",
@@ -107,7 +113,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
 
   // Watch all form fields to detect changes
   const formValues = form.watch();
-  
+
   // Check if form has changes compared to initial values
   useEffect(() => {
     const initialValues = {
@@ -123,11 +129,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       leadAddress: "",
       comment: "",
     };
-    
+
     const hasFormChanged = Object.keys(initialValues).some(
-      key => formValues[key as keyof FormData] !== initialValues[key as keyof typeof initialValues]
+      (key) =>
+        formValues[key as keyof FormData] !==
+        initialValues[key as keyof typeof initialValues]
     );
-    
+
     setHasChanges(hasFormChanged);
   }, [formValues]);
 
@@ -138,8 +146,11 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       try {
         const parsedUser = JSON.parse(userData) as UserData;
         setUser(parsedUser);
-        
-        form.setValue("leadAddedBy", `${parsedUser.firstName} ${parsedUser.lastName}`);
+
+        form.setValue(
+          "leadAddedBy",
+          `${parsedUser.firstName} ${parsedUser.lastName}`
+        );
       } catch (error) {
         console.error("Failed to parse user data:", error);
       }
@@ -235,12 +246,16 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Customer Name</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter customer name" 
-                        {...field} 
+                      <Input
+                        placeholder="Enter customer name"
+                        {...field}
                         onChange={(e) => {
-                          field.onChange(e);
-                          form.trigger('customerName');
+                          const value = e.target.value.replace(
+                            /[^a-zA-Z\s]/g,
+                            ""
+                          );
+                          field.onChange(value);
+                          form.trigger("customerName");
                         }}
                       />
                     </FormControl>
@@ -256,12 +271,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Customer Email</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="customer@example.com" 
-                        {...field} 
+                      <Input
+                        placeholder="customer@example.com"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
-                          form.trigger('customerEmailAddress');
+                          form.trigger("customerEmailAddress");
                         }}
                       />
                     </FormControl>
@@ -297,14 +312,14 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                         </SelectContent>
                       </Select>
                       <FormControl>
-                        <Input 
-                          placeholder="Enter mobile number" 
-                          {...field} 
+                        <Input
+                          placeholder="Enter mobile number"
+                          {...field}
                           maxLength={10}
                           onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '');
+                            const value = e.target.value.replace(/\D/g, "");
                             field.onChange(value);
-                            form.trigger('customerMobileNumber');
+                            form.trigger("customerMobileNumber");
                           }}
                         />
                       </FormControl>
@@ -321,12 +336,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="contact@company.com" 
-                        {...field} 
+                      <Input
+                        placeholder="contact@company.com"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
-                          if (e.target.value) form.trigger('companyEmailAddress');
+                          if (e.target.value)
+                            form.trigger("companyEmailAddress");
                         }}
                       />
                     </FormControl>
@@ -345,7 +361,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
-                        form.trigger('leadStatus');
+                        form.trigger("leadStatus");
                       }}
                       defaultValue={field.value}
                     >
@@ -357,9 +373,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                       <SelectContent>
                         {filteredLeadStages.length > 0 ? (
                           filteredLeadStages.map((stage) => (
-                            <SelectItem 
-                              key={stage.leadStageId} 
-                             value={stage.leadStageName}
+                            <SelectItem
+                              key={stage.leadStageId}
+                              value={stage.leadStageName}
                             >
                               {stage.leadStageName}
                             </SelectItem>
@@ -385,7 +401,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
-                        form.trigger('leadSource');
+                        form.trigger("leadSource");
                       }}
                       defaultValue={field.value}
                     >
@@ -418,9 +434,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Added By</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Lead added by" 
-                        {...field} 
+                      <Input
+                        placeholder="Lead added by"
+                        {...field}
                         disabled
                         className="bg-gray-100"
                       />
@@ -437,12 +453,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Lead Label (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter lead label" 
-                        {...field} 
+                      <Input
+                        placeholder="Enter lead label"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
-                          form.trigger('leadLabel');
+                          form.trigger("leadLabel");
                         }}
                       />
                     </FormControl>
@@ -458,12 +474,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   <FormItem>
                     <FormLabel>Lead Reference (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter reference number" 
-                        {...field} 
+                      <Input
+                        placeholder="Enter reference number"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
-                          form.trigger('leadReference');
+                          form.trigger("leadReference");
                         }}
                       />
                     </FormControl>
@@ -480,12 +496,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 <FormItem>
                   <FormLabel>Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Enter address" 
-                      {...field} 
+                    <Input
+                      placeholder="Enter address"
+                      {...field}
                       onChange={(e) => {
                         field.onChange(e);
-                        form.trigger('leadAddress');
+                        form.trigger("leadAddress");
                       }}
                     />
                   </FormControl>
@@ -507,7 +523,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                       {...field}
                       onChange={(e) => {
                         field.onChange(e);
-                        form.trigger('comment');
+                        form.trigger("comment");
                       }}
                     />
                   </FormControl>
@@ -520,11 +536,15 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || !hasChanges || !form.formState.isValid}
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting || !hasChanges || !form.formState.isValid
+                }
                 className={`${
-                  (isSubmitting || !hasChanges || !form.formState.isValid) ? "btn-disabled" : ""
+                  isSubmitting || !hasChanges || !form.formState.isValid
+                    ? "btn-disabled"
+                    : ""
                 }`}
               >
                 {isSubmitting ? "Creating..." : "Add Lead"}

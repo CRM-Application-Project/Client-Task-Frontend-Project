@@ -125,9 +125,12 @@ export function CreateLeadStageModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                // allow only letters and spaces
+                const cleaned = value.replace(/[^a-zA-Z\s]/g, "");
+                setFormData({ ...formData, name: cleaned });
+              }}
               onBlur={() => setTouched({ ...touched, name: true })}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
                 errors.name ? "border-red-500" : "border-gray-300"
