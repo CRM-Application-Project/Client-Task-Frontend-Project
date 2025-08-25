@@ -1,9 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { History, RefreshCw, ArrowRight, Filter, X } from "lucide-react";
+import { History, RefreshCw, ArrowRight, Filter, X, Calendar, Tag, Link2 } from "lucide-react";
 import { filterHistory, FilterHistoryParams, getHistoryEventsDropdown, getUsers, HistoryRecord, User } from "@/app/services/data.service";
-
-
 
 // Define interfaces locally since the import is failing
 interface UpdateData {
@@ -192,7 +190,7 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
           {hasActiveFilters() && (
             <button
               onClick={clearFilters}
-              className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+              className="flex items-center text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
             >
               <X className="h-4 w-4 mr-1" />
               Clear filters
@@ -200,14 +198,14 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
           )}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md"
+            className="flex items-center text-sm bg-white border border-gray-300 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors shadow-sm"
           >
             <Filter className="h-4 w-4 mr-1" />
             Filter
           </button>
           <button
             onClick={handleRefresh}
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
             title="Refresh history"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -217,17 +215,17 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
 
       {/* Filter Panel */}
       {showFilters && (
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Done By User Filter */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Done By User
               </label>
               <select
                 value={filters.doneById || ''}
                 onChange={(e) => handleFilterChange('doneById', e.target.value || undefined)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
                 disabled={isLoadingUsers}
               >
                 <option value="" className="hover:bg-gray-100">All Users</option>
@@ -241,13 +239,13 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
 
             {/* Event Type Filter */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Event Type
               </label>
               <select
                 value={filters.eventTypes || ''}
                 onChange={(e) => handleFilterChange('eventTypes', e.target.value || undefined)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
                 disabled={isLoadingEvents}
               >
                 <option value="" className="hover:bg-gray-100">All Events</option>
@@ -261,39 +259,45 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
 
             {/* Created After Filter */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Created After
               </label>
-              <input
-                type="date"
-                value={filters.createdAfter ? filters.createdAfter.split('T')[0] : ''}
-                onChange={(e) => handleFilterChange('createdAfter', formatDateForApi(e.target.value))}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
-              />
+              <div className="relative">
+                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  type="date"
+                  value={filters.createdAfter ? filters.createdAfter.split('T')[0] : ''}
+                  onChange={(e) => handleFilterChange('createdAfter', formatDateForApi(e.target.value))}
+                  className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
+                />
+              </div>
             </div>
 
             {/* Created Before Filter */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Created Before
               </label>
-              <input
-                type="date"
-                value={filters.createdBefore ? filters.createdBefore.split('T')[0] : ''}
-                onChange={(e) => handleFilterChange('createdBefore', formatDateForApi(e.target.value))}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
-              />
+              <div className="relative">
+                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  type="date"
+                  value={filters.createdBefore ? filters.createdBefore.split('T')[0] : ''}
+                  onChange={(e) => handleFilterChange('createdBefore', formatDateForApi(e.target.value))}
+                  className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
+                />
+              </div>
             </div>
 
             {/* Sort Direction Filter */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Sort Direction
               </label>
               <select
                 value={filters.sortDirection || 'DESC'}
                 onChange={(e) => handleFilterChange('sortDirection', e.target.value)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 hover:border-gray-400 bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
               >
                 <option value="DESC" className="hover:bg-gray-100">Newest First</option>
                 <option value="ASC" className="hover:bg-gray-100">Oldest First</option>
@@ -313,7 +317,7 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
 
       {/* Empty */}
       {!isLoading && history.length === 0 && (
-        <div className="text-center py-8">
+        <div className="text-center py-8 bg-white rounded-lg border border-gray-200 p-6">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <History className="h-6 w-6 text-gray-400" />
           </div>
@@ -329,11 +333,11 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
         <div className="max-h-[600px] overflow-y-auto px-1 py-2 pb-11">
           <div className="space-y-3">
             {history.map((record, index) => (
-              <div key={record.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div key={record.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
-                  {/* Avatar - Changed from blue to grey */}
+                  {/* Avatar */}
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium text-white">
                         {record.doneByName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
                       </span>
@@ -343,36 +347,43 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm text-gray-700 mb-1">
-                      {record.note}
-                    </p>
-                      <span className="text-xs text-gray-400">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-gray-900">
+                        {record.doneByName || 'Unknown User'}
+                      </h4>
+                      <span className="text-xs text-gray-500">
                         {formatTrackDate(record.createdAt)}
                       </span>
                     </div>
 
-                    {/* Event Type Badge - Changed from blue to grey */}
+                    {/* Event Type Badge */}
                     {record.eventType && (
-                      <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full mb-3">
+                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-3">
                         {eventTypes.find(et => et.value === record.eventType)?.label || record.eventType}
                       </span>
                     )}
 
+                    {/* Note */}
+                    {record.note && (
+                      <p className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded-md">
+                        {record.note}
+                      </p>
+                    )}
+
                     {/* Update Details */}
                     {record.updateData && record.updateData.length > 0 && (
-                      <div className="space-y-2">
+                      <div className="space-y-2 border-t pt-3">
                         {record.updateData.map((update: UpdateData, updateIndex: number) => (
                           <div key={updateIndex} className="flex items-center gap-2 text-sm">
                             <span className="text-gray-600 font-medium">{update.fieldName}:</span>
                             <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
-                              <span className="text-gray-600">
+                              <span className="text-gray-600 line-through">
                                 {formatFieldValue(update.fieldName, update.oldValue)}
                               </span>
                             </div>
                             <ArrowRight className="h-4 w-4 text-gray-400" />
-                            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
-                              <span className="text-gray-600 font-medium">
+                            <div className="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded border border-blue-100">
+                              <span className="text-blue-700 font-medium">
                                 {formatFieldValue(update.fieldName, update.newValue)}
                               </span>
                             </div>
