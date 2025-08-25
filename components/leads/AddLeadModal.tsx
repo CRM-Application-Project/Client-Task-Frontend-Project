@@ -65,6 +65,10 @@ interface AddLeadModalProps {
   onAddLead: (lead: any) => void;
   onNewLeadCreated: (apiLeadData: any) => void;
   leadStages: LeadStage[];
+  // New prop to indicate if opened from a specific stage
+  restrictToFirstStage?: boolean;
+  // Optional prop to set a specific stage
+  presetStageId?: string;
 }
 
 interface UserData {
@@ -79,6 +83,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   onAddLead,
   onNewLeadCreated,
   leadStages,
+  restrictToFirstStage = false,
+  presetStageId,
 }) => {
   const { toast } = useToast();
   const { codes, loading } = useCountryCodes();
@@ -87,11 +93,30 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Filter out CLOSED WON and CLOSED LOST statuses
-  const filteredLeadStages = leadStages.filter(
-    (stage) =>
-      !["CLOSED WON", "CLOSED LOST"].includes(stage.leadStageName.toUpperCase())
-  );
+  // Get available stages based on restrictions
+  const getAvailableStages = () => {
+    if (restrictToFirstStage) {
+      // Sort stages by priority and return only the first one
+      const sortedStages = [...leadStages].sort(
+        (a, b) => a.leadStagePriority - b.leadStagePriority
+      );
+      return sortedStages.slice(0, 1); // Only first stage
+    }
+    
+    if (presetStageId) {
+      // If a specific stage is preset, only show that stage
+      const presetStage = leadStages.find(stage => stage.leadStageId === presetStageId);
+      return presetStage ? [presetStage] : [];
+    }
+    
+    // Normal behavior - filter out CLOSED WON and CLOSED LOST statuses
+    return leadStages.filter(
+      (stage) =>
+        !["CLOSED WON", "CLOSED LOST"].includes(stage.leadStageName.toUpperCase())
+    );
+  };
+
+  const availableStages = getAvailableStages();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -156,6 +181,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       }
     }
   }, [form]);
+
+  // Auto-select the stage when modal opens with restrictions
+  useEffect(() => {
+    if (isOpen && availableStages.length === 1) {
+      form.setValue("leadStatus", availableStages[0].leadStageName);
+    }
+  }, [isOpen, availableStages, form]);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
@@ -233,6 +265,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
           <DialogTitle>Add New Lead</DialogTitle>
           <DialogDescription>
             Fill in the details below to add a new lead to your CRM.
+            {restrictToFirstStage && " This lead will be added to the initial stage."}
           </DialogDescription>
         </DialogHeader>
 
@@ -351,42 +384,55 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 )}
               />
 
-              {/* Updated Lead Status dropdown using filtered lead stages */}
+              {/* Updated Lead Status dropdown with restrictions */}
               <FormField
                 control={form.control}
                 name="leadStatus"
                 render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Lead Status</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        form.trigger("leadStatus");
-                      }}
-                      defaultValue={field.value}
-                    >
+                    {availableStages.length === 1 ? (
+                      // Show as disabled input when only one stage is available
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
+                        <Input
+                          value={availableStages[0].leadStageName}
+                          disabled
+                          className="bg-gray-100 cursor-not-allowed"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {filteredLeadStages.length > 0 ? (
-                          filteredLeadStages.map((stage) => (
-                            <SelectItem
-                              key={stage.leadStageId}
-                              value={stage.leadStageName}
-                            >
-                              {stage.leadStageName}
+                    ) : (
+                      // Show as dropdown when multiple stages are available
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.trigger("leadStatus");
+                        }}
+                        defaultValue={field.value}
+                        disabled={restrictToFirstStage}
+                      >
+                        <FormControl>
+                          <SelectTrigger className={restrictToFirstStage ? "bg-gray-100 cursor-not-allowed" : ""}>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableStages.length > 0 ? (
+                            availableStages.map((stage) => (
+                              <SelectItem
+                                key={stage.leadStageId}
+                                value={stage.leadStageName}
+                              >
+                                {stage.leadStageName}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no-options" disabled>
+                              No available statuses
                             </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no-options" disabled>
-                            No available statuses
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                     {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
