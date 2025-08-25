@@ -93,20 +93,31 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Find the "New" stage or use the first available stage
+  const findDefaultStage = () => {
+    // First try to find a stage with "New" in the name (case insensitive)
+    const newStage = leadStages.find(stage => 
+      stage.leadStageName.toUpperCase().includes("NEW")
+    );
+    
+    if (newStage) return newStage;
+    
+    // If no "New" stage found, use the first stage by priority
+    const sortedStages = [...leadStages].sort(
+      (a, b) => a.leadStagePriority - b.leadStagePriority
+    );
+    
+    return sortedStages.length > 0 ? sortedStages[0] : null;
+  };
+
+  const defaultStage = findDefaultStage();
+  const defaultStageName = defaultStage ? defaultStage.leadStageName : "";
+
   // Get available stages based on restrictions
   const getAvailableStages = () => {
-    if (restrictToFirstStage) {
-      // Sort stages by priority and return only the first one
-      const sortedStages = [...leadStages].sort(
-        (a, b) => a.leadStagePriority - b.leadStagePriority
-      );
-      return sortedStages.slice(0, 1); // Only first stage
-    }
-    
-    if (presetStageId) {
-      // If a specific stage is preset, only show that stage
-      const presetStage = leadStages.find(stage => stage.leadStageId === presetStageId);
-      return presetStage ? [presetStage] : [];
+    if (restrictToFirstStage || presetStageId) {
+      // For restricted mode, only return the default stage
+      return defaultStage ? [defaultStage] : [];
     }
     
     // Normal behavior - filter out CLOSED WON and CLOSED LOST statuses
@@ -126,7 +137,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       customerEmailAddress: "",
       customerMobileNumber: "",
       companyEmailAddress: "",
-      leadStatus: "",
+      leadStatus: defaultStageName,
       leadSource: "",
       leadAddedBy: "",
       leadLabel: "",
@@ -146,7 +157,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       customerEmailAddress: "",
       customerMobileNumber: "",
       companyEmailAddress: "",
-      leadStatus: "",
+      leadStatus: defaultStageName,
       leadSource: "",
       leadAddedBy: "",
       leadLabel: "",
@@ -162,7 +173,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
     );
 
     setHasChanges(hasFormChanged);
-  }, [formValues]);
+  }, [formValues, defaultStageName]);
 
   useEffect(() => {
     // Get user data from localStorage
@@ -182,12 +193,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
     }
   }, [form]);
 
-  // Auto-select the stage when modal opens with restrictions
+  // Set the default stage when modal opens
   useEffect(() => {
-    if (isOpen && availableStages.length === 1) {
-      form.setValue("leadStatus", availableStages[0].leadStageName);
+    if (isOpen && defaultStageName) {
+      form.setValue("leadStatus", defaultStageName);
     }
-  }, [isOpen, availableStages, form]);
+  }, [isOpen, defaultStageName, form]);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
@@ -222,7 +233,10 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
         });
         onAddLead(data);
         // Reset form and close modal first
-        form.reset();
+        form.reset({
+          ...form.formState.defaultValues,
+          leadStatus: defaultStageName,
+        });
         onClose();
 
         // Call the callback with the API response data
@@ -254,7 +268,10 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   };
 
   const handleClose = () => {
-    form.reset();
+    form.reset({
+      ...form.formState.defaultValues,
+      leadStatus: defaultStageName,
+    });
     onClose();
   };
 
@@ -277,7 +294,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="customerName"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Customer Name</FormLabel>
+                    <FormLabel>
+                      Customer Name <span className="text-red-500">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Enter customer name"
@@ -302,10 +321,12 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="customerEmailAddress"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Customer Email</FormLabel>
+                    <FormLabel>
+                      Customer Email <span className="text-red-500">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="customer@example.com"
+                        placeholder="Enter customer email address"
                         {...field}
                         onChange={(e) => {
                           field.onChange(e);
@@ -323,7 +344,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="customerMobileNumber"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Mobile Number</FormLabel>
+                    <FormLabel>
+                      Mobile Number <span className="text-red-500">*</span>
+                    </FormLabel>
                     <div className="flex gap-2">
                       <Select
                         value={selectedCode}
@@ -370,7 +393,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                     <FormLabel>Company Email (Optional)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="contact@company.com"
+                        placeholder="Enter company email address"
                         {...field}
                         onChange={(e) => {
                           field.onChange(e);
@@ -384,55 +407,22 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 )}
               />
 
-              {/* Updated Lead Status dropdown with restrictions */}
+              {/* Lead Status field - always disabled with default value */}
               <FormField
                 control={form.control}
                 name="leadStatus"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Lead Status</FormLabel>
-                    {availableStages.length === 1 ? (
-                      // Show as disabled input when only one stage is available
-                      <FormControl>
-                        <Input
-                          value={availableStages[0].leadStageName}
-                          disabled
-                          className="bg-gray-100 cursor-not-allowed"
-                        />
-                      </FormControl>
-                    ) : (
-                      // Show as dropdown when multiple stages are available
-                      <Select
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          form.trigger("leadStatus");
-                        }}
-                        defaultValue={field.value}
-                        disabled={restrictToFirstStage}
-                      >
-                        <FormControl>
-                          <SelectTrigger className={restrictToFirstStage ? "bg-gray-100 cursor-not-allowed" : ""}>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {availableStages.length > 0 ? (
-                            availableStages.map((stage) => (
-                              <SelectItem
-                                key={stage.leadStageId}
-                                value={stage.leadStageName}
-                              >
-                                {stage.leadStageName}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="no-options" disabled>
-                              No available statuses
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
+                    <FormLabel>
+                      Lead Status <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        value={field.value}
+                        disabled
+                        className="bg-gray-100 cursor-not-allowed"
+                      />
+                    </FormControl>
                     {fieldState.error && <FormMessage />}
                   </FormItem>
                 )}
@@ -443,7 +433,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="leadSource"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Lead Source</FormLabel>
+                    <FormLabel>
+                      Lead Source <span className="text-red-500">*</span>
+                    </FormLabel>
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
@@ -478,7 +470,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="leadAddedBy"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Added By</FormLabel>
+                    <FormLabel>
+                      Added By <span className="text-red-500">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Lead added by"

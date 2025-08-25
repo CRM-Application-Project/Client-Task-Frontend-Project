@@ -203,8 +203,8 @@ export default function LoginPage() {
       : loginTouched[field] &&
         !loginErrors[field] &&
         (field === "email" ? email : password)
-      ? "border-green-500"
-      : "";
+        ? "border-green-500"
+        : "";
 
   const renderValidationStatus = (field: "email" | "password") => {
     if (!loginTouched[field]) return null;
@@ -619,7 +619,7 @@ export default function LoginPage() {
             moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
             moduleName: access.moduleName
               ? access.moduleName.charAt(0).toUpperCase() +
-                access.moduleName.slice(1)
+              access.moduleName.slice(1)
               : "Unknown",
             canView: access.canView ?? true,
             canEdit: access.canEdit ?? false,
@@ -767,6 +767,7 @@ export default function LoginPage() {
                       className="text-sm font-medium text-foreground"
                     >
                       Email Address
+                      <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
                       id="email"
@@ -821,6 +822,8 @@ export default function LoginPage() {
                       className="text-sm font-medium text-foreground"
                     >
                       Password
+                      <span className="text-red-500 ml-1">*</span>
+
                     </Label>
                     <div className="relative">
                       <Input
@@ -836,11 +839,10 @@ export default function LoginPage() {
                         disabled={!isEmailVerified}
                         className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${borderClass(
                           "password"
-                        )} ${
-                          !isEmailVerified
+                        )} ${!isEmailVerified
                             ? "opacity-50 cursor-not-allowed"
                             : ""
-                        }`}
+                          }`}
                         onCopy={handleCopyPrevention}
                         onPaste={handlePastePrevention}
                         autoComplete="current-password"
@@ -849,9 +851,8 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         disabled={!isEmailVerified}
-                        className={`absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors ${
-                          !isEmailVerified ? "cursor-not-allowed" : ""
-                        }`}
+                        className={`absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors ${!isEmailVerified ? "cursor-not-allowed" : ""
+                          }`}
                         aria-label={
                           showPassword ? "Hide password" : "Show password"
                         }
@@ -886,9 +887,8 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isLoading || !isLoginFormValid}
-                    className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${
-                      isLoading || !isLoginFormValid ? "btn-disabled" : ""
-                    }`}
+                    className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${isLoading || !isLoginFormValid ? "btn-disabled" : ""
+                      }`}
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
@@ -959,9 +959,8 @@ export default function LoginPage() {
                       <Button
                         onClick={handleVerifyOtp}
                         disabled={isLoading || !otp}
-                        className={`w-full h-12 ${
-                          isLoading || !otp ? "btn-disabled" : ""
-                        }`}
+                        className={`w-full h-12 ${isLoading || !otp ? "btn-disabled" : ""
+                          }`}
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -1075,14 +1074,13 @@ export default function LoginPage() {
                           !confirmPassword ||
                           passwordErrors.length > 0
                         }
-                        className={`w-full h-12 ${
-                          isLoading ||
-                          !newPassword ||
-                          !confirmPassword ||
-                          passwordErrors.length > 0
+                        className={`w-full h-12 ${isLoading ||
+                            !newPassword ||
+                            !confirmPassword ||
+                            passwordErrors.length > 0
                             ? "btn-disabled"
                             : ""
-                        }`}
+                          }`}
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -1106,7 +1104,7 @@ export default function LoginPage() {
           {/* Additional Links */}
           {!forgotPasswordMode && (
             <div className="text-center space-y-4">
-              <p className="text-sm text-muted-foreground">
+              {/* <p className="text-sm text-muted-foreground">
                 {`Don't have an account?  `}
                 <button
                   onClick={() => router.push("/register")}
@@ -1114,7 +1112,7 @@ export default function LoginPage() {
                 >
                   Register
                 </button>
-              </p>
+              </p> */}
 
               {/* Feature Pills */}
               <div className="flex flex-wrap justify-center gap-2 pt-4">
