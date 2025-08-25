@@ -21,6 +21,7 @@ import {
   PhoneCall,
   MailIcon,
   ArrowLeft,
+  Edit,
 } from "lucide-react";
 import { LeadTrack } from "@/lib/data";
 import Link from "next/link";
@@ -67,44 +68,43 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
       .slice(0, 2);
   };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "LOW":
-      return "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
-    case "MEDIUM":
-      return "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:border-blue-300";
-    case "HIGH":
-      return "bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 hover:border-orange-300";
-    case "URGENT":
-      return "bg-red-50 text-red-800 border-red-200 hover:bg-red-100 hover:border-red-300";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
-  }
-};
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "LOW":
+        return "bg-gray-100 text-gray-800 border-gray-300";
+      case "MEDIUM":
+        return "bg-blue-50 text-blue-800 border-blue-200";
+      case "HIGH":
+        return "bg-orange-50 text-orange-800 border-orange-200";
+      case "URGENT":
+        return "bg-red-50 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "NEW":
-      return "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:border-blue-300";
-    case "CONTACTED":
-      return "bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300";
-    case "QUALIFIED":
-      return "bg-green-50 text-green-800 border-green-200 hover:bg-green-100 hover:border-green-300";
-    case "PROPOSAL":
-      return "bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100 hover:border-teal-300";
-    case "DEMO":
-      return "bg-yellow-50 text-yellow-800 border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300";
-    case "NEGOTIATIONS":
-      return "bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 hover:border-orange-300";
-    case "CLOSED_WON":
-      return "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300";
-    case "CLOSED_LOST":
-      return "bg-red-50 text-red-800 border-red-200 hover:bg-red-100 hover:border-red-300";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
-  }
-};
-
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "NEW":
+        return "bg-blue-50 text-blue-800 border-blue-200";
+      case "CONTACTED":
+        return "bg-indigo-50 text-indigo-800 border-indigo-200";
+      case "QUALIFIED":
+        return "bg-green-50 text-green-800 border-green-200";
+      case "PROPOSAL":
+        return "bg-teal-50 text-teal-800 border-teal-200";
+      case "DEMO":
+        return "bg-yellow-50 text-yellow-800 border-yellow-200";
+      case "NEGOTIATIONS":
+        return "bg-orange-50 text-orange-800 border-orange-200";
+      case "CLOSED_WON":
+        return "bg-emerald-50 text-emerald-800 border-emerald-200";
+      case "CLOSED_LOST":
+        return "bg-red-50 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
 
   const shouldDisplay = (value: any): boolean => {
     return value !== null && value !== undefined && value !== "";
@@ -154,7 +154,6 @@ const getStatusColor = (status: string) => {
     } else if (diffDays < 7) {
       return `${diffDays}d ago`;
     } else {
-      // Format as DD-MM-YYYY for older dates
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
@@ -185,348 +184,272 @@ const getStatusColor = (status: string) => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border">
-      {/* Header with back button */}
+      {/* Header with back button and edit icon */}
       <div className="flex items-center justify-between p-6 border-b">
         <Link
           href="/leads"
-          className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+          className="flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Leads
         </Link>
+        
+      
       </div>
 
       <div className="p-6">
-        {/* Lead header */}
-        <div className="flex items-start gap-4 pb-6 border-b">
-          <Avatar className="h-14 w-14">
-            <AvatarFallback className="bg-blue-50 text-blue-600 font-medium">
-              {getInitials(lead.customerName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {lead.customerName}
-            </h2>
-            {shouldDisplay(lead.company) && (
-              <p className="text-sm text-gray-600">{lead.company}</p>
-            )}
-            <div className="flex gap-2 pt-1 flex-wrap">
-              <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
-                {lead.leadStatus.replace("_", " ")}
-              </Badge>
-              <Badge
-                className={`${getPriorityColor(lead.leadPriority)} border`}
-              >
-                {lead.leadPriority}
-              </Badge>
+        {/* Lead header with improved styling */}
+        <div className="flex items-start justify-between gap-4 pb-6 border-b">
+          <div className="flex items-start gap-4">
+            <div className="relative">
+              <Avatar className="h-16 w-16 bg-blue-100">
+                <AvatarFallback className="bg-blue-100 text-blue-600 font-medium text-lg">
+                  {getInitials(lead.customerName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm">
+                <div className={`h-3 w-3 rounded-full ${
+                  lead.leadStatus === "CLOSED_WON" ? "bg-green-500" : 
+                  lead.leadStatus === "CLOSED_LOST" ? "bg-red-500" : "bg-blue-500"
+                }`} />
+              </div>
             </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  {lead.customerName}
+                </h2>
+                <Badge className={`${getPriorityColor(lead.leadPriority)} border`}>
+                  {lead.leadPriority}
+                </Badge>
+              </div>
+              
+              {shouldDisplay(lead.company) && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Building className="h-4 w-4" />
+                  <span>{lead.company}</span>
+                </div>
+              )}
+              
+              <div className="flex gap-2 flex-wrap">
+                <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
+                  {lead.leadStatus.replace("_", " ")}
+                </Badge>
+                
+                {shouldDisplay(lead.leadSource) && (
+                  <Badge variant="outline" className="text-gray-600">
+                    {lead.leadSource.replace("_", " ")}
+                  </Badge>
+                )}
+                
+                {shouldDisplay(lead.leadLabel) && (
+                  <Badge variant="outline" className="text-gray-600">
+                    {lead.leadLabel}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-right text-sm text-gray-500">
+            <div>Lead ID: {lead.leadId}</div>
+            <div>Created: {formatDate(lead.createdAt)}</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1  gap-6 py-6">
-          {/* Left Card - Lead Information */}
-          <div className="bg-white border rounded-lg p-5 shadow-sm">
-            <div className="space-y-6">
-              {/* Contact Information */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-6">
+          {/* Left Column - Contact Information */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-gray-50 rounded-lg p-5">
+              <h3 className="font-semibold text-gray-900 text-lg mb-4 flex items-center gap-2">
+                <User className="h-5 w-5 text-blue-600" />
+                Contact Information
+              </h3>
+
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">
-                  Contact Information
-                </h3>
-
-                <div className="space-y-3">
-                  {shouldDisplay(lead.customerEmailAddress) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Mail className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Email</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.customerEmailAddress}
-                        </p>
-                      </div>
+                {shouldDisplay(lead.customerEmailAddress) && (
+                  <div className="flex items-start gap-3">
+                    <Mail className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500 text-sm">Email</p>
+                      <p className="text-gray-900 font-medium">
+                        {lead.customerEmailAddress}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {shouldDisplay(lead.customerMobileNumber) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Phone className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Phone</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.customerMobileNumber}
-                        </p>
-                      </div>
+                {shouldDisplay(lead.customerMobileNumber) && (
+                  <div className="flex items-start gap-3">
+                    <Phone className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500 text-sm">Phone</p>
+                      <p className="text-gray-900 font-medium">
+                        {lead.customerMobileNumber}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {shouldDisplay(lead.leadAddress) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Address</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.leadAddress}
-                        </p>
-                      </div>
+                {shouldDisplay(lead.leadAddress) && (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500 text-sm">Address</p>
+                      <p className="text-gray-900 font-medium">
+                        {lead.leadAddress}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {shouldDisplay(lead.companyName) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Building className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Company</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.companyName}
-                        </p>
-                      </div>
+                {shouldDisplay(lead.companyEmailAddress) && (
+                  <div className="flex items-start gap-3">
+                    <Mail className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500 text-sm">Company Email</p>
+                      <p className="text-gray-900 font-medium">
+                        {lead.companyEmailAddress}
+                      </p>
                     </div>
-                  )}
-
-                  {shouldDisplay(lead.companyEmailAddress) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Mail className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Company Email</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.companyEmailAddress}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* Lead Details */}
+            {/* Lead Details Card */}
+            <div className="bg-gray-50 rounded-lg p-5">
+              <h3 className="font-semibold text-gray-900 text-lg mb-4 flex items-center gap-2">
+                <Hash className="h-5 w-5 text-blue-600" />
+                Lead Details
+              </h3>
+
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">
-                  Lead Details
+                {shouldDisplay(lead.leadAddedBy) && (
+                  <div className="flex items-start gap-3">
+                    <User className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500 text-sm">Added By</p>
+                      <p className="text-gray-900 font-medium">
+                        {lead.leadAddedBy}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {shouldDisplay(lead.leadReference) && (
+                  <div className="flex items-start gap-3">
+                    <Hash className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-500 text-sm">Reference</p>
+                      <p className="text-gray-900 font-medium">
+                        {lead.leadReference}
+                      </p>
+                    </div>
+                  </div>
+                )}
+           
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-500 text-sm">Created</p>
+                    <p className="text-gray-900 font-medium text-sm">
+                      {formatDate(lead.createdAt)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500 text-sm">Last Updated</p>
+                    <p className="text-gray-900 font-medium text-sm">
+                      {formatDate(lead.updatedAt)}
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+             
+            </div>
+            <div className="bg-gray-50 rounded-lg p-5">
+               
+                        {shouldDisplay(lead.comment) && (
+              <div className="bg-white border rounded-lg p-5 shadow-sm">
+                <h3 className="font-semibold text-gray-900 text-lg mb-4 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-blue-600" />
+                  Comments
                 </h3>
-
-                <div className="space-y-3">
-                  {shouldDisplay(lead.leadAddedBy) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <User className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Added By</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.leadAddedBy}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {shouldDisplay(lead.leadSource) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Tag className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Source</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.leadSource.replace("_", " ")}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {shouldDisplay(lead.leadLabel) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Tag className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Lead Label</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.leadLabel}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {shouldDisplay(lead.leadReference) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Hash className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Lead Reference</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.leadReference}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {shouldDisplay(lead.leadPriority) && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <Hash className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-500">Priority</p>
-                        <p className="text-gray-900 font-medium">
-                          {lead.leadPriority}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                
+                <div className="bg-gray-50 rounded-md p-4">
+                  <p className="text-gray-900 whitespace-pre-wrap">
+                    {lead.comment}
+                  </p>
                 </div>
               </div>
-
-              {/* Additional Information */}
-              {(shouldDisplay(lead.comment) ||
-                shouldDisplay(lead.createdAt) ||
-                shouldDisplay(lead.updatedAt)) && (
-                <div className="space-y-4 border-t pt-4">
-                  <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">
-                    Additional Information
-                  </h3>
-
-                  <div className="space-y-3">
-                    {shouldDisplay(lead.comment) && (
-                      <div className="flex items-start gap-3 text-sm">
-                        <MessageSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-gray-500">Comments</p>
-                          <p className="text-gray-900 font-medium whitespace-pre-wrap">
-                            {lead.comment}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {shouldDisplay(lead.createdAt) && (
-                        <div className="flex items-start gap-3 text-sm">
-                          <Calendar className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-gray-500">Created</p>
-                            <p className="text-gray-900 font-medium">
-                              {formatDate(lead.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {shouldDisplay(lead.updatedAt) && (
-                        <div className="flex items-start gap-3 text-sm">
-                          <RefreshCw className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-gray-500">Last Updated</p>
-                            <p className="text-gray-900 font-medium">
-                              {formatDate(lead.updatedAt)}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* System Information */}
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="font-medium text-gray-900 text-sm uppercase tracking-wider">
-                  System Information
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Lead ID</p>
-                    <p className="text-gray-900 font-medium text-md">
-                      {lead.leadId}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-500">Status</p>
-                    <p className="text-gray-900 font-medium">
-                      {lead.leadStatus.replace("_", " ")}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-500">Priority</p>
-                    <p className="text-gray-900 font-medium">
-                      {lead.leadPriority}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-500">Source</p>
-                    <p className="text-gray-900 font-medium">
-                      {lead.leadSource.replace("_", " ")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            )}
             </div>
           </div>
 
-          {/* Right Card - Activity History */}
-          <div className="bg-white/70 backdrop-blur border rounded-xl p-6 shadow-md">
-            <div className="space-y-5">
-              {/* Header */}
-              <h3 className="font-semibold text-gray-900 text-base tracking-tight flex items-center gap-2">
-                <History className="h-5 w-5 text-blue-600" />
-                Lead Activity History
+          {/* Middle Column - Comments and Activity */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Comments Card */}
+         
+
+            {/* Activity History Card */}
+            <div className="bg-white border rounded-lg p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 text-lg flex items-center gap-2">
+                  <History className="h-5 w-5 text-blue-600" />
+                  Activity History
+                </h3>
+                
                 <button
                   onClick={onRefresh}
-                  className="ml-auto p-2 rounded-full hover:bg-blue-50 text-blue-600 transition"
-                  title="Sync history"
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                  title="Refresh activity"
                 >
-                  <RefreshCw className="h-4 w-4 hover:animate-spin" />
+                  <RefreshCw className="h-4 w-4" />
                 </button>
-              </h3>
+              </div>
 
-              {/* Activity Timeline */}
               {leadTracks.length > 0 ? (
-                <div className="max-h-[600px] overflow-y-auto px-1 py-2 pb-11">
-                  <div className="space-y-3">
-                    {leadTracks.map((track, index) => (
-                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                        <div className="flex items-start gap-3">
-                          {/* Avatar */}
-                          <div className="flex-shrink-0">
-                            <div className="w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-white">
-                                {track.actionBy?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-1">
-                              <div>
-                                <h4 className="font-medium text-gray-900 text-sm">
-                                  {track.actionBy || 'Unknown User'}
-                                </h4>
-                              </div>
-                              <span className="text-xs text-gray-400">
-                                {formatTrackDate(track.actionTime)}
-                              </span>
-                            </div>
-
-                            {/* Activity Description */}
-                            <p className="text-sm text-gray-700 mb-2">
-                              {track.actionDescription}
-                            </p>
-                            
-                            {/* Message content if available */}
-                            {shouldDisplay(track.message) && (
-                              <div className="bg-gray-50 rounded-md p-3 mt-2 border border-gray-200">
-                                <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                  {track.message}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                <div className="max-h-96 overflow-y-auto space-y-3">
+                  {leadTracks.map((track, index) => (
+                    <div key={index} className="flex gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                      <div className="flex-shrink-0 mt-1">
+                        {getActivityIcon(track.actionDescription)}
                       </div>
-                    ))}
-                  </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="font-medium text-gray-900 text-sm">
+                            {track.actionBy || 'System'}
+                          </h4>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {formatTrackDate(track.actionTime)}
+                          </span>
+                        </div>
+                        
+                        <p className="text-sm text-gray-700 mb-2">
+                          {track.actionDescription}
+                        </p>
+                        
+                        {shouldDisplay(track.message) && (
+                          <div className="bg-gray-50 rounded-md p-3 mt-2">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {track.message}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <History className="h-6 w-6 text-gray-400" />
                   </div>
-                  <p className="text-gray-500 text-sm">No activity yet</p>
+                  <p className="text-gray-500 text-sm">No activity recorded yet</p>
                 </div>
               )}
             </div>
