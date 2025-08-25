@@ -834,9 +834,7 @@ const RichTextEditor = ({
         data-placeholder={placeholder}
       />
 
-      <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-600 rounded-b-md">
-        Rich text editor with full formatting support
-      </div>
+     
     </div>
   );
 };
