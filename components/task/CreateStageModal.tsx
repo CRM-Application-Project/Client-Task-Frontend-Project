@@ -7,11 +7,11 @@ interface CreateStageModalProps {
   existingStagesCount: number;
 }
 
-export function CreateStageModal({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  existingStagesCount 
+export function CreateStageModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  existingStagesCount
 }: CreateStageModalProps) {
   const [formData, setFormData] = useState({
     name: "",
@@ -23,13 +23,13 @@ export function CreateStageModal({
 
   const handleSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
-    
+
     // Validation
     const newErrors: { name?: string } = {};
     if (!formData.name.trim()) {
       newErrors.name = "Stage name is required";
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -69,15 +69,16 @@ export function CreateStageModal({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Stage Name *
+              Stage Name
+              <span className="text-red-500 ml-1">*</span>
+
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${errors.name ? 'border-red-500' : 'border-gray-300'
+                }`}
               placeholder="Enter stage name (e.g., To Do, In Progress, Done)"
             />
             {errors.name && (
@@ -101,6 +102,8 @@ export function CreateStageModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Order Number
+              <span className="text-red-500 ml-1">*</span>
+
             </label>
             <input
               type="number"

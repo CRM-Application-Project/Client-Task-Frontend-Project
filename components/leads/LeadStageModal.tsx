@@ -120,7 +120,8 @@ export function CreateLeadStageModal({
         <form className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Stage Name *
+              Stage Name
+              <span className="text-red-500 ml-1">*</span>
             </label>
             <input
               type="text"
@@ -159,7 +160,9 @@ export function CreateLeadStageModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Order Number *
+              Order Number 
+                            <span className="text-red-500 ml-1">*</span>
+
             </label>
             <input
               type="number"
