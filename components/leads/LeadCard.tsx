@@ -143,7 +143,10 @@ export const LeadCard = ({
   const assignedAvatar = getAssigneeAvatar();
 
   return (
-    <Card className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+    <Card
+      className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200"
+      onClick={() => (window.location.href = `/leads/${lead.leadId}`)}
+    >
       <div className="space-y-3">
         {/* Lead name */}
         <h3 className="font-bold text-gray-900 text-base leading-tight capitalize">
@@ -157,17 +160,17 @@ export const LeadCard = ({
               {getInitials(assignedName)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-gray-600 capitalize">{assignedName}</span>
+          <span className="text-sm text-gray-600 capitalize">
+            {assignedName}
+          </span>
         </div>
 
-        {/* Details section */}
+        {/* Details */}
         <div className="space-y-1 text-sm text-gray-500">
-          {(lead.company || lead.companyEmailAddress) && (
+          {lead.company && (
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-gray-400" />
-              <span className="truncate">
-                {lead.company || lead.companyEmailAddress}
-              </span>
+              <span className="truncate">{lead.company}</span>
             </div>
           )}
           {lead.customerEmailAddress && (
@@ -176,65 +179,52 @@ export const LeadCard = ({
               <span className="truncate">{lead.customerEmailAddress}</span>
             </div>
           )}
-          {lead.customerMobileNumber && (
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-gray-400" />
-              <span className="truncate">{lead.customerMobileNumber}</span>
-            </div>
-          )}
-          {lead.leadAddress && (
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="truncate">{lead.leadAddress}</span>
-            </div>
-          )}
         </div>
-
-        {/* Additional info - Lead Label and Reference */}
 
         {/* Action bar */}
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">
-          {permissions.canView && (
-  <Link href={`/leads/${lead.leadId}`}>
-    <button
-      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-      title="View lead"
-    >
-      <Eye className="h-4 w-4 text-gray-600" />
-    </button>
-  </Link>
-)}
+            {permissions.canView && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = `/leads/${lead.leadId}`;
+                }}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="View lead"
+              >
+                <Eye className="h-4 w-4 text-gray-600" />
+              </button>
+            )}
             {permissions.canEdit && (
               <button
-                onClick={() => onEdit?.(lead)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(lead);
+                }}
                 className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                 title="Edit lead"
               >
                 <Edit className="h-4 w-4 text-gray-600" />
               </button>
             )}
-            {/* {lead.customerMobileNumber && (
-              <button
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                title="Call lead"
-                onClick={() =>
-                  window.open(`tel:${lead.customerMobileNumber}`, "_self")
-                }
-              >
-                <Phone className="h-4 w-4 text-gray-600" />
-              </button>
-            )} */}
           </div>
 
           {/* 3-dots menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              >
                 <MoreVertical className="h-4 w-4 text-gray-600" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent
+              align="end"
+              className="w-48"
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenuItem onClick={() => onAddFollowUp?.(lead)}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Add Follow-up
@@ -247,8 +237,6 @@ export const LeadCard = ({
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Change Status
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-
               <DropdownMenuSeparator />
               {permissions.canDelete && (
                 <DropdownMenuItem
