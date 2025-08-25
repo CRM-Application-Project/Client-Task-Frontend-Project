@@ -218,47 +218,55 @@ export const AddTaskModal = ({
     return formData.taskStageId !== originalFormData.taskStageId;
   }, [editingTask, formData.taskStageId, originalFormData]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setOriginalFormData(null);
-      setDirtyFields(new Set());
-      setComment("");
-      return;
-    }
+ // In AddTaskModal component, update the useEffect that sets initial form data
 
-    if (editingTask) {
-      const initialData: CreateTaskRequest = {
-        subject: editingTask.subject || "",
-        description: editingTask.description || "",
-        priority: editingTask.priority || "LOW",
-        taskStageId: editingTask.taskStageId || 0,
-        startDate: editingTask.startDate || new Date().toISOString(),
-        endDate: editingTask.endDate || "",
-        assignee: editingTask.assignee?.id || "",
-        acceptanceCriteria: editingTask.acceptanceCriteria || "",
-      };
-      setFormData(initialData);
-      setOriginalFormData(initialData);
-      setDirtyFields(new Set());
-      setComment(""); // reset comment on open
-    } else {
-      const adjustedTime = getAdjustedCurrentTime();
-      const newTaskData: CreateTaskRequest = {
-        subject: "",
-        description: "",
-        priority: "LOW",
-        taskStageId: preSelectedStageId || 0,
-        startDate: getLocalISOString(adjustedTime),
-        endDate: "",
-        assignee: "",
-        acceptanceCriteria: getDefaultAcceptanceCriteria(),
-      };
-      setFormData(newTaskData);
-      setOriginalFormData(null);
-      setDirtyFields(new Set());
-      setComment(""); // not used in create
-    }
-  }, [isOpen, editingTask, preSelectedStageId]);
+ useEffect(() => {
+  if (!isOpen) {
+    setOriginalFormData(null);
+    setDirtyFields(new Set());
+    setComment("");
+    return;
+  }
+
+  if (editingTask) {
+    const initialData: CreateTaskRequest = {
+      subject: editingTask.subject || "",
+      description: editingTask.description || "",
+      priority: editingTask.priority || "LOW",
+      taskStageId: editingTask.taskStageId || 0,
+      startDate: editingTask.startDate || new Date().toISOString(),
+      endDate: editingTask.endDate || "",
+      assignee: editingTask.assignee?.id || "",
+      acceptanceCriteria: editingTask.acceptanceCriteria || "",
+    };
+    setFormData(initialData);
+    setOriginalFormData(initialData);
+    setDirtyFields(new Set());
+    setComment("");
+  } else {
+    const adjustedTime = getAdjustedCurrentTime();
+    
+    // Set first stage as default if available, otherwise use preSelectedStageId or 0
+    const defaultStageId = stages.length > 0 
+      ? stages[0].id 
+      : preSelectedStageId || 0;
+
+    const newTaskData: CreateTaskRequest = {
+      subject: "",
+      description: "",
+      priority: "LOW",
+      taskStageId: defaultStageId,
+      startDate: getLocalISOString(adjustedTime),
+      endDate: "",
+      assignee: "",
+      acceptanceCriteria: getDefaultAcceptanceCriteria(),
+    };
+    setFormData(newTaskData);
+    setOriginalFormData(null);
+    setDirtyFields(new Set());
+    setComment("");
+  }
+}, [isOpen, editingTask, preSelectedStageId, stages]); // Added stages to dependency array
 
   useEffect(() => {
     const fetchData = async () => {
@@ -551,52 +559,67 @@ export const AddTaskModal = ({
                 </SelectContent>
               </Select>
             </div>
+          
+<div className="space-y-2">
+  <Label className="text-sm font-medium text-foreground">
+    Stage <span className="text-red-500">*</span>
+    {dirtyFields.has("taskStageId") && (
+      <span className="text-blue-600 text-xs ml-1">• Modified</span>
+    )}
+  </Label>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">
-                Stage <span className="text-red-500">*</span>
-                {dirtyFields.has("taskStageId") && (
-                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
-                )}
-              </Label>
-
-              {hasPreSelectedStage ? (
-                <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                  <span className="text-sm">
-                    {stages.find((stage) => stage.id === preSelectedStageId)
-                      ?.name || "Selected Stage"}
-                  </span>
-                  <input
-                    type="hidden"
-                    value={preSelectedStageId || ""}
-                    onChange={(e) =>
-                      updateFormField("taskStageId", parseInt(e.target.value))
-                    }
-                  />
-                </div>
-              ) : (
-                <Select
-                  value={formData.taskStageId?.toString() || ""}
-                  onValueChange={(value) => {
-                    const numValue = parseInt(value, 10);
-                    if (!isNaN(numValue)) {
-                      updateFormField("taskStageId", numValue);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id.toString()}>
-                        {stage.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+  {hasPreSelectedStage ? (
+    <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+      <span className="text-sm">
+        {stages.find((stage) => stage.id === preSelectedStageId)
+          ?.name || "Selected Stage"}
+      </span>
+      <input
+        type="hidden"
+        value={preSelectedStageId || ""}
+        onChange={(e) =>
+          updateFormField("taskStageId", parseInt(e.target.value))
+        }
+      />
+    </div>
+  ) : editingTask ? (
+    // For editing: allow stage change
+    <Select
+      value={formData.taskStageId?.toString() || ""}
+      onValueChange={(value) => {
+        const numValue = parseInt(value, 10);
+        if (!isNaN(numValue)) {
+          updateFormField("taskStageId", numValue);
+        }
+      }}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select stage" />
+      </SelectTrigger>
+      <SelectContent>
+        {stages.map((stage) => (
+          <SelectItem key={stage.id} value={stage.id.toString()}>
+            {stage.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  ) : (
+    // For new tasks: show first stage as default and don't allow change
+    <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+      <span className="text-sm">
+        {stages.length > 0 ? stages[0].name : "No stages available"}
+      </span>
+      <input
+        type="hidden"
+        value={stages.length > 0 ? stages[0].id : ""}
+        onChange={(e) =>
+          updateFormField("taskStageId", parseInt(e.target.value))
+        }
+      />
+    </div>
+  )}
+</div>
           </div>
 
           {/* Comment field - Only show in edit mode when stage is changed */}

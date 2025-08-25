@@ -94,21 +94,17 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
 
   // Find the "New" stage or use the first available stage
-  const findDefaultStage = () => {
-    // First try to find a stage with "New" in the name (case insensitive)
-    const newStage = leadStages.find(stage => 
-      stage.leadStageName.toUpperCase().includes("NEW")
-    );
-    
-    if (newStage) return newStage;
-    
-    // If no "New" stage found, use the first stage by priority
-    const sortedStages = [...leadStages].sort(
-      (a, b) => a.leadStagePriority - b.leadStagePriority
-    );
-    
-    return sortedStages.length > 0 ? sortedStages[0] : null;
-  };
+ const findDefaultStage = () => {
+  if (!leadStages || leadStages.length === 0) return null;
+
+  // Sort by priority and return the first stage
+  const sortedStages = [...leadStages].sort(
+    (a, b) => a.leadStagePriority - b.leadStagePriority
+  );
+
+  return sortedStages[0];
+};
+
 
   const defaultStage = findDefaultStage();
   const defaultStageName = defaultStage ? defaultStage.leadStageName : "";
