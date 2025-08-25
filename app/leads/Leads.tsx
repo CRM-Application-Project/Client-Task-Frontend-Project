@@ -133,41 +133,201 @@ const Leads = () => {
       [...leadStages].sort((a, b) => a.leadStagePriority - b.leadStagePriority),
     [leadStages]
   );
+const [isReorderingStages, setIsReorderingStages] = useState(false);
+const reorderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+// Add cleanup effect
+useEffect(() => {
+  return () => {
+    if (reorderTimeoutRef.current) {
+      clearTimeout(reorderTimeoutRef.current);
+    }
+  };
+}, []);
   // Handle stage updates - with proper reordering
   // Handle stage updates - merge then let memoized sorter handle the order
-  const handleStageUpdate = (updatedStage: LeadStage) => {
-    setLeadStages((prevStages) =>
-      prevStages.map((s) =>
-        s.leadStageId === updatedStage.leadStageId
-          ? { ...s, ...updatedStage }
-          : s
-      )
-    );
+ const handleStageUpdate = (updatedStage: LeadStage, skipRefresh = false) => {
+  // Don't process individual updates while reordering is in progress
+  if (isReorderingStages) {
+    return;
+  }
 
-    // If the name changed, sync lead cards too (same as you were doing)
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) => {
-        // Find the previous version (from the latest known array)
-        const previous = leadStages.find(
-          (st) => st.leadStageId === updatedStage.leadStageId
-        );
-        if (
-          previous &&
-          previous.leadStageName !== updatedStage.leadStageName &&
-          lead.leadStatus === previous.leadStageName
-        ) {
-          return { ...lead, leadStatus: updatedStage.leadStageName };
-        }
-        return lead;
-      })
-    );
+  setLeadStages((prevStages) =>
+    prevStages.map((s) =>
+      s?.leadStageId === updatedStage.leadStageId
+        ? { ...s, ...updatedStage }
+        : s
+    ).filter(Boolean) as LeadStage[]
+  );
 
-    // Optional but robust (server may normalize priorities): refresh from API
-    // (no await needed; UI already updates optimistically)
+  // If the name changed, sync lead cards too (same as you were doing)
+  setLeads((prevLeads) =>
+    prevLeads.map((lead) => {
+      // Find the previous version (from the latest known array)
+      const previous = leadStages.find(
+        (st) => st?.leadStageId === updatedStage.leadStageId
+      );
+      if (
+        previous &&
+        previous.leadStageName !== updatedStage.leadStageName &&
+        lead.leadStatus === previous.leadStageName
+      ) {
+        return { ...lead, leadStatus: updatedStage.leadStageName };
+      }
+      return lead;
+    })
+  );
+
+  // Only refresh from API if not skipping (to avoid duplicate calls during reordering)
+  if (!skipRefresh) {
     fetchLeadStagesData();
-  };
+  }
+};
 
+const handleStageReorder = async (reorderedStages: LeadStage[]) => {
+  // Prevent multiple simultaneous reorder operations
+  if (isReorderingStages) {
+    console.log('Reorder operation already in progress, skipping...');
+    return;
+  }
+
+  // Clear any existing timeout
+  if (reorderTimeoutRef.current) {
+    clearTimeout(reorderTimeoutRef.current);
+  }
+
+  // Debounce rapid reorder calls
+  reorderTimeoutRef.current = setTimeout(async () => {
+    await performStageReorder(reorderedStages);
+  }, 300); // 300ms debounce
+};
+
+const performStageReorder = async (reorderedStages: LeadStage[]) => {
+  // Check if reordering is actually needed
+  const hasOrderChanged = reorderedStages.some((stage, index) => 
+    stage.leadStagePriority !== index + 1
+  );
+  
+  if (!hasOrderChanged) {
+    console.log('No order changes needed');
+    return;
+  }
+
+  setIsReorderingStages(true);
+
+  try {
+    // Update the local state immediately for better UX
+    setLeadStages(reorderedStages);
+
+    // Group updates by batches to avoid overwhelming the API
+    const stagesToUpdate = reorderedStages
+      .map((stage, index) => {
+        const newPriority = index + 1;
+        return stage.leadStagePriority !== newPriority 
+          ? { ...stage, newPriority }
+          : null;
+      })
+      .filter((item): item is LeadStage & { newPriority: number } => item !== null);
+
+    if (stagesToUpdate.length === 0) {
+      console.log('No stages need priority updates');
+      return;
+    }
+
+    console.log('Updating stages:', stagesToUpdate.map(s => ({ 
+      id: s.leadStageId, 
+      name: s.leadStageName,
+      oldP: s.leadStagePriority, 
+      newP: s.newPriority 
+    })));
+
+    // Update stages sequentially to avoid race conditions and API conflicts
+    const updateResults: Array<{
+      stage: LeadStage & { newPriority: number };
+      response?: any;
+      error?: any;
+    }> = [];
+    
+    for (const stageToUpdate of stagesToUpdate) {
+      try {
+        const updatePayload = {
+          leadStageId: stageToUpdate.leadStageId,
+          leadStageName: stageToUpdate.leadStageName,
+          leadStageDescription: stageToUpdate.leadStageDescription || '',
+          leadStagePriority: stageToUpdate.newPriority,
+        };
+
+        console.log('Updating stage:', { 
+          name: updatePayload.leadStageName, 
+          priority: updatePayload.leadStagePriority 
+        });
+        
+        const response = await updateLeadStage(updatePayload);
+        updateResults.push({ stage: stageToUpdate, response });
+        
+        if (!response.isSuccess) {
+          console.error(`API returned error for stage ${stageToUpdate.leadStageName}:`, response.message);
+        }
+        
+        // Small delay to prevent API rate limiting
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+      } catch (error) {
+        console.error(`Failed to update stage ${stageToUpdate.leadStageName}:`, error);
+        updateResults.push({ stage: stageToUpdate, error });
+      }
+    }
+
+    // Check results
+    const failedUpdates = updateResults.filter(result => 
+      result.error || !result.response?.isSuccess
+    );
+
+    if (failedUpdates.length > 0) {
+      console.error('Failed updates:', failedUpdates.map(f => ({
+        stageName: f.stage?.leadStageName,
+        error: (f.error as Error)?.message || f.response?.message || 'Unknown error'
+      })));
+      
+      // Revert to original order on failure
+      await fetchLeadStagesData();
+      
+      toast({
+        title: "Error",
+        description: `Failed to update ${failedUpdates.length} stage(s). Order has been reverted.`,
+        variant: "destructive",
+      });
+    } else {
+      // Update the stages with the new priorities
+      const updatedStages = reorderedStages.map((stage, index) => ({
+        ...stage,
+        leadStagePriority: index + 1
+      }));
+      
+      setLeadStages(updatedStages);
+      
+      toast({
+        title: "Success",
+        description: `Successfully reordered ${stagesToUpdate.length} stage(s).`,
+      });
+      
+      console.log('Stage reorder completed successfully');
+    }
+  } catch (error: any) {
+    console.error("Failed to reorder stages:", error);
+    
+    // Revert to original order on error
+    await fetchLeadStagesData();
+    
+    toast({
+      title: "Error",
+      description: error.message || "Failed to reorder stages",
+      variant: "destructive",
+    });
+  } finally {
+    setIsReorderingStages(false);
+  }
+};
   // Handle stage deletion
   const handleStageDelete = (deletedStageId: string) => {
     // Get the stage being deleted to find leads that need to be moved
@@ -854,58 +1014,65 @@ const Leads = () => {
           onSortLeads={() => setIsSortingModalOpen(true)}
           leadStages={leadStages}
         />
-        {viewMode === "kanban" && (
-          <div className="flex gap-4 overflow-x-auto pb-6">
-            {leadStages.map((stage, index) => (
-              <LeadColumn
-                key={stage.leadStageId}
-                stage={stage}
-                stageIndex={index}
-                leads={filteredLeads.filter(
-                  (lead) => lead.leadStatus === stage.leadStageName
-                )}
-                onEditLead={handleEditLead}
-                onDeleteLead={handleDeleteClick}
-                onViewLead={async (lead) => {
-                  setSelectedLead(lead);
-                  setIsViewModalOpen(true);
-                  try {
-                    const response = await getLeadById(lead.leadId);
-                    if (response.isSuccess && response.data) {
-                      const detailedLead = enhanceLeadWithAssigneeName(
-                        response.data,
-                        assignOptions
-                      );
-                      setSelectedLead(detailedLead);
-                    }
-                  } catch (error: any) {
-                    console.error("Failed to fetch lead details:", error);
-                  }
-                }}
-                onAddFollowUp={(lead) => {
-                  setSelectedLead(lead);
-                  setIsFollowUpModalOpen(true);
-                }}
-                onChangeAssign={(lead) => {
-                  setSelectedLead(lead);
-                  setIsChangeAssignModalOpen(true);
-                }}
-                onImportLead={() => setIsImportModalOpen(true)}
-                onLeadSorting={() => setIsSortingModalOpen(true)}
-                onChangeStatus={(lead) => {
-                  setSelectedLead(lead);
-                  setIsChangeStatusModalOpen(true);
-                }}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                isDragOver={dragOverStage === stage.leadStageName}
-                onStageUpdate={handleStageUpdate}
-                onStageDelete={handleStageDelete}
-              />
-            ))}
-          </div>
+{viewMode === "kanban" && (
+  <div className="flex gap-4 overflow-x-auto pb-6 kanban-board-container">
+    {sortedLeadStages.map((stage, index) => (
+      <LeadColumn
+        key={stage.leadStageId}
+        stage={stage}
+        stageIndex={index}
+        leads={filteredLeads.filter(
+          (lead) => lead.leadStatus === stage.leadStageName
         )}
+        onEditLead={handleEditLead}
+        onDeleteLead={handleDeleteClick}
+        onViewLead={async (lead) => {
+          setSelectedLead(lead);
+          setIsViewModalOpen(true);
+          try {
+            const response = await getLeadById(lead.leadId);
+            if (response.isSuccess && response.data) {
+              const detailedLead = enhanceLeadWithAssigneeName(
+                response.data,
+                assignOptions
+              );
+              setSelectedLead(detailedLead);
+            }
+          } catch (error: any) {
+            console.error("Failed to fetch lead details:", error);
+          }
+        }}
+        onAddFollowUp={(lead) => {
+          setSelectedLead(lead);
+          setIsFollowUpModalOpen(true);
+        }}
+        onChangeAssign={(lead) => {
+          setSelectedLead(lead);
+          setIsChangeAssignModalOpen(true);
+        }}
+        onImportLead={() => setIsImportModalOpen(true)}
+        onLeadSorting={() => setIsSortingModalOpen(true)}
+        onChangeStatus={(lead) => {
+          setSelectedLead(lead);
+          setIsChangeStatusModalOpen(true);
+        }}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        isDragOver={dragOverStage === stage.leadStageName}
+        onStageUpdate={handleStageUpdate}
+        onStageDelete={handleStageDelete}
+        // Add these missing props:
+        allStages={sortedLeadStages}
+        onStageReorder={handleStageReorder}
+        onAddLeadForStage={(stageId) => {
+          // Optional: Add lead to specific stage
+          setIsAddModalOpen(true);
+        }}
+      />
+    ))}
+  </div>
+)}
         {/* Grid View - Updated to use dynamic stages */}
         {viewMode === "grid" && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

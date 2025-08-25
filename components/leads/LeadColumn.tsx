@@ -1,10 +1,10 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { deleteLeadStage } from "@/app/services/data.service";
 import { LeadCard } from "./LeadCard";
 import { LeadStage } from "@/lib/data";
-import { Pencil, MoreVertical, Trash2, Plus } from "lucide-react";
+import { Pencil, MoreVertical, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +38,8 @@ interface LeadColumnProps {
   isDragOver?: boolean;
   stageIndex: number;
   onAddLeadForStage?: (stageId: string) => void;
+  allStages: LeadStage[];
+  onStageReorder?: (reorderedStages: LeadStage[]) => void;
 }
 
 // Dynamic color assignment based on stage position
@@ -244,6 +246,8 @@ export const LeadColumn = ({
   isDragOver = false,
   stageIndex = 0,
   onAddLeadForStage,
+  allStages = [],
+  onStageReorder,
 }: LeadColumnProps) => {
   const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -251,6 +255,13 @@ export const LeadColumn = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentStage, setCurrentStage] = useState<LeadStage>(stage);
+  
+  // Column drag states
+  const [isColumnDragging, setIsColumnDragging] = useState(false);
+  const [isColumnDraggedOver, setIsColumnDraggedOver] = useState(false);
+  const dragCounterRef = useRef(0);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
   const stageColors = getStageColors(stageIndex);
@@ -260,6 +271,87 @@ export const LeadColumn = ({
   useEffect(() => {
     setCurrentStage(stage);
   }, [stage]);
+
+  // Clean up intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Function to handle auto-scrolling during drag operations
+  const handleAutoScroll = useCallback((e: React.DragEvent) => {
+    const kanbanBoard = document.querySelector(".kanban-board-container");
+    if (!kanbanBoard) return;
+
+    const boardRect = kanbanBoard.getBoundingClientRect();
+    const scrollThreshold = 100;
+    const scrollSpeed = 20;
+
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+
+    const isNearLeftEdge = e.clientX < boardRect.left + scrollThreshold;
+    const isNearRightEdge = e.clientX > boardRect.right - scrollThreshold;
+
+    if (isNearLeftEdge || isNearRightEdge) {
+      scrollIntervalRef.current = setInterval(() => {
+        const scrollAmount = isNearLeftEdge ? -scrollSpeed : scrollSpeed;
+        kanbanBoard.scrollLeft += scrollAmount;
+      }, 16);
+    }
+  }, []);
+
+  // Stage drag and drop handlers
+  const handleStageDragStart = (e: React.DragEvent) => {
+    setIsColumnDragging(true);
+    const dragData = {
+      type: "stage",
+      stageId: currentStage.leadStageId,
+      sourceIndex: stageIndex,
+      stage: currentStage,
+    };
+    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleStageDragEnd = () => {
+    setIsColumnDragging(false);
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  };
+
+  const handleStageDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+
+    try {
+      const dragDataString = e.dataTransfer.getData("application/json");
+      if (dragDataString) {
+        const dragData = JSON.parse(dragDataString);
+        if (dragData.type === "stage" && dragData.stageId !== currentStage.leadStageId) {
+          setIsColumnDraggedOver(true);
+        }
+      }
+    } catch (error) {
+      // Ignore parsing errors
+    }
+
+    handleAutoScroll(e);
+  };
+
+  const handleStageDragLeave = () => {
+    setIsColumnDraggedOver(false);
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  };
 
   const handleEditStage = () => {
     setIsEditModalOpen(true);
@@ -358,22 +450,102 @@ export const LeadColumn = ({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    onDragOver(e, currentStage.leadStageName);
+    
+    try {
+      const dragDataString = e.dataTransfer.getData("application/json");
+      if (dragDataString) {
+        const dragData = JSON.parse(dragDataString);
+        
+        // Handle stage reordering
+        if (dragData.type === "stage" && dragData.stageId !== currentStage.leadStageId) {
+          setIsColumnDraggedOver(true);
+          return;
+        }
+        
+        // Handle lead dragging
+        if (dragData.type !== "stage") {
+          onDragOver(e, currentStage.leadStageName);
+        }
+      }
+    } catch (error) {
+      onDragOver(e, currentStage.leadStageName);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsColumnDraggedOver(false);
+    
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+
+    try {
+      const dragDataString = e.dataTransfer.getData("application/json");
+      if (!dragDataString) {
+        onDrop(e, currentStage.leadStageName);
+        return;
+      }
+
+      const dragData = JSON.parse(dragDataString);
+
+      // Handle stage reordering
+      if (dragData.type === "stage" && onStageReorder) {
+        const { sourceIndex } = dragData;
+        const targetIndex = stageIndex;
+        
+        if (sourceIndex !== targetIndex) {
+          const reorderedStages = [...allStages];
+          const [movedStage] = reorderedStages.splice(sourceIndex, 1);
+          reorderedStages.splice(targetIndex, 0, movedStage);
+          
+          onStageReorder(reorderedStages);
+          
+          toast({
+            title: "Stages Reordered",
+            description: "Stage order has been updated successfully.",
+            variant: "default",
+          });
+        }
+        return;
+      }
+
+      // Handle lead drop
+      onDrop(e, currentStage.leadStageName);
+    } catch (error) {
+      console.error("Error handling drop:", error);
+      onDrop(e, currentStage.leadStageName);
+    }
   };
 
   return (
     <>
       <div
-        className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md bg-gray-50 border-gray-200 ${
+        ref={columnRef}
+        className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
+          isColumnDraggedOver
+            ? "bg-gray-50 border-2 border-gray-300 border-dashed"
+            : "bg-gray-50 border-gray-200"
+        } ${isColumnDragging ? "opacity-50 scale-95" : ""} ${
           isDragOver ? "bg-gray-50 border-2 border-gray-300 border-dashed" : ""
         }`}
         onDragOver={handleDragOver}
-        onDrop={(e) => onDrop(e, currentStage.leadStageName)}
+        onDragLeave={handleStageDragLeave}
+        onDrop={handleDrop}
+        style={{
+          willChange: "transform, box-shadow",
+          transform: "translateZ(0)",
+        }}
       >
-        {/* Stage Header */}
+        {/* Stage Header - Now draggable */}
         <div className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200">
           <div
-            className={`${stageColors?.color} ${stageColors?.textColor} px-4 py-3 rounded-t-xl flex items-center justify-between shadow-sm transition-all duration-200`}
+            className={`${stageColors?.color} ${stageColors?.textColor} px-4 py-3 rounded-t-xl flex items-center justify-between shadow-sm transition-all duration-200 cursor-move`}
+            draggable={true}
+            onDragStart={handleStageDragStart}
+            onDragEnd={handleStageDragEnd}
+            onDragOver={handleStageDragOver}
           >
             <div className="flex items-center gap-2 flex-1">
               <h2 className="font-semibold text-sm uppercase tracking-wide truncate flex-1">
@@ -388,15 +560,6 @@ export const LeadColumn = ({
               >
                 {leads.length}
               </Badge>
-
-              {/* Add Lead Icon */}
-              {/* <button
-                onClick={() => onAddLeadForStage?.(currentStage.leadStageId)}
-                className="p-1.5 rounded hover:bg-white/20 transition-colors ml-2"
-                title={`Add lead to ${currentStage.leadStageName}`}
-              >
-                <Plus className="w-4 h-4" />
-              </button> */}
 
               {/* Three dots menu for stage operations */}
               <div className="relative">
@@ -487,6 +650,16 @@ export const LeadColumn = ({
             }
           `}</style>
 
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-6 mb-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-3 text-gray-700">
+                <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">Updating stage...</span>
+              </div>
+            </div>
+          )}
+
           {/* Leads cards */}
           <div className="space-y-3">
             {leads.map((lead, index) => (
@@ -519,8 +692,36 @@ export const LeadColumn = ({
             ))}
           </div>
 
+          {/* Add Lead Button - Only show for first column (stageIndex === 0) */}
+          {stageIndex === 0 && onAddLeadForStage && (
+            <div className="mt-4">
+              <button
+                onClick={() => onAddLeadForStage(currentStage.leadStageId)}
+                className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group"
+                type="button"
+              >
+                <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-gray-700">
+                  <svg
+                    className="w-5 h-5 transition-transform duration-200 group-hover:scale-110"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium">Add Lead</span>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* Empty state */}
-          {leads.length === 0 && (
+          {leads.length === 0 && !isLoading && (
             <div className="text-center py-2">
               <div className="rounded-xl p-8 transition-all duration-200">
                 <p className="text-sm text-gray-500 mb-2">
