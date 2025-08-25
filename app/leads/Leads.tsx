@@ -306,10 +306,7 @@ const performStageReorder = async (reorderedStages: LeadStage[]) => {
       
       setLeadStages(updatedStages);
       
-      toast({
-        title: "Success",
-        description: `Successfully reordered ${stagesToUpdate.length} stage(s).`,
-      });
+     
       
       console.log('Stage reorder completed successfully');
     }
