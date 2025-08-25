@@ -454,11 +454,22 @@ const performStageReorder = async (reorderedStages: LeadStage[]) => {
     fetchLeads();
   };
 
+const [restrictToFirstStage, setRestrictToFirstStage] = useState(false);
+const [presetStageId, setPresetStageId] = useState<string | undefined>();
   const handleAddLead = () => {
-    setIsAddModalOpen(true);
-    fetchLeads();
-    fetchFilteredLeads();
-  };
+  setRestrictToFirstStage(false);
+  setPresetStageId(undefined);
+  setIsAddModalOpen(true);
+  fetchLeads();
+  fetchFilteredLeads();
+};
+
+// Add a new function to handle adding lead from a specific stage
+const handleAddLeadForStage = (stageId?: string) => {
+  setRestrictToFirstStage(true);
+  setPresetStageId(stageId);
+  setIsAddModalOpen(true);
+};
 
   const handleAddStage = () => {
     setIsCreateStageModalOpen(true);
@@ -1017,7 +1028,7 @@ const performStageReorder = async (reorderedStages: LeadStage[]) => {
 {viewMode === "kanban" && (
   <div className="flex gap-4 overflow-x-auto pb-6 kanban-board-container">
     {sortedLeadStages.map((stage, index) => (
-      <LeadColumn
+       <LeadColumn
         key={stage.leadStageId}
         stage={stage}
         stageIndex={index}
@@ -1062,13 +1073,10 @@ const performStageReorder = async (reorderedStages: LeadStage[]) => {
         isDragOver={dragOverStage === stage.leadStageName}
         onStageUpdate={handleStageUpdate}
         onStageDelete={handleStageDelete}
-        // Add these missing props:
         allStages={sortedLeadStages}
         onStageReorder={handleStageReorder}
-        onAddLeadForStage={(stageId) => {
-          // Optional: Add lead to specific stage
-          setIsAddModalOpen(true);
-        }}
+        // Update this line to use the new function
+        onAddLeadForStage={() => handleAddLeadForStage(stage.leadStageId)}
       />
     ))}
   </div>
@@ -1198,12 +1206,18 @@ const performStageReorder = async (reorderedStages: LeadStage[]) => {
         )}
         {/* All Modals */}
         <AddLeadModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onAddLead={handleAddNewLeadOptimistic}
-          onNewLeadCreated={handleAddNewLead}
-          leadStages={leadStages}
-        />
+  isOpen={isAddModalOpen}
+  onClose={() => {
+    setIsAddModalOpen(false);
+    setRestrictToFirstStage(false);
+    setPresetStageId(undefined);
+  }}
+  onAddLead={handleAddNewLeadOptimistic}
+  onNewLeadCreated={handleAddNewLead}
+  leadStages={leadStages}
+  restrictToFirstStage={restrictToFirstStage}
+  presetStageId={presetStageId}
+/>
         <CreateLeadStageModal
           isOpen={isCreateStageModalOpen}
           onClose={() => setIsCreateStageModalOpen(false)}
