@@ -175,23 +175,26 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
     setHasChanges(hasFormChanged);
   }, [formValues, defaultStageName]);
 
+  // Load user data on component mount
   useEffect(() => {
-    // Get user data from localStorage
     const userData = localStorage.getItem("user");
     if (userData) {
       try {
         const parsedUser = JSON.parse(userData) as UserData;
         setUser(parsedUser);
-
-        form.setValue(
-          "leadAddedBy",
-          `${parsedUser.firstName} ${parsedUser.lastName}`
-        );
       } catch (error) {
         console.error("Failed to parse user data:", error);
       }
     }
-  }, [form]);
+  }, []);
+
+  // Set leadAddedBy when modal opens and user data is available
+  useEffect(() => {
+    if (isOpen && user) {
+      const fullName = `${user.firstName} ${user.lastName}`;
+      form.setValue("leadAddedBy", fullName);
+    }
+  }, [isOpen, user, form]);
 
   // Set the default stage when modal opens
   useEffect(() => {
