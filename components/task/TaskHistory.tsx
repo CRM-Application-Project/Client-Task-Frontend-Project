@@ -1,7 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
-import { History, RefreshCw, ArrowRight, Filter, X, Calendar, Tag, Link2 } from "lucide-react";
-import { filterHistory, FilterHistoryParams, getHistoryEventsDropdown, getUsers, HistoryRecord, User } from "@/app/services/data.service";
+import {
+  History,
+  RefreshCw,
+  ArrowRight,
+  Filter,
+  X,
+  Calendar,
+  Tag,
+} from "lucide-react";
+import {
+  FilterHistoryParams,
+  getHistoryEventsDropdown,
+  getUsers,
+  HistoryRecord,
+  User,
+} from "@/app/services/data.service";
 
 // Define interfaces locally since the import is failing
 interface UpdateData {
@@ -22,12 +36,17 @@ interface EventTypeOption {
   label: string;
 }
 
-export function TaskHistory({ history, isLoading, taskId, onFilterChange }: TaskHistoryProps) {
+export function TaskHistory({
+  history,
+  isLoading,
+  taskId,
+  onFilterChange,
+}: TaskHistoryProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterHistoryParams>({
     taskId,
     page: 0,
-    limit: 50
+    limit: 50,
   });
   const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -40,14 +59,16 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
       setIsLoadingEvents(true);
       try {
         const response = await getHistoryEventsDropdown();
-        
+
         // Handle the API response format
         if (response?.isSuccess && response.data) {
           // Convert the object to an array of options
-          const eventOptions = Object.entries(response.data).map(([value, label]) => ({
-            value,
-            label: String(label)
-          }));
+          const eventOptions = Object.entries(response.data).map(
+            ([value, label]) => ({
+              value,
+              label: String(label),
+            })
+          );
           setEventTypes(eventOptions);
         } else {
           console.error("Unexpected API response format:", response);
@@ -70,7 +91,7 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
       setIsLoadingUsers(true);
       try {
         const response = await getUsers();
-        
+
         if (response?.isSuccess && response.data) {
           setUsers(response.data);
         } else {
@@ -90,26 +111,26 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
 
   const formatTrackDate = (dateString: string) => {
     let date: Date;
-    
+
     if (/^\d+$/.test(dateString)) {
       const timestamp = parseInt(dateString);
       date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
     } else {
       date = new Date(dateString);
     }
-    
+
     if (isNaN(date.getTime())) {
-      return 'Invalid date';
+      return "Invalid date";
     }
-    
+
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
+
     if (diffMinutes < 1) {
-      return 'Just now';
+      return "Just now";
     } else if (diffMinutes < 60) {
       return `${diffMinutes}m ago`;
     } else if (diffHours < 24) {
@@ -118,8 +139,8 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
       return `${diffDays}d ago`;
     } else {
       // Format as DD-MM-YYYY for older dates
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
       const year = date.getFullYear();
       return `${day}-${month}-${year}`;
     }
@@ -129,27 +150,32 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
     if (Array.isArray(value) && value.length >= 3) {
       const [year, month, day, hour, minute] = value;
       const date = new Date(year, month - 1, day, hour || 0, minute || 0);
-      
-      const formattedDay = date.getDate().toString().padStart(2, '0');
-      const formattedMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+
+      const formattedDay = date.getDate().toString().padStart(2, "0");
+      const formattedMonth = (date.getMonth() + 1).toString().padStart(2, "0");
       const formattedYear = date.getFullYear();
-      
+
       return `${formattedDay}-${formattedMonth}-${formattedYear}`;
     }
-    
-    if (typeof value === 'string' && 
-        (fieldName.toLowerCase().includes('date') || fieldName.toLowerCase().includes('time')) && 
-        /^\d+$/.test(value)) {
+
+    if (
+      typeof value === "string" &&
+      (fieldName.toLowerCase().includes("date") ||
+        fieldName.toLowerCase().includes("time")) &&
+      /^\d+$/.test(value)
+    ) {
       const timestamp = parseInt(value);
-      const date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
+      const date = new Date(
+        timestamp > 9999999999 ? timestamp : timestamp * 1000
+      );
       if (!isNaN(date.getTime())) {
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
         const year = date.getFullYear();
         return `${day}-${month}-${year}`;
       }
     }
-    
+
     return String(value);
   };
 
@@ -170,9 +196,19 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
     onFilterChange(newFilters);
   };
 
+  const labelCls =
+  "flex items-center gap-2 text-sm font-medium text-gray-700 mb-2";
+const controlCls =
+  "w-full h-11 px-3 text-sm md:text-base border border-gray-300 rounded-lg bg-white " +
+  "hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 " +
+  "transition-colors";
+
+
   const hasActiveFilters = () => {
     const { taskId, page, limit, ...filterFields } = filters;
-    return Object.values(filterFields).some(value => value !== undefined && value !== '');
+    return Object.values(filterFields).some(
+      (value) => value !== undefined && value !== ""
+    );
   };
 
   // Format date for API (add time component to make it LocalDateTime compatible)
@@ -185,7 +221,9 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
     <div className="space-y-4">
       {/* Filter Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Activity Timeline</h3>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Activity Timeline
+        </h3>
         <div className="flex items-center gap-2">
           {hasActiveFilters() && (
             <button
@@ -208,104 +246,104 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
             className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
             title="Refresh history"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+            />
           </button>
         </div>
       </div>
 
       {/* Filter Panel */}
       {showFilters && (
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Done By User Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Done By User
-              </label>
-              <select
-                value={filters.doneById || ''}
-                onChange={(e) => handleFilterChange('doneById', e.target.value || undefined)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
-                disabled={isLoadingUsers}
-              >
-                <option value="" className="hover:bg-gray-100">All Users</option>
-                {users.map((user) => (
-                  <option key={user.userId} value={user.userId} className="hover:bg-gray-100">
-                    {user.firstName} {user.lastName}
-                  </option>
-                ))}
-              </select>
-            </div>
+  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-6">
 
-            {/* Event Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Event Type
-              </label>
-              <select
-                value={filters.eventTypes || ''}
-                onChange={(e) => handleFilterChange('eventTypes', e.target.value || undefined)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
-                disabled={isLoadingEvents}
-              >
-                <option value="" className="hover:bg-gray-100">All Events</option>
-                {eventTypes.map((type) => (
-                  <option key={type.value} value={type.value} className="hover:bg-gray-100">
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Done By User */}
+      <div>
+        <label className={labelCls}>
+          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path d="M5.121 17.804A8 8 0 1116.97 6.955a8 8 0 01-11.849 10.849z" />
+          </svg>
+          Done By User
+        </label>
+        <select
+          value={filters.doneById || ""}
+          onChange={(e) => handleFilterChange("doneById", e.target.value || undefined)}
+          disabled={isLoadingUsers}
+          className={controlCls}
+        >
+          <option value="">All Users</option>
+          {users.map((u) => (
+            <option key={u.userId} value={u.userId}>
+              {u.firstName} {u.lastName}
+            </option>
+          ))}
+        </select>
+      </div>
 
-            {/* Created After Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Created After
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                <input
-                  type="date"
-                  value={filters.createdAfter ? filters.createdAfter.split('T')[0] : ''}
-                  onChange={(e) => handleFilterChange('createdAfter', formatDateForApi(e.target.value))}
-                  className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
-                />
-              </div>
-            </div>
+      {/* Event Type */}
+      <div>
+        <label className={labelCls}>
+          <Tag className="w-4 h-4 text-gray-400" />
+          Event Type
+        </label>
+        <select
+          value={filters.eventTypes || ""}
+          onChange={(e) => handleFilterChange("eventTypes", e.target.value || undefined)}
+          disabled={isLoadingEvents}
+          className={controlCls}
+        >
+          <option value="">All Events</option>
+          {eventTypes.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+      </div>
 
-            {/* Created Before Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Created Before
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                <input
-                  type="date"
-                  value={filters.createdBefore ? filters.createdBefore.split('T')[0] : ''}
-                  onChange={(e) => handleFilterChange('createdBefore', formatDateForApi(e.target.value))}
-                  className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
-                />
-              </div>
-            </div>
+      {/* Created After */}
+      <div>
+        <label className={labelCls}>
+          <Calendar className="w-4 h-4 text-gray-400" />
+          Created After
+        </label>
+        <input
+          type="date"
+          value={filters.createdAfter ? filters.createdAfter.split("T")[0] : ""}
+          onChange={(e) => handleFilterChange("createdAfter", formatDateForApi(e.target.value))}
+          className={controlCls}
+        />
+      </div>
 
-            {/* Sort Direction Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Sort Direction
-              </label>
-              <select
-                value={filters.sortDirection || 'DESC'}
-                onChange={(e) => handleFilterChange('sortDirection', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white transition-colors"
-              >
-                <option value="DESC" className="hover:bg-gray-100">Newest First</option>
-                <option value="ASC" className="hover:bg-gray-100">Oldest First</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Created Before */}
+      <div>
+        <label className={labelCls}>
+          <Calendar className="w-4 h-4 text-gray-400" />
+          Created Before
+        </label>
+        <input
+          type="date"
+          value={filters.createdBefore ? filters.createdBefore.split("T")[0] : ""}
+          onChange={(e) => handleFilterChange("createdBefore", formatDateForApi(e.target.value))}
+          className={controlCls}
+        />
+      </div>
+
+      {/* Sort Direction */}
+      <div>
+        <label className={labelCls}>Sort Direction</label>
+        <select
+          value={filters.sortDirection || "DESC"}
+          onChange={(e) => handleFilterChange("sortDirection", e.target.value)}
+          className={controlCls}
+        >
+          <option value="DESC">Newest First</option>
+          <option value="ASC">Oldest First</option>
+        </select>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Loading */}
       {isLoading && (
@@ -323,78 +361,96 @@ export function TaskHistory({ history, isLoading, taskId, onFilterChange }: Task
           </div>
           <p className="text-gray-500 text-sm">No activity yet</p>
           {hasActiveFilters() && (
-            <p className="text-gray-400 text-xs mt-1">Try adjusting your filters</p>
+            <p className="text-gray-400 text-xs mt-1">
+              Try adjusting your filters
+            </p>
           )}
         </div>
       )}
 
       {/* Activity Timeline */}
       {!isLoading && history.length > 0 && (
-        <div className="max-h-[600px] overflow-y-auto px-1 py-2 pb-11">
-          <div className="space-y-3">
-            {history.map((record, index) => (
-              <div key={record.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-white">
-                        {record.doneByName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
-                      </span>
-                    </div>
+  <div className="max-h-[600px] overflow-y-auto">
+    {/* content wrapper grows to full list height */}
+    <div className="relative py-4">
+      {/* vertical line spans the wrapper height, not the viewport */}
+      <div className="pointer-events-none absolute left-5 inset-y-0 w-px bg-gray-200 z-0" />
+
+      <div className="space-y-6 relative z-10">
+        {history.map((record) => (
+          <div key={record.id} className="relative flex items-start gap-4">
+                {/* Timeline dot */}
+                <div className="flex-shrink-0 relative">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 text-white flex items-center justify-center shadow-md">
+                    {record.doneByName
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase() || "??"}
+                  </div>
+                </div>
+
+                {/* Card */}
+                <div className="flex-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      {record.doneByName || "Unknown User"}
+                    </h4>
+                    <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 rounded-md text-gray-500">
+                      {formatTrackDate(record.createdAt)}
+                    </span>
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        {record.doneByName || 'Unknown User'}
-                      </h4>
-                      <span className="text-xs text-gray-500">
-                        {formatTrackDate(record.createdAt)}
-                      </span>
-                    </div>
+                  {/* Event Type */}
+                  {record.eventType && (
+                    <span className="inline-block mb-3 px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200">
+                      {eventTypes.find((et) => et.value === record.eventType)
+                        ?.label || record.eventType}
+                    </span>
+                  )}
 
-                    {/* Event Type Badge */}
-                    {record.eventType && (
-                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-3">
-                        {eventTypes.find(et => et.value === record.eventType)?.label || record.eventType}
-                      </span>
-                    )}
+                  {/* Note */}
+                  {record.note && (
+                    <p className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      {record.note}
+                    </p>
+                  )}
 
-                    {/* Note */}
-                    {record.note && (
-                      <p className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded-md">
-                        {record.note}
-                      </p>
-                    )}
-
-                    {/* Update Details */}
-                    {record.updateData && record.updateData.length > 0 && (
-                      <div className="space-y-2 border-t pt-3">
-                        {record.updateData.map((update: UpdateData, updateIndex: number) => (
-                          <div key={updateIndex} className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600 font-medium">{update.fieldName}:</span>
-                            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
-                              <span className="text-gray-600 line-through">
-                                {formatFieldValue(update.fieldName, update.oldValue)}
-                              </span>
+                  {/* Update Details */}
+                  {record.updateData && record.updateData.length > 0 && (
+                    <div className="space-y-2 border-t pt-3">
+                      {record.updateData.map(
+                        (update: UpdateData, updateIndex: number) => (
+                          <div
+                            key={updateIndex}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <span className="text-gray-600 font-medium">
+                              {update.fieldName}:
+                            </span>
+                            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md text-gray-500 line-through">
+                              {formatFieldValue(
+                                update.fieldName,
+                                update.oldValue
+                              )}
                             </div>
                             <ArrowRight className="h-4 w-4 text-gray-400" />
-                            <div className="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded border border-blue-100">
-                              <span className="text-blue-700 font-medium">
-                                {formatFieldValue(update.fieldName, update.newValue)}
-                              </span>
+                            <div className="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 text-blue-700 font-medium">
+                              {formatFieldValue(
+                                update.fieldName,
+                                update.newValue
+                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </div>
       )}
