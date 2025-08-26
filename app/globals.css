@@ -52,7 +52,7 @@
     --status-done: 120 60% 50%;
 
     /* Base Palette (single source of truth) */
-    --color-primary: blue;
+    --color-primary: #3b3b3b;
     --color-secondary: #636363;
     --color-accent: #909090;
     --color-surface: #ffffff;
