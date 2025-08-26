@@ -201,7 +201,7 @@ export function DashboardSidebar({
       icon: "warning",
       width: "400px",
       showCancelButton: true,
-      confirmButtonColor: "#3b3b3b",
+      confirmButtonColor: "var(--brand-primary)",
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, logout!",
       background: "#fff",
@@ -210,9 +210,9 @@ export function DashboardSidebar({
         popup: "rounded-lg shadow-xl",
         title: "text-gray-800",
         confirmButton:
-          "bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white px-4 py-2 rounded-md",
+          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
         cancelButton:
-          "bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md",
+          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
       },
     }).then((r) => {
       if (!r.isConfirmed) return;
@@ -233,17 +233,17 @@ export function DashboardSidebar({
     const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
 
     return (
-      <div className="flex h-full flex-col bg-[#3b3b3b] relative">
+      <div className="flex h-full flex-col bg-sidebar relative">
         {/* Logo */}
         <div
           className={cn(
-            "flex h-16 shrink-0 items-center justify-between px-6 border-b border-[#4b4b4b] transition-all duration-300",
+            "flex h-16 shrink-0 items-center justify-between px-6 border-b border-sidebar-border transition-all duration-300",
             collapsed && !hovered && "px-3 justify-center"
           )}
         >
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
-              <BarChart3 className="h-5 w-5 text-[#3b3b3b]" />
+              <BarChart3 className="h-5 w-5 text-brand-primary" />
             </div>
             {isExpandedView && (
               <h1 className="text-xl font-bold text-white whitespace-nowrap">
@@ -280,8 +280,8 @@ export function DashboardSidebar({
                           "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                           // ✅ Highlight ONLY when active, not when merely expanded
                           isActive
-                            ? "bg-white text-[#3b3b3b] shadow-sm"
-                            : "text-white hover:bg-white hover:text-[#3b3b3b]",
+                            ? "bg-white text-brand-primary shadow-sm"
+                            : "text-white hover:bg-white hover:text-brand-primary",
                           collapsed && !hovered && "justify-center px-2"
                         )}
                         onClick={() => {
@@ -351,8 +351,8 @@ export function DashboardSidebar({
                         "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                         collapsed && !hovered && "justify-center px-2",
                         pathname === item.href
-                          ? "bg-white text-[#3b3b3b] shadow-sm"
-                          : "text-white hover:bg-white hover:text-[#3b3b3b]"
+                          ? "bg-white text-brand-primary shadow-sm"
+                          : "text-white hover:bg-white hover:text-brand-primary"
                       )}
                     >
                       <item.icon
@@ -373,7 +373,7 @@ export function DashboardSidebar({
             {/* Settings */}
             <div
               className={cn(
-                "mt-8 pt-4 border-t border-[#4b4b4b] transition-all duration-300",
+                "mt-8 pt-4 border-t border-sidebar-border transition-all duration-300",
                 collapsed && !hovered && "mt-4"
               )}
             >
@@ -383,8 +383,8 @@ export function DashboardSidebar({
                   "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   // ✅ Only highlight when settings route is active
                   isSettingsActive
-                    ? "bg-white text-[#3b3b3b] shadow-sm"
-                    : "text-white hover:bg-white hover:text-[#3b3b3b]",
+                    ? "bg-white text-brand-primary shadow-sm"
+                    : "text-white hover:bg-white hover:text-brand-primary",
                   collapsed && !hovered && "justify-center px-2"
                 )}
                 onClick={() => toggleGroup("Settings")}
@@ -445,12 +445,12 @@ export function DashboardSidebar({
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t border-[#4b4b4b] transition-all duration-300">
+        <div className="p-4 border-t border-sidebar-border transition-all duration-300">
           <Button
             variant="ghost"
             onClick={handleLogout}
             className={cn(
-              "w-full text-white hover:bg-white hover:text-[#3b3b3b] transition-all duration-200",
+              "w-full text-white hover:bg-white hover:text-brand-primary transition-all duration-200",
               collapsed && !hovered ? "justify-center px-2" : "justify-start"
             )}
           >

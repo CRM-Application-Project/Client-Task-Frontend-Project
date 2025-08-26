@@ -50,6 +50,69 @@
     --status-progress: 35 100% 60%;
     --status-review: 280 100% 60%;
     --status-done: 120 60% 50%;
+
+    /* Base Palette (single source of truth) */
+    --color-primary: #3b3b3b;
+    --color-secondary: #636363;
+    --color-accent: #909090;
+    --color-surface: #ffffff;
+    --color-border: #4b4b4b;
+    --color-placeholder: #9ca3af;
+
+    /* Brand Palette - Hex-based variables for global use */
+    /* Primary Colors */
+    --brand-primary: var(--color-primary);
+    --brand-secondary: var(--color-secondary);
+
+    /* Text Colors */
+    --text-primary: var(--color-primary);
+    --text-secondary: var(--color-secondary);
+    --text-light: var(--color-accent);
+    --text-lighter: #d4d4d4;
+    --text-white: var(--color-surface);
+
+    /* Button Colors */
+    --button-primary-background: var(--color-primary);
+    --button-primary-text: var(--color-surface);
+    --button-primary-hover: color-mix(in srgb, var(--color-primary) 90%, black);
+
+    --button-outline-background: var(--color-surface);
+    --button-outline-text: var(--color-secondary);
+    --button-outline-border: var(--color-secondary);
+    --button-outline-hover: #f9fafb;
+
+    --button-secondary-background: var(--color-primary);
+    --button-secondary-text: var(--color-surface);
+    --button-secondary-hover: color-mix(in srgb, var(--color-primary) 90%, black);
+
+    /* Background Colors */
+    --background-primary: var(--color-surface);
+    --background-secondary: #f9fafb;
+    --background-tertiary: #f3f4f6;
+    --background-light: var(--color-accent);
+    --background-card: #ffffff;
+
+    /* Border Colors */
+    --border-light: #f1f5f9;
+    --border-default: #e5e7eb;
+    --border-medium: #d4d4d4;
+    --border-dark: var(--color-accent);
+
+    /* Sidebar Colors (used by theme.sidebar) */
+    --sidebar-background: var(--color-primary);
+    --sidebar-foreground: var(--color-surface);
+    --sidebar-primary: var(--color-primary);
+    --sidebar-primary-foreground: var(--color-surface);
+    --sidebar-accent: var(--color-surface);
+    --sidebar-accent-foreground: var(--color-primary);
+    --sidebar-border: var(--color-border);
+    --sidebar-ring: var(--color-primary);
+
+    /* Neutral/Utility Colors */
+    --neutral-200: #f1f5f9;
+    --neutral-300: #cbd5e1;
+    --neutral-400: #94a3b8;
+    --placeholder: var(--color-placeholder);
   }
 
   .dark {
@@ -135,4 +198,12 @@
   content: attr(data-placeholder);
   color: #9ca3af;
   font-style: italic;
+}
+
+.rs-picker-menu {
+  z-index: 10002 !important;
+}
+
+.rs-calendar {
+  z-index: 10002 !important;
 }

@@ -580,7 +580,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 disabled={
                   isSubmitting || !hasChanges || !form.formState.isValid
                 }
-                className={`${
+                className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${
                   isSubmitting || !hasChanges || !form.formState.isValid
                     ? "btn-disabled"
                     : ""

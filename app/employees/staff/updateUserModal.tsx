@@ -492,18 +492,18 @@ export const UpdateStaffModal = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading || !isFormDirty}
-                  className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
+                  className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-text-white ${
                     loading || !isFormDirty
                       ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gray-900 hover:bg-gray-800"
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500`}
+                      : "bg-brand-primary hover:bg-brand-primary/90"
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary`}
                 >
                   {loading ? (
                     <>

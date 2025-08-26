@@ -16,19 +16,21 @@ import {
   updateTaskStage,
   deleteTaskStage,
   UpdateStageRequest,
+  startTask,
+  stopTask,
 } from "../services/data.service";
 import { CreateStageModal } from "@/components/task/CreateStageModal";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  TaskPriority, 
+  TaskStatus, 
+  TaskActionType, 
+  Task, 
+  Assignee 
+} from "@/lib/task";
 
 // ========== TYPE DEFINITIONS ==========
-type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-type TaskStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
-
-interface Assignee {
-  id: string;
-  label: string;
-}
 
 interface TaskStage {
   id: number;
@@ -55,24 +57,19 @@ interface TaskResponse {
   createdAt: string;
   updatedAt: string;
   assignee: Assignee;
-}
-
-interface Task {
-  id: number;
-  subject: string;
-  description: string;
+  estimatedHours: number | null;
+  graceHours: number;
+  actualHours: number | null;
+  actionType: TaskActionType;
   status: TaskStatus;
-  priority: TaskPriority;
-  labels: string[];
-  assignedTo: string;
-  createdBy: string;
-  startDate: Date;
-  endDate: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  taskStageId: number;
-  taskStageName: string;
-  assignee: Assignee;
+  comment: string;
+  createdBy: Assignee;
+  completedBy: Assignee | null;
+  completedAt: string | null;
+  documents: any[];
+  acceptanceInfo: {
+    acceptanceCriteria: string;
+  };
 }
 
 interface EditingTaskResponse {
@@ -238,7 +235,7 @@ const DeleteStageModal = ({
             <button
               type="button"
               onClick={onConfirm}
-              className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               disabled={isLoading}
             >
               {isLoading && (
@@ -379,7 +376,7 @@ const EditStageModal = ({
               </button>
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#636363] text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 transition-colors font-medium shadow-sm"
+                className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm"
               >
                 Save Changes
               </button>
@@ -477,7 +474,7 @@ const DeleteTaskModal = ({
             <button
               type="button"
               onClick={onConfirm}
-              className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               disabled={isLoading}
             >
               {isLoading && (
@@ -491,6 +488,140 @@ const DeleteTaskModal = ({
     </div>
   );
 };
+
+// Stop Task Comment Modal Component
+interface StopTaskModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (comment: string) => void;
+  taskId: number | null;
+  isLoading?: boolean;
+}
+
+const StopTaskModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  taskId,
+  isLoading = false,
+}: StopTaskModalProps) => {
+  const [comment, setComment] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && !isLoading) {
+      onClose();
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (comment.trim()) {
+      onConfirm(comment.trim());
+    }
+  };
+
+  const handleClose = () => {
+    if (!isLoading) {
+      setComment("");
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Stop Task
+            </h2>
+            <button
+              onClick={handleClose}
+              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+              type="button"
+              disabled={isLoading}
+            >
+              <svg
+                className="w-5 h-5 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="text-center">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Stop Task #{taskId}
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Please provide a comment about stopping this task.
+                </p>
+              </div>
+              
+              <div>
+                <label
+                  htmlFor="stopComment"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Comment <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="stopComment"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
+                  placeholder="Enter reason for stopping this task..."
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium disabled:opacity-50"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                disabled={isLoading || !comment.trim()}
+              >
+                {isLoading && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+                Stop Task
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function TaskBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filters, setFilters] = useState<{
@@ -523,6 +654,11 @@ export default function TaskBoard() {
   const [preSelectedStageId, setPreSelectedStageId] = useState<number | null>(
     null
   );
+  // State for stop task comment modal
+  const [isStopTaskModalOpen, setIsStopTaskModalOpen] = useState(false);
+  const [stopTaskComment, setStopTaskComment] = useState("");
+  const [taskToStop, setTaskToStop] = useState<number | null>(null);
+  const [isStoppingTask, setIsStoppingTask] = useState(false);
 
   const router = useRouter();
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
@@ -564,7 +700,7 @@ export default function TaskBoard() {
               priority: task.priority,
               labels: [],
               assignedTo: task.assignee?.label || "Unassigned",
-              createdBy: task.assignee?.label || "Unknown",
+              createdBy: task.createdBy?.label || "Unknown",
               startDate: new Date(task.startDate),
               endDate: task.endDate ? new Date(task.endDate) : null,
               createdAt: new Date(task.createdAt),
@@ -572,6 +708,15 @@ export default function TaskBoard() {
               taskStageId: task.taskStageId,
               taskStageName: task.taskStageName,
               assignee: task.assignee,
+              estimatedHours: task.estimatedHours,
+              graceHours: task.graceHours || 0,
+              actualHours: task.actualHours,
+              actionType: task.actionType,
+              comment: task.comment || "",
+              completedBy: task.completedBy,
+              completedAt: task.completedAt,
+              documents: task.documents || [],
+              acceptanceInfo: task.acceptanceInfo,
             })
           )
         );
@@ -584,7 +729,7 @@ export default function TaskBoard() {
           priority: task.priority,
           labels: [],
           assignedTo: task.assignee?.label || "Unassigned",
-          createdBy: task.assignee?.label || "Unknown",
+          createdBy: task.createdBy?.label || "Unknown",
           startDate: new Date(task.startDate),
           endDate: task.endDate ? new Date(task.endDate) : null,
           createdAt: new Date(task.createdAt),
@@ -592,6 +737,15 @@ export default function TaskBoard() {
           taskStageId: task.taskStageId,
           taskStageName: task.taskStageName,
           assignee: task.assignee,
+          estimatedHours: task.estimatedHours,
+          graceHours: task.graceHours || 0,
+          actualHours: task.actualHours,
+          actionType: task.actionType,
+          comment: task.comment || "",
+          completedBy: task.completedBy,
+          completedAt: task.completedAt,
+          documents: task.documents || [],
+          acceptanceInfo: task.acceptanceInfo,
         }));
       }
     },
@@ -976,6 +1130,46 @@ export default function TaskBoard() {
     setIsDeleteModalOpen(false);
     setStageToDelete(null);
   }, []);
+
+  // Stop task modal handlers
+  const handleStopTaskConfirm = useCallback(async (comment: string) => {
+    if (!taskToStop) return;
+
+    setIsStoppingTask(true);
+
+    try {
+      await stopTask(taskToStop.toString(), { comment });
+      
+      toast({
+        title: "Task Stopped",
+        description: `Task #${taskToStop} has been stopped successfully.`,
+        variant: "default",
+      });
+      
+      // Refresh tasks after stopping
+      await fetchTasks(undefined, true);
+      
+      // Close modal and reset state
+      setIsStopTaskModalOpen(false);
+      setTaskToStop(null);
+      setStopTaskComment("");
+    } catch (error) {
+      console.error("Error stopping task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to stop task. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStoppingTask(false);
+    }
+  }, [taskToStop, toast, fetchTasks]);
+
+  const handleStopTaskCancel = useCallback(() => {
+    setIsStopTaskModalOpen(false);
+    setTaskToStop(null);
+    setStopTaskComment("");
+  }, []);
   const handleEditTask = useCallback((task: Task) => {
     const editingTaskData: EditingTaskResponse = {
       id: task.id,
@@ -1008,6 +1202,41 @@ export default function TaskBoard() {
     setEditingTask(undefined);
     setPreSelectedStageId(null); // Clear pre-selected stage
   }, []);
+
+  const handleActionClick = useCallback(async (taskId: number, actionType: TaskActionType) => {
+    if (actionType === "START") {
+      try {
+        toast({
+          title: "Starting Task",
+          description: `Starting task #${taskId}...`,
+          variant: "default",
+        });
+        
+        await startTask(taskId.toString());
+        
+        toast({
+          title: "Task Started",
+          description: `Task #${taskId} has been started successfully.`,
+          variant: "default",
+        });
+        
+        // Refresh tasks after action
+        await fetchTasks(undefined, true);
+      } catch (error) {
+        console.error("Error starting task:", error);
+        toast({
+          title: "Error",
+          description: "Failed to start task. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } else if (actionType === "STOP") {
+      // Show comment modal for stop action
+      setTaskToStop(taskId);
+      setStopTaskComment("");
+      setIsStopTaskModalOpen(true);
+    }
+  }, [toast, fetchTasks]);
 
   const handleCloseTaskDetails = useCallback(() => {
     setIsDetailsModalOpen(false);
@@ -1163,7 +1392,7 @@ const filteredTasks = tasks.filter((task) => {
               </p>
               <button
                 onClick={() => setIsCreateStageModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-[#636363] text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none"
+                className="inline-flex items-center px-4 py-2 bg-brand-primary text-text-white text-sm font-medium rounded-md hover:bg-brand-primary/90 focus:outline-none"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -1289,6 +1518,7 @@ const filteredTasks = tasks.filter((task) => {
                       }}
                       onEditStage={handleEditStage}
                       onDeleteStage={handleDeleteStage}
+                      onActionClick={handleActionClick}
                     />
                   ))}
                 </div>
@@ -1464,6 +1694,13 @@ const filteredTasks = tasks.filter((task) => {
           onConfirm={confirmDeleteTask}
           taskName={taskToDelete?.subject || ""}
           isLoading={isUpdatingStage} // You might want to create a separate loading state for task deletion
+        />
+        <StopTaskModal
+          isOpen={isStopTaskModalOpen}
+          onClose={handleStopTaskCancel}
+          onConfirm={handleStopTaskConfirm}
+          taskId={taskToStop}
+          isLoading={isStoppingTask}
         />
       </>
     </div>

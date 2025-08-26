@@ -70,6 +70,8 @@ interface CreateTaskRequest {
   endDate: string;
   assignee: string;
   acceptanceCriteria?: string;
+  graceHours?: number;
+  estimatedHours?: number;
 }
 
 interface UpdateTaskRequest {
@@ -82,6 +84,8 @@ interface UpdateTaskRequest {
   assignee?: string;
   acceptanceCriteria?: string;
   comment?: string;
+   graceHours?: number;
+  estimatedHours?: number;
 }
 
 interface GetTaskByIdResponse {
@@ -96,6 +100,8 @@ interface GetTaskByIdResponse {
     taskStageName: string;
     createdAt: string;
     updatedAt: string;
+     graceHours?: number;
+    estimatedHours?: number;
     assignee: {
       id: string;
       label: string;
@@ -128,6 +134,8 @@ export const AddTaskModal = ({
     endDate: "",
     assignee: "",
     acceptanceCriteria: "",
+       graceHours: 0,
+    estimatedHours: 0,
   });
 
   // New: comment state (edit only)
@@ -236,6 +244,8 @@ export const AddTaskModal = ({
       endDate: editingTask.endDate || "",
       assignee: editingTask.assignee?.id || "",
       acceptanceCriteria: editingTask.acceptanceCriteria || "",
+            graceHours: editingTask.graceHours || 0, // Add this
+      estimatedHours: editingTask.estimatedHours || 0, // Add this
     };
     setFormData(initialData);
     setOriginalFormData(initialData);
@@ -258,6 +268,8 @@ export const AddTaskModal = ({
       endDate: "",
       assignee: "",
       acceptanceCriteria: "",
+         graceHours: 0, // Add this
+      estimatedHours: 0, // Add this
     };
     setFormData(newTaskData);
     setOriginalFormData(null);
@@ -482,7 +494,7 @@ export const AddTaskModal = ({
           <DialogTitle className="text-xl font-semibold text-foreground">
             {editingTask ? "Edit Task" : "Add Task"}
             {!editingTask ? (
-              <p className="text-xs text-[#636363] mt-1">
+              <p className="text-xs text-text-secondary mt-1">
                 Create a new task for your team
                 {preSelectedStageId && getPreSelectedStageName() && (
                   <span className="text-blue-600 ml-1">
@@ -491,7 +503,7 @@ export const AddTaskModal = ({
                 )}
               </p>
             ) : (
-              <p className="text-xs text-[#636363] mt-1">
+              <p className="text-xs text-text-secondary mt-1">
                 Edit the task details
                 {dirtyFields.size > 0 && (
                   <span className="text-blue-600 ml-1">
@@ -681,6 +693,45 @@ export const AddTaskModal = ({
             </div>
           </div>
 
+{/* Grace Hours and Estimated Hours */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div className="space-y-2">
+ <Label className="text-sm font-medium text-foreground">
+      Estimated Hours
+      <span className="text-xs text-red-600 ml-2">
+        *
+      </span>
+      {dirtyFields.has("estimatedHours") && (
+        <span className="text-blue-600 text-xs ml-1">• Modified</span>
+      )}
+    </Label>
+      <Input
+      min="0"
+      step="0.5"
+      value={formData.estimatedHours || 0}
+      onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
+      placeholder="Enter estimated hours"
+      className="w-full"
+    />
+  </div>
+
+  <div className="space-y-2">
+    <Label className="text-sm font-medium text-foreground">
+      Grace Hours (Optional)
+      {dirtyFields.has("graceHours") && (
+        <span className="text-blue-600 text-xs ml-1">• Modified</span>
+      )}
+    </Label>
+   <Input
+      min="0"
+      step="0.5"
+      value={formData.graceHours || 0}
+      onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
+      placeholder="Enter grace hours"
+      className="w-full"
+    />
+  </div>
+</div>
           {/* Assignee */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
@@ -753,7 +804,7 @@ export const AddTaskModal = ({
             </Button>
             <Button
               type="submit"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-brand-primary text-text-white hover:bg-brand-primary/90"
               disabled={isLoading}
             >
               {isLoading ? "Loading..." : editingTask ? "Update" : "Submit"}

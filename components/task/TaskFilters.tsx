@@ -184,7 +184,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
    
        <Button
               onClick={onAddTask}
-              className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-md shadow-sm flex items-center px-3 py-2"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Task
@@ -265,7 +265,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
         : "border-gray-300"
     }`}
   >
-    <span className="flex items-center gap-2 text-[#636363] truncate">
+    <span className="flex items-center gap-2 text-text-secondary truncate">
       <Calendar className="h-4 w-4 flex-shrink-0" />
       <span className="truncate">
         {localFilters.dateRange
@@ -367,7 +367,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
             {/* Action Buttons */}
             <Button
               onClick={handleApplyFilters}
-              className="bg-gray-800 hover:bg-gray-700 text-white w-full"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-text-white w-full"
             >
               Apply Filters
             </Button>

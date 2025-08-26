@@ -215,7 +215,7 @@ const EditStageModal = ({
               </button>
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#636363] text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 transition-colors font-medium shadow-sm"
+                className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm"
               >
                 Save Changes
               </button>
@@ -787,7 +787,7 @@ export const LeadColumn = ({
             <AlertDialogAction
               onClick={confirmDeleteStage}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-text-white"
             >
               {isDeleting ? "Deleting..." : "Delete Stage"}
             </AlertDialogAction>

@@ -68,7 +68,7 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       icon: "warning",
       width: "400px",
       showCancelButton: true,
-      confirmButtonColor: "#3b3b3b",
+      confirmButtonColor: "var(--brand-primary)",
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, logout!",
       background: "#fff",
@@ -77,9 +77,9 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
         popup: "rounded-lg shadow-xl",
         title: "text-gray-800",
         confirmButton:
-          "bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white px-4 py-2 rounded-md",
+          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
         cancelButton:
-          "bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md",
+          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
       },
     }).then((result) => {
       if (result.isConfirmed) {
@@ -108,7 +108,7 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
         {/* Desktop: Title */}
-    <h1 className="hidden lg:block text-[22px] font-bold text-gray-900">
+    <h1 className="hidden lg:block text-[22px] font-bold text-text-primary">
   {user
     ? `Welcome back, ${user.firstName} ${user.lastName}!`
     : pageTitle}
@@ -150,9 +150,9 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="focus:outline-none group" // Added group class
               >
-                <Avatar className="h-8 w-8 cursor-pointer group-hover:bg-[#3b3b3b] transition-colors duration-200"> {/* Added hover styles */}
+                <Avatar className="h-8 w-8 cursor-pointer group-hover:bg-brand-primary transition-colors duration-200"> {/* Added hover styles */}
  <AvatarFallback 
-    className="transition-colors duration-200 group-hover:bg-[#3b3b3b] group-hover:text-white"
+    className="transition-colors duration-200 group-hover:bg-brand-primary group-hover:text-text-white"
   >                    {user.firstName.charAt(0).toUpperCase()}
                     {user.lastName.charAt(0).toUpperCase()}
                   </AvatarFallback>

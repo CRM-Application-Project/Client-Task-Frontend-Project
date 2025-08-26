@@ -1,5 +1,5 @@
 "use client";
-import { TaskStatus } from "@/lib/task";
+import { TaskStatus, TaskPriority, TaskActionType, Task } from "@/lib/task";
 import { TaskCard } from "./TaskCard";
 import { Badge } from "@/components/ui/badge";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -14,28 +14,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { createPortal } from "react-dom";
 
 // Define the Task type to match the one from Task.tsx
-type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-
-interface Task {
-  id: number;
-  subject: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  labels: string[];
-  assignedTo: string;
-  createdBy: string;
-  startDate: Date;
-  endDate: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  taskStageId: number;
-  taskStageName: string;
-  assignee: {
-    id: string;
-    label: string;
-  };
-}
 
 interface TaskStage {
   id: number;
@@ -58,6 +36,7 @@ interface TaskColumnProps {
   onDeleteStage?: (stage: TaskStage) => void;
   allStages: TaskStage[];
   onStageReorder: (reorderedStages: TaskStage[]) => void;
+  onActionClick?: (taskId: number, actionType: TaskActionType) => void;
 }
 
 // Enhanced EditStageModal component with orderNumber field and gray styling
@@ -219,7 +198,7 @@ const EditStageModal = ({
               </button>
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#636363] text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 transition-colors font-medium shadow-sm"
+                className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm"
               >
                 Save Changes
               </button>
@@ -264,6 +243,7 @@ export const TaskColumn = ({
   onStageUpdate,
   allStages = [],
   onStageReorder,
+  onActionClick,
 }: TaskColumnProps) => {
   const [isDraggedOver, setIsDraggedOver] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -871,6 +851,7 @@ export const TaskColumn = ({
                 draggable={!isUpdating}
                 isDragging={draggedTaskId === task.id}
                 onDragStart={handleDragStart}
+                onActionClick={onActionClick}
               />
             </div>
           ))}
@@ -1033,7 +1014,7 @@ export const TaskColumn = ({
                   <button
                     type="button"
                     onClick={handleConfirmMoveWithComment}
-                    className="px-4 py-2.5 bg-[#636363] text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2.5 bg-brand-primary text-text-white rounded-lg hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     disabled={isUpdating || !comment.trim()}
                   >
                     {isUpdating && (

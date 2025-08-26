@@ -134,7 +134,7 @@ export function ChangePasswordTab() {
                         {...field} 
                         type={showCurrentPassword ? "text" : "password"}
                         placeholder="Enter current password"
-                        className="h-10 border-gray-200 focus:border-[#3D2C8D] focus:ring-1 focus:ring-[#3D2C8D] rounded-md pr-10"
+                        className="h-10 border-border-default focus:border-brand-primary focus:ring-1 focus:ring-brand-primary rounded-md pr-10"
                         onPaste={handlePastePrevention}
                         onCopy={handleCopyCutPrevention}
                         onCut={handleCopyCutPrevention}
@@ -170,7 +170,7 @@ export function ChangePasswordTab() {
                         {...field} 
                         type={showNewPassword ? "text" : "password"}
                         placeholder="Enter new password"
-                        className="h-10 border-gray-200 focus:border-[#3D2C8D] focus:ring-1 focus:ring-[#3D2C8D] rounded-md pr-10"
+                        className="h-10 border-border-default focus:border-brand-primary focus:ring-1 focus:ring-brand-primary rounded-md pr-10"
                         onChange={(e) => {
                           field.onChange(e);
                           if (form.getValues('confirmPassword')) {
@@ -212,7 +212,7 @@ export function ChangePasswordTab() {
                         {...field} 
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm new password"
-                        className="h-10 border-gray-200 focus:border-[#3D2C8D] focus:ring-1 focus:ring-[#3D2C8D] rounded-md pr-10"
+                        className="h-10 border-border-default focus:border-brand-primary focus:ring-1 focus:ring-brand-primary rounded-md pr-10"
                         onChange={(e) => {
                           field.onChange(e);
                           if (form.getValues('newPassword')) {
@@ -270,7 +270,7 @@ export function ChangePasswordTab() {
             <div className="flex justify-end pt-2">
               <Button 
                 type="submit" 
-                className="bg-[#3b3b3b] hover:bg-[#3b3b3b]/90 text-white rounded-md px-8 py-2 h-10"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-md px-8 py-2 h-10"
                 disabled={!form.formState.isValid || isSubmitting}
               >
                 {isSubmitting ? "Updating..." : "Update Password"}

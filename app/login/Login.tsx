@@ -887,7 +887,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isLoading || !isLoginFormValid}
-                    className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${isLoading || !isLoginFormValid ? "btn-disabled" : ""
+                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${isLoading || !isLoginFormValid ? "btn-disabled" : ""
                       }`}
                   >
                     {isLoading ? (
@@ -916,7 +916,7 @@ export default function LoginPage() {
                       <Button
                         onClick={handleForgotPassword}
                         disabled={isLoading}
-                        className="w-full h-12"
+                        className="w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white"
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -959,7 +959,7 @@ export default function LoginPage() {
                       <Button
                         onClick={handleVerifyOtp}
                         disabled={isLoading || !otp}
-                        className={`w-full h-12 ${isLoading || !otp ? "btn-disabled" : ""
+                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${isLoading || !otp ? "btn-disabled" : ""
                           }`}
                       >
                         {isLoading ? (
@@ -1074,7 +1074,7 @@ export default function LoginPage() {
                           !confirmPassword ||
                           passwordErrors.length > 0
                         }
-                        className={`w-full h-12 ${isLoading ||
+                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${isLoading ||
                             !newPassword ||
                             !confirmPassword ||
                             passwordErrors.length > 0

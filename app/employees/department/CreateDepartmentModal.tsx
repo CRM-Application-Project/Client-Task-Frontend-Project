@@ -76,7 +76,7 @@ export default function CreateDepartmentModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="gap-2 bg-brand-primary text-text-white hover:bg-brand-primary/90">
           <Plus className="h-4 w-4" />
           Add Department
         </Button>
@@ -116,9 +116,9 @@ export default function CreateDepartmentModal({
             <Button
               onClick={handleCreate}
               disabled={loading || !name.trim() || !!errors.name}
-              className={
+              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${
                 loading || !name.trim() || !!errors.name ? "btn-disabled" : ""
-              }
+              }`}
             >
               {loading ? "Creating..." : "Create"}
             </Button>

@@ -601,7 +601,7 @@ export default function StaffPage() {
                 className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
                   getAllDepartments.length === 0
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-[#3b3b3b] hover:bg-[#2b2b2b]"
+                    : "bg-brand-primary hover:bg-brand-primary/90"
                 }`}
               >
                 <Plus className="h-4 w-4" />
@@ -715,7 +715,7 @@ export default function StaffPage() {
                                 <div
                                   className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${
                                     user.isActive
-                                      ? "peer-checked:bg-[#3b3b3b]"
+                                      ? "peer-checked:bg-brand-primary"
                                       : "bg-gray-400"
                                   } ${
                                     togglingUsers[user.userId]
@@ -1130,7 +1130,7 @@ export default function StaffPage() {
                                                             `update-${module.id}`
                                                           ]
                                                         }
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-text-white bg-brand-primary hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary disabled:opacity-50"
                                                       >
                                                         {moduleAccessLoading[
                                                           `update-${module.id}`
@@ -1423,10 +1423,10 @@ export default function StaffPage() {
                                             className="w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed"
                                             style={{
                                               background: selectedModuleToGrant
-                                                ? "#3b3b3b"
+                                                ? "var(--brand-primary)"
                                                 : "#9ca3af",
                                               borderColor: selectedModuleToGrant
-                                                ? "#3b3b3b"
+                                                ? "var(--brand-primary)"
                                                 : "#9ca3af",
                                               color: "#fff",
                                             }}
@@ -1485,7 +1485,7 @@ export default function StaffPage() {
                               className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
                                 getAllDepartments.length === 0
                                   ? "bg-gray-400 cursor-not-allowed"
-                                  : "bg-[#3b3b3b] hover:bg-[#2b2b2b]"
+                                  : "bg-brand-primary hover:bg-brand-primary/90"
                               }`}
                             >
                               <Plus className="h-4 w-4" />

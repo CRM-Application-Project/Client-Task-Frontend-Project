@@ -202,8 +202,8 @@ export function CreateLeadStageModal({
               disabled={!isFormValid}
               className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
                 isFormValid
-                  ? "bg-[#636363] hover:bg-gray-700 cursor-pointer"
-                  : "bg-gray-400 cursor-not-allowed"
+                  ? "bg-brand-primary hover:bg-brand-primary/90 cursor-pointer text-text-white"
+                  : "bg-border-dark/50 cursor-not-allowed"
               }`}
             >
               Create Lead Stage

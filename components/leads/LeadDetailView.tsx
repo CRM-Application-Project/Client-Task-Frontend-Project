@@ -203,7 +203,7 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div className="bg-gray-50">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">

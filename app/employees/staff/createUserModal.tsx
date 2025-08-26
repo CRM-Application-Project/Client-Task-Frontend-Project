@@ -863,7 +863,7 @@ export function CreateStaffModal({
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" onClick={addModule}>
+              <Button type="button" onClick={addModule} className="bg-brand-primary text-text-white hover:bg-brand-primary/90">
                 Add Module
               </Button>
             </div>
@@ -1050,7 +1050,7 @@ export function CreateStaffModal({
             <Button
               type="submit"
               disabled={loading || !isFormValid}
-              className={!isFormValid ? "btn-disabled" : ""}
+              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${!isFormValid ? "btn-disabled" : ""}`}
             >
               {loading ? "Creating..." : "Create Staff User"}
             </Button>
