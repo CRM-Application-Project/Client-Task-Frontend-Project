@@ -103,6 +103,53 @@ export const TaskCard = ({
     URGENT: "bg-destructive/20 text-destructive"
   } as const;
 
+  // Helper function to strip HTML tags and get plain text
+  const stripHtml = (html: string): string => {
+    if (typeof window === 'undefined') return html;
+    
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLength: number): string => {
+    const plainText = stripHtml(text);
+    if (plainText.length <= maxLength) return plainText;
+    return plainText.substring(0, maxLength).trim() + '...';
+  };
+
+  // Helper function to safely render HTML description with truncation
+  const renderDescription = () => {
+    if (!task.description) return null;
+    
+    const plainText = stripHtml(task.description);
+    const shouldTruncate = plainText.length > 80;
+    
+    return (
+      <div className="min-w-0">
+        <div 
+          className="text-sm text-muted-foreground leading-relaxed break-words"
+          title={shouldTruncate ? plainText : undefined}
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            lineHeight: '1.4',
+            maxHeight: '2.8em' // 2 lines * 1.4 line-height
+          }}
+          dangerouslySetInnerHTML={{ 
+            __html: shouldTruncate ? 
+              truncateText(task.description, 80) : 
+              task.description 
+          }}
+        />
+      </div>
+    );
+  };
+
   // Improved drag event handlers
   const handleDragStart = (e: React.DragEvent) => {
     if (!draggable) {
@@ -330,26 +377,6 @@ export const TaskCard = ({
     }
   };
 
-  // Helper function to truncate text
-  const truncateText = (text: string, maxLength: number): string => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength).trim() + '...';
-  };
-
-  // Helper function to get words up to a certain character limit
-  const truncateByWords = (text: string, maxLength: number): string => {
-    if (text.length <= maxLength) return text;
-    
-    const truncated = text.substring(0, maxLength);
-    const lastSpaceIndex = truncated.lastIndexOf(' ');
-    
-    if (lastSpaceIndex > maxLength * 0.7) { // If we can fit at least 70% by breaking at word
-      return truncated.substring(0, lastSpaceIndex).trim() + '...';
-    }
-    
-    return truncated.trim() + '...';
-  };
-
   if (permissionsLoading || !permissions.canView) {
     return null;
   }
@@ -403,26 +430,8 @@ export const TaskCard = ({
             </Badge>
           </div>
 
-          {/* Description with proper truncation */}
-          {task.description && (
-            <div className="min-w-0">
-              <p 
-                className="text-sm text-muted-foreground leading-relaxed break-words"
-                title={task.description.length > 80 ? task.description : undefined}
-                style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  wordBreak: 'break-word',
-                  lineHeight: '1.4',
-                  maxHeight: '2.8em' // 2 lines * 1.4 line-height
-                }}
-              >
-                {task.description}
-              </p>
-            </div>
-          )}
+          {/* Description with HTML content */}
+          {task.description && renderDescription()}
 
           {/* Labels */}
           {task.labels.length > 0 && (
@@ -455,74 +464,92 @@ export const TaskCard = ({
             </div>
           )}
 
-          {/* Footer with assignee and date */}
-          <div className="flex items-end justify-between text-xs text-muted-foreground gap-2 min-w-0">
-            {/* Left side: Assignee and action buttons below */}
-            <div className="flex flex-col gap-1 min-w-0">
-              {/* Assignee */}
-              {task.assignedTo && (
-                <div className="flex items-center gap-1 min-w-0">
-                  <User className="h-3 w-3 flex-shrink-0" />
-                  <span 
-                    className="truncate max-w-[120px]"
-                    title={task.assignedTo.length > 15 ? task.assignedTo : undefined}
-                  >
-                    {task.assignedTo}
-                  </span>
-                </div>
-              )}
+          {/* Footer with assignee, dates, and action buttons */}
+          <div className="flex flex-col gap-2 text-xs text-muted-foreground min-w-0">
+            {/* Dates row */}
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              {/* Start Date */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Calendar className="h-3 w-3" />
+                <span className="whitespace-nowrap">
+                  {new Date(task.startDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </span>
+              </div>
               
-              {/* Action buttons below assignee */}
-              {showActionsBar && (
-                <div className="flex gap-1 mt-2">
-                  {showEditButton && (
-                    <button 
-                      onClick={handleEditClick}
-                      className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
-                      aria-label="Edit task"
-                      title="Edit task"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  )}
-                  
-                  {showDocumentButton && (
-                    <button 
-                      onClick={handleDocumentClick}
-                      className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
-                      aria-label="Manage documents"
-                      title="Manage documents"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </button>
-                  )}
-                  
-                  {showDeleteButton && (
-                    <button 
-                      onClick={handleDeleteClick}
-                      className="w-8 h-8 rounded-full bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all duration-200 flex items-center justify-center"
-                      aria-label="Delete task"
-                      title="Delete task"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
+              {/* End Date if exists */}
+              {task.endDate && (
+                <div className="flex items-center gap-1 flex-shrink-0 mr-[55px]">
+                  <span className="whitespace-nowrap">→</span>
+                  <Calendar className="h-3 w-3" />
+                  <span className="whitespace-nowrap">
+                    {new Date(task.endDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Right side: Date */}
-            {task.endDate && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <Calendar className="h-3 w-3" />
-                <span className="whitespace-nowrap">
-                  {new Date(task.endDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                </span>
-              </div>
-            )}
+            {/* Assignee and action buttons row */}
+           <div className="flex items-center justify-between gap-2 min-w-0">
+  {/* Assignee */}
+  {task.assignedTo && (
+    <div className="flex items-center gap-1 min-w-0 flex-1">
+      <User className="h-3 w-3 flex-shrink-0" />
+      <span 
+        className="truncate max-w-[120px]"
+        title={task.assignedTo.length > 15 ? task.assignedTo : undefined}
+      >
+        {task.assignedTo}
+      </span>
+    </div>
+  )}
+  
+  {/* Action buttons */}
+  {showActionsBar && (
+    <div className="flex gap-1 flex-shrink-0">
+      {showEditButton && (
+        <button 
+          onClick={handleEditClick}
+          className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
+          aria-label="Edit task"
+          title="Edit task"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+      )}
+      
+      {showDocumentButton && (
+        <button 
+          onClick={handleDocumentClick}
+          className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
+          aria-label="Manage documents"
+          title="Manage documents"
+        >
+          <FileText className="h-4 w-4" />
+        </button>
+      )}
+      
+      {showDeleteButton && (
+        <button 
+          onClick={handleDeleteClick}
+          className="w-8 h-8 rounded-full bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all duration-200 flex items-center justify-center"
+          aria-label="Delete task"
+          title="Delete task"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  )}
+</div>
+
           </div>
         </div>
       </Card>

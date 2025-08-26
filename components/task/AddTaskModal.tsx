@@ -146,9 +146,7 @@ export const AddTaskModal = ({
     "URGENT",
   ];
 
-  const getDefaultAcceptanceCriteria = () => {
-    return `<strong>Given</strong> Dummy acceptance criteria edit your acceptance criteria here.<br><br>`;
-  };
+
 
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
@@ -259,7 +257,7 @@ export const AddTaskModal = ({
       startDate: getLocalISOString(adjustedTime),
       endDate: "",
       assignee: "",
-      acceptanceCriteria: getDefaultAcceptanceCriteria(),
+      acceptanceCriteria: "",
     };
     setFormData(newTaskData);
     setOriginalFormData(null);
