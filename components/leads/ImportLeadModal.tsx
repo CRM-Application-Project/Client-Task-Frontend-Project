@@ -205,9 +205,10 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
           <Button
             onClick={handleImport}
             disabled={!selectedFile || importing || !user}
- className={`h-9 px-3 text-sm ${
-    (!selectedFile || importing || !user) ? "btn-disabled" : ""
-  }`}          >
+            className={`h-9 px-3 text-sm bg-brand-primary text-text-white hover:bg-brand-primary/90 ${
+              !selectedFile || importing || !user ? "btn-disabled" : ""
+            }`}
+          >
             {importing ? "Importing..." : "Import"}
           </Button>
         </DialogFooter>

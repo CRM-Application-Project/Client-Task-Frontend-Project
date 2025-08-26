@@ -19,11 +19,35 @@ export default {
 		},
 		extend: {
 			colors: {
-				border: 'hsl(var(--border))',
+				border: {
+					DEFAULT: 'hsl(var(--border))',
+					light: 'var(--border-light)',
+					default: 'var(--border-default)',
+					medium: 'var(--border-medium)',
+					dark: 'var(--border-dark)'
+				},
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
-				background: 'hsl(var(--background))',
+				background: {
+					DEFAULT: 'hsl(var(--background))',
+					primary: 'var(--background-primary)',
+					secondary: 'var(--background-secondary)',
+					tertiary: 'var(--background-tertiary)',
+					light: 'var(--background-light)',
+					card: 'var(--background-card)'
+				},
 				foreground: 'hsl(var(--foreground))',
+				text: {
+					primary: 'var(--text-primary)',
+					secondary: 'var(--text-secondary)',
+					light: 'var(--text-light)',
+					lighter: 'var(--text-lighter)',
+					white: 'var(--text-white)'
+				},
+				brand: {
+					primary: 'var(--brand-primary)',
+					secondary: 'var(--brand-secondary)'
+				},
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'
@@ -59,15 +83,33 @@ export default {
 					review: 'hsl(var(--status-review))',
 					done: 'hsl(var(--status-done))'
 				},
+				button: {
+					primary: {
+						background: 'var(--brand-primary)',
+						text: 'var(--text-white)',
+						hover: 'color-mix(in srgb, var(--brand-primary) 90%, black)'
+					},
+					outline: {
+						background: 'var(--button-outline-background)',
+						text: 'var(--button-outline-text)',
+						border: 'var(--button-outline-border)',
+						hover: 'var(--button-outline-hover)'
+					},
+					secondary: {
+						background: 'var(--brand-primary)',
+						text: 'var(--text-white)',
+						hover: 'color-mix(in srgb, var(--brand-primary) 90%, black)'
+					}
+				},
 				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
+					DEFAULT: 'var(--sidebar-background)',
+					foreground: 'var(--sidebar-foreground)',
+					primary: 'var(--sidebar-primary)',
+					'primary-foreground': 'var(--sidebar-primary-foreground)',
+					accent: 'var(--sidebar-accent)',
+					'accent-foreground': 'var(--sidebar-accent-foreground)',
+					border: 'var(--sidebar-border)',
+					ring: 'var(--sidebar-ring)'
 				}
 			},
 			borderRadius: {

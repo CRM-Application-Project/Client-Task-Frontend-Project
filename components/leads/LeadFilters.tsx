@@ -174,7 +174,7 @@ export const LeadFilters = ({
             {permissions.canCreate && !permissionsLoading && (
               <Button
                 onClick={onAddLead}
-                className="bg-gray-800 hover:bg-gray-700 text-white rounded-md shadow-sm flex items-center px-3 py-2"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-md shadow-sm flex items-center px-3 py-2"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Lead
@@ -404,7 +404,7 @@ export const LeadFilters = ({
             {/* Action Buttons */}
             <Button
               onClick={handleApply}
-              className="bg-gray-800 hover:bg-gray-700 text-white w-full"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-text-white w-full"
             >
               Apply Filters
             </Button>

@@ -266,7 +266,7 @@ export function PersonalInfoTab() {
             <div className="flex justify-end pt-4">
               <Button 
                 type="submit" 
-                className="bg-[#3b3b3b] hover:bg-[#2b2b2b] text-white rounded-lg px-6 py-3 h-11 text-base font-medium"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-lg px-6 py-3 h-11 text-base font-medium"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Saving..." : "Save Changes"}

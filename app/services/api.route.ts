@@ -50,7 +50,9 @@ export const API_CONSTANTS = {
     HISTORY:{
       FILTER_HISTORY:`/tasks/history`,
       EVENTS_DROPDOWN:`/tasks/history/events`
-    }
+    },
+      START: (taskId: string) => `/tasks/${taskId}/start`,
+  STOP: (taskId: string) => `/tasks/${taskId}/stop`,
   },
   LEAD: {
     CREATE: "/lead/create",

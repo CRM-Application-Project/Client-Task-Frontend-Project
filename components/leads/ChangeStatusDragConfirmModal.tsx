@@ -77,7 +77,7 @@ export const ChangeStatusConfirmModal = ({
           </Button>
           <Button
             onClick={onConfirm}
-            className="flex-1 sm:flex-none bg-[#3b3b3b] hover:bg-[#4b4b4b]"
+            className="flex-1 sm:flex-none bg-brand-primary hover:bg-brand-primary/80 text-text-white"
           >
             Confirm Status Change
           </Button>

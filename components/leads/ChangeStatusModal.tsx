@@ -281,7 +281,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               </Button>
               <Button
                 type="submit"
-                className={`h-11 flex-1 ${!isFormValid ? "btn-disabled" : ""}`}
+                className={`h-11 flex-1 bg-brand-primary text-text-white hover:bg-brand-primary/90 ${!isFormValid ? "btn-disabled" : ""}`}
                 disabled={!isFormValid}
               >
                 Update Status

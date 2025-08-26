@@ -128,7 +128,7 @@ export function CreateStageModal({
             <button
               type="button"
               onClick={handleSubmit}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#636363] hover:bg-gray-700 rounded-md"
+              className="px-4 py-2 text-sm font-medium text-text-white bg-brand-primary hover:bg-brand-primary/90 rounded-md"
             >
               Create Stage
             </button>

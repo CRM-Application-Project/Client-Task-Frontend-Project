@@ -1,5 +1,5 @@
 "use client";
-import { Calendar, User, Tag, Trash2, Upload, Download, FileText, X, Edit, GripVertical } from "lucide-react";
+import { Calendar, User, Tag, Trash2, Upload, Download, FileText, X, Edit, GripVertical, Play, Square } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,39 +30,13 @@ import {
   deleteDocument 
 } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
-
-// Define the Task type to match the one from Task.tsx
-type TaskStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
-type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-
-interface TaskDocument {
-  docId: number;
-  fileName: string;
-  fileType: string;
-  uploadedAt?: Date;
-}
-
-interface Task {
-  id: number;
-  subject: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  labels: string[];
-  assignedTo: string;
-  createdBy: string;
-  startDate: Date;
-  endDate: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  taskStageId: number;
-  taskStageName: string;
-  assignee: {
-    id: string;
-    label: string;
-  };
-  documents?: TaskDocument[];
-}
+import { 
+  TaskStatus, 
+  TaskPriority, 
+  TaskActionType, 
+  Task, 
+  TaskDocument 
+} from "@/lib/task";
 
 interface TaskCardProps {
   task: Task;
@@ -73,6 +47,7 @@ interface TaskCardProps {
   onDragStart?: () => void;
   draggable?: boolean;
   isDragging?: boolean;
+  onActionClick?: (taskId: number, actionType: TaskActionType) => void;
 }
 
 export const TaskCard = ({ 
@@ -83,7 +58,8 @@ export const TaskCard = ({
   onTaskClick,
   onDragStart,
   draggable = true,
-  isDragging = false
+  isDragging = false,
+  onActionClick
 }: TaskCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
@@ -148,6 +124,14 @@ export const TaskCard = ({
         />
       </div>
     );
+  };
+
+  // Handle action button click
+  const handleActionClick = (e: React.MouseEvent, actionType: TaskActionType) => {
+    e.stopPropagation();
+    if (onActionClick) {
+      onActionClick(task.id, actionType);
+    }
   };
 
   // Improved drag event handlers
@@ -385,6 +369,7 @@ export const TaskCard = ({
   const showDeleteButton = permissions.canDelete && onDelete;
   const showDocumentButton = permissions.canEdit;
   const showActionsBar = showEditButton || showDeleteButton || showDocumentButton;
+  const showActionButton = task.actionType !== "NONE" && onActionClick;
 
   return (
     <>
@@ -401,7 +386,7 @@ export const TaskCard = ({
       >
         <div className="space-y-3">
           {/* Title and Priority Row */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start text-[14px] justify-between gap-3">
             {/* Subject with truncation and tooltip */}
             <div className="flex-1 min-w-0">
               <h3 
@@ -414,7 +399,6 @@ export const TaskCard = ({
                   overflow: 'hidden',
                   wordBreak: 'break-word',
                   lineHeight: '1.3',
-                  maxHeight: '2.6em' // 2 lines * 1.3 line-height
                 }}
               >
                 {task.subject}
@@ -432,6 +416,25 @@ export const TaskCard = ({
 
           {/* Description with HTML content */}
           {task.description && renderDescription()}
+
+          {/* Hours details */}
+          {(task.estimatedHours !== null || task.graceHours > 0 || task.actualHours !== null) && (
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {task.estimatedHours !== null && (
+                <span>Estimated: {task.estimatedHours}h</span>
+              )}
+              {task.actualHours !== null && (
+                <span>Actual: {task.actualHours.toFixed(1)}h</span>
+              )}
+              {task.graceHours > 0 && (
+                <span>Grace: {task.graceHours}h</span>
+              )}
+              {task.actualHours !== null && task.estimatedHours !== null && 
+               task.actualHours > task.estimatedHours && (
+                <span className="text-amber-600">Overtime: {(task.actualHours - task.estimatedHours).toFixed(1)}h</span>
+              )}
+            </div>
+          )}
 
           {/* Labels */}
           {task.labels.length > 0 && (
@@ -497,59 +500,76 @@ export const TaskCard = ({
             </div>
 
             {/* Assignee and action buttons row */}
-           <div className="flex items-center justify-between gap-2 min-w-0">
-  {/* Assignee */}
-  {task.assignedTo && (
-    <div className="flex items-center gap-1 min-w-0 flex-1">
-      <User className="h-3 w-3 flex-shrink-0" />
-      <span 
-        className="truncate max-w-[120px]"
-        title={task.assignedTo.length > 15 ? task.assignedTo : undefined}
-      >
-        {task.assignedTo}
-      </span>
-    </div>
-  )}
-  
-  {/* Action buttons */}
-  {showActionsBar && (
-    <div className="flex gap-1 flex-shrink-0">
-      {showEditButton && (
-        <button 
-          onClick={handleEditClick}
-          className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
-          aria-label="Edit task"
-          title="Edit task"
-        >
-          <Edit className="h-4 w-4" />
-        </button>
-      )}
-      
-      {showDocumentButton && (
-        <button 
-          onClick={handleDocumentClick}
-          className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
-          aria-label="Manage documents"
-          title="Manage documents"
-        >
-          <FileText className="h-4 w-4" />
-        </button>
-      )}
-      
-      {showDeleteButton && (
-        <button 
-          onClick={handleDeleteClick}
-          className="w-8 h-8 rounded-full bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all duration-200 flex items-center justify-center"
-          aria-label="Delete task"
-          title="Delete task"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  )}
-</div>
-
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              {/* Assignee */}
+              {task.assignedTo && (
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <User className="h-3 w-3 flex-shrink-0" />
+                  <span 
+                    className="truncate max-w-[120px]"
+                    title={task.assignedTo.length > 15 ? task.assignedTo : undefined}
+                  >
+                    {task.assignedTo}
+                  </span>
+                </div>
+              )}
+              
+              {/* Action buttons */}
+              <div className="flex gap-1 flex-shrink-0">
+                {/* Action button (Start/Stop) */}
+                {showActionButton && (
+                  <button 
+                    onClick={(e) => handleActionClick(e, task.actionType)}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+                      task.actionType === "START" 
+                        ? "bg-green-100 hover:bg-green-200 text-green-600" 
+                        : "bg-red-100 hover:bg-red-200 text-red-600"
+                    }`}
+                    aria-label={task.actionType === "START" ? "Start task" : "Stop task"}
+                    title={task.actionType === "START" ? "Start task" : "Stop task"}
+                  >
+                    {task.actionType === "START" ? (
+                      <Play className="h-4 w-4" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+                
+                {showEditButton && (
+                  <button 
+                    onClick={handleEditClick}
+                    className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
+                    aria-label="Edit task"
+                    title="Edit task"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                )}
+                
+                {showDocumentButton && (
+                  <button 
+                    onClick={handleDocumentClick}
+                    className="w-8 h-8 rounded-full bg-muted/80 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center"
+                    aria-label="Manage documents"
+                    title="Manage documents"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
+                )}
+                
+                {showDeleteButton && (
+                  <button 
+                    onClick={handleDeleteClick}
+                    className="w-8 h-8 rounded-full bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all duration-200 flex items-center justify-center"
+                    aria-label="Delete task"
+                    title="Delete task"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </Card>

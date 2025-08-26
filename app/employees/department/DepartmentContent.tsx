@@ -290,7 +290,7 @@ export default function DepartmentsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteDepartment}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-text-white"
             >
               {loading ? "Deleting..." : "Delete"}
             </AlertDialogAction>

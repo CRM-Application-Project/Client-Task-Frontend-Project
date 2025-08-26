@@ -296,7 +296,7 @@ export default function ResetPasswordPage() {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle"
+                    className="w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
@@ -325,7 +325,7 @@ export default function ResetPasswordPage() {
               <div className="mt-6">
                 <Button
                   onClick={() => router.push('/login')}
-                  className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className="inline-flex items-center rounded-md bg-brand-primary px-3 py-2 text-sm font-semibold text-text-white shadow-sm hover:bg-brand-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
                 >
                   Go back to login
                 </Button>

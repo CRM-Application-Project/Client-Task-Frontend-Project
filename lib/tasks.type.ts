@@ -5,6 +5,8 @@
   taskStageId: number;
   startDate: string; // ISO date string
   endDate: string; // ISO date string or empty
+  estimatedHours?: number;
+  graceHours?: number;
   assignee: string;
   acceptanceCriteria?: string;
 }
@@ -21,6 +23,8 @@ interface CreateTaskResponse {
     endDate: string | null;
     taskStageId: number;
     taskStageName: string;
+     graceHours?: number;
+    estimatedHours?: number;
     createdAt: string;
     updatedAt: string;
     comment?: string;
@@ -46,6 +50,8 @@ interface UpdateTaskRequest {
   startDate?: string;
   endDate?: string | null;
   assignee?: string;
+  estimatedHours?: number;
+  graceHours?: number;
   acceptanceCriteria?: string;
   comment?: string;
 }

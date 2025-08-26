@@ -696,7 +696,7 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     disabled={!isFormValid || isLoading}
-                    className={`w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg ${
+                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg ${
                       !isFormValid || isLoading ? "btn-disabled" : ""
                     }`}
                   >

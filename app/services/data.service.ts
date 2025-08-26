@@ -83,6 +83,42 @@ export const createTask = async (
   return res as CreateTaskResponse;
 };
 
+
+// ---- Types ----
+export interface TaskActionData {
+  id: number;
+  startTime: string | null;
+  endTime: string | null;
+  userId: string;
+  estimatedHours: number;
+  hoursSpent: number | null;
+  endDate: string | null;
+}
+
+export interface TaskActionResponse {
+  isSuccess: boolean;
+  message: string;
+  data: TaskActionData;
+}
+
+// ---- APIs ----
+
+// Start Task (no request body)
+export const startTask = async (
+  taskId: string
+): Promise<TaskActionResponse> => {
+  const res = await postRequest(API_CONSTANTS.TASK.START(taskId));
+  return res as TaskActionResponse;
+};
+
+export const stopTask = async (
+  taskId: string,
+  body: { comment: string }
+): Promise<TaskActionResponse> => {
+  const res = await postRequest(API_CONSTANTS.TASK.STOP(taskId), body);
+  return res as TaskActionResponse;
+};
+
 export const updateTask = async (
   taskId: number,
   updateData: Partial<UpdateTaskRequest>
