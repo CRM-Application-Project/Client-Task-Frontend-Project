@@ -1,7 +1,10 @@
-import { DashboardContent } from '@/components/dashboard/dashboard-content';
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import SuperAdminDashboard from "@/components/dashboard/SuperAdminDashboard";
 
 export default function Home() {
   return (
-      <DashboardContent />
+    <DashboardLayout>
+      <SuperAdminDashboard />
+    </DashboardLayout>
   );
 }
