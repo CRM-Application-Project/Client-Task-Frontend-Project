@@ -30,6 +30,7 @@ interface NavItem {
 }
 
 const NAVIGATION: NavItem[] = [
+  { name: "Dashboard", icon: BarChart3, href: "/dashboard", moduleName: "Dashboard" },
   { name: "Leads", icon: Users, href: "/leads", moduleName: "Leads" },
   { name: "Tasks", icon: CheckSquare, href: "/tasks", moduleName: "Task" },
   {
@@ -86,7 +87,7 @@ export function DashboardSidebar({
   const [manuallyCollapsed, setManuallyCollapsed] = useState<Set<string>>(
     new Set()
   ); // groups user explicitly closed (wins over auto-open)
-
+  const ALWAYS_VISIBLE = new Set<string>(["Dashboard"]);
   const reduxUser = useSelector((s: RootState) => s.user.currentUser);
   const [modules, setModules] = useState<UserModuleAccess[]>([]);
   const [ready, setReady] = useState(false);
@@ -132,6 +133,7 @@ export function DashboardSidebar({
   const filteredNav = useMemo(
     () =>
       NAVIGATION.filter((item) => {
+        if (ALWAYS_VISIBLE.has(item.moduleName)) return true;
         const children =
           item.children?.filter((c) => can(c.moduleName, "view")) || [];
         return can(item.moduleName, "view") || children.length > 0;
