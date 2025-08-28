@@ -844,10 +844,10 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   };
 
   const priorityColors = {
-    LOW: "bg-green-100 text-green-700",
-    MEDIUM: "bg-blue-100 text-blue-700",
-    HIGH: "bg-amber-100 text-amber-700",
-    URGENT: "bg-red-100 text-red-700",
+    LOW: "bg-green-100 text-green-700 hover:bg-green-200",
+    MEDIUM: "bg-blue-100 text-blue-700 hover:bg-blue-200",
+    HIGH: "bg-amber-100 text-amber-700 hover:bg-amber-200",
+    URGENT: "bg-red-100 text-red-700 hover:bg-red-200",
   } as const;
 
   const priorityIcons = {
@@ -990,13 +990,19 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
             {priorityIcons[task.priority]} {task.priority}
           </Badge>
           <Badge variant="outline">{task.taskStageName}</Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <span className={`h-2 w-2 rounded-full ${
-              task.status === 'STARTED' ? 'bg-blue-500' : 
-              task.status === 'COMPLETED' ? 'bg-green-500' : 'bg-gray-400'
-            }`}></span>
-            {task.status}
-          </Badge>
+         <Badge variant="outline" className="flex items-center gap-1">
+  <span
+    className={`h-2 w-2 rounded-full ${
+      task.status === "STARTED"
+        ? "bg-blue-500"
+        : task.status === "COMPLETED"
+        ? "bg-green-500"
+        : "bg-gray-400"
+    }`}
+  ></span>
+  {task.status.replace(/_/g, " ")}
+</Badge>
+
           {isOverdue && <Badge variant="destructive">Overdue</Badge>}
         </div>
 
@@ -1048,7 +1054,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
             {task.actualHours > (task.estimatedHours + task.graceHours) && (
               <span className="text-red-600 flex items-center gap-1">   
                 <AlertCircle className="h-3 w-3" />
-                Over budget by {(task.actualHours - task.estimatedHours - task.graceHours).toFixed(1)}h
+                Exceeded Estimate by {(task.actualHours - task.estimatedHours - task.graceHours).toFixed(1)}h
               </span>
             )}
             {task.actualHours > task.estimatedHours && task.actualHours <= (task.estimatedHours + task.graceHours) && (
