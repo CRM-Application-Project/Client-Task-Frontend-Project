@@ -662,72 +662,8 @@ export default function RegisterPage() {
 
                     {showCompanyInfo && (
                       <div className="space-y-4 animate-fade-in">
-                        {/* Logo Upload Section */}
-                        <div className="space-y-4">
-                          <Label className="text-sm font-medium text-foreground">
-                            Company Logo
-                          </Label>
-                          <div className="flex items-center gap-4">
-                            <div className="relative">
-                              <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
-                                {companyLogo ? (
-                                  <img 
-                                    src={companyLogo} 
-                                    alt="Company logo" 
-                                    className="w-full h-full object-contain"
-                                  />
-                                ) : (
-                                  <ImageIcon className="h-8 w-8 text-gray-400" />
-                                )}
-                              </div>
-                              
-                              {/* Color palette preview */}
-                              {extractedColors.length > 0 && (
-                                <div className="absolute -bottom-2 left-0 right-0 flex justify-center gap-0.5">
-                                  {extractedColors.map((color, index) => (
-                                    <div 
-                                      key={index}
-                                      className="w-4 h-4 rounded-full border border-gray-200"
-                                      style={{ backgroundColor: color }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1">
-                              <Label
-                                htmlFor="logo-upload"
-                                className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
-                              >
-                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                  <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                                  <p className="mb-1 text-sm text-gray-500">
-                                    <span className="font-semibold">Click to upload</span> or drag and drop
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    SVG, PNG, JPG (MAX. 2MB)
-                                  </p>
-                                </div>
-                                <Input 
-                                  id="logo-upload" 
-                                  type="file" 
-                                  className="hidden" 
-                                  accept="image/*"
-                                  onChange={handleLogoUpload}
-                                  disabled={isUploading}
-                                />
-                              </Label>
-                            </div>
-                          </div>
-                          
-                          {isUploading && (
-                            <p className="text-xs text-muted-foreground">
-                              Uploading and processing image...
-                            </p>
-                          )}
-                        </div>
+                 
+                
 
                         <div className="space-y-2">
                           <Label
