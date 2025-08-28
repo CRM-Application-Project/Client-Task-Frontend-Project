@@ -35,7 +35,7 @@ export default function TaskDetailPage() {
 
   return (
     <DashboardLayout>
-      <div className="bg-gray-50 min-h-screen p-6 font-sans">
+      <div className="bg-gray-50">
         <div className="max-w-7xl mx-auto">
           {/* Back Button */}
           <button

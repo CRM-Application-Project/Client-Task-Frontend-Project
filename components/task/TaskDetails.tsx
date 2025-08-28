@@ -19,6 +19,8 @@ import {
   Smile,
   Reply,
   Trash2,
+  Timer,
+  TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,12 +76,28 @@ interface TaskDetailsResponse {
   taskStageName: string;
   createdAt: string;
   updatedAt: string;
-  progress?: number;
+  estimatedHours: number;
+  graceHours: number;
+  actualHours: number;
+  actionType: string;
+  status: string;
+  comment: string;
   assignee: {
     id: string;
     label: string;
     avatar?: string;
   };
+  createdBy: {
+    id: string;
+    label: string;
+    avatar?: string;
+  };
+  completedBy: {
+    id: string;
+    label: string;
+    avatar?: string;
+  } | null;
+  completedAt: string | null;
   documents: any[];
   acceptanceInfo: {
     acceptanceCriteria: string;
@@ -120,7 +138,7 @@ interface Reaction {
 interface CommentItem {
   id: string;
   author: { id: string; name: string; avatar?: string };
-  content: string; // HTML from RichTextEditor
+  content: string; // Plain text now instead of HTML
   createdAt: string; // ISO
   updatedAt?: string; // ISO
   attachments?: CommentAttachment[];
@@ -278,13 +296,13 @@ function DiscussionPanel({
     }
   };
 
-  const onEdit = async (commentId: string, newHTML: string) => {
+  const onEdit = async (commentId: string, newText: string) => {
     setComments((prev) =>
       prev.map((c) =>
         c.id === commentId
           ? {
               ...c,
-              content: newHTML,
+              content: newText,
               isEdited: true,
               updatedAt: new Date().toISOString(),
             }
@@ -292,7 +310,7 @@ function DiscussionPanel({
       )
     );
     try {
-      // await updateTaskComment(taskId, commentId, { content: newHTML })
+      // await updateTaskComment(taskId, commentId, { content: newText })
     } catch (e) {
       console.error(e);
     }
@@ -334,11 +352,11 @@ function DiscussionPanel({
         </div>
       </div>
 
-      {/* Composer */}
+      {/* Composer - Now using simple textarea */}
       <div className="border rounded-md p-3 mb-4 bg-gray-50/60">
         {!canComment && (
           <div className="text-xs text-red-600 mb-2">
-            You don’t have permission to comment on this task.
+            You don't have permission to comment on this task.
           </div>
         )}
         <Textarea
@@ -443,10 +461,10 @@ function DiscussionPanel({
                     {c.isEdited && <span className="italic">(edited)</span>}
                   </div>
 
-                  <div
-                    className="prose prose-sm max-w-none text-gray-700 mt-1"
-                    dangerouslySetInnerHTML={{ __html: c.content }}
-                  />
+                  {/* Plain text content */}
+                  <div className="text-gray-700 mt-1 whitespace-pre-wrap">
+                    {c.content}
+                  </div>
 
                   {/* Attachments */}
                   {c.attachments && c.attachments.length > 0 && (
@@ -516,8 +534,8 @@ function DiscussionPanel({
                         <Reply className="h-3.5 w-3.5" />
                       </Button>
                       <InlineEditButton
-                        onSubmit={(html) => onEdit(c.id, html)}
-                        initialHTML={c.content}
+                        onSubmit={(text) => onEdit(c.id, text)}
+                        initialText={c.content}
                       />
                       <Button
                         variant="ghost"
@@ -541,16 +559,16 @@ function DiscussionPanel({
 }
 
 function InlineEditButton({
-  initialHTML,
+  initialText,
   onSubmit,
 }: {
-  initialHTML: string;
-  onSubmit: (newHTML: string) => void;
+  initialText: string;
+  onSubmit: (newText: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [value, setValue] = useState(initialHTML);
+  const [value, setValue] = useState(initialText);
 
-  useEffect(() => setValue(initialHTML), [initialHTML]);
+  useEffect(() => setValue(initialText), [initialText]);
 
   if (!isEditing) {
     return (
@@ -568,7 +586,11 @@ function InlineEditButton({
 
   return (
     <div className="w-full max-w-xl border rounded-md p-2 bg-white">
-      <RichTextEditor value={value} onChange={setValue} />
+      <Textarea 
+        value={value} 
+        onChange={(e) => setValue(e.target.value)}
+        className="min-h-[60px]"
+      />
       <div className="flex justify-end gap-2 mt-2">
         <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>
           <X className="h-4 w-4 mr-1" /> Cancel
@@ -866,6 +888,24 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
 
   const isOverdue = task?.endDate && new Date(task.endDate) < new Date();
 
+  // Calculate progress percentage based on actual vs estimated hours
+  const getProgressPercentage = () => {
+    if (!task?.estimatedHours || task.estimatedHours === 0) return 0;
+    return Math.min(100, (task.actualHours / task.estimatedHours) * 100);
+  };
+
+  // Get progress color based on hours
+  const getProgressColor = () => {
+    if (!task) return "bg-gray-200";
+    const percentage = getProgressPercentage();
+    const totalAllowedHours = task.estimatedHours + task.graceHours;
+    
+    if (task.actualHours > totalAllowedHours) return "bg-red-500"; // Over grace limit
+    if (task.actualHours > task.estimatedHours) return "bg-amber-500"; // In grace period
+    if (percentage >= 80) return "bg-blue-500"; // Nearly done
+    return "bg-green-500"; // On track
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
@@ -950,34 +990,93 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
             {priorityIcons[task.priority]} {task.priority}
           </Badge>
           <Badge variant="outline">{task.taskStageName}</Badge>
+          <Badge variant="outline" className="flex items-center gap-1">
+            <span className={`h-2 w-2 rounded-full ${
+              task.status === 'STARTED' ? 'bg-blue-500' : 
+              task.status === 'COMPLETED' ? 'bg-green-500' : 'bg-gray-400'
+            }`}></span>
+            {task.status}
+          </Badge>
           {isOverdue && <Badge variant="destructive">Overdue</Badge>}
         </div>
 
-        {task.progress !== undefined && (
-          <div className="mb-3">
-            <p className="text-xs text-gray-500 mb-1">Progress</p>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${task.progress}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{task.progress}%</p>
+        {/* Hours Progress */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs text-gray-500 flex items-center gap-2">
+              <Timer className="h-3 w-3" /> Hours Progress
+            </h4>
+            <span className="text-xs text-gray-600">
+              {task.actualHours?.toFixed(1)}h / {task.estimatedHours}h
+              {task.graceHours > 0 && ` (+${task.graceHours}h grace)`}
+            </span>
           </div>
-        )}
+          
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
+            {/* Main progress bar */}
+            <div
+              className={`h-full transition-all duration-300 ${getProgressColor()}`}
+              style={{ width: `${Math.min(100, getProgressPercentage())}%` }}
+            />
+            
+            {/* Grace period indicator */}
+            {task.graceHours > 0 && (
+              <div
+                className="absolute top-0 h-full bg-gray-300 opacity-30"
+                style={{ 
+                  left: `${(task.estimatedHours / (task.estimatedHours + task.graceHours)) * 100}%`,
+                  width: `${(task.graceHours / (task.estimatedHours + task.graceHours)) * 100}%`
+                }}
+              />
+            )}
+          </div>
+          
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0h</span>
+            <span className="text-gray-400">|</span>
+            <span>{task.estimatedHours}h</span>
+            {task.graceHours > 0 && (
+              <>
+                <span className="text-gray-400">|</span>
+                <span>{task.estimatedHours + task.graceHours}h</span>
+              </>
+            )}
+          </div>
+          
+          {/* Status indicators */}
+          <div className="flex items-center gap-4 mt-2 text-xs">
+            {task.actualHours > (task.estimatedHours + task.graceHours) && (
+              <span className="text-red-600 flex items-center gap-1">   
+                <AlertCircle className="h-3 w-3" />
+                Over budget by {(task.actualHours - task.estimatedHours - task.graceHours).toFixed(1)}h
+              </span>
+            )}
+            {task.actualHours > task.estimatedHours && task.actualHours <= (task.estimatedHours + task.graceHours) && (
+              <span className="text-amber-600 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                In grace period ({(task.actualHours - task.estimatedHours).toFixed(1)}h over)
+              </span>
+            )}
+            {task.actualHours <= task.estimatedHours && (
+              <span className="text-green-600 flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                Within estimated hours
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Description */}
-        <div className="mb-3">
+        <div className="mb-3 mt-7">
           <h3 className="font-medium text-gray-700 text-sm mb-2 flex items-center gap-2">
             <Edit className="h-4 w-4" /> Description
           </h3>
           {isEditingDescription ? (
             <div>
-              <Textarea
+              <RichTextEditor
                 value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                className="w-full"
-                rows={3}
+                onChange={setEditedDescription}
+                placeholder="Enter task description..."
               />
               <div className="flex justify-end gap-2 mt-2">
                 <Button
@@ -995,9 +1094,10 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           ) : (
             <div className="relative group">
               {task.description ? (
-                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  {task.description}
-                </p>
+                <div 
+                  className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: task.description }}
+                />
               ) : (
                 <p className="text-sm text-gray-400 italic p-3 rounded-md border border-dashed">
                   No description provided
@@ -1198,88 +1298,141 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         </div>
       </div>
 
-      {/* Assignee */}
+      {/* People Section */}
       <div className="bg-white shadow-sm rounded-lg border p-4">
         <h3 className="font-medium text-gray-700 text-sm mb-3 flex items-center gap-2">
-          <User className="h-4 w-4" /> Assigned To
+          <User className="h-4 w-4" /> People
         </h3>
-        {isEditingAssignee ? (
-          <div className="flex items-center gap-3 p-3 border rounded-md">
-            {isLoadingUsers ? (
-              <Skeleton className="h-9 w-9 rounded-full" />
-            ) : (
-              <User className="h-9 w-9 rounded-full bg-blue-100 p-2 text-blue-600" />
-            )}
-            <Select value={editedAssignee} onValueChange={setEditedAssignee}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select an assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => cancelEdit("assignee")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <Button size="sm" onClick={handleSaveAssignee}>
-                <Save className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="relative group">
-            {task.assignee ? (
+        
+        <div className="space-y-3">
+          {/* Assigned To */}
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Assigned To</p>
+            {isEditingAssignee ? (
               <div className="flex items-center gap-3 p-3 border rounded-md">
-                {task.assignee.avatar ? (
-                  <img
-                    src={task.assignee.avatar}
-                    alt={task.assignee.label}
-                    className="h-9 w-9 rounded-full object-cover"
-                  />
+                {isLoadingUsers ? (
+                  <Skeleton className="h-9 w-9 rounded-full" />
                 ) : (
-                  <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
-                    <User className="h-4 w-4 text-blue-600" />
+                  <User className="h-9 w-9 rounded-full bg-blue-100 p-2 text-blue-600" />
+                )}
+                <Select value={editedAssignee} onValueChange={setEditedAssignee}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select an assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => cancelEdit("assignee")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" onClick={handleSaveAssignee}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative group">
+                {task.assignee ? (
+                  <div className="flex items-center gap-3 p-3 border rounded-md">
+                    {task.assignee.avatar ? (
+                      <img
+                        src={task.assignee.avatar}
+                        alt={task.assignee.label}
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
+                        <User className="h-4 w-4 text-blue-600" />
+                      </div>
+                    )}
+                    <span className="font-medium text-sm text-gray-900">
+                      {task.assignee.label}
+                    </span>
+                    {permissions.canEdit && (
+                      <button
+                        onClick={() => setIsEditingAssignee(true)}
+                        className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white rounded border shadow-sm"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative group flex items-center gap-3 p-3 border rounded-md">
+                    <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center">
+                      <User className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <span className="text-sm text-gray-500">No assignee</span>
+                    {permissions.canEdit && (
+                      <button
+                        onClick={() => setIsEditingAssignee(true)}
+                        className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white rounded border shadow-sm"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                 )}
-                <span className="font-medium text-sm text-gray-900">
-                  {task.assignee.label}
-                </span>
-                {permissions.canEdit && (
-                  <button
-                    onClick={() => setIsEditingAssignee(true)}
-                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white rounded border shadow-sm"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="relative group flex items-center gap-3 p-3 border rounded-md">
-                <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center">
-                  <User className="h-4 w-4 text-gray-400" />
-                </div>
-                <span className="text-sm text-gray-500">No assignee</span>
-                {permissions.canEdit && (
-                  <button
-                    onClick={() => setIsEditingAssignee(true)}
-                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white rounded border shadow-sm"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </button>
-                )}
               </div>
             )}
           </div>
-        )}
+
+          {/* Created By */}
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Created By</p>
+            <div className="flex items-center gap-3 p-3 border rounded-md bg-gray-50/50">
+              {task.createdBy.avatar ? (
+                <img
+                  src={task.createdBy.avatar}
+                  alt={task.createdBy.label}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="h-4 w-4 text-gray-600" />
+                </div>
+              )}
+              <span className="text-sm text-gray-700">{task.createdBy.label}</span>
+              <span className="text-xs text-gray-500 ml-auto">
+                {new Date(task.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+
+          {/* Completed By (if applicable) */}
+          {task.completedBy && task.completedAt && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Completed By</p>
+              <div className="flex items-center gap-3 p-3 border rounded-md bg-green-50/50">
+                {task.completedBy.avatar ? (
+                  <img
+                    src={task.completedBy.avatar}
+                    alt={task.completedBy.label}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-green-200 flex items-center justify-center">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                )}
+                <span className="text-sm text-gray-700">{task.completedBy.label}</span>
+                <span className="text-xs text-gray-500 ml-auto">
+                  {new Date(task.completedAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Discussion (like Jira) */}
