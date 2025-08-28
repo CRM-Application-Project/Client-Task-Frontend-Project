@@ -255,6 +255,9 @@ export const LeadColumn = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentStage, setCurrentStage] = useState<LeadStage>(stage);
+
+    const isFinalStage = currentStage.finalStage;
+
   
   // Column drag states
   const [isColumnDragging, setIsColumnDragging] = useState(false);
@@ -553,66 +556,70 @@ export const LeadColumn = ({
               </h2>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Badge
-                variant="secondary"
-                className="bg-white/20 text-white border-white/30 flex-shrink-0"
-              >
-                {leads.length}
-              </Badge>
+      <div className="flex items-center gap-3">
+  <Badge
+    variant="secondary"
+    className="bg-white/20 text-white border-white/30 flex-shrink-0"
+  >
+    {leads.length}
+  </Badge>
 
-              {/* Three dots menu for stage operations */}
-              <div className="relative">
+  {/* Container with fixed width to maintain consistent spacing */}
+  <div className="w-6 h-6 flex items-center justify-center">
+    {!isFinalStage && (
+      <div className="relative">
+        <button
+          onClick={handleStageMenuToggle}
+          className="p-1.5 rounded hover:bg-white/20 transition-colors"
+          title="Stage options"
+          type="button"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+
+        {/* Dropdown Menu */}
+        {isStageMenuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsStageMenuOpen(false)}
+            />
+
+            <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              {permissions.canEdit && (
                 <button
-                  onClick={handleStageMenuToggle}
-                  className="p-1.5 rounded hover:bg-white/20 transition-colors"
-                  title="Stage options"
-                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsStageMenuOpen(false);
+                    handleEditStage();
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  <Pencil className="w-4 h-4 flex-shrink-0" />
+                  Edit Stage
                 </button>
-
-                {/* Dropdown Menu */}
-                {isStageMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setIsStageMenuOpen(false)}
-                    />
-
-                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                      {permissions.canEdit && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsStageMenuOpen(false);
-                            handleEditStage();
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                        >
-                          <Pencil className="w-4 h-4 flex-shrink-0" />
-                          Edit Stage
-                        </button>
-                      )}
-                      <hr className="my-1 border-gray-200" />
-                      {permissions.canDelete && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsStageMenuOpen(false);
-                            handleDeleteStage();
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 flex-shrink-0" />
-                          Delete Stage
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
+              <hr className="my-1 border-gray-200" />
+              {permissions.canDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsStageMenuOpen(false);
+                    handleDeleteStage();
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4 flex-shrink-0" />
+                  Delete Stage
+                </button>
+              )}
             </div>
+          </>
+        )}
+      </div>
+    )}
+  </div>
+</div>
           </div>
         </div>
 

@@ -92,6 +92,8 @@ export function DashboardSidebar({
   const [modules, setModules] = useState<UserModuleAccess[]>([]);
   const [ready, setReady] = useState(false);
 
+  
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -148,39 +150,50 @@ export function DashboardSidebar({
   );
 
   // AUTO-EXPAND ON ROUTE — but respect manual collapse
-  useEffect(() => {
-    setExpanded((prev) => {
-      let next = [...prev];
+  const cleanPath = pathname.split("?")[0].split("#")[0];
 
-      const openIfNeeded = (key: string) => {
-        if (!next.includes(key)) next.push(key);
-      };
+useEffect(() => {
+  setExpanded((prev) => {
+    let next = [...prev];
 
-      // Employees etc.
-      filteredNav.forEach((item) => {
-        const hasActiveChild = getChildren(item).some(
-          (c) => pathname === c.href
-        );
-        if (hasActiveChild && !manuallyCollapsed.has(item.name)) {
-          openIfNeeded(item.name);
-        }
-      });
+    const openIfNeeded = (key: string) => {
+      if (!next.includes(key)) next.push(key);
+    };
 
-      // Settings group
-      const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
-      if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
-        openIfNeeded("Settings");
+    filteredNav.forEach((item) => {
+      const children = getChildren(item);
+      const hasActiveChild = children.some(
+        (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
+      );
+
+      // expand parent if path matches parent or child
+      if ((cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
+          !manuallyCollapsed.has(item.name)) {
+        openIfNeeded(item.name);
       }
-
-      // Dedup
-      next = Array.from(new Set(next));
-      return next;
     });
-  }, [pathname, filteredNav, getChildren, manuallyCollapsed]);
+
+    // Settings group
+    const isSettingsActive = SETTINGS.some(
+      (s) => cleanPath === s.href || cleanPath.startsWith(s.href + "/")
+    );
+    if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
+      openIfNeeded("Settings");
+    }
+
+    return Array.from(new Set(next));
+  });
+}, [pathname, filteredNav, getChildren, manuallyCollapsed]);
+
 
   // If you navigate away from a group's children, we **do not** force close it.
   // (This prevents flicker and lets users keep groups open if they want.)
   // Manual collapse always wins.
+
+  const isActivePath = (path: string, currentPath: string) => {
+  if (path === "/") return currentPath === "/";
+  return currentPath === path || currentPath.startsWith(path + "/");
+};
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -230,6 +243,7 @@ export function DashboardSidebar({
   }, [router]);
 
   const isExpandedView = !collapsed || hovered;
+// Add this temporarily to debug
 
   const SidebarContent = useCallback(() => {
     const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
@@ -268,30 +282,42 @@ export function DashboardSidebar({
                 </div>
               ) : (
                 filteredNav.map((item) => {
-                  const children = getChildren(item);
-                  const isGroupExpanded = expanded.includes(item.name);
-                  const isActive =
-                    pathname === item.href ||
-                    children.some((c) => pathname === c.href);
+             const children = getChildren(item);
+  const isGroupExpanded = expanded.includes(item.name);
+  
+  // This is the correct logic:
+  const isActive =
+    pathname === item.href ||
+    pathname.startsWith(item.href + "/") ||
+    children.some(
+      (c) => pathname === c.href || pathname.startsWith(c.href + "/")
+    );
+    console.log("Current path:", pathname);
+console.log("Item href:", item.href);
+console.log("Is active:", isActive);
+
+
+
+
 
                   return children.length ? (
                     <div key={item.name} className="space-y-1">
-                      <Button
-                        variant="ghost"
-                        className={cn(
-                          "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                          // ✅ Highlight ONLY when active, not when merely expanded
-                          isActive
-                            ? "bg-white text-brand-primary shadow-sm"
-                            : "text-white hover:bg-white hover:text-brand-primary",
-                          collapsed && !hovered && "justify-center px-2"
-                        )}
-                        onClick={() => {
-                          if (can(item.moduleName, "view") && item.href)
-                            router.push(item.href);
-                          toggleGroup(item.name);
-                        }}
-                      >
+                       <Button
+        variant="ghost"
+        className={cn(
+          "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+          // ✅ This should now work correctly
+          isActive
+            ? "bg-white text-brand-primary shadow-sm"
+            : "text-white hover:bg-white hover:text-brand-primary",
+          collapsed && !hovered && "justify-center px-2"
+        )}
+        onClick={() => {
+          if (can(item.moduleName, "view") && item.href)
+            router.push(item.href);
+          toggleGroup(item.name);
+        }}
+      >
                         <div className="flex items-center gap-3">
                           <item.icon className="h-5 w-5 flex-shrink-0" />
                           {isExpandedView && (
@@ -345,18 +371,19 @@ export function DashboardSidebar({
                       )}
                     </div>
                   ) : (
-                    <Button
-                      key={item.href}
-                      variant="ghost"
-                      onClick={() => router.push(item.href)}
-                      className={cn(
-                        "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                        collapsed && !hovered && "justify-center px-2",
-                        pathname === item.href
-                          ? "bg-white text-brand-primary shadow-sm"
-                          : "text-white hover:bg-white hover:text-brand-primary"
-                      )}
-                    >
+                        <Button
+      key={item.href}
+      variant="ghost"
+      onClick={() => router.push(item.href)}
+      className={cn(
+        "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+        collapsed && !hovered && "justify-center px-2",
+        // ✅ This should now work correctly too
+        pathname === item.href || pathname.startsWith(item.href + "/")
+          ? "bg-white text-brand-primary shadow-sm"
+          : "text-white hover:bg-white hover:text-brand-primary"
+      )}
+    >
                       <item.icon
                         className={cn(
                           "h-5 w-5 flex-shrink-0",

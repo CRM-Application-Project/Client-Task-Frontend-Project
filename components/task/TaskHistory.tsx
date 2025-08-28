@@ -404,65 +404,74 @@ export function TaskHistory({
             </div>
           </div>
 
-          {/* Date Range Section */}
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <div className="flex items-center gap-2 mb-3">
-              <CalendarDays className="w-3 h-3 text-gray-600" />
-              <h5 className="text-xs font-semibold text-gray-800">Date Range</h5>
-            </div>
+       {/* Date Range Section */}
+<div className="mt-4 pt-3 border-t border-gray-200">
+  <div className="flex items-center gap-2 mb-3">
+    <CalendarDays className="w-3 h-3 text-gray-600" />
+    <h5 className="text-xs font-semibold text-gray-800">Date Range</h5>
+  </div>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    {/* Created After */}
+    <div className="space-y-2">
+      <label className="text-xs font-medium text-gray-700">
+        From Date
+      </label>
+      <div className="relative">
+        <input
+          type="date"
+          value={
+            filters.createdAfter ? filters.createdAfter.split("T")[0] : ""
+          }
+          onChange={(e) => {
+            const newFromDate = formatDateForApi(e.target.value);
+            handleFilterChange("createdAfter", newFromDate);
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Created After */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-700">
-                  From Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={
-                      filters.createdAfter ? filters.createdAfter.split("T")[0] : ""
-                    }
-                    onChange={(e) =>
-                      handleFilterChange(
-                        "createdAfter",
-                        formatDateForApi(e.target.value)
-                      )
-                    }
-                    className={controlCls + " pr-8"}
-                    placeholder="Select start date"
-                  />
-                  <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
+            // If the current "to date" is before the new "from date", clear it
+            if (filters.createdBefore && newFromDate && newFromDate > filters.createdBefore) {
+              handleFilterChange("createdBefore", "");
+            }
+          }}
+          className={controlCls + " pr-8"}
+          placeholder="Select start date"
+        />
+        <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+      </div>
+    </div>
 
-              {/* Created Before */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-700">
-                  To Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={
-                      filters.createdBefore
-                        ? filters.createdBefore.split("T")[0]
-                        : ""
-                    }
-                    onChange={(e) =>
-                      handleFilterChange(
-                        "createdBefore",
-                        formatDateForApi(e.target.value)
-                      )
-                    }
-                    className={controlCls + " pr-8"}
-                    placeholder="Select end date"
-                  />
-                  <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-          </div>
+    {/* Created Before */}
+    <div className="space-y-2">
+      <label className="text-xs font-medium text-gray-700">
+        To Date
+      </label>
+      <div className="relative">
+        <input
+          type="date"
+          value={
+            filters.createdBefore
+              ? filters.createdBefore.split("T")[0]
+              : ""
+          }
+          onChange={(e) => {
+            const newToDate = formatDateForApi(e.target.value);
+            
+            // Only update if the new to date is after the from date (if from date exists)
+            if (!filters.createdAfter || (newToDate && newToDate >= filters.createdAfter)) {
+              handleFilterChange("createdBefore", newToDate);
+            } else {
+              // Optionally show an error message here
+              console.error("To date must be after from date");
+            }
+          }}
+          min={filters.createdAfter ? filters.createdAfter.split("T")[0] : undefined}
+          className={controlCls + " pr-8"}
+          placeholder="Select end date"
+        />
+        <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+      </div>
+    </div>
+  </div>
+</div>
 
           {/* Filter Actions */}
           {hasActiveFilters() && (
