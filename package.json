@@ -54,6 +54,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "colorthief": "^2.6.0",
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.13",
     "embla-carousel-react": "^8.3.0",
@@ -83,6 +84,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/colorthief": "^2.6.0",
     "@types/react-beautiful-dnd": "^13.1.8"
   }
 }

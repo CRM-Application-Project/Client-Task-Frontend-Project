@@ -15,6 +15,9 @@ import {
   CalendarDays,
   SortDesc,
   SortAsc,
+  ChevronUp,
+  ChevronRight,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   FilterHistoryParams,
@@ -59,6 +62,15 @@ export function TaskHistory({
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
+
+  // Toggle note expansion
+  const toggleNoteExpansion = (id: number) => {
+    setExpandedNotes(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   // Fetch event types from API
   useEffect(() => {
@@ -186,6 +198,24 @@ export function TaskHistory({
     return String(value);
   };
 
+  // Filter out specific fields from updateData
+  const filterUpdateData = (updateData: UpdateData[]) => {
+    const fieldsToExclude = [
+      'gracehours', 
+      'actualhours', 
+      'estimatedhours',
+      'graceHours',
+      'actualHours', 
+      'estimatedHours'
+    ];
+    
+    return updateData.filter(update => 
+      !fieldsToExclude.some(field => 
+        update.fieldName.toLowerCase().includes(field.toLowerCase())
+      )
+    );
+  };
+
   const handleRefresh = () => {
     console.log("Refreshing task history for task ID:", taskId);
     onFilterChange(filters);
@@ -204,12 +234,12 @@ export function TaskHistory({
   };
 
   const labelCls =
-    "flex items-center gap-2 text-sm font-semibold text-gray-800 mb-3";
+    "flex items-center gap-2 text-xs font-semibold text-gray-800 mb-2";
   const controlCls =
-    "w-full h-12 px-4 text-sm border border-gray-200 rounded-xl bg-white " +
-    "hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 " +
-    "transition-all duration-200 shadow-sm hover:shadow-md";
-  const selectCls = controlCls + " appearance-none cursor-pointer";
+    "w-full h-10 px-3 text-xs border border-gray-300 rounded-lg bg-white " +
+    "hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-400 " +
+    "transition-all duration-200";
+  const selectCls = controlCls + " appearance-none cursor-pointer pr-8";
 
   const hasActiveFilters = () => {
     const { taskId, page, limit, ...filterFields } = filters;
@@ -225,36 +255,39 @@ export function TaskHistory({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Filter Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-gray-800">
           Activity Timeline
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {hasActiveFilters() && (
             <button
               onClick={clearFilters}
-              className="flex items-center text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              className="flex items-center text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
             >
-              <X className="h-4 w-4 mr-1" />
-              Clear filters
+              <X className="h-3 w-3 mr-1" />
+              Clear
             </button>
           )}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center text-sm bg-white border border-gray-300 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors shadow-sm"
+            className="flex items-center text-xs bg-white border border-gray-300 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
           >
-            <Filter className="h-4 w-4 mr-1" />
+            <Filter className="h-3 w-3 mr-1" />
             Filter
+            {hasActiveFilters() && (
+              <span className="ml-1 w-2 h-2 bg-blue-500 rounded-full"></span>
+            )}
           </button>
           <button
             onClick={handleRefresh}
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
             title="Refresh history"
           >
             <RefreshCw
-              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+              className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`}
             />
           </button>
         </div>
@@ -262,37 +295,32 @@ export function TaskHistory({
 
       {/* Enhanced Filter Panel */}
       {showFilters && (
-        <div className="bg-gradient-to-br from-white to-gray-50/50 p-6 rounded-2xl border border-gray-200 shadow-lg backdrop-blur-sm">
+        <div className="bg-white p-4 rounded-lg border border-gray-300 shadow-sm">
           {/* Filter Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Filter className="w-5 h-5 text-blue-600" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 bg-blue-100 rounded">
+                <Filter className="w-3 h-3 text-blue-600" />
               </div>
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">Filter Options</h4>
-                <p className="text-sm text-gray-500">Refine your activity timeline</p>
-              </div>
+              <h4 className="text-xs font-semibold text-gray-800">Filter Options</h4>
             </div>
             {hasActiveFilters() && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-blue-700">
-                  {Object.values(filters).filter(v => v !== undefined && v !== "" && v !== taskId && v !== 0 && v !== 50).length} active
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 rounded border border-blue-200">
+                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                <span className="text-xs font-medium text-blue-700">
+                  {Object.values(filters).filter(v => v !== undefined && v !== "" && v !== taskId && v !== 0 && v !== 50).length}
                 </span>
               </div>
             )}
           </div>
 
           {/* Filter Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* User Filter */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className={labelCls}>
-                <div className="p-1.5 bg-purple-100 rounded-lg">
-                  <UserIcon className="w-4 h-4 text-purple-600" />
-                </div>
-                Done By User
+                <UserIcon className="w-3 h-3 text-gray-600" />
+                Done By
               </label>
               <div className="relative">
                 <select
@@ -310,21 +338,19 @@ export function TaskHistory({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                 {isLoadingUsers && (
-                  <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
+                    <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
                   </div>
                 )}
               </div>
             </div>
 
             {/* Event Type Filter */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className={labelCls}>
-                <div className="p-1.5 bg-green-100 rounded-lg">
-                  <Tag className="w-4 h-4 text-green-600" />
-                </div>
+                <Tag className="w-3 h-3 text-gray-600" />
                 Event Type
               </label>
               <div className="relative">
@@ -343,25 +369,23 @@ export function TaskHistory({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                 {isLoadingEvents && (
-                  <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
+                    <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
                   </div>
                 )}
               </div>
             </div>
 
             {/* Sort Direction */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className={labelCls}>
-                <div className="p-1.5 bg-orange-100 rounded-lg">
-                  {filters.sortDirection === "asc" ? (
-                    <SortAsc className="w-4 h-4 text-orange-600" />
-                  ) : (
-                    <SortDesc className="w-4 h-4 text-orange-600" />
-                  )}
-                </div>
+                {filters.sortDirection === "asc" ? (
+                  <SortAsc className="w-3 h-3 text-gray-600" />
+                ) : (
+                  <SortDesc className="w-3 h-3 text-gray-600" />
+                )}
                 Sort Order
               </label>
               <div className="relative">
@@ -375,24 +399,22 @@ export function TaskHistory({
                   <option value="desc">Newest First</option>
                   <option value="asc">Oldest First</option>
                 </select>
-                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
               </div>
             </div>
           </div>
 
           {/* Date Range Section */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-1.5 bg-blue-100 rounded-lg">
-                <CalendarDays className="w-4 h-4 text-blue-600" />
-              </div>
-              <h5 className="text-sm font-semibold text-gray-800">Date Range</h5>
+          <div className="mt-4 pt-3 border-t border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarDays className="w-3 h-3 text-gray-600" />
+              <h5 className="text-xs font-semibold text-gray-800">Date Range</h5>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Created After */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-700">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-700">
                   From Date
                 </label>
                 <div className="relative">
@@ -407,16 +429,16 @@ export function TaskHistory({
                         formatDateForApi(e.target.value)
                       )
                     }
-                    className={controlCls + " pr-12"}
+                    className={controlCls + " pr-8"}
                     placeholder="Select start date"
                   />
-                  <Calendar className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                 </div>
               </div>
 
               {/* Created Before */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-700">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-700">
                   To Date
                 </label>
                 <div className="relative">
@@ -433,10 +455,10 @@ export function TaskHistory({
                         formatDateForApi(e.target.value)
                       )
                     }
-                    className={controlCls + " pr-12"}
+                    className={controlCls + " pr-8"}
                     placeholder="Select end date"
                   />
-                  <Calendar className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -444,13 +466,13 @@ export function TaskHistory({
 
           {/* Filter Actions */}
           {hasActiveFilters() && (
-            <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-end">
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded transition-all duration-200"
               >
-                <X className="w-4 h-4" />
-                Clear All Filters
+                <X className="w-3 h-3" />
+                Clear All
               </button>
             </div>
           )}
@@ -459,19 +481,19 @@ export function TaskHistory({
 
       {/* Loading */}
       {isLoading && (
-        <div className="flex items-center justify-center py-8 text-gray-500">
-          <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+        <div className="flex items-center justify-center py-4 text-xs text-gray-500">
+          <RefreshCw className="h-3 w-3 animate-spin mr-1" />
           Loading activity...
         </div>
       )}
 
       {/* Empty */}
       {!isLoading && history.length === 0 && (
-        <div className="text-center py-8 bg-white rounded-lg border border-gray-200 p-6">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <History className="h-6 w-6 text-gray-400" />
+        <div className="text-center py-4 bg-white rounded border border-gray-300 p-4">
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <History className="h-4 w-4 text-gray-400" />
           </div>
-          <p className="text-gray-500 text-sm">No activity yet</p>
+          <p className="text-xs text-gray-500">No activity yet</p>
           {hasActiveFilters() && (
             <p className="text-gray-400 text-xs mt-1">
               Try adjusting your filters
@@ -482,21 +504,20 @@ export function TaskHistory({
 
       {/* Activity Timeline */}
       {!isLoading && history.length > 0 && (
-        <div className="max-h-[600px] overflow-y-auto">
-          {/* content wrapper grows to full list height */}
-          <div className="relative py-4">
+        <div className="max-h-[400px] overflow-y-auto">
+          <div className="relative py-2">
             {/* vertical line spans the wrapper height, not the viewport */}
-            <div className="pointer-events-none absolute left-5 inset-y-0 w-px bg-gray-200 z-0" />
+            <div className="pointer-events-none absolute left-4 inset-y-0 w-px bg-gray-300 z-0" />
 
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-4 relative z-10">
               {history.map((record) => (
                 <div
                   key={record.id}
-                  className="relative flex items-start gap-4"
+                  className="relative flex items-start gap-3"
                 >
                   {/* Timeline dot */}
                   <div className="flex-shrink-0 relative">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 text-white flex items-center justify-center shadow-md">
+                    <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs font-medium">
                       {record.doneByName
                         ?.split(" ")
                         .map((n) => n[0])
@@ -506,62 +527,90 @@ export function TaskHistory({
                   </div>
 
                   {/* Card */}
-                  <div className="flex-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all">
+                  <div className="flex-1 bg-white border border-gray-300 rounded-lg p-3">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold text-gray-900">
+                      <h4 className="text-xs font-semibold text-gray-800">
                         {record.doneByName || "Unknown User"}
                       </h4>
-                      <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 rounded-md text-gray-500">
+                      <span className="text-xs text-gray-500">
                         {formatTrackDate(record.createdAt)}
                       </span>
                     </div>
 
                     {/* Event Type */}
                     {record.eventType && (
-                      <span className="inline-block mb-3 px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200">
+                      <span className="inline-block mb-2 px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-300">
                         {eventTypes.find((et) => et.value === record.eventType)
                           ?.label || record.eventType}
                       </span>
                     )}
 
-                    {/* Note */}
+                    {/* Note - Horizontal truncation */}
                     {record.note && (
-                      <p className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        {record.note}
-                      </p>
-                    )}
-
-                    {/* Update Details */}
-                    {record.updateData && record.updateData.length > 0 && (
-                      <div className="space-y-2 border-t pt-3">
-                        {record.updateData.map(
-                          (update: UpdateData, updateIndex: number) => (
-                            <div
-                              key={updateIndex}
-                              className="flex items-center gap-2 text-sm"
+                      <div className="mb-2">
+                        <div className="flex items-center gap-1">
+                          <p 
+                            className={`text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200 flex-1 ${
+                              !expandedNotes[record.id] && record.note.length > 80 
+                                ? 'truncate' 
+                                : 'whitespace-normal break-words'
+                            }`}
+                            title={!expandedNotes[record.id] && record.note.length > 80 ? record.note : undefined}
+                          >
+                            {record.note}
+                          </p>
+                          {record.note.length > 80 && (
+                            <button 
+                              onClick={() => toggleNoteExpansion(record.id)}
+                              className="text-xs text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                              title={expandedNotes[record.id] ? 'Show less' : 'Show more'}
                             >
-                              <span className="text-gray-600 font-medium">
-                                {update.fieldName}:
-                              </span>
-                              <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md text-gray-500 line-through">
-                                {formatFieldValue(
-                                  update.fieldName,
-                                  update.oldValue
-                                )}
-                              </div>
-                              <ArrowRight className="h-4 w-4 text-gray-400" />
-                              <div className="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 text-blue-700 font-medium">
-                                {formatFieldValue(
-                                  update.fieldName,
-                                  update.newValue
-                                )}
-                              </div>
-                            </div>
-                          )
-                        )}
+                              {expandedNotes[record.id] ? (
+                                <X className="h-3 w-3" />
+                              ) : (
+                                <MoreHorizontal className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
+
+                    {/* Update Details - Filter out specific fields */}
+                 {record.updateData && record.updateData.length > 0 && (
+  <div className="space-y-2 border-t pt-2 mt-2">
+    {filterUpdateData(record.updateData).map(
+      (update: UpdateData, updateIndex: number) => (
+        <div
+          key={updateIndex}
+          className="text-xs text-gray-700"
+        >
+          <p className="font-medium text-gray-600">
+            {update.fieldName}:
+          </p>
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <span className="bg-gray-100 px-2 py-1 rounded text-gray-500 break-words max-w-xs">
+              {formatFieldValue(
+                update.fieldName,
+                update.oldValue
+              )}
+            
+            </span>
+            <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
+            <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100 text-blue-700 font-medium break-words max-w-xs">
+              {formatFieldValue(
+                update.fieldName,
+                update.newValue
+              )}
+            </span>
+          </div>
+        </div>
+      )
+    )}
+  </div>
+)}
+
                   </div>
                 </div>
               ))}
