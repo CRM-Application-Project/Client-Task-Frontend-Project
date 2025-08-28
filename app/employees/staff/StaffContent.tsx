@@ -453,34 +453,10 @@ export default function StaffPage() {
   };
 
   const handlePermissionChange = (permissionType: string, checked: boolean) => {
-    const newPermissions = { ...editPermissions, [permissionType]: checked };
-
-    // Ensure edit/delete permissions require create permission
-    if (
-      (permissionType === "canEdit" || permissionType === "canDelete") &&
-      checked &&
-      !newPermissions.canCreate
-    ) {
-      newPermissions.canCreate = true;
-      toast({
-        title: "Permission Dependency",
-        description: "Create permission is required for edit/delete operations",
-        variant: "default",
-      });
-    }
-
-    // If create permission is removed, also remove edit and delete
-    if (permissionType === "canCreate" && !checked) {
-      newPermissions.canEdit = false;
-      newPermissions.canDelete = false;
-      toast({
-        title: "Permission Dependency",
-        description: "Edit and delete permissions require create permission",
-        variant: "default",
-      });
-    }
-
-    setEditPermissions(newPermissions);
+    setEditPermissions((prev) => ({
+      ...prev,
+      [permissionType]: checked,
+    }));
   };
 
   // Apply the same logic for new module permissions
@@ -488,37 +464,10 @@ export default function StaffPage() {
     permissionType: string,
     checked: boolean
   ) => {
-    const newPermissions = {
-      ...newModulePermissions,
+    setNewModulePermissions((prev) => ({
+      ...prev,
       [permissionType]: checked,
-    };
-
-    // Ensure edit/delete permissions require create permission
-    if (
-      (permissionType === "canEdit" || permissionType === "canDelete") &&
-      checked &&
-      !newPermissions.canCreate
-    ) {
-      newPermissions.canCreate = true;
-      toast({
-        title: "Permission Dependency",
-        description: "Create permission is required for edit/delete operations",
-        variant: "default",
-      });
-    }
-
-    // If create permission is removed, also remove edit and delete
-    if (permissionType === "canCreate" && !checked) {
-      newPermissions.canEdit = false;
-      newPermissions.canDelete = false;
-      toast({
-        title: "Permission Dependency",
-        description: "Edit and delete permissions require create permission",
-        variant: "default",
-      });
-    }
-
-    setNewModulePermissions(newPermissions);
+    }));
   };
 
   // Update the Checkbox.Group to use the new handler

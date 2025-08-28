@@ -1,17 +1,22 @@
-// components/dashboard/tasks/KpisTasks.tsx
 import {
   CheckSquare,
   AlertTriangle,
   Target,
   Clock4,
+  Loader2,
   LucideIcon,
 } from "lucide-react";
+import { TaskAnalytics } from "@/app/services/data.service";
+
+interface KpisTasksProps {
+  data?: TaskAnalytics;
+}
 
 type Kpi = {
   value: string;
   label: string;
   icon: LucideIcon;
-  color: string; // e.g. "text-blue-500 bg-blue-50"
+  color: string;
 };
 
 function KpiItem({ value, label, icon: Icon, color }: Kpi) {
@@ -33,36 +38,42 @@ function KpiItem({ value, label, icon: Icon, color }: Kpi) {
   );
 }
 
-export default function KpisTasks() {
+export default function KpisTasks({ data }: KpisTasksProps) {
   const items: Kpi[] = [
     {
-      value: "342",
-      label: "Open Tasks",
+      value: (data?.totalTasks || 0).toString(),
+      label: "Total Tasks",
       icon: CheckSquare,
       color: "text-blue-600 bg-blue-50",
     },
     {
-      value: "23",
-      label: "Overdue",
-      icon: AlertTriangle,
-      color: "text-rose-600 bg-rose-50",
+      value: (data?.ongoingTasks || 0).toString(),
+      label: "Ongoing",
+      icon: Loader2,
+      color: "text-cyan-600 bg-cyan-50",
     },
     {
-      value: "67",
-      label: "Completed Today",
+      value: (data?.inReviewTasks || 0).toString(),
+      label: "In Review",
+      icon: AlertTriangle,
+      color: "text-amber-600 bg-amber-50",
+    },
+    {
+      value: (data?.completedTasks || 0).toString(),
+      label: "Completed",
       icon: Target,
       color: "text-green-600 bg-green-50",
     },
     {
-      value: "4.2d",
-      label: "Avg Completion",
+      value: `${data?.completedTasksPercentage?.toFixed(1) || 0}%`,
+      label: "Completion Rate",
       icon: Clock4,
       color: "text-purple-600 bg-purple-50",
     },
   ];
 
   return (
-    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
       {items.map((k) => (
         <KpiItem key={k.label} {...k} />
       ))}

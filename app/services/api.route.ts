@@ -6,7 +6,7 @@ export const API_CONSTANTS = {
     UPDATE_USER: "/tenant/users/:userId",
     GENERATE_OTP: "/generate-otp",
     VERIFY_OTP: "/verify-otp",
-    RESET:"/reset"
+    RESET: "/reset",
   },
   DEPARTMENT: {
     CREATE_DEPARTMENT: "/tenant/departments/",
@@ -38,7 +38,7 @@ export const API_CONSTANTS = {
     FILTER: "/tasks/filter",
     DROPDOWN: "/task/stages/dropdown",
     ADD_STAGE: "/task/stages/",
-     UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
+    UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
     DELETE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
     REORDER_STAGES: "/task/stages/reorder",
     DOCUMENT: {
@@ -47,12 +47,12 @@ export const API_CONSTANTS = {
       DOWNLOAD_URL: (docId: string) => `/tasks/documents/${docId}/download-url`,
       DELETE: (docId: string) => `/tasks/documents/${docId}`,
     },
-    HISTORY:{
-      FILTER_HISTORY:`/tasks/history`,
-      EVENTS_DROPDOWN:`/tasks/history/events`
+    HISTORY: {
+      FILTER_HISTORY: `/tasks/history`,
+      EVENTS_DROPDOWN: `/tasks/history/events`,
     },
-      START: (taskId: string) => `/tasks/${taskId}/start`,
-  STOP: (taskId: string) => `/tasks/${taskId}/stop`,
+    START: (taskId: string) => `/tasks/${taskId}/start`,
+    STOP: (taskId: string) => `/tasks/${taskId}/stop`,
   },
   LEAD: {
     CREATE: "/lead/create",
@@ -69,11 +69,16 @@ export const API_CONSTANTS = {
     ASSIGN_DROPDOWN: "/tenant/users/dropdown",
     CHANGE_PASSWORD: "/tenant/users/:userId/change-password",
     CHANGE_STATUS: "/lead/change-status",
-     TRACK_BY_LEAD_ID: "/track/fetchByLeadId",
-     CREATE_STAGE:"/stage/create",
-     FETCH_STAGE: "/stage/fetch",
-     UPDATE_STAGE: "/stage/update",
-       DELETE_STAGE: '/stage/deleteById',
-
+    TRACK_BY_LEAD_ID: "/track/fetchByLeadId",
+    CREATE_STAGE: "/stage/create",
+    FETCH_STAGE: "/stage/fetch",
+    UPDATE_STAGE: "/stage/update",
+    DELETE_STAGE: "/stage/deleteById",
+  },
+  DASHBOARD: {
+    LEADS_OVERVIEW:
+      "/lead/dashboard/overview?startDate={startDate}&endDate={endDate}",
+      TASKS_OVERVIEW:
+      "/task/dashboard/overview?startDate={startDate}&endDate={endDate}",
   },
 };

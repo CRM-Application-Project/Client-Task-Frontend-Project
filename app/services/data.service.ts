@@ -83,7 +83,6 @@ export const createTask = async (
   return res as CreateTaskResponse;
 };
 
-
 // ---- Types ----
 export interface TaskActionData {
   id: number;
@@ -125,23 +124,25 @@ export const updateTask = async (
 ): Promise<UpdateTaskResponse> => {
   // Log the partial update data for debugging
   console.log(`Updating task ${taskId} with partial data:`, updateData);
-  
+
   // Only send fields that are present in updateData
-  const filteredData = Object.entries(updateData).reduce((acc, [key, value]) => {
-    // Include field if value is not undefined
-    if (value !== undefined) {
-      acc[key] = value;
-    }
-    return acc;
-  }, {} as Record<string, any>);
-  
-  console.log('Filtered update payload:', filteredData);
-  
+  const filteredData = Object.entries(updateData).reduce(
+    (acc, [key, value]) => {
+      // Include field if value is not undefined
+      if (value !== undefined) {
+        acc[key] = value;
+      }
+      return acc;
+    },
+    {} as Record<string, any>
+  );
+
+  console.log("Filtered update payload:", filteredData);
+
   const url = API_CONSTANTS.TASK.UPDATE.replace("{taskId}", String(taskId));
   const res = await putRequest(url, filteredData);
   return res as UpdateTaskResponse;
 };
-
 
 export const getTaskById = async (
   taskId: number
@@ -733,7 +734,6 @@ export const createTaskStage = async (
   return res as CreateStageResponse;
 };
 
-
 export const createLeadStage = async (
   stageData: CreateLeadStageRequest
 ): Promise<CreateLeadStageResponse> => {
@@ -751,7 +751,6 @@ export const updateLeadStage = async (
   const res = await putRequest(API_CONSTANTS.LEAD.UPDATE_STAGE, stageData);
   return res as UpdateLeadStageResponse;
 };
-
 
 export interface DeleteLeadStageResponse {
   isSuccess: boolean;
@@ -871,7 +870,6 @@ export interface FilterHistoryParams {
   sortDirection?: "asc" | "desc";
 }
 
-
 export interface FilterHistoryResponse {
   isSuccess: boolean;
   message: string;
@@ -890,20 +888,23 @@ export const filterHistory = async (
   params: FilterHistoryParams
 ): Promise<FilterHistoryResponse> => {
   const query = new URLSearchParams();
-  
-  // Always include taskId as it's required
-  query.append('taskId', String(params.taskId));
-  
-  // Only append optional parameters if they have values
-  if (params.doneById) query.append('doneById', params.doneById);
-  if (params.eventTypes) query.append('eventTypes', params.eventTypes);
-  if (params.createdAfter) query.append('createdAfter', params.createdAfter);
-  if (params.createdBefore) query.append('createdBefore', params.createdBefore);
-  if (params.page !== undefined) query.append('page', String(params.page));
-  if (params.limit !== undefined) query.append('limit', String(params.limit));
-  if (params.sortDirection !== undefined) query.append('sortDirection', String(params.sortDirection));
 
-  const url = `${API_CONSTANTS.TASK.HISTORY.FILTER_HISTORY}?${query.toString()}`;
+  // Always include taskId as it's required
+  query.append("taskId", String(params.taskId));
+
+  // Only append optional parameters if they have values
+  if (params.doneById) query.append("doneById", params.doneById);
+  if (params.eventTypes) query.append("eventTypes", params.eventTypes);
+  if (params.createdAfter) query.append("createdAfter", params.createdAfter);
+  if (params.createdBefore) query.append("createdBefore", params.createdBefore);
+  if (params.page !== undefined) query.append("page", String(params.page));
+  if (params.limit !== undefined) query.append("limit", String(params.limit));
+  if (params.sortDirection !== undefined)
+    query.append("sortDirection", String(params.sortDirection));
+
+  const url = `${
+    API_CONSTANTS.TASK.HISTORY.FILTER_HISTORY
+  }?${query.toString()}`;
   const res = await getRequest(url);
   return res as FilterHistoryResponse;
 };
@@ -920,10 +921,11 @@ export interface HistoryEventsDropdownResponse {
   data: HistoryEvent[];
 }
 
-export const getHistoryEventsDropdown = async (): Promise<HistoryEventsDropdownResponse> => {
-  const res = await getRequest(API_CONSTANTS.TASK.HISTORY.EVENTS_DROPDOWN);
-  return res as HistoryEventsDropdownResponse;
-};
+export const getHistoryEventsDropdown =
+  async (): Promise<HistoryEventsDropdownResponse> => {
+    const res = await getRequest(API_CONSTANTS.TASK.HISTORY.EVENTS_DROPDOWN);
+    return res as HistoryEventsDropdownResponse;
+  };
 // Add these interfaces to your existing types
 export interface ReorderStagesRequest {
   order: number[]; // Array of stage IDs in the desired order
@@ -938,7 +940,6 @@ export interface ReorderStagesResponse {
 export interface UpdateStageRequest {
   name?: string;
   description?: string;
-  
 }
 
 export interface UpdateStageResponse {
@@ -966,15 +967,16 @@ export const reorderTaskStages = async (
 ): Promise<ReorderStagesResponse> => {
   try {
     // Send the request with the correct format
-    const res = await putRequest(API_CONSTANTS.TASK.REORDER_STAGES, { 
-      order: stageIds 
+    const res = await putRequest(API_CONSTANTS.TASK.REORDER_STAGES, {
+      order: stageIds,
     });
     return res as ReorderStagesResponse;
   } catch (error) {
     console.error("Error reordering stages:", error);
     return {
       isSuccess: false,
-      message: error instanceof Error ? error.message : "Failed to reorder stages"
+      message:
+        error instanceof Error ? error.message : "Failed to reorder stages",
     };
   }
 };
@@ -994,4 +996,93 @@ export const deleteTaskStage = async (
 ): Promise<DeleteStageResponse> => {
   const res = await deleteRequest(API_CONSTANTS.TASK.DELETE_STAGE(taskId));
   return res as DeleteStageResponse;
+};
+
+export interface LeadAnalytics {
+  totalLeads: number;
+  convertedLeads: number;
+  convertedLeadPercentage: number;
+  convertedLostLeads: number;
+  toDaysNewLeads: number;
+}
+
+export interface LeadPerformer {
+  userName: string;
+  totalLeads: number;
+  wonLeads: number;
+  conversionWonLeadsPercentage: number;
+  lostLeads: number;
+  conversionLostLeadsPercentage: number;
+}
+
+export interface LeadOverviewResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    startDate: string;
+    endDate: string;
+    leadAnalytics: LeadAnalytics;
+    topPerformerLeads: LeadPerformer[];
+    avgPerformerLeads: LeadPerformer[];
+    leastPerformerLeads: LeadPerformer[];
+    leadStatusData: Record<string, number>;
+    leadSourceData: Record<string, number>;
+  };
+}
+
+// Fetch Leads Overview
+export const fetchLeadsOverview = async (
+  startDate: string,
+  endDate: string
+): Promise<LeadOverviewResponse> => {
+  const endpoint = API_CONSTANTS.DASHBOARD.LEADS_OVERVIEW.replace(
+    "{startDate}",
+    startDate
+  ).replace("{endDate}", endDate);
+
+  const res = await getRequest(endpoint);
+  return res as LeadOverviewResponse;
+};
+
+export interface TaskAnalytics {
+  totalTasks: number;
+  inReviewTasks: number;
+  ongoingTasks: number;
+  completedTasks: number;
+  completedTasksPercentage: number;
+}
+
+export interface TaskPerformer {
+  userName: string;
+  totalTasks: number;
+  completedTasks: number;
+  completedPercentage: number;  
+}
+
+export interface TaskOverviewResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    startDate: string;
+    endDate: string;
+    taskAnalytics: TaskAnalytics;
+    topPerformerTasks: TaskPerformer[];
+    avgPerformerTasks: TaskPerformer[];
+    leastPerformerTasks: TaskPerformer[];
+    taskStatusGraphData: Record<string, number>;
+  };
+}
+
+// Fetch Tasks Overview
+export const fetchTasksOverview = async (
+  startDate: string,
+  endDate: string
+): Promise<TaskOverviewResponse> => {
+  const endpoint = API_CONSTANTS.DASHBOARD.TASKS_OVERVIEW.replace(
+    "{startDate}",
+    startDate
+  ).replace("{endDate}", endDate);
+
+  const res = await getRequest(endpoint);
+  return res as TaskOverviewResponse;
 };

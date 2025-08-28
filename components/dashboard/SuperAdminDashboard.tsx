@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Download } from "lucide-react";
-import Leads from "./leads/Leads";
-import Tasks from "./tasks/Tasks";
+import Leads from "./leadsAnalytics/Leads";
+import Tasks from "./tasksAnalytics/Tasks";
 import { cn } from "@/lib/utils";
 
 export default function SuperAdminDashboard() {
