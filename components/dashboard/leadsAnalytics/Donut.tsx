@@ -1,6 +1,4 @@
-// components/dashboard/leads/Donut.tsx
-
-type ConicSeg = [color: string, percent: number];
+type ConicSeg = [color: string, value: number];
 
 // Minimal tailwind-color → hex map so you can still pass "indigo-500" etc.
 // If you pass a raw CSS color (e.g. "#6366F1" or "rgb(99 102 241)") it will use that.
@@ -12,6 +10,11 @@ const TW: Record<string, string> = {
   "green-500": "#22C55E",
   "red-500": "#EF4444",
   "emerald-500": "#10B981",
+  "orange-500": "#F97316",
+  "cyan-500": "#06B6D4",
+  "pink-500": "#EC4899",
+  "yellow-500": "#EAB308",
+  "slate-500": "#64748B",
 };
 
 export default function Donut({
@@ -25,15 +28,24 @@ export default function Donut({
   type: "gradient" | "conic";
   size?: number;
   cutout?: number; // 0..1
-  from?: string;   // tailwind token or any CSS color
-  to?: string;     // tailwind token or any CSS color
+  from?: string; // tailwind token or any CSS color
+  to?: string; // tailwind token or any CSS color
   segments?: ConicSeg[];
 }) {
   const hole = Math.max(0, Math.min(1, cutout));
-  const mask = `radial-gradient(closest-side, transparent ${hole * 100}%, #000 ${hole * 100 + 0.1}%)`;
+  const mask = `radial-gradient(closest-side, transparent ${
+    hole * 100
+  }%, #000 ${hole * 100 + 0.1}%)`;
 
   const fromColor = TW[from] ?? from;
   const toColor = TW[to] ?? to;
+
+  // Calculate total and convert absolute values to percentages
+  const total = segments.reduce((sum, [_, value]) => sum + value, 0);
+  const percentageSegments = segments.map(([color, value]) => [
+    color,
+    total > 0 ? (value / total) * 100 : 0,
+  ]) as ConicSeg[];
 
   const base: React.CSSProperties = {
     width: size,
@@ -42,6 +54,10 @@ export default function Donut({
     WebkitMask: mask,
     mask,
     boxShadow: "0 10px 25px rgba(2, 6, 23, 0.12)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   };
 
   const style: React.CSSProperties =
@@ -53,10 +69,30 @@ export default function Donut({
         }
       : {
           ...base,
-          backgroundImage: `conic-gradient(${toConic(segments)})`,
+          backgroundImage: `conic-gradient(${toConic(percentageSegments)})`,
         };
 
-  return <div style={style} />;
+  return (
+    <div style={style}>
+      {/* Center text showing total count */}
+      {total > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            textAlign: "center",
+            fontSize: size * 0.12,
+            fontWeight: "bold",
+            color: "#374151",
+          }}
+        >
+          {total}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function toConic(segments: ConicSeg[]) {

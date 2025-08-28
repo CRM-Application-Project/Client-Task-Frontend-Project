@@ -451,34 +451,7 @@ export function CreateStaffModal({
     setFormData((prev) => {
       const updatedModuleAccess = prev.moduleAccess.map((module) => {
         if (module.moduleId === moduleId) {
-          const updatedModule = { ...module, [field]: value } as typeof module;
-
-          if (
-            (field === "canEdit" || field === "canDelete") &&
-            value &&
-            !updatedModule.canCreate
-          ) {
-            updatedModule.canCreate = true;
-            toast({
-              title: "Permission Dependency",
-              description:
-                "Create permission is required for edit/delete operations",
-              variant: "default",
-            });
-          }
-
-          if (field === "canCreate" && !value) {
-            updatedModule.canEdit = false;
-            updatedModule.canDelete = false;
-            toast({
-              title: "Permission Dependency",
-              description:
-                "Edit and delete permissions require create permission",
-              variant: "default",
-            });
-          }
-
-          return updatedModule;
+          return { ...module, [field]: value };
         }
         return module;
       });
@@ -863,7 +836,11 @@ export function CreateStaffModal({
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" onClick={addModule} className="bg-brand-primary text-text-white hover:bg-brand-primary/90">
+              <Button
+                type="button"
+                onClick={addModule}
+                className="bg-brand-primary text-text-white hover:bg-brand-primary/90"
+              >
                 Add Module
               </Button>
             </div>
@@ -933,16 +910,6 @@ export function CreateStaffModal({
                             >
                               Create
                             </Label>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <AlertCircle className="h-3 w-3 text-amber-500" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Required for Edit/Delete permissions</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
                           </div>
 
                           {/* Edit Permission */}
@@ -957,31 +924,10 @@ export function CreateStaffModal({
                                   Boolean(checked)
                                 )
                               }
-                              disabled={!moduleAccess.canCreate}
-                              className={
-                                !moduleAccess.canCreate ? "opacity-50" : ""
-                              }
                             />
-                            <Label
-                              htmlFor={`${moduleAccess.moduleId}-canEdit`}
-                              className={
-                                !moduleAccess.canCreate ? "text-gray-500" : ""
-                              }
-                            >
+                            <Label htmlFor={`${moduleAccess.moduleId}-canEdit`}>
                               Edit
                             </Label>
-                            {!moduleAccess.canCreate && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Requires Create permission</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                           </div>
 
                           {/* Delete Permission */}
@@ -996,31 +942,12 @@ export function CreateStaffModal({
                                   Boolean(checked)
                                 )
                               }
-                              disabled={!moduleAccess.canCreate}
-                              className={
-                                !moduleAccess.canCreate ? "opacity-50" : ""
-                              }
                             />
                             <Label
                               htmlFor={`${moduleAccess.moduleId}-canDelete`}
-                              className={
-                                !moduleAccess.canCreate ? "text-gray-500" : ""
-                              }
                             >
                               Delete
                             </Label>
-                            {!moduleAccess.canCreate && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Requires Create permission</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -1050,7 +977,9 @@ export function CreateStaffModal({
             <Button
               type="submit"
               disabled={loading || !isFormValid}
-              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${!isFormValid ? "btn-disabled" : ""}`}
+              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${
+                !isFormValid ? "btn-disabled" : ""
+              }`}
             >
               {loading ? "Creating..." : "Create Staff User"}
             </Button>
