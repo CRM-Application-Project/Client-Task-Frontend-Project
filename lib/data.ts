@@ -251,6 +251,7 @@ export interface LeadStage {
   leadStagePriority: number;
   createdAt: string;
   updatedAt: string;
+  finalStage: boolean;
 }
 
 export interface FetchLeadStagesResponse {

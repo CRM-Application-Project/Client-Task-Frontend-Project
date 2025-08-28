@@ -84,6 +84,9 @@ interface EditingTaskResponse {
   createdAt: string;
   updatedAt: string;
   assignee: Assignee;
+    graceHours?: number; // Add this
+  estimatedHours?: number; // Add this
+
 }
 
 interface FilterTasksParams {
@@ -1183,6 +1186,8 @@ export default function TaskBoard() {
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
       assignee: task.assignee,
+      graceHours: task.graceHours,
+      estimatedHours: task.estimatedHours ?? undefined, // Convert null to undefined
     };
 
     setEditingTask(editingTaskData);
