@@ -598,12 +598,11 @@ export function TaskHistory({
             
             </span>
             <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
-            <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100 text-blue-700 font-medium break-words max-w-xs">
-              {formatFieldValue(
-                update.fieldName,
-                update.newValue
-              )}
-            </span>
+           <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100 text-blue-700 font-medium break-words max-w-xs">
+  {formatFieldValue(update.fieldName, update.newValue)
+    ?.replace(/_/g, " ")}
+</span>
+
           </div>
         </div>
       )

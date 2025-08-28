@@ -77,51 +77,51 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "LOW":
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200";
       case "MEDIUM":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 hover:bg-blue-200";
       case "HIGH":
-        return "bg-orange-100 text-orange-800";
+        return "bg-orange-100 text-orange-800 hover:bg-orange-200";
       case "URGENT":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800 hover:bg-red-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "NEW":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 hover:bg-blue-200";
       case "CONTACTED":
-        return "bg-indigo-100 text-indigo-800";
+        return "bg-indigo-100 text-indigo-800 hover:bg-indigo-200";
       case "QUALIFIED":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 hover:bg-green-200";
       case "PROPOSAL":
-        return "bg-teal-100 text-teal-800";
+        return "bg-teal-100 text-teal-800 hover:bg-teal-200";
       case "DEMO":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
       case "NEGOTIATIONS":
-        return "bg-orange-100 text-orange-800";
+        return "bg-orange-100 text-orange-800 hover:bg-orange-200";
       case "CLOSED_WON":
-        return "bg-emerald-100 text-emerald-800";
+        return "bg-emerald-100 text-emerald-800 hover:bg-emerald-200";
       case "CLOSED_LOST":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800 hover:bg-red-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200";
     }
   };
 
   const getFollowUpIcon = (followUpType?: string) => {
     switch (followUpType?.toUpperCase()) {
       case "CALL":
-        return <PhoneCall className="h-4 w-4 text-green-500" />;
+        return <PhoneCall className="h-4 w-4 text-green-500 hover:text-green-600" />;
       case "EMAIL":
-        return <MailIcon className="h-4 w-4 text-indigo-500" />;
+        return <MailIcon className="h-4 w-4 text-indigo-500 hover:text-indigo-600" />;
       case "MEETING":
-        return <Calendar className="h-4 w-4 text-blue-500" />;
+        return <Calendar className="h-4 w-4 text-blue-500 hover:text-blue-600" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return <Clock className="h-4 w-4 text-gray-500 hover:text-gray-600" />;
     }
   };
 
@@ -185,21 +185,21 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
     const desc = actionDescription.toLowerCase();
 
     if (desc.includes("status"))
-      return <RefreshCw className="h-4 w-4 text-blue-500" />;
+      return <RefreshCw className="h-4 w-4 text-blue-500 hover:text-blue-600" />;
     if (desc.includes("call"))
-      return <PhoneCall className="h-4 w-4 text-green-500" />;
+      return <PhoneCall className="h-4 w-4 text-green-500 hover:text-green-600" />;
     if (desc.includes("email"))
-      return <MailIcon className="h-4 w-4 text-indigo-500" />;
+      return <MailIcon className="h-4 w-4 text-indigo-500 hover:text-indigo-600" />;
     if (desc.includes("note") || desc.includes("comment"))
-      return <FileText className="h-4 w-4 text-amber-500" />;
+      return <FileText className="h-4 w-4 text-amber-500 hover:text-amber-600" />;
     if (desc.includes("created"))
-      return <CheckCircle className="h-4 w-4 text-emerald-500" />;
+      return <CheckCircle className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />;
     if (desc.includes("closed won"))
-      return <CheckCircle className="h-4 w-4 text-emerald-500" />;
+      return <CheckCircle className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />;
     if (desc.includes("closed lost"))
-      return <XCircle className="h-4 w-4 text-red-500" />;
+      return <XCircle className="h-4 w-4 text-red-500 hover:text-red-600" />;
 
-    return <Clock className="h-4 w-4 text-gray-500" />;
+    return <Clock className="h-4 w-4 text-gray-500 hover:text-gray-600" />;
   };
 
   return (

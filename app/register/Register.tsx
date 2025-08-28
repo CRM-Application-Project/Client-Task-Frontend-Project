@@ -24,7 +24,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { registerUser } from "../services/data.service";
-import ColorThief from "colorthief";
+// @ts-ignore
+
+import ColorThief from "color-thief-browser";
 
 export default function RegisterPage() {
   // ---------- CONSTANTS (Validation) ----------
@@ -169,8 +171,8 @@ export default function RegisterPage() {
         const colorPalette = colorThief.getPalette(img, 5); // Get 5 dominant colors
         
         // Convert RGB arrays to hex strings
-        const hexColors = colorPalette.map(rgb => 
-          `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
+        const hexColors: string[] = colorPalette.map((rgb: [number, number, number]) => 
+          `#${rgb.map((c: number) => c.toString(16).padStart(2, '0')).join('')}`
         );
         
         setExtractedColors(hexColors);

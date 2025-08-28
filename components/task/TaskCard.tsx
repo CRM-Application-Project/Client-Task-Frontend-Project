@@ -431,7 +431,7 @@ export const TaskCard = ({
               )}
               {task.actualHours !== null && task.estimatedHours !== null && 
                task.actualHours > task.estimatedHours && (
-                <span className="text-amber-600">Overtime: {(task.actualHours - task.estimatedHours).toFixed(1)}h</span>
+                <span className="text-amber-600">Escalated: {(task.actualHours - task.estimatedHours).toFixed(1)}h</span>
               )}
             </div>
           )}

@@ -244,8 +244,8 @@ export const AddTaskModal = ({
       endDate: editingTask.endDate || "",
       assignee: editingTask.assignee?.id || "",
       acceptanceCriteria: editingTask.acceptanceCriteria || "",
-            graceHours: editingTask.graceHours || 0, // Add this
-      estimatedHours: editingTask.estimatedHours || 0, // Add this
+     graceHours: editingTask.graceHours ?? 0,
+estimatedHours: editingTask.estimatedHours ?? 0,
     };
     setFormData(initialData);
     setOriginalFormData(initialData);
