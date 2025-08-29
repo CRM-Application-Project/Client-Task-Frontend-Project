@@ -580,125 +580,129 @@ export default function LoginPage() {
   };
 
   // -------------------- Login Submit --------------------
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    // Force touch + validate both fields
-    setLoginTouched({ email: true, password: true });
-    const emailErr = validateLoginField("email", email);
-    const pwdErr = validateLoginField("password", password);
-    setLoginErrors({ email: emailErr, password: pwdErr });
+  // Force touch + validate both fields
+  setLoginTouched({ email: true, password: true });
+  const emailErr = validateLoginField("email", email);
+  const pwdErr = validateLoginField("password", password);
+  setLoginErrors({ email: emailErr, password: pwdErr });
 
-    if (emailErr || pwdErr || !isEmailVerified) return;
+  if (emailErr || pwdErr || !isEmailVerified) return;
 
-    setIsLoading(true);
-    try {
-      const loginData = {
-        emailAddress: email,
-        password,
-        deviceType: "web",
-        accessRegion,
-        ...(requiresCompany && { companyName }),
+  setIsLoading(true);
+  try {
+    const loginData = {
+      emailAddress: email,
+      password,
+      deviceType: "web",
+      accessRegion,
+      ...(requiresCompany && { companyName }),
+    };
+
+    const response = (await loginUser(loginData)) as unknown as LoginResponse;
+
+    if (response.isSuccess) {
+      const { profileResponse, authTokenResponse } = response.data;
+
+      if (authTokenResponse.token) {
+        localStorage.setItem("authToken", authTokenResponse.token);
+      }
+      if (authTokenResponse.refreshToken) {
+        localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
+      }
+
+      const modules =
+        profileResponse.userModuleAccessList?.map((access) => ({
+          id: access.moduleId || parseInt(access.id?.toString() || "0"),
+          moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
+          moduleName: access.moduleName
+            ? access.moduleName.charAt(0).toUpperCase() +
+              access.moduleName.slice(1)
+            : "Unknown",
+          canView: access.canView ?? true,
+          canEdit: access.canEdit ?? false,
+          canCreate: access.canCreate ?? false,
+          canDelete: access.canDelete ?? false,
+          createdAt: access.createdAt || new Date().toISOString(),
+          updatedAt: access.updatedAt || new Date().toISOString(),
+        })) || [];
+
+      const completeUserProfile = {
+        ...profileResponse,
+        modules,
+        userId: profileResponse.id,
+        contactNumber: profileResponse.phoneNumber || "",
+        dateOfBirth: "",
+        dateOfJoin: "",
+        profileImage: "",
+        address: "",
+        status: "active",
+        departmentId: 0,
+        departmentName: "",
+        isActive: true,
       };
 
-      const response = (await loginUser(loginData)) as unknown as LoginResponse;
+      localStorage.setItem(
+        "currentUser",
+        JSON.stringify(completeUserProfile)
+      );
+      localStorage.setItem("userModules", JSON.stringify(modules));
+      localStorage.setItem("userId", response.data.profileResponse.id);
+      localStorage.setItem(
+        "user",
+        JSON.stringify(response.data.profileResponse)
+      );
 
-      if (response.isSuccess) {
-        const { profileResponse, authTokenResponse } = response.data;
+      dispatch(
+        loginSuccess({
+          user: completeUserProfile,
+          allUsers: [completeUserProfile],
+        })
+      );
 
-        if (authTokenResponse.token) {
-          localStorage.setItem("authToken", authTokenResponse.token);
-        }
-        if (authTokenResponse.refreshToken) {
-          localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
-        }
-
-        const modules =
-          profileResponse.userModuleAccessList?.map((access) => ({
-            id: access.moduleId || parseInt(access.id?.toString() || "0"),
-            moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
-            moduleName: access.moduleName
-              ? access.moduleName.charAt(0).toUpperCase() +
-              access.moduleName.slice(1)
-              : "Unknown",
-            canView: access.canView ?? true,
-            canEdit: access.canEdit ?? false,
-            canCreate: access.canCreate ?? false,
-            canDelete: access.canDelete ?? false,
-            createdAt: access.createdAt || new Date().toISOString(),
-            updatedAt: access.updatedAt || new Date().toISOString(),
-          })) || [];
-
-        const completeUserProfile = {
-          ...profileResponse,
-          modules,
-          userId: profileResponse.id,
-          contactNumber: profileResponse.phoneNumber || "",
-          dateOfBirth: "",
-          dateOfJoin: "",
-          profileImage: "",
-          address: "",
-          status: "active",
-          departmentId: 0,
-          departmentName: "",
-          isActive: true,
-        };
-
-        localStorage.setItem(
-          "currentUser",
-          JSON.stringify(completeUserProfile)
-        );
-        localStorage.setItem("userModules", JSON.stringify(modules));
-        localStorage.setItem("userId", response.data.profileResponse.id);
-        localStorage.setItem(
-          "user",
-          JSON.stringify(response.data.profileResponse)
-        );
-
-        dispatch(
-          loginSuccess({
-            user: completeUserProfile,
-            allUsers: [completeUserProfile],
-          })
-        );
-
-        toast({
-          title: "Login successful",
-          description: `Welcome back, ${profileResponse.firstName}!`,
-          variant: "default",
-        });
-
-        let redirectPath = "/not-found";
-        if (!profileResponse.isPasswordUpdated) {
-          redirectPath = "/reset-password";
-        } else {
-          redirectPath = getFirstAccessibleModule(modules);
-        }
-
-        setTimeout(() => {
-          router.push(redirectPath);
-        }, 500);
-      } else {
-        toast({
-          title: "Login failed",
-          description: response.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Login error:", error);
       toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An error occurred during login",
+        title: "Login successful",
+        description: `Welcome back, ${profileResponse.firstName}!`,
+        variant: "default",
+      });
+
+      let redirectPath = "/not-found";
+      
+      // Check if user is SUPER_ADMIN
+      if (profileResponse.userRole === "SUPER_ADMIN") {
+        redirectPath = "/dashboard";
+      } else if (!profileResponse.isPasswordUpdated) {
+        redirectPath = "/reset-password";
+      } else {
+        redirectPath = getFirstAccessibleModule(modules);
+      }
+
+      setTimeout(() => {
+        router.push(redirectPath);
+      }, 500);
+    } else {
+      toast({
+        title: "Login failed",
+        description: response.message,
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Login error:", error);
+    toast({
+      title: "Error",
+      description:
+        error instanceof Error
+          ? error.message
+          : "An error occurred during login",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // -------------------- UI --------------------
   return (

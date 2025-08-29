@@ -13,22 +13,19 @@ import {
   Save,
   X,
   Target,
-  MessageSquare,
-  MoreHorizontal,
-  Paperclip,
-  Smile,
-  Reply,
-  Trash2,
   Timer,
-  TrendingUp,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
 import {
   getTaskById,
   getDocumentDownloadUrl,
   updateTask,
   getAssignDropdown,
+  decideTask,
   // --- Optional: wire these when your backend is ready ---
   // getTaskComments,
   // addTaskComment,
@@ -48,6 +45,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "./Richtaskeditor";
+import { formatFileSize } from "@/hooks/Detail";
+import { DiscussionPanel } from "./DiscussionPanel";
 
 interface TaskDetailsProps {
   taskId: number;
@@ -121,493 +120,146 @@ interface AssignDropdown {
   label: string;
 }
 
-// -------------------- Discussion Types --------------------
-interface CommentAttachment {
-  id: string;
-  fileName: string;
-  fileSize: number;
-  url?: string; // optional until uploaded
-}
+import { useToast } from "@/hooks/use-toast";
 
-interface Reaction {
-  emoji: string; // "👍", "❤️", etc
-  count: number;
-  reacted?: boolean; // whether current user reacted
-}
+// -------------------- Task Review Section --------------------
+function TaskReviewSection({ taskId }: { taskId: number }) {
+  const [reviewDecision, setReviewDecision] = useState<"ACCEPT" | "REJECT" | null>(null);
+  const [reviewCommentText, setReviewCommentText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-interface CommentItem {
-  id: string;
-  author: { id: string; name: string; avatar?: string };
-  content: string; // Plain text now instead of HTML
-  createdAt: string; // ISO
-  updatedAt?: string; // ISO
-  attachments?: CommentAttachment[];
-  reactions?: Reaction[];
-  isEdited?: boolean;
-}
 
-// Utils
-function formatFileSize(bytes: number) {
-  if (!bytes && bytes !== 0) return "";
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
+const handleReviewSubmit = async (isAccept: boolean) => {
+  if (!reviewCommentText.trim()) {
+    toast({
+      title: "Missing comment",
+      description: "Please provide a comment for your decision",
+      variant: "destructive",
+    });
+    return;
+  }
 
-function timeAgo(iso: string) {
-  const date = new Date(iso);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diff < 60) return "just now";
-  const mins = Math.floor(diff / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
-}
+  setIsSubmitting(true);
+  try {
+    const response = await decideTask(taskId, {
+      isAccept,
+      comment: reviewCommentText,
+    });
 
-// -------------------- Discussion Panel --------------------
-function DiscussionPanel({
-  taskId,
-  users,
-  canComment,
-}: {
-  taskId: number;
-  users: AssignDropdown[];
-  canComment: boolean;
-}) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPosting, setIsPosting] = useState(false);
-  const [comments, setComments] = useState<CommentItem[]>([]);
-  const [editorValue, setEditorValue] = useState("");
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [sort, setSort] = useState<"newest" | "oldest">("newest");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const defaultReactions = ["👍", "❤️", "🎉", "🚀"];
-
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // If you have a backend, replace with: const res = await getTaskComments(taskId)
-      // For now, start with empty list; keep placeholder to show UI nicely.
-      setComments((prev) => (prev.length ? prev : []));
-    } catch (e) {
-      console.error("Error loading comments", e);
-    } finally {
-      setIsLoading(false);
+    if (response.isSuccess) {
+      setReviewDecision(null);
+      setReviewCommentText("");
+      toast({
+        title: "Review submitted",
+        description: response.data || "Review submitted successfully",
+      });
+    } else {
+      console.error("Failed to submit review:", response.message);
+      toast({
+        title: "Submission failed",
+        description: response.message,
+        variant: "destructive",
+      });
     }
-  }, [taskId]);
+  } catch (error) {
+    console.error("Error submitting review:", error);
+    toast({
+      title: "Error submitting review",
+      description: "Something went wrong. Please try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
-  useEffect(() => {
-    load();
-  }, [load]);
 
-  const onFilesPicked = (files: FileList | null) => {
-    if (!files) return;
-    setPendingFiles((prev) => [...prev, ...Array.from(files)]);
-  };
-
-  const removePendingFile = (index: number) => {
-    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handlePost = async () => {
-    if (!canComment) return;
-    if (!editorValue?.trim() && pendingFiles.length === 0) return;
-    setIsPosting(true);
-    try {
-      // 1) Upload pending files (if you have an API)
-      // const uploaded: CommentAttachment[] = await uploadCommentFiles(taskId, pendingFiles)
-      const uploaded: CommentAttachment[] = pendingFiles.map((f, i) => ({
-        id: `${Date.now()}_${i}`,
-        fileName: f.name,
-        fileSize: f.size,
-        url: undefined,
-      }));
-
-      // 2) Create the comment
-      const newComment: CommentItem = {
-        id: `${Date.now()}`,
-        author: { id: "me", name: "You" },
-        content: editorValue || "",
-        createdAt: new Date().toISOString(),
-        attachments: uploaded,
-        reactions: [],
-      };
-
-      // Optimistic update
-      setComments((prev) => [newComment, ...prev]);
-      setEditorValue("");
-      setPendingFiles([]);
-
-      // TODO: POST to backend
-      // await addTaskComment(taskId, { content: editorValue, attachments: uploaded })
-    } catch (e) {
-      console.error("Error posting comment", e);
-    } finally {
-      setIsPosting(false);
-    }
-  };
-
-  const toggleReaction = async (commentId: string, emoji: string) => {
-    setComments((prev) =>
-      prev.map((c) => {
-        if (c.id !== commentId) return c;
-        const existing = (c.reactions || []).find((r) => r.emoji === emoji);
-        if (existing) {
-          const reacted = !existing.reacted;
-          const count = Math.max(0, existing.count + (reacted ? 1 : -1));
-          return {
-            ...c,
-            reactions: c.reactions!.map((r) =>
-              r.emoji === emoji ? { ...r, count, reacted } : r
-            ),
-          };
-        }
-        return {
-          ...c,
-          reactions: [
-            ...(c.reactions || []),
-            { emoji, count: 1, reacted: true },
-          ],
-        };
-      })
-    );
-
-    // TODO: call backend toggle
-    // await toggleTaskCommentReaction(taskId, commentId, emoji)
-  };
-
-  const onDelete = async (commentId: string) => {
-    if (!confirm("Delete this comment?")) return;
-    const old = comments;
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
-    try {
-      // await deleteTaskComment(taskId, commentId)
-    } catch (e) {
-      console.error(e);
-      // revert on error
-      setComments(old);
-    }
-  };
-
-  const onEdit = async (commentId: string, newText: string) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === commentId
-          ? {
-              ...c,
-              content: newText,
-              isEdited: true,
-              updatedAt: new Date().toISOString(),
-            }
-          : c
-      )
-    );
-    try {
-      // await updateTaskComment(taskId, commentId, { content: newText })
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const list = [...comments].sort((a, b) =>
-    sort === "newest"
-      ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
-
-  return (
-    <div className="bg-white shadow-sm rounded-lg border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium text-gray-700 text-sm flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" /> Discussion
-          <span className="text-xs text-gray-500">({comments.length})</span>
+  if (reviewDecision) {
+    return (
+      <div className="bg-white shadow-sm rounded-lg border p-4">
+        <h3 className="font-medium text-gray-700 text-sm mb-3 flex items-center gap-2">
+          <Target className="h-4 w-4" /> Task Review
         </h3>
-        <div className="flex items-center gap-2">
-          <div className="text-xs text-gray-500">Sort</div>
-          <div className="inline-flex rounded-md border overflow-hidden">
-            <button
-              className={`px-2 py-1 text-xs ${
-                sort === "newest" ? "bg-gray-50 text-gray-900" : "text-gray-600"
-              }`}
-              onClick={() => setSort("newest")}
-            >
-              Newest
-            </button>
-            <button
-              className={`px-2 py-1 text-xs border-l ${
-                sort === "oldest" ? "bg-gray-50 text-gray-900" : "text-gray-600"
-              }`}
-              onClick={() => setSort("oldest")}
-            >
-              Oldest
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Composer - Now using simple textarea */}
-      <div className="border rounded-md p-3 mb-4 bg-gray-50/60">
-        {!canComment && (
-          <div className="text-xs text-red-600 mb-2">
-            You don't have permission to comment on this task.
-          </div>
-        )}
-        <Textarea
-          value={editorValue}
-          onChange={(e) => setEditorValue(e.target.value)}
-          placeholder="Write a comment..."
-          className="min-h-[80px]"
-        />
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => onFilesPicked(e.target.files)}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="text-gray-600"
-              title="Attach files"
-            >
-              <Paperclip className="h-4 w-4" />
-            </Button>
-            <div className="flex flex-wrap gap-2">
-              {pendingFiles.map((f, i) => (
-                <span
-                  key={`${f.name}_${i}`}
-                  className="text-xs bg-white border rounded px-2 py-1 flex items-center gap-2"
-                >
-                  <span className="truncate max-w-[160px]" title={f.name}>
-                    {f.name}
-                  </span>
-                  <span className="text-gray-400">
-                    {formatFileSize(f.size)}
-                  </span>
-                  <button
-                    className="text-gray-400 hover:text-gray-600"
-                    onClick={() => removePendingFile(i)}
-                    title="Remove"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
+        
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Your Decision</p>
+            <div className="flex gap-2">
+              <Button
+                variant={reviewDecision === "ACCEPT" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setReviewDecision("ACCEPT")}
+              >
+                <ThumbsUp className="h-4 w-4 mr-2" /> Accept
+              </Button>
+              <Button
+                variant={reviewDecision === "REJECT" ? "destructive" : "outline"}
+                className="flex-1"
+                onClick={() => setReviewDecision("REJECT")}
+              >
+                <ThumbsDown className="h-4 w-4 mr-2" /> Reject
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Review Comment</p>
+            <Textarea
+              value={reviewCommentText}
+              onChange={(e) => setReviewCommentText(e.target.value)}
+              placeholder="Please provide feedback on your decision..."
+              className="min-h-[100px]"
+            />
+          </div>
+          
+          <div className="flex justify-end gap-2">
             <Button
-              size="sm"
-              onClick={handlePost}
-              disabled={
-                !canComment ||
-                isPosting ||
-                (!editorValue.trim() && pendingFiles.length === 0)
-              }
+              variant="outline"
+              onClick={() => {
+                setReviewDecision(null);
+                setReviewCommentText("");
+              }}
             >
-              {isPosting ? "Posting…" : "Post"}
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleReviewSubmit(reviewDecision === "ACCEPT")}
+              disabled={!reviewCommentText.trim() || isSubmitting}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Review"}
             </Button>
           </div>
         </div>
       </div>
-
-      {/* Comments List */}
-      {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-16 rounded-md" />
-          <Skeleton className="h-16 rounded-md" />
-        </div>
-      ) : list.length === 0 ? (
-        <p className="text-sm text-gray-500 italic">
-          No comments yet. Be the first to chime in.
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {list.map((c) => (
-            <li key={c.id} className="border rounded-md p-3">
-              <div className="flex items-start gap-3">
-                {c.author.avatar ? (
-                  <img
-                    src={c.author.avatar}
-                    alt={c.author.name}
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <User className="h-4 w-4 text-blue-600" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span className="font-medium text-gray-900 text-sm">
-                      {c.author.name}
-                    </span>
-                    <span>•</span>
-                    <span title={new Date(c.createdAt).toLocaleString()}>
-                      {timeAgo(c.createdAt)}
-                    </span>
-                    {c.isEdited && <span className="italic">(edited)</span>}
-                  </div>
-
-                  {/* Plain text content */}
-                  <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-                    {c.content}
-                  </div>
-
-                  {/* Attachments */}
-                  {c.attachments && c.attachments.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {c.attachments.map((a) => (
-                        <a
-                          key={a.id}
-                          href={a.url || "#"}
-                          onClick={(e) => {
-                            if (!a.url) e.preventDefault();
-                          }}
-                          className="inline-flex items-center gap-2 text-xs border rounded px-2 py-1 bg-gray-50 hover:bg-gray-100"
-                        >
-                          <FileText className="h-3 w-3" />
-                          <span
-                            className="truncate max-w-[140px]"
-                            title={a.fileName}
-                          >
-                            {a.fileName}
-                          </span>
-                          <span className="text-gray-400">
-                            {formatFileSize(a.fileSize)}
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Reactions */}
-                  <div className="mt-2 flex items-center gap-2">
-                    {defaultReactions.map((emoji) => {
-                      const reaction = c.reactions?.find(
-                        (r) => r.emoji === emoji
-                      );
-                      const active = reaction?.reacted;
-                      const count = reaction?.count || 0;
-                      return (
-                        <button
-                          key={emoji}
-                          onClick={() => toggleReaction(c.id, emoji)}
-                          className={`text-xs border rounded-full px-2 py-0.5 ${
-                            active
-                              ? "bg-blue-50 border-blue-200 text-blue-700"
-                              : "text-gray-600"
-                          }`}
-                          title={active ? "Remove reaction" : "Add reaction"}
-                        >
-                          <span className="mr-1">{emoji}</span>
-                          {count > 0 && <span>{count}</span>}
-                        </button>
-                      );
-                    })}
-                    <button
-                      className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
-                      title="More reactions"
-                    >
-                      <Smile className="h-3 w-3" />
-                      React
-                    </button>
-                    <div className="ml-auto flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-gray-600"
-                        title="Reply"
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                      </Button>
-                      <InlineEditButton
-                        onSubmit={(text) => onEdit(c.id, text)}
-                        initialText={c.content}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-gray-600"
-                        onClick={() => onDelete(c.id)}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function InlineEditButton({
-  initialText,
-  onSubmit,
-}: {
-  initialText: string;
-  onSubmit: (newText: string) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [value, setValue] = useState(initialText);
-
-  useEffect(() => setValue(initialText), [initialText]);
-
-  if (!isEditing) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 px-2 text-gray-600"
-        onClick={() => setIsEditing(true)}
-        title="Edit"
-      >
-        <Edit className="h-3.5 w-3.5" />
-      </Button>
     );
   }
 
   return (
-    <div className="w-full max-w-xl border rounded-md p-2 bg-white">
-      <Textarea 
-        value={value} 
-        onChange={(e) => setValue(e.target.value)}
-        className="min-h-[60px]"
-      />
-      <div className="flex justify-end gap-2 mt-2">
-        <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>
-          <X className="h-4 w-4 mr-1" /> Cancel
+    <div className="bg-white shadow-sm rounded-lg border p-4">
+      <h3 className="font-medium text-gray-700 text-sm mb-3 flex items-center gap-2">
+        <Target className="h-4 w-4" /> Task Review
+      </h3>
+      
+      <div className="flex gap-2">
+        <Button
+          className="flex-1"
+          onClick={() => setReviewDecision("ACCEPT")}
+        >
+          <ThumbsUp className="h-4 w-4 mr-2" /> Accept Task
         </Button>
         <Button
-          size="sm"
-          onClick={() => {
-            onSubmit(value);
-            setIsEditing(false);
-          }}
+          variant="destructive"
+          className="flex-1"
+          onClick={() => setReviewDecision("REJECT")}
         >
-          <Save className="h-4 w-4 mr-1" /> Save
+          <ThumbsDown className="h-4 w-4 mr-2" /> Reject Task
         </Button>
       </div>
     </div>
   );
 }
+
 
 // -------------------- Main TaskDetails --------------------
 export function TaskDetails({ taskId }: TaskDetailsProps) {
@@ -1175,6 +827,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           </div>
         )}
       </div>
+   <TaskReviewSection taskId={taskId} />
 
       {/* Timeline */}
       <div className="bg-white shadow-sm rounded-lg border p-4">

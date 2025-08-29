@@ -13,6 +13,11 @@ import {
   LoginResponse,
   ResetRequest,
   ResetResponse,
+  TaskDecisionRequest,
+  TaskDecisionResponse,
+  TaskDiscussionCommentRequest,
+  TaskDiscussionCommentResponse,
+  TaskDiscussionFilterResponse,
   TaskStagesDropdownResponse,
   UpdateLeadStageRequest,
   UpdateLeadStageResponse,
@@ -1085,4 +1090,43 @@ export const fetchTasksOverview = async (
 
   const res = await getRequest(endpoint);
   return res as TaskOverviewResponse;
+};
+
+
+export const decideTask = async (
+  taskId: number | string,
+  payload: TaskDecisionRequest
+): Promise<TaskDecisionResponse> => {
+  const res = await postRequest(API_CONSTANTS.TASK.DECISION(taskId), payload);
+  return res as TaskDecisionResponse;
+};
+
+export const addTaskDiscussionComment = async (
+  discussionId: number | string,
+  payload: TaskDiscussionCommentRequest
+): Promise<TaskDiscussionCommentResponse> => {
+  const res = await postRequest(
+    API_CONSTANTS.TASK.DISCUSSION_COMMENT(discussionId),
+    payload
+  );
+  return res as TaskDiscussionCommentResponse;
+};
+
+
+export const getTaskDiscussionComments = async (
+  taskId: number | string,
+  searchTerm?: string,
+  page?: number,
+  limit?: number
+): Promise<TaskDiscussionFilterResponse> => {
+  const query = new URLSearchParams();
+  query.append("taskId", String(taskId));
+  if (searchTerm) query.append("searchTerm", searchTerm);
+  if (page !== undefined) query.append("page", String(page));
+  if (limit !== undefined) query.append("limit", String(limit));
+
+  const res = await getRequest(
+    `${API_CONSTANTS.TASK.DISCUSSION_FILTER}?${query.toString()}`
+  );
+  return res as TaskDiscussionFilterResponse;
 };
