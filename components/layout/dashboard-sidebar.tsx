@@ -39,11 +39,7 @@ const NAVIGATION: NavItem[] = [
     href: "/employees",
     moduleName: "Employees",
     children: [
-      {
-        name: "Department",
-        href: "/employees/department",
-        moduleName: "Department",
-      },
+      { name: "Department", href: "/employees/department", moduleName: "Department" },
       { name: "Staff", href: "/employees/staff", moduleName: "user" },
     ],
   },
@@ -51,11 +47,7 @@ const NAVIGATION: NavItem[] = [
 
 const SETTINGS = [
   { name: "Profile", icon: User, href: "/profile" },
-  {
-    name: "Change Password",
-    icon: KeyRound,
-    href: "/changepasswordtab",
-  },
+  { name: "Change Password", icon: KeyRound, href: "/changepasswordtab" },
 ];
 
 interface UserModuleAccess {
@@ -83,17 +75,32 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [expanded, setExpanded] = useState<string[]>([]); // which groups are open (visual)
-  const [manuallyCollapsed, setManuallyCollapsed] = useState<Set<string>>(
-    new Set()
-  ); // groups user explicitly closed (wins over auto-open)
-  const ALWAYS_VISIBLE = new Set<string>(["Dashboard"]);
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [manuallyCollapsed, setManuallyCollapsed] = useState<Set<string>>(new Set());
   const reduxUser = useSelector((s: RootState) => s.user.currentUser);
   const [modules, setModules] = useState<UserModuleAccess[]>([]);
   const [ready, setReady] = useState(false);
 
-  
+  const [userRole, setUserRole] = useState<string | null>(null);
 
+  // get role from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        console.log("Parsed user from localStorage:", parsed);
+        console.log("Extracted userRole:", parsed?.userRole);
+        setUserRole(parsed?.userRole || null);
+      }
+    } catch {
+      console.log("Failed to parse user from localStorage");
+      setUserRole(null);
+    }
+  }, []);
+
+  // get module access
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -109,10 +116,7 @@ export function DashboardSidebar({
   }, [reduxUser]);
 
   const can = useCallback(
-    (
-      moduleName: string,
-      perm: "view" | "edit" | "create" | "delete" = "view"
-    ) => {
+    (moduleName: string, perm: "view" | "edit" | "create" | "delete" = "view") => {
       if (!ready || modules.length === 0) return false;
       const norm = (s: string) => (s || "").toLowerCase();
       const mod = modules.find((m) => {
@@ -132,68 +136,63 @@ export function DashboardSidebar({
     [modules, ready]
   );
 
-  const filteredNav = useMemo(
-    () =>
-      NAVIGATION.filter((item) => {
-        if (ALWAYS_VISIBLE.has(item.moduleName)) return true;
-        const children =
-          item.children?.filter((c) => can(c.moduleName, "view")) || [];
-        return can(item.moduleName, "view") || children.length > 0;
-      }),
-    [modules, ready, can]
-  );
+  const filteredNav = useMemo(() => {
+    console.log("Current userRole in filteredNav:", userRole);
+    return NAVIGATION.filter((item) => {
+      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+
+      if (item.moduleName === "Dashboard") {
+        if (isSuperAdmin) {
+          console.log("Showing Dashboard for SUPER_ADMIN");
+          return true;
+        } else {
+          console.log("Hiding Dashboard for role:", userRole);
+          return false;
+        }
+      }
+
+      const children = item.children?.filter((c) => can(c.moduleName, "view")) || [];
+      return can(item.moduleName, "view") || children.length > 0;
+    });
+  }, [modules, ready, can, userRole]);
 
   const getChildren = useCallback(
-    (item: NavItem) =>
-      item.children?.filter((c) => can(c.moduleName, "view")) || [],
+    (item: NavItem) => item.children?.filter((c) => can(c.moduleName, "view")) || [],
     [can]
   );
 
-  // AUTO-EXPAND ON ROUTE — but respect manual collapse
   const cleanPath = pathname.split("?")[0].split("#")[0];
 
-useEffect(() => {
-  setExpanded((prev) => {
-    let next = [...prev];
+  useEffect(() => {
+    setExpanded((prev) => {
+      let next = [...prev];
+      const openIfNeeded = (key: string) => {
+        if (!next.includes(key)) next.push(key);
+      };
 
-    const openIfNeeded = (key: string) => {
-      if (!next.includes(key)) next.push(key);
-    };
+      filteredNav.forEach((item) => {
+        const children = getChildren(item);
+        const hasActiveChild = children.some(
+          (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
+        );
+        if (
+          (cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
+          !manuallyCollapsed.has(item.name)
+        ) {
+          openIfNeeded(item.name);
+        }
+      });
 
-    filteredNav.forEach((item) => {
-      const children = getChildren(item);
-      const hasActiveChild = children.some(
-        (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
+      const isSettingsActive = SETTINGS.some(
+        (s) => cleanPath === s.href || cleanPath.startsWith(s.href + "/")
       );
-
-      // expand parent if path matches parent or child
-      if ((cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
-          !manuallyCollapsed.has(item.name)) {
-        openIfNeeded(item.name);
+      if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
+        openIfNeeded("Settings");
       }
+
+      return Array.from(new Set(next));
     });
-
-    // Settings group
-    const isSettingsActive = SETTINGS.some(
-      (s) => cleanPath === s.href || cleanPath.startsWith(s.href + "/")
-    );
-    if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
-      openIfNeeded("Settings");
-    }
-
-    return Array.from(new Set(next));
-  });
-}, [pathname, filteredNav, getChildren, manuallyCollapsed]);
-
-
-  // If you navigate away from a group's children, we **do not** force close it.
-  // (This prevents flicker and lets users keep groups open if they want.)
-  // Manual collapse always wins.
-
-  const isActivePath = (path: string, currentPath: string) => {
-  if (path === "/") return currentPath === "/";
-  return currentPath === path || currentPath.startsWith(path + "/");
-};
+  }, [pathname, filteredNav, getChildren, manuallyCollapsed]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -201,8 +200,8 @@ useEffect(() => {
       const next = isOpen ? prev.filter((k) => k !== key) : [...prev, key];
       setManuallyCollapsed((mc) => {
         const s = new Set(mc);
-        if (isOpen) s.add(key); // user explicitly closed
-        else s.delete(key); // user explicitly opened
+        if (isOpen) s.add(key);
+        else s.delete(key);
         return s;
       });
       return next;
@@ -231,19 +230,14 @@ useEffect(() => {
       },
     }).then((r) => {
       if (!r.isConfirmed) return;
-      [
-        "currentUser",
-        "userModules",
-        "authToken",
-        "refreshToken",
-        "tenantToken",
-      ].forEach((k) => localStorage.removeItem(k));
+      ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken"].forEach((k) =>
+        localStorage.removeItem(k)
+      );
       router.push("/");
     });
   }, [router]);
 
   const isExpandedView = !collapsed || hovered;
-// Add this temporarily to debug
 
   const SidebarContent = useCallback(() => {
     const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
@@ -261,11 +255,7 @@ useEffect(() => {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
               <BarChart3 className="h-5 w-5 text-brand-primary" />
             </div>
-            {isExpandedView && (
-              <h1 className="text-xl font-bold text-white whitespace-nowrap">
-                CRM Pro
-              </h1>
-            )}
+            {isExpandedView && <h1 className="text-xl font-bold text-white whitespace-nowrap">CRM Pro</h1>}
           </div>
         </div>
 
@@ -276,55 +266,36 @@ useEffect(() => {
               {ready && filteredNav.length === 0 ? (
                 <div className="text-center text-gray-300 py-8">
                   <p className="text-sm">No accessible modules found</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Contact your administrator
-                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Contact your administrator</p>
                 </div>
               ) : (
                 filteredNav.map((item) => {
-             const children = getChildren(item);
-  const isGroupExpanded = expanded.includes(item.name);
-  
-  // This is the correct logic:
-  const isActive =
-    pathname === item.href ||
-    pathname.startsWith(item.href + "/") ||
-    children.some(
-      (c) => pathname === c.href || pathname.startsWith(c.href + "/")
-    );
-    console.log("Current path:", pathname);
-console.log("Item href:", item.href);
-console.log("Is active:", isActive);
-
-
-
-
+                  const children = getChildren(item);
+                  const isGroupExpanded = expanded.includes(item.name);
+                  const isActive =
+                    pathname === item.href ||
+                    pathname.startsWith(item.href + "/") ||
+                    children.some((c) => pathname === c.href || pathname.startsWith(c.href + "/"));
 
                   return children.length ? (
                     <div key={item.name} className="space-y-1">
-                       <Button
-        variant="ghost"
-        className={cn(
-          "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-          // ✅ This should now work correctly
-          isActive
-            ? "bg-white text-brand-primary shadow-sm"
-            : "text-white hover:bg-white hover:text-brand-primary",
-          collapsed && !hovered && "justify-center px-2"
-        )}
-        onClick={() => {
-          if (can(item.moduleName, "view") && item.href)
-            router.push(item.href);
-          toggleGroup(item.name);
-        }}
-      >
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                          isActive
+                            ? "bg-white text-brand-primary shadow-sm"
+                            : "text-white hover:bg-white hover:text-brand-primary",
+                          collapsed && !hovered && "justify-center px-2"
+                        )}
+                        onClick={() => {
+                          if (can(item.moduleName, "view") && item.href) router.push(item.href);
+                          toggleGroup(item.name);
+                        }}
+                      >
                         <div className="flex items-center gap-3">
                           <item.icon className="h-5 w-5 flex-shrink-0" />
-                          {isExpandedView && (
-                            <span className="whitespace-nowrap">
-                              {item.name}
-                            </span>
-                          )}
+                          {isExpandedView && <span className="whitespace-nowrap">{item.name}</span>}
                         </div>
                         {isExpandedView && (
                           <ChevronRight
@@ -335,8 +306,6 @@ console.log("Is active:", isActive);
                           />
                         )}
                       </Button>
-
-                      {/* Submenu */}
                       {isExpandedView && isGroupExpanded && (
                         <div className="space-y-1 pl-6 pt-1 w-full">
                           {children.map((c) => {
@@ -353,17 +322,7 @@ console.log("Is active:", isActive);
                                     : "text-gray-300 hover:text-white hover:bg-transparent"
                                 )}
                               >
-                                <span className="whitespace-nowrap">
-                                  {c.name}
-                                </span>
-                                <span
-                                  className={cn(
-                                    "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
-                                    isChildActive
-                                      ? "w-full"
-                                      : "w-0 group-hover:w-full"
-                                  )}
-                                />
+                                <span className="whitespace-nowrap">{c.name}</span>
                               </Button>
                             );
                           })}
@@ -371,28 +330,20 @@ console.log("Is active:", isActive);
                       )}
                     </div>
                   ) : (
-                        <Button
-      key={item.href}
-      variant="ghost"
-      onClick={() => router.push(item.href)}
-      className={cn(
-        "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-        collapsed && !hovered && "justify-center px-2",
-        // ✅ This should now work correctly too
-        pathname === item.href || pathname.startsWith(item.href + "/")
-          ? "bg-white text-brand-primary shadow-sm"
-          : "text-white hover:bg-white hover:text-brand-primary"
-      )}
-    >
-                      <item.icon
-                        className={cn(
-                          "h-5 w-5 flex-shrink-0",
-                          isExpandedView && "mr-3"
-                        )}
-                      />
-                      {isExpandedView && (
-                        <span className="whitespace-nowrap">{item.name}</span>
+                    <Button
+                      key={item.href}
+                      variant="ghost"
+                      onClick={() => router.push(item.href)}
+                      className={cn(
+                        "w-full justify-start rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                        collapsed && !hovered && "justify-center px-2",
+                        pathname === item.href || pathname.startsWith(item.href + "/")
+                          ? "bg-white text-brand-primary shadow-sm"
+                          : "text-white hover:bg-white hover:text-brand-primary"
                       )}
+                    >
+                      <item.icon className={cn("h-5 w-5 flex-shrink-0", isExpandedView && "mr-3")} />
+                      {isExpandedView && <span className="whitespace-nowrap">{item.name}</span>}
                     </Button>
                   );
                 })
@@ -410,7 +361,6 @@ console.log("Is active:", isActive);
                 variant="ghost"
                 className={cn(
                   "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                  // ✅ Only highlight when settings route is active
                   isSettingsActive
                     ? "bg-white text-brand-primary shadow-sm"
                     : "text-white hover:bg-white hover:text-brand-primary",
@@ -420,9 +370,7 @@ console.log("Is active:", isActive);
               >
                 <div className="flex items-center gap-3">
                   <Settings className="h-5 w-5 flex-shrink-0" />
-                  {isExpandedView && (
-                    <span className="whitespace-nowrap">Settings</span>
-                  )}
+                  {isExpandedView && <span className="whitespace-nowrap">Settings</span>}
                 </div>
                 {isExpandedView && (
                   <ChevronRight
@@ -483,12 +431,8 @@ console.log("Is active:", isActive);
               collapsed && !hovered ? "justify-center px-2" : "justify-start"
             )}
           >
-            <LogOut
-              className={cn("h-5 w-5 flex-shrink-0", isExpandedView && "mr-3")}
-            />
-            {isExpandedView && (
-              <span className="whitespace-nowrap">Logout</span>
-            )}
+            <LogOut className={cn("h-5 w-5 flex-shrink-0", isExpandedView && "mr-3")} />
+            {isExpandedView && <span className="whitespace-nowrap">Logout</span>}
           </Button>
         </div>
       </div>
