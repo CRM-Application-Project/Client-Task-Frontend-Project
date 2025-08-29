@@ -19,23 +19,70 @@ import {
   CheckCircle,
   Upload,
   ImageIcon,
+  Palette,
+  Monitor,
+  Smartphone,
+  X,
+  Menu,
+  Home,
+  UserCheck,
+  BarChart3,
+  Settings,
+  Bell,
+  Search,
+  Plus,
+  LogIn, 
+  ArrowLeft, 
+  Mail as MailIcon, 
+  CheckCircle as CheckCircleIcon, 
+  Mail
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { registerUser } from "../services/data.service";
-// @ts-ignore
+import { registerUser, generateBrandPalettes } from "../services/data.service";
+import ColorThief from "colorthief";
+import LoginPreview from "@/components/register/LoginPreview";
 
-import ColorThief from "color-thief-browser";
+// Updated theme interfaces matching the API response format
+interface BrandSettings {
+  primaryColor: string;
+  secondaryColor: string;
+  headerBgColor: string;
+  headerTextColor: string;
+  textColor: string;
+  backgroundColor: string;
+}
+
+interface TopBanner {
+  backgroundColor: string;
+  textColor: string;
+}
+
+interface ThemePalette {
+  logoColor: string;
+  description: string;
+  brandSettings: BrandSettings;
+  topBanner: TopBanner;
+}
+
+interface GenerateBrandResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    data: {
+      palettes: ThemePalette[];
+    };
+  };
+}
 
 export default function RegisterPage() {
   // ---------- CONSTANTS (Validation) ----------
-  const NAME_REGEX = /^[A-Za-z ]+$/; // letters & spaces only
-  const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/; // general-purpose email format
-  const PASSWORD_REGEX =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/; // >=8, upper, lower, digit, special
-  const PHONE_REGEX = /^\d{10}$/; // exactly 10 digits
-  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/; // 15-char Indian GSTIN
+  const NAME_REGEX = /^[A-Za-z ]+$/;
+  const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+  const PHONE_REGEX = /^\d{10}$/;
+  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
   // ---------- DATA ----------
   const [formData, setFormData] = useState({
@@ -44,16 +91,19 @@ export default function RegisterPage() {
     emailAddress: "",
     password: "",
     companyName: "",
-    companyEmailAddress: "",
     companyContactNumber: "",
     gstNumber: "",
-    companyType: "",
   });
 
-  // New state for logo and colors
+  // State for logo, colors, and themes
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showThemeSelection, setShowThemeSelection] = useState(false);
+  const [generatedThemes, setGeneratedThemes] = useState<ThemePalette[]>([]);
+  const [selectedTheme, setSelectedTheme] = useState<ThemePalette | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
 
   interface ValidationErrors {
     firstName: string;
@@ -61,8 +111,6 @@ export default function RegisterPage() {
     emailAddress: string;
     password: string;
     companyName: string;
-    companyType: string;
-    companyEmailAddress: string;
     companyContactNumber: string;
     gstNumber: string;
   }
@@ -74,22 +122,16 @@ export default function RegisterPage() {
     emailAddress: "",
     password: "",
     companyName: "",
-    companyType: "",
-    companyEmailAddress: "",
     companyContactNumber: "",
     gstNumber: "",
   });
 
-  const [touchedFields, setTouchedFields] = useState<
-    Record<FieldName, boolean>
-  >({
+  const [touchedFields, setTouchedFields] = useState<Record<FieldName, boolean>>({
     firstName: false,
     lastName: false,
     emailAddress: false,
     password: false,
     companyName: false,
-    companyType: false,
-    companyEmailAddress: false,
     companyContactNumber: false,
     gstNumber: false,
   });
@@ -101,22 +143,38 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const companyTypes = [
-    "Private Limited",
-    "Public Limited",
-    "LLP (Limited Liability Partnership)",
-    "Partnership",
-    "Sole Proprietorship",
-    "Government",
-    "Non-Profit",
-  ];
+  // ---------- THEME GENERATION FROM BACKEND ----------
+  const fetchThemesFromBackend = async (colors: string[]) => {
+    setIsGeneratingThemes(true);
+    try {
+      const response: GenerateBrandResponse = await generateBrandPalettes(colors);
+      
+      if (response.isSuccess && response.data?.data?.palettes) {
+        setGeneratedThemes(response.data.data.palettes);
+        toast({
+          title: "Themes Generated",
+          description: `Generated ${response.data.data.palettes.length} custom themes for your brand`,
+        });
+      } else {
+        throw new Error(response.message || "Failed to generate themes");
+      }
+    } catch (error) {
+      console.error("Error generating themes:", error);
+      toast({
+        title: "Theme Generation Failed",
+        description: "Could not generate themes from your logo colors",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingThemes(false);
+    }
+  };
 
   // ---------- LOGO UPLOAD HANDLING ----------
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check if file is an image
     if (!file.type.match('image.*')) {
       toast({
         title: "Invalid File",
@@ -126,7 +184,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // Check file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       toast({
         title: "File Too Large",
@@ -142,8 +199,6 @@ export default function RegisterPage() {
     reader.onload = (e) => {
       const imageDataUrl = e.target?.result as string;
       setCompanyLogo(imageDataUrl);
-      
-      // Extract colors from the image
       extractColorsFromImage(imageDataUrl);
       setIsUploading(false);
     };
@@ -160,34 +215,30 @@ export default function RegisterPage() {
     reader.readAsDataURL(file);
   };
 
-  const extractColorsFromImage = (imageSrc: string) => {
+  const extractColorsFromImage = async (imageSrc: string) => {
     const img = new globalThis.Image();
-    img.crossOrigin = "Anonymous"; // Enable CORS for the image
+    img.crossOrigin = "Anonymous";
     img.src = imageSrc;
     
-    img.onload = () => {
+    img.onload = async () => {
       try {
         const colorThief = new ColorThief();
-        const colorPalette = colorThief.getPalette(img, 5); // Get 5 dominant colors
+        const colorPalette = colorThief.getPalette(img, 5);
         
-        // Convert RGB arrays to hex strings
-        const hexColors: string[] = colorPalette.map((rgb: [number, number, number]) => 
-          `#${rgb.map((c: number) => c.toString(16).padStart(2, '0')).join('')}`
+        const hexColors = colorPalette.map(rgb => 
+          `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
         );
         
         setExtractedColors(hexColors);
         
-        // Store in localStorage
-        localStorage.setItem('companyLogo', imageSrc);
-        localStorage.setItem('companyColors', JSON.stringify(hexColors));
-        
-        // Also log to console
-        console.log('Extracted colors:', hexColors);
-        
         toast({
           title: "Logo Uploaded",
-          description: `Extracted ${hexColors.length} colors from your logo`,
+          description: `Extracted ${hexColors.length} colors. Generating themes...`,
         });
+
+        // Call backend API to generate themes
+        await fetchThemesFromBackend(hexColors);
+        
       } catch (error) {
         console.error("Error extracting colors:", error);
         toast({
@@ -207,6 +258,171 @@ export default function RegisterPage() {
     };
   };
 
+  // ---------- THEME SELECTION ----------
+  const handleThemeSelect = (theme: ThemePalette) => {
+    setSelectedTheme(theme);
+    toast({
+      title: "Theme Selected",
+      description: "Your theme has been selected successfully",
+    });
+  };
+
+  // ---------- CRM PREVIEW COMPONENT ----------
+  const CRMPreview = ({ theme, device }: { theme: ThemePalette; device: 'desktop' | 'mobile' }) => {
+    const isDesktop = device === 'desktop';
+    
+    return (
+      <div 
+        className={`${isDesktop ? 'w-full h-full' : 'w-80 h-96'} rounded-lg overflow-hidden shadow-lg`}
+        style={{ backgroundColor: theme.brandSettings.backgroundColor }}
+      >
+        {/* Header */}
+        <div 
+          className="flex items-center justify-between p-4 border-b"
+          style={{ 
+            backgroundColor: theme.brandSettings.headerBgColor,
+            color: theme.brandSettings.headerTextColor,
+            borderColor: theme.brandSettings.primaryColor + '20'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            {!isDesktop && <Menu className="h-5 w-5" />}
+            {companyLogo && (
+              <img 
+                src={companyLogo} 
+                alt="Logo" 
+                className="h-8 w-8 object-contain rounded"
+              />
+            )}
+            <span className="font-semibold text-lg">{formData.companyName || 'Your Company'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-sm font-medium">
+                {formData.firstName ? formData.firstName[0] : 'U'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex h-full">
+          {/* Sidebar - Desktop only */}
+          {isDesktop && (
+            <div 
+              className="w-16 border-r flex flex-col items-center py-4 space-y-4"
+              style={{ 
+                backgroundColor: theme.brandSettings.backgroundColor,
+                borderColor: theme.brandSettings.primaryColor + '20'
+              }}
+            >
+              <Home className="h-5 w-5" style={{ color: theme.brandSettings.primaryColor }} />
+              <UserCheck className="h-5 w-5" style={{ color: theme.brandSettings.textColor }} />
+              <BarChart3 className="h-5 w-5" style={{ color: theme.brandSettings.textColor }} />
+              <Settings className="h-5 w-5" style={{ color: theme.brandSettings.textColor }} />
+            </div>
+          )}
+
+          {/* Main Content */}
+          <div className="flex-1 p-4">
+            {/* Top Banner */}
+            <div 
+              className="rounded-lg p-4 mb-4"
+              style={{ 
+                backgroundColor: theme.topBanner.backgroundColor,
+                color: theme.topBanner.textColor
+              }}
+            >
+              <h2 className="text-lg font-semibold mb-2">Welcome to your CRM Dashboard</h2>
+              <p className="text-sm opacity-90">Manage your leads, customers, and business growth</p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" 
+                style={{ color: theme.brandSettings.textColor + '60' }} />
+              <input 
+                type="text" 
+                placeholder="Search leads, customers..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg border"
+                style={{ 
+                  backgroundColor: theme.brandSettings.backgroundColor,
+                  borderColor: theme.brandSettings.primaryColor + '30',
+                  color: theme.brandSettings.textColor
+                }}
+              />
+            </div>
+
+            {/* Stats Cards */}
+            <div className={`grid ${isDesktop ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-4`}>
+              <div 
+                className="p-4 rounded-lg border"
+                style={{ 
+                  backgroundColor: theme.brandSettings.backgroundColor,
+                  borderColor: theme.brandSettings.primaryColor + '20'
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm" style={{ color: theme.brandSettings.textColor + '80' }}>Total Leads</p>
+                    <p className="text-2xl font-bold" style={{ color: theme.brandSettings.textColor }}>1,234</p>
+                  </div>
+                  <UserCheck className="h-8 w-8" style={{ color: theme.brandSettings.primaryColor }} />
+                </div>
+              </div>
+              
+              <div 
+                className="p-4 rounded-lg border"
+                style={{ 
+                  backgroundColor: theme.brandSettings.backgroundColor,
+                  borderColor: theme.brandSettings.secondaryColor + '20'
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm" style={{ color: theme.brandSettings.textColor + '80' }}>Conversions</p>
+                    <p className="text-2xl font-bold" style={{ color: theme.brandSettings.textColor }}>89</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8" style={{ color: theme.brandSettings.secondaryColor }} />
+                </div>
+              </div>
+
+              {isDesktop && (
+                <div 
+                  className="p-4 rounded-lg border"
+                  style={{ 
+                    backgroundColor: theme.brandSettings.backgroundColor,
+                    borderColor: theme.brandSettings.primaryColor + '20'
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm" style={{ color: theme.brandSettings.textColor + '80' }}>Revenue</p>
+                      <p className="text-2xl font-bold" style={{ color: theme.brandSettings.textColor }}>$45.2K</p>
+                    </div>
+                    <BarChart3 className="h-8 w-8" style={{ color: theme.brandSettings.primaryColor }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Button */}
+            <button 
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+              style={{ 
+                backgroundColor: theme.brandSettings.primaryColor,
+                color: theme.brandSettings.headerTextColor
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Add New Lead
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ---------- VALIDATORS ----------
   const validateField = (fieldName: FieldName, value: string): string => {
     switch (fieldName) {
@@ -219,7 +435,6 @@ export default function RegisterPage() {
         if (!NAME_REGEX.test(value)) return "Only letters and spaces allowed";
         return "";
       case "emailAddress":
-      case "companyEmailAddress":
         if (!value.trim()) return "Email address is required";
         if (!EMAIL_REGEX.test(value))
           return "Enter a valid email address (e.g., name@domain.com)";
@@ -231,9 +446,6 @@ export default function RegisterPage() {
         return "";
       case "companyName":
         if (!value.trim()) return "Company name is required";
-        return "";
-      case "companyType":
-        if (!value.trim()) return "Select a company type";
         return "";
       case "companyContactNumber":
         if (!value) return "Contact number is required";
@@ -278,17 +490,11 @@ export default function RegisterPage() {
   const companyValid = useMemo(() => {
     return (
       validateField("companyName", formData.companyName) === "" &&
-      validateField("companyType", formData.companyType) === "" &&
-      validateField("companyEmailAddress", formData.companyEmailAddress) ===
-        "" &&
-      validateField("companyContactNumber", formData.companyContactNumber) ===
-        "" &&
+      validateField("companyContactNumber", formData.companyContactNumber) === "" &&
       validateField("gstNumber", formData.gstNumber) === ""
     );
   }, [
     formData.companyName,
-    formData.companyType,
-    formData.companyEmailAddress,
     formData.companyContactNumber,
     formData.gstNumber,
   ]);
@@ -312,35 +518,30 @@ export default function RegisterPage() {
     | "emailAddress"
     | "password"
     | "companyName"
-    | "companyEmailAddress"
     | "companyContactNumber"
-    | "gstNumber"
-    | "companyType";
+    | "gstNumber";
 
   const handleInputChange = (field: FormFieldName, rawValue: string): void => {
     let value = rawValue;
 
-    // While typing: normalize certain fields
-    if (field === "emailAddress" || field === "companyEmailAddress") {
-      value = value.trimStart(); // allow trimming start whitespace
+    if (field === "emailAddress") {
+      value = value.trimStart();
     }
 
     if (field === "companyContactNumber") {
-      value = value.replace(/\D/g, "").slice(0, 10); // digits only, max 10
+      value = value.replace(/\D/g, "").slice(0, 10);
     }
 
     if (field === "gstNumber") {
-      value = value.toUpperCase().slice(0, 15); // uppercase, max 15
+      value = value.toUpperCase().slice(0, 15);
     }
 
     setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // mark as touched on first interaction
     if (!touchedFields[field as FieldName]) {
       setTouchedFields((prev) => ({ ...prev, [field]: true }));
     }
 
-    // live-validate while typing
     const err = validateField(field as FieldName, value);
     setFieldErrors((prev) => ({ ...prev, [field]: err }));
   };
@@ -354,101 +555,100 @@ export default function RegisterPage() {
   };
 
   // ---------- SUBMIT ----------
-  interface RegisterResponse {
-    isSuccess: boolean;
-    data?: { message?: string };
-    message?: string;
-  }
+const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  e.preventDefault();
 
-  interface RegisterData {
-    firstName: string;
-    lastName: string;
-    emailAddress: string;
-    password: string;
-    companyName: string;
-    companyEmailAddress: string;
-    companyContactNumber: string;
-    gstNumber: string;
-  }
-
-  const handleRegister = async (
-    e: React.FormEvent<HTMLFormElement>
-  ): Promise<void> => {
-    e.preventDefault();
-
-    // Force-validate all fields on submit
-    const allFields: FieldName[] = [
-      "firstName",
-      "lastName",
-      "emailAddress",
-      "password",
-      "companyName",
-      "companyType",
-      "companyEmailAddress",
-      "companyContactNumber",
-      "gstNumber",
-    ];
-
-    setTouchedFields((prev) => {
-      const next = { ...prev };
-      allFields.forEach((f) => (next[f] = true));
-      return next;
+  // Check if theme is selected when logo is uploaded
+  if (extractedColors.length > 0 && !selectedTheme) {
+    toast({
+      title: "Theme Required",
+      description: "Please select a theme for your CRM before registering",
+      variant: "destructive",
     });
+    return;
+  }
 
-    validateMany(allFields);
+  // Force-validate all fields on submit
+  const allFields: FieldName[] = [
+    "firstName",
+    "lastName",
+    "emailAddress",
+    "password",
+    "companyName",
+    "companyContactNumber",
+    "gstNumber",
+  ];
 
-    // compute validity after forced validation
-    const canSubmit =
-      allFields.every((f) => validateField(f, (formData as any)[f]) === "") &&
-      personalValid &&
-      companyValid;
+  setTouchedFields((prev) => {
+    const next = { ...prev };
+    allFields.forEach((f) => (next[f] = true));
+    return next;
+  });
 
-    if (!canSubmit) return;
+  validateMany(allFields);
 
-    setIsLoading(true);
-    try {
-      const registerData: RegisterData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        emailAddress: formData.emailAddress.trim(),
-        password: formData.password,
-        companyName: formData.companyName.trim(),
-        companyEmailAddress: formData.companyEmailAddress.trim(),
-        companyContactNumber: formData.companyContactNumber,
-        gstNumber: formData.gstNumber,
-      };
+  const canSubmit =
+    allFields.every((f) => validateField(f, (formData as any)[f]) === "") &&
+    personalValid &&
+    companyValid;
 
-      const response: RegisterResponse = await registerUser(registerData);
+  if (!canSubmit) return;
 
-      if (response.isSuccess) {
-        toast({
-          title: "Registration Successful",
-          description:
-            response.data?.message ||
-            "Your account has been created successfully!",
-        });
-        router.push("/login");
-      } else {
-        toast({
-          title: "Registration Failed",
-          description:
-            response.message || "Please check your information and try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
+  setIsLoading(true);
+  try {
+    // Prepare the registration data with white label request
+    const registerData = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      emailAddress: formData.emailAddress.trim(),
+      password: formData.password,
+      companyName: formData.companyName.trim(),
+      companyContactNumber: formData.companyContactNumber,
+      gstNumber: formData.gstNumber,
+      ...(selectedTheme ? {
+        whiteLabelRequest: {
+          description: selectedTheme.description,
+          brandSettings: selectedTheme.brandSettings,
+          topBanner: selectedTheme.topBanner,
+        }
+      } : {})
+    };
+
+    // Get the logo file if uploaded
+    let logoFile: File | undefined;
+    if (companyLogo) {
+      // Convert data URL to File object
+      const response = await fetch(companyLogo);
+      const blob = await response.blob();
+      logoFile = new File([blob], "company-logo", { type: blob.type });
+    }
+
+    const response = await registerUser(registerData, logoFile);
+
+    if (response.isSuccess) {
       toast({
-        title: "Error",
-        description:
-          error?.message ||
-          "An unexpected error occurred. Please try again later.",
+        title: "Registration Successful",
+        description: response.data?.message || "Your account has been created successfully!",
+      });
+      router.push("/login");
+    } else {
+      toast({
+        title: "Registration Failed",
+        description: response.message || "Please check your information and try again.",
         variant: "destructive",
       });
-      console.error("Registration error:", error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error: any) {
+    toast({
+      title: "Error",
+      description: error?.message || "An unexpected error occurred. Please try again later.",
+      variant: "destructive",
+    });
+    console.error("Registration error:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // ---------- UI HELPERS ----------
   const borderClass = (field: FieldName) =>
@@ -662,8 +862,8 @@ export default function RegisterPage() {
 
                     {showCompanyInfo && (
                       <div className="space-y-4 animate-fade-in">
-                 
-                
+                        {/* Logo Upload Section */}
+                     
 
                         <div className="space-y-2">
                           <Label
@@ -687,62 +887,6 @@ export default function RegisterPage() {
                             )}`}
                           />
                           {renderValidationStatus("companyName")}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="companyType"
-                            className="text-sm font-medium text-foreground"
-                          >
-                            Company Type
-                          </Label>
-                          <select
-                            id="companyType"
-                            value={formData.companyType}
-                            onChange={(e) =>
-                              handleInputChange("companyType", e.target.value)
-                            }
-                            onBlur={() => handleBlur("companyType")}
-                            required
-                            className={`flex h-12 w-full rounded-lg border px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-background ${borderClass(
-                              "companyType"
-                            )}`}
-                          >
-                            <option value="">Select company type</option>
-                            {companyTypes.map((type) => (
-                              <option key={type} value={type}>
-                                {type}
-                              </option>
-                            ))}
-                          </select>
-                          {renderValidationStatus("companyType")}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="companyEmailAddress"
-                            className="text-sm font-medium text-foreground"
-                          >
-                            Company Email Address
-                          </Label>
-                          <Input
-                            id="companyEmailAddress"
-                            type="email"
-                            placeholder="Enter company email address"
-                            value={formData.companyEmailAddress}
-                            onChange={(e) =>
-                              handleInputChange(
-                                "companyEmailAddress",
-                                e.target.value
-                              )
-                            }
-                            onBlur={() => handleBlur("companyEmailAddress")}
-                            required
-                            className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${borderClass(
-                              "companyEmailAddress"
-                            )}`}
-                          />
-                          {renderValidationStatus("companyEmailAddress")}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -798,15 +942,197 @@ export default function RegisterPage() {
                             {renderValidationStatus("gstNumber")}
                           </div>
                         </div>
+                           <div className="space-y-4">
+                          <Label className="text-sm font-medium text-foreground">
+                            Company Logo (Optional)
+                          </Label>
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+                                {companyLogo ? (
+                                  <img 
+                                    src={companyLogo} 
+                                    alt="Company logo" 
+                                    className="w-full h-full object-contain"
+                                  />
+                                ) : (
+                                  <ImageIcon className="h-8 w-8 text-gray-400" />
+                                )}
+                              </div>
+                              
+                              {/* Color palette preview */}
+                              {extractedColors.length > 0 && (
+                                <div className="absolute -bottom-2 left-0 right-0 flex justify-center gap-0.5">
+                                  {extractedColors.map((color, index) => (
+                                    <div 
+                                      key={index}
+                                      className="w-4 h-4 rounded-full border border-gray-200"
+                                      style={{ backgroundColor: color }}
+                                      title={color}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <Label
+                                htmlFor="logo-upload"
+                                className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
+                              >
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                  <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                                  <p className="mb-1 text-sm text-gray-500">
+                                    <span className="font-semibold">Click to upload</span> or drag and drop
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    SVG, PNG, JPG (MAX. 2MB)
+                                  </p>
+                                </div>
+                                <Input 
+                                  id="logo-upload" 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*"
+                                  onChange={handleLogoUpload}
+                                  disabled={isUploading}
+                                />
+                              </Label>
+                            </div>
+                          </div>
+                          
+                          {isUploading && (
+                            <p className="text-xs text-muted-foreground">
+                              Uploading and processing image...
+                            </p>
+                          )}
+
+                          {isGeneratingThemes && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                              Generating custom themes from your logo...
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
 
+                  {/* Theme Selection */}
+                  {extractedColors.length > 0 && generatedThemes.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2 flex-1">
+                          Choose Your CRM Theme
+                        </h3>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowThemeSelection(!showThemeSelection)}
+                          className="ml-4"
+                        >
+                          <Palette className="h-4 w-4 mr-2" />
+                          {showThemeSelection ? 'Hide Themes' : 'Select Theme'}
+                        </Button>
+                      </div>
+
+                      {showThemeSelection && (
+                        <div className="space-y-4 animate-fade-in">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {generatedThemes.map((theme, index) => (
+                              <div
+                                key={index}
+                                className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                                  selectedTheme === theme
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                onClick={() => handleThemeSelect(theme)}
+                              >
+                                {/* Theme Preview */}
+                                <div className="mb-3">
+                                  <div 
+                                    className="h-20 rounded-md p-3 mb-2"
+                                    style={{ backgroundColor: theme.brandSettings.backgroundColor }}
+                                  >
+                                    <div 
+                                      className="h-6 rounded mb-2"
+                                      style={{ backgroundColor: theme.brandSettings.headerBgColor }}
+                                    />
+                                    <div className="flex gap-2">
+                                      <div 
+                                        className="h-3 w-1/3 rounded"
+                                        style={{ backgroundColor: theme.brandSettings.primaryColor }}
+                                      />
+                                      <div 
+                                        className="h-3 w-1/4 rounded"
+                                        style={{ backgroundColor: theme.brandSettings.secondaryColor }}
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Color Palette */}
+                                  <div className="flex gap-1 mb-2">
+                                    <div 
+                                      className="w-4 h-4 rounded-full border"
+                                      style={{ backgroundColor: theme.brandSettings.primaryColor }}
+                                      title="Primary Color"
+                                    />
+                                    <div 
+                                      className="w-4 h-4 rounded-full border"
+                                      style={{ backgroundColor: theme.brandSettings.secondaryColor }}
+                                      title="Secondary Color"
+                                    />
+                                    <div 
+                                      className="w-4 h-4 rounded-full border"
+                                      style={{ backgroundColor: theme.brandSettings.headerBgColor }}
+                                      title="Header Background"
+                                    />
+                                    <div 
+                                      className="w-4 h-4 rounded-full border"
+                                      style={{ backgroundColor: theme.topBanner.backgroundColor }}
+                                      title="Banner Background"
+                                    />
+                                  </div>
+                                </div>
+
+                                <p className="text-sm text-gray-600 mb-3">
+                                  {theme.description}
+                                </p>
+
+                                {selectedTheme === theme && (
+                                  <div className="absolute top-2 right-2">
+                                    <CheckCircle className="h-5 w-5 text-primary" />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {selectedTheme && (
+                            <div className="flex justify-center">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowPreview(true)}
+                                className="flex items-center gap-2"
+                              >
+                                <Eye className="h-4 w-4" />
+                                Preview CRM Login
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <Button
                     type="submit"
-                    disabled={!isFormValid || isLoading}
+                    disabled={!isFormValid || isLoading || (extractedColors.length > 0 && !selectedTheme)}
                     className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg ${
-                      !isFormValid || isLoading ? "btn-disabled" : ""
+                      !isFormValid || isLoading || (extractedColors.length > 0 && !selectedTheme) ? "btn-disabled" : ""
                     }`}
                   >
                     {isLoading ? (
@@ -856,6 +1182,16 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
+
+      {/* CRM Preview Modal */}
+      {showPreview && selectedTheme && (
+        <LoginPreview 
+          theme={selectedTheme} 
+          companyLogo={companyLogo}
+          companyName={formData.companyName}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }

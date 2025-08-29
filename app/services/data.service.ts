@@ -33,6 +33,7 @@ import {
   postRequest,
   putRequest,
   patchRequest,
+  postRequestFormData,
 } from "./httpServices";
 import {
   AddFollowUpRequest,
@@ -41,13 +42,37 @@ import {
   LeadTransferRequest,
   LeadTransferResponse,
 } from "@/lib/leads";
+import { GenerateBrandResponse, RegisterRequestData, RegisterResponse } from "@/lib/color";
+import axios from "axios";
+import { BASE_URL } from "../http-common";
 
 export const registerUser = async (
-  registerData: RegisterRequestData
+  registerData: RegisterRequestData,
+  logoFile?: File // add an optional File parameter
 ): Promise<RegisterResponse> => {
-  const res = await postRequest(API_CONSTANTS.USER.REGISTER, registerData);
-  return res as RegisterResponse;
+  const formData = new FormData();
+
+  // Append JSON request
+  const jsonBlob = new Blob([JSON.stringify(registerData)], {
+    type: "application/json",
+  });
+  formData.append("request", jsonBlob);
+
+  // Append logo if provided
+  if (logoFile) {
+    formData.append("logo", logoFile);
+  }
+
+  const res = await axios.post(`${BASE_URL}/register`, formData, {
+    withCredentials: true,
+    // DO NOT set Content-Type; Axios handles multipart/form-data
+  });
+
+  return res.data as RegisterResponse;
 };
+
+
+
 
 export const verifyUser = async (
   emailAddress: string,
@@ -1129,4 +1154,16 @@ export const getTaskDiscussionComments = async (
     `${API_CONSTANTS.TASK.DISCUSSION_FILTER}?${query.toString()}`
   );
   return res as TaskDiscussionFilterResponse;
+};
+
+export const generateBrandPalettes = async (
+  logoColors: string[]
+): Promise<GenerateBrandResponse> => {
+  const query = new URLSearchParams();
+  query.append("logoColors", logoColors.join(","));
+
+  const res = await getRequest(
+    `${API_CONSTANTS.BRAND.GENERATE}?${query.toString()}`
+  );
+  return res as GenerateBrandResponse;
 };
