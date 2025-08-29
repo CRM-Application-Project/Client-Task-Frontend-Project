@@ -75,28 +75,24 @@ export const registerUser = async (
 
 
 export const verifyUser = async (
-  emailAddress: string,
-  deviceType: string = "web",
-  organizationName?: string
+  subDomainName: string,
+  deviceType: string = "web"
 ): Promise<VerifyUserResponse> => {
   const baseUrl = "/verify";
 
-  // 2. Create URLSearchParams for query parameters
+  // Build query params
   const params = new URLSearchParams();
-  params.append("emailAddress", emailAddress);
   params.append("deviceType", deviceType);
+  params.append("subDomainName", subDomainName);
 
-  if (organizationName) {
-    params.append("organizationName", organizationName);
-  }
-
-  // 3. Combine them
   const url = `${baseUrl}?${params.toString()}`;
 
-  // (Optional) Log the URL to verify
   console.log("Final URL:", url);
 
-  const res = await getRequest(url);
+  const res = await getRequest(url, {
+  
+  });
+
   return res as VerifyUserResponse;
 };
 export const loginUser = async (

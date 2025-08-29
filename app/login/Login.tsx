@@ -26,7 +26,6 @@ import {
   loginUser,
   resetPassword,
   verifyOtp,
-  verifyUser,
 } from "../services/data.service";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
@@ -59,17 +58,6 @@ const changePasswordSchema = z
     message: "New password must be different from current password",
     path: ["newPassword"],
   });
-
-interface VerifyUserResponse {
-  isSuccess: boolean;
-  message: string;
-  data: {
-    tenantToken: string | null;
-    accessRegion: string;
-    deviceType: string;
-    requiresCompany: boolean;
-  };
-}
 
 interface UserModuleAccess {
   id: number;
@@ -114,10 +102,8 @@ export default function LoginPage() {
   const [companyName, setCompanyName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [requiresCompany, setRequiresCompany] = useState(false);
   const [showCompanyField, setShowCompanyField] = useState(false);
-  const [accessRegion, setAccessRegion] = useState("public");
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -166,7 +152,6 @@ export default function LoginPage() {
   const setFieldValue = (field: "email" | "password", value: string) => {
     if (field === "email") {
       setEmail(value);
-      setIsEmailVerified(false); // re-verify when email changes
     } else {
       setPassword(value);
     }
@@ -195,7 +180,7 @@ export default function LoginPage() {
     () => validateLoginField("password", password) === "",
     [password]
   );
-  const isLoginFormValid = emailValid && passwordValid && isEmailVerified;
+  const isLoginFormValid = emailValid && passwordValid;
 
   const borderClass = (field: "email" | "password") =>
     loginTouched[field] && loginErrors[field]
@@ -293,78 +278,14 @@ export default function LoginPage() {
     if (newPassword) validateNewPassword(newPassword, value);
   };
 
-  // -------------------- Verify user email (API) --------------------
-  const verifyUserEmail = async (emailAddress: string, company?: string) => {
-    if (!emailAddress) return;
-    setIsLoading(true);
-    try {
-      const response = (await verifyUser(
-        emailAddress,
-        "web",
-        company
-      )) as VerifyUserResponse;
-
-      if (response.isSuccess) {
-        setIsEmailVerified(true);
-        setAccessRegion(response.data.accessRegion);
-        setRequiresCompany(response.data.requiresCompany);
-        toast({
-          title: "Email verified",
-          description: "Please enter your password to continue",
-          variant: "default",
-        });
-      } else {
-        setIsEmailVerified(false);
-        toast({
-          title: "Verification failed",
-          description: response.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      setIsEmailVerified(false);
-      toast({
-        title: "Error",
-        description:
-          error.message || "An error occurred while verifying your email",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+  // Auto-detect personal email and show company field
+  useEffect(() => {
+    if (EMAIL_REGEX.test(email)) {
+      const isPersonal = isPersonalEmail(email);
+      setRequiresCompany(isPersonal);
+      setShowCompanyField(isPersonal);
     }
-  };
-
-  // Debounced auto-verify: only when email passes regex
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (EMAIL_REGEX.test(email)) {
-        const isPersonal = isPersonalEmail(email);
-        setRequiresCompany(isPersonal);
-        setShowCompanyField(isPersonal);
-
-        // For personal emails, require company name before verifying
-        if (isPersonal && !companyName.trim()) return;
-
-        verifyUserEmail(email, isPersonal ? companyName : undefined);
-      }
-    }, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [email, companyName]);
-
-  // Auto-verify when company name filled for personal emails
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (
-        requiresCompany &&
-        EMAIL_REGEX.test(email) &&
-        companyName.trim() &&
-        !isEmailVerified
-      ) {
-        verifyUserEmail(email, companyName);
-      }
-    }, 800);
-    return () => clearTimeout(timeoutId);
-  }, [companyName, requiresCompany, email, isEmailVerified]);
+  }, [email]);
 
   // -------------------- Forgot Password Flow --------------------
   const handleForgotPassword = async () => {
@@ -392,11 +313,6 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      if (!isEmailVerified) {
-        await verifyUserEmail(email, requiresCompany ? companyName : undefined);
-        if (!isEmailVerified) return;
-      }
-
       const otpPayload: any = {
         emailAddress: email,
         deviceType: "web",
@@ -580,129 +496,129 @@ export default function LoginPage() {
   };
 
   // -------------------- Login Submit --------------------
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  // Force touch + validate both fields
-  setLoginTouched({ email: true, password: true });
-  const emailErr = validateLoginField("email", email);
-  const pwdErr = validateLoginField("password", password);
-  setLoginErrors({ email: emailErr, password: pwdErr });
+    // Force touch + validate both fields
+    setLoginTouched({ email: true, password: true });
+    const emailErr = validateLoginField("email", email);
+    const pwdErr = validateLoginField("password", password);
+    setLoginErrors({ email: emailErr, password: pwdErr });
 
-  if (emailErr || pwdErr || !isEmailVerified) return;
+    if (emailErr || pwdErr) return;
 
-  setIsLoading(true);
-  try {
-    const loginData = {
-      emailAddress: email,
-      password,
-      deviceType: "web",
-      accessRegion,
-      ...(requiresCompany && { companyName }),
-    };
-
-    const response = (await loginUser(loginData)) as unknown as LoginResponse;
-
-    if (response.isSuccess) {
-      const { profileResponse, authTokenResponse } = response.data;
-
-      if (authTokenResponse.token) {
-        localStorage.setItem("authToken", authTokenResponse.token);
-      }
-      if (authTokenResponse.refreshToken) {
-        localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
-      }
-
-      const modules =
-        profileResponse.userModuleAccessList?.map((access) => ({
-          id: access.moduleId || parseInt(access.id?.toString() || "0"),
-          moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
-          moduleName: access.moduleName
-            ? access.moduleName.charAt(0).toUpperCase() +
-              access.moduleName.slice(1)
-            : "Unknown",
-          canView: access.canView ?? true,
-          canEdit: access.canEdit ?? false,
-          canCreate: access.canCreate ?? false,
-          canDelete: access.canDelete ?? false,
-          createdAt: access.createdAt || new Date().toISOString(),
-          updatedAt: access.updatedAt || new Date().toISOString(),
-        })) || [];
-
-      const completeUserProfile = {
-        ...profileResponse,
-        modules,
-        userId: profileResponse.id,
-        contactNumber: profileResponse.phoneNumber || "",
-        dateOfBirth: "",
-        dateOfJoin: "",
-        profileImage: "",
-        address: "",
-        status: "active",
-        departmentId: 0,
-        departmentName: "",
-        isActive: true,
+    setIsLoading(true);
+    try {
+      const loginData = {
+        emailAddress: email,
+        password,
+        deviceType: "web",
+        accessRegion: "tenant",
+        ...(requiresCompany && { companyName }),
       };
 
-      localStorage.setItem(
-        "currentUser",
-        JSON.stringify(completeUserProfile)
-      );
-      localStorage.setItem("userModules", JSON.stringify(modules));
-      localStorage.setItem("userId", response.data.profileResponse.id);
-      localStorage.setItem(
-        "user",
-        JSON.stringify(response.data.profileResponse)
-      );
+      const response = (await loginUser(loginData)) as unknown as LoginResponse;
 
-      dispatch(
-        loginSuccess({
-          user: completeUserProfile,
-          allUsers: [completeUserProfile],
-        })
-      );
+      if (response.isSuccess) {
+        const { profileResponse, authTokenResponse } = response.data;
 
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${profileResponse.firstName}!`,
-        variant: "default",
-      });
+        if (authTokenResponse.token) {
+          localStorage.setItem("authToken", authTokenResponse.token);
+        }
+        if (authTokenResponse.refreshToken) {
+          localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
+        }
 
-      let redirectPath = "/not-found";
-      
-      // Check if user is SUPER_ADMIN
-      if (profileResponse.userRole === "SUPER_ADMIN") {
-        redirectPath = "/dashboard";
-      } else if (!profileResponse.isPasswordUpdated) {
-        redirectPath = "/reset-password";
+        const modules =
+          profileResponse.userModuleAccessList?.map((access) => ({
+            id: access.moduleId || parseInt(access.id?.toString() || "0"),
+            moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
+            moduleName: access.moduleName
+              ? access.moduleName.charAt(0).toUpperCase() +
+                access.moduleName.slice(1)
+              : "Unknown",
+            canView: access.canView ?? true,
+            canEdit: access.canEdit ?? false,
+            canCreate: access.canCreate ?? false,
+            canDelete: access.canDelete ?? false,
+            createdAt: access.createdAt || new Date().toISOString(),
+            updatedAt: access.updatedAt || new Date().toISOString(),
+          })) || [];
+
+        const completeUserProfile = {
+          ...profileResponse,
+          modules,
+          userId: profileResponse.id,
+          contactNumber: profileResponse.phoneNumber || "",
+          dateOfBirth: "",
+          dateOfJoin: "",
+          profileImage: "",
+          address: "",
+          status: "active",
+          departmentId: 0,
+          departmentName: "",
+          isActive: true,
+        };
+
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify(completeUserProfile)
+        );
+        localStorage.setItem("userModules", JSON.stringify(modules));
+        localStorage.setItem("userId", response.data.profileResponse.id);
+        localStorage.setItem(
+          "user",
+          JSON.stringify(response.data.profileResponse)
+        );
+
+        dispatch(
+          loginSuccess({
+            user: completeUserProfile,
+            allUsers: [completeUserProfile],
+          })
+        );
+
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${profileResponse.firstName}!`,
+          variant: "default",
+        });
+
+        let redirectPath = "/not-found";
+        
+        // Check if user is SUPER_ADMIN
+        if (profileResponse.userRole === "SUPER_ADMIN") {
+          redirectPath = "/dashboard";
+        } else if (!profileResponse.isPasswordUpdated) {
+          redirectPath = "/reset-password";
+        } else {
+          redirectPath = getFirstAccessibleModule(modules);
+        }
+
+        setTimeout(() => {
+          router.push(redirectPath);
+        }, 500);
       } else {
-        redirectPath = getFirstAccessibleModule(modules);
+        toast({
+          title: "Login failed",
+          description: response.message,
+          variant: "destructive",
+        });
       }
-
-      setTimeout(() => {
-        router.push(redirectPath);
-      }, 500);
-    } else {
+    } catch (error) {
+      console.error("Login error:", error);
       toast({
-        title: "Login failed",
-        description: response.message,
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred during login",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Login error:", error);
-    toast({
-      title: "Error",
-      description:
-        error instanceof Error
-          ? error.message
-          : "An error occurred during login",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   // -------------------- UI --------------------
   return (
@@ -805,10 +721,7 @@ const handleLogin = async (e: React.FormEvent) => {
                           type="text"
                           placeholder="Enter your company name"
                           value={companyName}
-                          onChange={(e) => {
-                            setCompanyName(e.target.value);
-                            setIsEmailVerified(false);
-                          }}
+                          onChange={(e) => setCompanyName(e.target.value)}
                           required
                           className="h-12 pl-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                         />
@@ -827,7 +740,6 @@ const handleLogin = async (e: React.FormEvent) => {
                     >
                       Password
                       <span className="text-red-500 ml-1">*</span>
-
                     </Label>
                     <div className="relative">
                       <Input
@@ -840,13 +752,9 @@ const handleLogin = async (e: React.FormEvent) => {
                         }
                         onBlur={() => handleBlurLogin("password")}
                         required
-                        disabled={!isEmailVerified}
                         className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${borderClass(
                           "password"
-                        )} ${!isEmailVerified
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                          }`}
+                        )}`}
                         onCopy={handleCopyPrevention}
                         onPaste={handlePastePrevention}
                         autoComplete="current-password"
@@ -854,9 +762,7 @@ const handleLogin = async (e: React.FormEvent) => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        disabled={!isEmailVerified}
-                        className={`absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors ${!isEmailVerified ? "cursor-not-allowed" : ""
-                          }`}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         aria-label={
                           showPassword ? "Hide password" : "Show password"
                         }
@@ -910,12 +816,12 @@ const handleLogin = async (e: React.FormEvent) => {
               ) : (
                 // Forgot Password Flow
                 <div className="space-y-6">
-                  {/* Step 1: Email verification (already done) */}
+                  {/* Step 1: Email verification */}
                   {!otpSent && (
                     <div className="space-y-4">
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span>Email verified: {email}</span>
+                        <span>Email: {email}</span>
                       </div>
                       <Button
                         onClick={handleForgotPassword}
