@@ -26,6 +26,7 @@ import {
   loginUser,
   resetPassword,
   verifyOtp,
+  verifyUser,
 } from "../services/data.service";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
@@ -392,6 +393,54 @@ export default function LoginPage() {
     }
   };
 
+  // Add this useEffect at the top of your component (after the state declarations)
+useEffect(() => {
+  const verifyUserAndSetTheme = async () => {
+    try {
+      // Extract subdomain from current URL
+      const host = window.location.hostname;
+      const subDomainName = getSubdomain(host);
+      
+      // Call verifyUser endpoint
+      const verifyResponse = await verifyUser(subDomainName, "web");
+      
+      // You can use the response data if needed
+      console.log("Verify user response:", verifyResponse);
+      
+      // If you want to store the theme data, you can set it in state
+      // setThemeData(verifyResponse.data?.whiteLabelData || null);
+    } catch (error) {
+      console.error('Failed to verify user:', error);
+    }
+  };
+
+  verifyUserAndSetTheme();
+}, []);
+
+// Add the getSubdomain function inside your component (or outside if you prefer)
+const getSubdomain = (host: string): string => {
+  // Remove port number if present
+  const hostWithoutPort = host.split(':')[0];
+  
+  // Handle localhost and IP addresses
+  if (hostWithoutPort.includes('localhost') || 
+      hostWithoutPort.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+    // For local development, check if it has a subdomain prefix
+    const parts = hostWithoutPort.split('.');
+    if (parts.length > 1 && parts[0] !== 'www' && parts[0] !== 'localhost') {
+      return parts[0]; // Return the subdomain part
+    }
+    return 'seabed2crest'; // Default for local development
+  }
+  
+  // For production domains with subdomains
+  const parts = hostWithoutPort.split('.');
+  if (parts.length > 2) {
+    return parts[0]; // Return the subdomain part
+  }
+  
+  return 'seabed2crest'; // Default if no subdomain detected
+};
   const handleResetPassword = async () => {
     if (!otpId || !newPassword || !confirmPassword) {
       toast({

@@ -91,10 +91,12 @@ export const postRequestFormData = async <T>(
   config?: AxiosRequestConfig
 ): Promise<T> => {
   try {
+    // For FormData, let browser set Content-Type automatically with boundary
     const updatedConfig: AxiosRequestConfig = {
       ...config,
       headers: {
         ...config?.headers,
+        'Content-Type': undefined, // Let browser set it
       },
     };
 
@@ -105,6 +107,7 @@ export const postRequestFormData = async <T>(
   }
 };
 
+// PATCH Request
 export const patchRequest = async <T>(
   url: string,
   data?: unknown,
