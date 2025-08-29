@@ -43,7 +43,6 @@ export const API_CONSTANTS = {
             DISCUSSION_COMMENT: (discussionId: number | string) =>
       `/task/discussion/${discussionId}/comment`,
                 DISCUSSION_FILTER: `/task/discussion/filter`,
-     UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
     DELETE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
     REORDER_STAGES: "/task/stages/reorder",
     DOCUMENT: {
