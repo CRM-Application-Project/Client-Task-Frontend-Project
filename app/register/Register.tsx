@@ -35,7 +35,9 @@ import {
   ArrowLeft, 
   Mail as MailIcon, 
   CheckCircle as CheckCircleIcon, 
-  Mail
+  Mail,
+  Minimize,
+  Maximize
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -218,12 +220,14 @@ export default function RegisterPage() {
   const extractColorsFromImage = async (imageSrc: string) => {
     const img = new globalThis.Image();
     img.crossOrigin = "Anonymous";
+    img.crossOrigin = "Anonymous";
     img.src = imageSrc;
     
     img.onload = async () => {
       try {
         const colorThief = new ColorThief();
         const colorPalette = colorThief.getPalette(img, 5);
+      
         
         const hexColors = colorPalette.map(rgb => 
           `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
@@ -620,7 +624,7 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
       // Convert data URL to File object
       const response = await fetch(companyLogo);
       const blob = await response.blob();
-      logoFile = new File([blob],"", { type: blob.type });
+      logoFile = new File([blob], "company-logo", { type: blob.type });
     }
 
     const response = await registerUser(registerData, logoFile);
@@ -678,6 +682,374 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
     }
     return null;
   };
+const [previewModalOpen, setPreviewModalOpen] = useState(false);
+const [previewTheme, setPreviewTheme] = useState<ThemePalette | null>(null);
+const [fullScreenPreview, setFullScreenPreview] = useState(false);
+
+
+
+// Add the compact LoginPreview component for the small preview
+const LoginPreview = ({ theme, isCompact = true }: { theme: ThemePalette; isCompact?: boolean }) => {
+  const [previewEmail, setPreviewEmail] = useState("");
+  const [previewPassword, setPreviewPassword] = useState("");
+  const [previewShowPassword, setPreviewShowPassword] = useState(false);
+  
+  return (
+    <div 
+      className={`${isCompact ? 'w-80 mx-auto' : 'w-full max-w-md'} space-y-4`}
+      style={{ 
+        backgroundColor: theme.brandSettings.backgroundColor,
+        color: theme.brandSettings.textColor,
+        padding: isCompact ? '1rem' : '2rem',
+        borderRadius: '0.5rem'
+      }}
+    >
+      {/* Logo and Branding */}
+      <div className="text-center space-y-2">
+        {companyLogo && (
+          <img 
+            src={companyLogo} 
+            alt="Logo" 
+            className="h-10 w-10 object-contain mx-auto mb-2 rounded"
+          />
+        )}
+        <h2 className="text-xl font-bold">Welcome Back</h2>
+        {!isCompact && (
+          <p className="text-sm opacity-80">Please sign in to your account to continue</p>
+        )}
+      </div>
+
+      {/* Login Form */}
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label htmlFor="preview-email" className="text-sm font-medium">
+            Email Address
+          </Label>
+          <div className="relative">
+            <Input
+              id="preview-email"
+              type="email"
+              placeholder="Enter your email"
+              value={previewEmail}
+              onChange={(e) => setPreviewEmail(e.target.value)}
+              className="h-10 pl-10"
+              style={{ 
+                backgroundColor: theme.brandSettings.backgroundColor,
+                borderColor: theme.brandSettings.primaryColor + '30',
+                color: theme.brandSettings.textColor
+              }}
+            />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-60" />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="preview-password" className="text-sm font-medium">
+            Password
+          </Label>
+          <div className="relative">
+            <Input
+              id="preview-password"
+              type={previewShowPassword ? "text" : "password"}
+              placeholder="Enter your password"
+              value={previewPassword}
+              onChange={(e) => setPreviewPassword(e.target.value)}
+              className="h-10 pr-10"
+              style={{ 
+                backgroundColor: theme.brandSettings.backgroundColor,
+                borderColor: theme.brandSettings.primaryColor + '30',
+                color: theme.brandSettings.textColor
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewShowPassword(!previewShowPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100"
+            >
+              {previewShowPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="w-full h-10 font-medium rounded"
+          style={{ 
+            backgroundColor: theme.brandSettings.primaryColor,
+            color: theme.brandSettings.headerTextColor
+          }}
+        >
+          Sign In
+        </button>
+      </div>
+    </div>
+  );
+};
+// Update the ThemePreviewModal component with smooth scrolling
+// Update the ThemePreviewModal component
+const ThemePreviewModal = ({ theme, onClose }: { theme: ThemePalette; onClose: () => void }) => {
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [previewEmail, setPreviewEmail] = useState("");
+  const [previewPassword, setPreviewPassword] = useState("");
+  const [previewShowPassword, setPreviewShowPassword] = useState(false);
+  
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-0">
+      <div className={`bg-white ${isFullScreen ? 'w-full h-full' : 'max-w-5xl w-full max-h-[90vh]'} rounded-none overflow-hidden flex flex-col`}>
+        {/* Header - Fixed position */}
+        <div className="flex items-center justify-between p-4 border-b bg-white shrink-0">
+          <h3 className="font-semibold text-lg">Theme Preview - Login Page</h3>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={() => {
+                setSelectedTheme(theme);
+                onClose();
+                toast({
+                  title: "Theme Selected",
+                  description: "Your theme has been saved successfully",
+                });
+              }}
+              style={{ 
+                backgroundColor: theme.brandSettings.primaryColor,
+                color: theme.brandSettings.headerTextColor
+              }}
+            >
+              Select This Theme
+            </Button>
+            <button
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className="p-2 hover:bg-gray-100 rounded"
+              title={isFullScreen ? 'Exit full screen' : 'View full screen'}
+            >
+              {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Preview Content - Fixed height container */}
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          {/* Left Side - Image (fixed, no scroll) */}
+          <div className="lg:w-1/2 relative hidden lg:block">
+            <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
+              <img
+                src="/login.jpeg"
+                alt="CRM Background"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="absolute inset-0 bg-primary/10" />
+          </div>
+
+          {/* Right Side - Login Form with proper scrolling */}
+          <div className="lg:w-1/2 flex items-start justify-center p-4 lg:p-8 overflow-y-auto">
+            <div className="w-full max-w-md space-y-6 lg:space-y-8 my-auto">
+              {/* Logo and Branding */}
+              <div className="text-center space-y-4">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold" style={{ color: theme.brandSettings.textColor }}>
+                    Welcome Back
+                  </h2>
+                  <p className="text-muted-foreground" style={{ color: theme.brandSettings.textColor + '80' }}>
+                    Please sign in to your account to continue
+                  </p>
+                </div>
+              </div>
+
+              {/* Login Form */}
+              <Card 
+                className="border shadow-elevated"
+                style={{ 
+                  borderColor: theme.brandSettings.primaryColor + '30',
+                  backgroundColor: theme.brandSettings.backgroundColor
+                }}
+              >
+                <CardContent className="p-6 lg:p-8">
+                  <form className="space-y-6">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="preview-email"
+                        className="text-sm font-medium"
+                        style={{ color: theme.brandSettings.textColor }}
+                      >
+                        Email Address
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="preview-email"
+                          type="email"
+                          placeholder="Enter your email address"
+                          value={previewEmail}
+                          onChange={(e) => setPreviewEmail(e.target.value)}
+                          className="h-12 pl-12 border-input focus:border-primary transition-all duration-200 rounded-lg"
+                          style={{ 
+                            borderColor: theme.brandSettings.primaryColor + '30',
+                            backgroundColor: theme.brandSettings.backgroundColor,
+                            color: theme.brandSettings.textColor
+                          }}
+                        />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="preview-password"
+                        className="text-sm font-medium"
+                        style={{ color: theme.brandSettings.textColor }}
+                      >
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="preview-password"
+                          type={previewShowPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          value={previewPassword}
+                          onChange={(e) => setPreviewPassword(e.target.value)}
+                          className="h-12 pr-12 border-input focus:border-primary transition-all duration-200 rounded-lg"
+                          style={{ 
+                            borderColor: theme.brandSettings.primaryColor + '30',
+                            backgroundColor: theme.brandSettings.backgroundColor,
+                            color: theme.brandSettings.textColor
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewShowPassword(!previewShowPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {previewShowPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0"
+                          style={{ 
+                            borderColor: theme.brandSettings.primaryColor + '30',
+                            color: theme.brandSettings.primaryColor
+                          }}
+                        />
+                        <span style={{ color: theme.brandSettings.textColor + '80' }}>Remember me</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="font-medium transition-colors"
+                        style={{ color: theme.brandSettings.primaryColor }}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+
+                    <Button
+                      type="button"
+                      className="w-full h-12 font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-subtle rounded-lg"
+                      style={{ 
+                        backgroundColor: theme.brandSettings.primaryColor,
+                        color: theme.brandSettings.headerTextColor
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <LogIn className="h-4 w-4" />
+                        Sign In
+                      </div>
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* Additional Links */}
+              <div className="text-center space-y-4 pb-4">
+                <p className="text-sm" style={{ color: theme.brandSettings.textColor + '80' }}>
+                  {`Don't have an account?{" "}`}
+                  <button
+                    className="font-medium transition-colors"
+                    style={{ color: theme.brandSettings.primaryColor }}
+                  >
+                    Register
+                  </button>
+                </p>
+
+                {/* Feature Pills */}
+                <div className="flex flex-wrap justify-center gap-2 pt-4">
+                  <div 
+                    className="flex items-center gap-2 px-3 py-1 rounded-full text-xs"
+                    style={{ 
+                      backgroundColor: theme.brandSettings.primaryColor + '10',
+                      color: theme.brandSettings.primaryColor
+                    }}
+                  >
+                    <Shield className="h-3 w-3" />
+                    Secure
+                  </div>
+                  <div 
+                    className="flex items-center gap-2 px-3 py-1 rounded-full text-xs"
+                    style={{ 
+                      backgroundColor: theme.brandSettings.primaryColor + '10',
+                      color: theme.brandSettings.primaryColor
+                    }}
+                  >
+                    <Users className="h-3 w-3" />
+                    Team Collaboration
+                  </div>
+                  <div 
+                    className="flex items-center gap-2 px-3 py-1 rounded-full text-xs"
+                    style={{ 
+                      backgroundColor: theme.brandSettings.primaryColor + '10',
+                      color: theme.brandSettings.primaryColor
+                    }}
+                  >
+                    <TrendingUp className="h-3 w-3" />
+                    Analytics
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Add this CSS to your global styles or as a style tag for smooth scrolling
+<style jsx>{`
+  .smooth-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  .smooth-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .smooth-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .smooth-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  .smooth-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+`}</style>
+
+
 
   return (
     <div className="h-screen bg-background flex flex-col lg:flex-row overflow-hidden">
@@ -1110,19 +1482,22 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
                             ))}
                           </div>
 
-                          {selectedTheme && (
-                            <div className="flex justify-center">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setShowPreview(true)}
-                                className="flex items-center gap-2"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Preview CRM Login
-                              </Button>
-                            </div>
-                          )}
+                         {selectedTheme && (
+  <div className="flex justify-center">
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => {
+        setPreviewTheme(selectedTheme);
+        setPreviewModalOpen(true);
+      }}
+      className="flex items-center gap-2"
+    >
+      <Eye className="h-4 w-4" />
+      Preview Login Page
+    </Button>
+  </div>
+)}
                         </div>
                       )}
                     </div>
@@ -1131,8 +1506,10 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
                   <Button
                     type="submit"
                     disabled={!isFormValid || isLoading || (extractedColors.length > 0 && !selectedTheme)}
+               
                     className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:opacity-50 shadow-subtle rounded-lg ${
                       !isFormValid || isLoading || (extractedColors.length > 0 && !selectedTheme) ? "btn-disabled" : ""
+                     
                     }`}
                   >
                     {isLoading ? (
@@ -1184,14 +1561,15 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
       </div>
 
       {/* CRM Preview Modal */}
-      {showPreview && selectedTheme && (
-        <LoginPreview 
-          theme={selectedTheme} 
-          companyLogo={companyLogo}
-          companyName={formData.companyName}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
+     {previewModalOpen && previewTheme && (
+  <ThemePreviewModal 
+    theme={previewTheme} 
+    onClose={() => {
+      setPreviewModalOpen(false);
+      setPreviewTheme(null);
+    }} 
+  />
+)}
     </div>
   );
 }
