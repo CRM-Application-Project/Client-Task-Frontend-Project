@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UpdateUserRequest } from '@/lib/data';
 import { updateUserProfile } from '@/app/services/data.service';
 
-interface StoredUserData {
+export interface StoredUserData {
   id: string;
   firstName: string;
   lastName: string;

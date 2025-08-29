@@ -275,3 +275,106 @@ export interface UpdateLeadStageResponse {
     message: string;
   };
 }
+
+
+// types/task.ts
+export interface TaskDecisionRequest {
+  isAccept: boolean;
+  comment: string;
+}
+
+export interface TaskDecisionResponse {
+  isSuccess: boolean;
+  message: string;
+  data: string; // e.g. "Task has been reviewed and accepted"
+}
+
+
+// types/task.ts
+export interface TaskDiscussionCommentRequest {
+  message: string;
+  mentions: string[]; // array of user IDs
+}
+
+export interface Mention {
+  id: number;
+  isRead: boolean;
+  mentioned: {
+    id: string;
+    label: string;
+  };
+  readAt: string | null;
+}
+
+
+
+export interface TaskDiscussionCommentResponse {
+  isSuccess: boolean;
+  message: string;
+  data: TaskDiscussionComment;
+}
+
+
+// types/task.ts
+export interface PaginationMeta {
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
+  pageIndex: number;
+  numberOfElementsInThePage: number;
+}
+
+export interface TaskDiscussionFilterResponse {
+  isSuccess: boolean;
+  message: string;
+  data: PaginationMeta & {
+    content: TaskDiscussionComment[];
+  };
+}
+// types/task.ts
+export interface PaginationMeta {
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
+  pageIndex: number;
+  numberOfElementsInThePage: number;
+}
+
+export interface TaskDiscussionComment {
+  id: number;
+  userId: number;
+  userName: string;
+  userImageUrl?: string;
+  message: string;
+  createdAt: string;
+  isEdited: boolean;
+  updatedAt?: string;
+  attachments?: {
+    id: number;
+    fileName: string;
+    fileSize: number;
+    fileUrl: string;
+  }[];
+  reactions?: {
+    emoji: string;
+    count: number;
+    reacted: boolean;
+  }[];
+  mentions?: {
+    userId: number;
+    userName: string;
+  }[];
+}
+
+export interface TaskDiscussionFilterResponse {
+  isSuccess: boolean;
+  message: string;
+  data: PaginationMeta & {
+    content: TaskDiscussionComment[];
+  };
+}
+
+export interface Mention {
+  userId: number;
+  userName: string;
+}

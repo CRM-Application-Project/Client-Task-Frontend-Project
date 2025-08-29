@@ -39,6 +39,11 @@ export const API_CONSTANTS = {
     DROPDOWN: "/task/stages/dropdown",
     ADD_STAGE: "/task/stages/",
     UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
+        DECISION: (taskId: number | string) => `/tasks/${taskId}/decision`,
+            DISCUSSION_COMMENT: (discussionId: number | string) =>
+      `/task/discussion/${discussionId}/comment`,
+                DISCUSSION_FILTER: `/task/discussion/filter`,
+     UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
     DELETE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
     REORDER_STAGES: "/task/stages/reorder",
     DOCUMENT: {
