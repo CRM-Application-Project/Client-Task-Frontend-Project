@@ -30,6 +30,9 @@ export const API_CONSTANTS = {
   MODULE: {
     MODULE_DROPDOWN: "/tenant/modules/dropdown",
   },
+    BRAND: {
+    GENERATE: "/generate", 
+  },
   TASK: {
     CREATE: "/tasks/",
     UPDATE: "/tasks/{taskId}",
