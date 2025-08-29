@@ -685,110 +685,24 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
 const [previewModalOpen, setPreviewModalOpen] = useState(false);
 const [previewTheme, setPreviewTheme] = useState<ThemePalette | null>(null);
 const [fullScreenPreview, setFullScreenPreview] = useState(false);
+const [isLogoHovered, setIsLogoHovered] = useState(false);
 
+// Add this function to handle logo deletion
+const handleDeleteLogo = () => {
+  setCompanyLogo(null);
+  setExtractedColors([]);
+  setGeneratedThemes([]);
+  setSelectedTheme(null);
+  setShowThemeSelection(false);
+  toast({
+    title: "Logo Removed",
+    description: "Company logo has been removed",
+  });
+};
 
 
 // Add the compact LoginPreview component for the small preview
-const LoginPreview = ({ theme, isCompact = true }: { theme: ThemePalette; isCompact?: boolean }) => {
-  const [previewEmail, setPreviewEmail] = useState("");
-  const [previewPassword, setPreviewPassword] = useState("");
-  const [previewShowPassword, setPreviewShowPassword] = useState(false);
-  
-  return (
-    <div 
-      className={`${isCompact ? 'w-80 mx-auto' : 'w-full max-w-md'} space-y-4`}
-      style={{ 
-        backgroundColor: theme.brandSettings.backgroundColor,
-        color: theme.brandSettings.textColor,
-        padding: isCompact ? '1rem' : '2rem',
-        borderRadius: '0.5rem'
-      }}
-    >
-      {/* Logo and Branding */}
-      <div className="text-center space-y-2">
-        {companyLogo && (
-          <img 
-            src={companyLogo} 
-            alt="Logo" 
-            className="h-10 w-10 object-contain mx-auto mb-2 rounded"
-          />
-        )}
-        <h2 className="text-xl font-bold">Welcome Back</h2>
-        {!isCompact && (
-          <p className="text-sm opacity-80">Please sign in to your account to continue</p>
-        )}
-      </div>
 
-      {/* Login Form */}
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <Label htmlFor="preview-email" className="text-sm font-medium">
-            Email Address
-          </Label>
-          <div className="relative">
-            <Input
-              id="preview-email"
-              type="email"
-              placeholder="Enter your email"
-              value={previewEmail}
-              onChange={(e) => setPreviewEmail(e.target.value)}
-              className="h-10 pl-10"
-              style={{ 
-                backgroundColor: theme.brandSettings.backgroundColor,
-                borderColor: theme.brandSettings.primaryColor + '30',
-                color: theme.brandSettings.textColor
-              }}
-            />
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-60" />
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="preview-password" className="text-sm font-medium">
-            Password
-          </Label>
-          <div className="relative">
-            <Input
-              id="preview-password"
-              type={previewShowPassword ? "text" : "password"}
-              placeholder="Enter your password"
-              value={previewPassword}
-              onChange={(e) => setPreviewPassword(e.target.value)}
-              className="h-10 pr-10"
-              style={{ 
-                backgroundColor: theme.brandSettings.backgroundColor,
-                borderColor: theme.brandSettings.primaryColor + '30',
-                color: theme.brandSettings.textColor
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setPreviewShowPassword(!previewShowPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100"
-            >
-              {previewShowPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="w-full h-10 font-medium rounded"
-          style={{ 
-            backgroundColor: theme.brandSettings.primaryColor,
-            color: theme.brandSettings.headerTextColor
-          }}
-        >
-          Sign In
-        </button>
-      </div>
-    </div>
-  );
-};
 // Update the ThemePreviewModal component with smooth scrolling
 // Update the ThemePreviewModal component
 const ThemePreviewModal = ({ theme, onClose }: { theme: ThemePalette; onClose: () => void }) => {
@@ -1314,194 +1228,199 @@ const ThemePreviewModal = ({ theme, onClose }: { theme: ThemePalette; onClose: (
                             {renderValidationStatus("gstNumber")}
                           </div>
                         </div>
-                           <div className="space-y-4">
-                          <Label className="text-sm font-medium text-foreground">
-                            Company Logo (Optional)
-                          </Label>
-                          <div className="flex items-center gap-4">
-                            <div className="relative">
-                              <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
-                                {companyLogo ? (
-                                  <img 
-                                    src={companyLogo} 
-                                    alt="Company logo" 
-                                    className="w-full h-full object-contain"
-                                  />
-                                ) : (
-                                  <ImageIcon className="h-8 w-8 text-gray-400" />
-                                )}
-                              </div>
-                              
-                              {/* Color palette preview */}
-                              {extractedColors.length > 0 && (
-                                <div className="absolute -bottom-2 left-0 right-0 flex justify-center gap-0.5">
-                                  {extractedColors.map((color, index) => (
-                                    <div 
-                                      key={index}
-                                      className="w-4 h-4 rounded-full border border-gray-200"
-                                      style={{ backgroundColor: color }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1">
-                              <Label
-                                htmlFor="logo-upload"
-                                className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
-                              >
-                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                  <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                                  <p className="mb-1 text-sm text-gray-500">
-                                    <span className="font-semibold">Click to upload</span> or drag and drop
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    SVG, PNG, JPG (MAX. 2MB)
-                                  </p>
-                                </div>
-                                <Input 
-                                  id="logo-upload" 
-                                  type="file" 
-                                  className="hidden" 
-                                  accept="image/*"
-                                  onChange={handleLogoUpload}
-                                  disabled={isUploading}
-                                />
-                              </Label>
-                            </div>
-                          </div>
-                          
-                          {isUploading && (
-                            <p className="text-xs text-muted-foreground">
-                              Uploading and processing image...
-                            </p>
-                          )}
+                          <div className="space-y-4">
+  <Label className="text-sm font-medium text-foreground">
+    Company Logo (Optional)
+  </Label>
+  <div className="flex items-center gap-4">
+    <div 
+  className="relative"
+  onMouseEnter={() => setIsLogoHovered(true)}
+  onMouseLeave={() => setIsLogoHovered(false)}
+>
+  <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+    {companyLogo ? (
+      <>
+        <img 
+          src={companyLogo} 
+          alt="Company logo" 
+          className="w-full h-full object-contain"
+        />
+        {/* Only show delete icon when specifically hovering over the logo container */}
+        {isLogoHovered && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteLogo();
+            }}
+            className="absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity"
+          >
+            <X className="h-8 w-8 text-white" />
+          </button>
+        )}
+      </>
+    ) : (
+      <ImageIcon className="h-8 w-8 text-gray-400" />
+    )}
+  </div>
+  
+  {/* Color palette preview */}
+  {extractedColors.length > 0 && (
+    <div className="absolute -bottom-2 left-0 right-0 flex justify-center gap-0.5">
+      {extractedColors.map((color, index) => (
+        <div 
+          key={index}
+          className="w-4 h-4 rounded-full border border-gray-200"
+          style={{ backgroundColor: color }}
+          title={color}
+        />
+      ))}
+    </div>
+  )}
+</div>
+    
+    <div className="flex-1">
+      <Label
+        htmlFor="logo-upload"
+        className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
+      >
+        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+          <Upload className="w-8 h-8 mb-2 text-gray-500" />
+          <p className="mb-1 text-sm text-gray-500">
+            <span className="font-semibold">Click to upload</span> or drag and drop
+          </p>
+          <p className="text-xs text-gray-500">
+            SVG, PNG, JPG (MAX. 2MB)
+          </p>
+        </div>
+        <Input 
+          id="logo-upload" 
+          type="file" 
+          className="hidden" 
+          accept="image/*"
+          onChange={handleLogoUpload}
+          disabled={isUploading}
+        />
+      </Label>
+    </div>
+  </div>
+  
+  {isUploading && (
+    <p className="text-xs text-muted-foreground">
+      Uploading and processing image...
+    </p>
+  )}
 
-                          {isGeneratingThemes && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                              Generating custom themes from your logo...
-                            </div>
-                          )}
-                        </div>
+  {isGeneratingThemes && (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      Generating custom themes from your logo...
+    </div>
+  )}
+</div>
                       </div>
                     )}
                   </div>
 
                   {/* Theme Selection */}
-                  {extractedColors.length > 0 && generatedThemes.length > 0 && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2 flex-1">
-                          Choose Your CRM Theme
-                        </h3>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowThemeSelection(!showThemeSelection)}
-                          className="ml-4"
-                        >
-                          <Palette className="h-4 w-4 mr-2" />
-                          {showThemeSelection ? 'Hide Themes' : 'Select Theme'}
-                        </Button>
-                      </div>
+                 {/* Theme Selection */}
+{extractedColors.length > 0 && generatedThemes.length > 0 && (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+      Choose Your CRM Theme
+    </h3>
 
-                      {showThemeSelection && (
-                        <div className="space-y-4 animate-fade-in">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {generatedThemes.map((theme, index) => (
-                              <div
-                                key={index}
-                                className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                                  selectedTheme === theme
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                                onClick={() => handleThemeSelect(theme)}
-                              >
-                                {/* Theme Preview */}
-                                <div className="mb-3">
-                                  <div 
-                                    className="h-20 rounded-md p-3 mb-2"
-                                    style={{ backgroundColor: theme.brandSettings.backgroundColor }}
-                                  >
-                                    <div 
-                                      className="h-6 rounded mb-2"
-                                      style={{ backgroundColor: theme.brandSettings.headerBgColor }}
-                                    />
-                                    <div className="flex gap-2">
-                                      <div 
-                                        className="h-3 w-1/3 rounded"
-                                        style={{ backgroundColor: theme.brandSettings.primaryColor }}
-                                      />
-                                      <div 
-                                        className="h-3 w-1/4 rounded"
-                                        style={{ backgroundColor: theme.brandSettings.secondaryColor }}
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Color Palette */}
-                                  <div className="flex gap-1 mb-2">
-                                    <div 
-                                      className="w-4 h-4 rounded-full border"
-                                      style={{ backgroundColor: theme.brandSettings.primaryColor }}
-                                      title="Primary Color"
-                                    />
-                                    <div 
-                                      className="w-4 h-4 rounded-full border"
-                                      style={{ backgroundColor: theme.brandSettings.secondaryColor }}
-                                      title="Secondary Color"
-                                    />
-                                    <div 
-                                      className="w-4 h-4 rounded-full border"
-                                      style={{ backgroundColor: theme.brandSettings.headerBgColor }}
-                                      title="Header Background"
-                                    />
-                                    <div 
-                                      className="w-4 h-4 rounded-full border"
-                                      style={{ backgroundColor: theme.topBanner.backgroundColor }}
-                                      title="Banner Background"
-                                    />
-                                  </div>
-                                </div>
+    <div className="space-y-4 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {generatedThemes.map((theme, index) => (
+          <div
+            key={index}
+            className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+              selectedTheme === theme
+                ? 'border-primary bg-primary/5'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+            onClick={() => handleThemeSelect(theme)}
+          >
+            {/* Theme Preview */}
+            <div className="mb-3">
+              <div 
+                className="h-20 rounded-md p-3 mb-2"
+                style={{ backgroundColor: theme.brandSettings.backgroundColor }}
+              >
+                <div 
+                  className="h-6 rounded mb-2"
+                  style={{ backgroundColor: theme.brandSettings.headerBgColor }}
+                />
+                <div className="flex gap-2">
+                  <div 
+                    className="h-3 w-1/3 rounded"
+                    style={{ backgroundColor: theme.brandSettings.primaryColor }}
+                  />
+                  <div 
+                    className="h-3 w-1/4 rounded"
+                    style={{ backgroundColor: theme.brandSettings.secondaryColor }}
+                  />
+                </div>
+              </div>
+              
+              {/* Color Palette */}
+              <div className="flex gap-1 mb-2">
+                <div 
+                  className="w-4 h-4 rounded-full border"
+                  style={{ backgroundColor: theme.brandSettings.primaryColor }}
+                  title="Primary Color"
+                />
+                <div 
+                  className="w-4 h-4 rounded-full border"
+                  style={{ backgroundColor: theme.brandSettings.secondaryColor }}
+                  title="Secondary Color"
+                />
+                <div 
+                  className="w-4 h-4 rounded-full border"
+                  style={{ backgroundColor: theme.brandSettings.headerBgColor }}
+                  title="Header Background"
+                />
+                <div 
+                  className="w-4 h-4 rounded-full border"
+                  style={{ backgroundColor: theme.topBanner.backgroundColor }}
+                  title="Banner Background"
+                />
+              </div>
+            </div>
 
-                                <p className="text-sm text-gray-600 mb-3">
-                                  {theme.description}
-                                </p>
+            <p className="text-sm text-gray-600 mb-3">
+              {theme.description}
+            </p>
 
-                                {selectedTheme === theme && (
-                                  <div className="absolute top-2 right-2">
-                                    <CheckCircle className="h-5 w-5 text-primary" />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+            {selectedTheme === theme && (
+              <div className="absolute top-2 right-2">
+                <CheckCircle className="h-5 w-5 text-primary" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
-                         {selectedTheme && (
-  <div className="flex justify-center">
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => {
-        setPreviewTheme(selectedTheme);
-        setPreviewModalOpen(true);
-      }}
-      className="flex items-center gap-2"
-    >
-      <Eye className="h-4 w-4" />
-      Preview Login Page
-    </Button>
+      {selectedTheme && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setPreviewTheme(selectedTheme);
+              setPreviewModalOpen(true);
+            }}
+            className="flex items-center gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            Preview Login Page
+          </Button>
+        </div>
+      )}
+    </div>
   </div>
 )}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   <Button
                     type="submit"
