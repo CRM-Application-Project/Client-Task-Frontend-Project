@@ -620,7 +620,7 @@ const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void
       // Convert data URL to File object
       const response = await fetch(companyLogo);
       const blob = await response.blob();
-      logoFile = new File([blob], "company-logo", { type: blob.type });
+      logoFile = new File([blob],"", { type: blob.type });
     }
 
     const response = await registerUser(registerData, logoFile);
