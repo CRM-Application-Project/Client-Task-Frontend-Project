@@ -13,8 +13,11 @@ export interface Reaction {
 
 export interface CommentItem {
   id: string;
+  parentId: string | null;
   author: { id: string; name: string; avatar?: string };
   content: string;
+  replyCount: number;
+  isDeletable: boolean;
   createdAt: string;
   attachments?: CommentAttachment[];
   reactions?: Reaction[];

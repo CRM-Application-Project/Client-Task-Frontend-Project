@@ -43,6 +43,17 @@ export const API_CONSTANTS = {
     ADD_STAGE: "/task/stages/",
     UPDATE_STAGE: (taskId: string) => `/task/stages/${taskId}`,
         DECISION: (taskId: number | string) => `/tasks/${taskId}/decision`,
+                    DISCUSSION_ADD_FILE: (taskId: number | string) =>`/discussion/${taskId}/comment-with-file`,
+DISCUSSION_REACT: (discussionId: number | string) =>
+  `/task/discussion/${discussionId}/react`,
+REMOVE_DISCUSSION_REACT: (discussionId: number | string) =>
+  `/task/discussion/${discussionId}/remove-reaction`,
+DISCUSSION_REPLY: (discussionId: number | string) =>
+  `/task/discussion/${discussionId}/reply`,
+VERIFY_DISCUSSION_FILE: (fileId: number | string) =>
+  `/task/discussion/files/${fileId}/verify`,
+DELETE_DISCUSSION: (discussionId: number | string) =>
+  `/task/discussion/${discussionId}`,
             DISCUSSION_COMMENT: (discussionId: number | string) =>
       `/task/discussion/${discussionId}/comment`,
                 DISCUSSION_FILTER: `/task/discussion/filter`,

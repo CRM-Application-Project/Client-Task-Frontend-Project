@@ -18,11 +18,14 @@ import {
   TaskDiscussionCommentRequest,
   TaskDiscussionCommentResponse,
   TaskDiscussionFilterResponse,
+  TaskDiscussionReactionRequest,
+  TaskDiscussionReactionResponse,
   TaskStagesDropdownResponse,
   UpdateLeadStageRequest,
   UpdateLeadStageResponse,
   UpdateUserRequest,
   UpdateUserResponse,
+
   VerifyOtpRequest,
   VerifyOtpResponse,
 } from "@/lib/data";
@@ -1162,4 +1165,163 @@ export const generateBrandPalettes = async (
     `${API_CONSTANTS.BRAND.GENERATE}?${query.toString()}`
   );
   return res as GenerateBrandResponse;
+};
+
+
+export interface UploadFileResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    docId: number;
+    type: string;
+    fileName: string;
+    fileType: string;
+    url: string; // presigned S3 URL
+  };
+}
+
+export interface UploadFilePayload {
+  message: string;
+  mentions: string[];
+  fileName: string;
+  fileType: string;
+}
+
+// Step 1: Get presigned URL from backend
+export const uploadDiscussionFile = async (
+  taskId: number | string,
+  payload: UploadFilePayload,
+): Promise<UploadFileResponse> => {
+  try {
+    const res = await postRequest(
+      API_CONSTANTS.TASK.DISCUSSION_ADD_FILE(taskId),
+      payload
+    );
+    return res as UploadFileResponse;
+  } catch (error: any) {
+    console.error("Failed to get presigned URL:", error.response || error.message);
+    throw error;
+  }
+};
+
+// Step 2: Upload actual file to S3
+export const uploadFileToS3 = async (
+  presignedUrl: string,
+  file: File | Blob,
+  fileType: string
+): Promise<void> => {
+  try {
+    await fetch(presignedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": fileType,
+      },
+      body: file,
+    });
+  } catch (error: any) {
+    console.error("Failed to upload file to S3:", error.message);
+    throw error;
+  }
+};
+
+
+
+export const addTaskDiscussionReaction = async (
+  discussionId: number | string,
+  payload: TaskDiscussionReactionRequest
+): Promise<TaskDiscussionReactionResponse> => {
+  const res = await postRequest(
+    API_CONSTANTS.TASK.DISCUSSION_REACT(discussionId),
+    payload
+  );
+  return res as TaskDiscussionReactionResponse;
+};
+
+export interface RemoveTaskDiscussionReactionResponse {
+  isSuccess: boolean;
+  message: string;
+  data: null;
+}
+
+// API call
+export const removeTaskDiscussionReaction = async (
+  discussionId: number | string
+): Promise<RemoveTaskDiscussionReactionResponse> => {
+  const res = await deleteRequest(
+    API_CONSTANTS.TASK.REMOVE_DISCUSSION_REACT(discussionId)
+  );
+  return res as RemoveTaskDiscussionReactionResponse;
+};
+
+export interface TaskDiscussionReplyRequest {
+  message: string;
+}
+
+export interface TaskDiscussionReplyResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: number;
+    parentId: number;
+    author: {
+      id: string;
+      label: string;
+    };
+    message: string;
+    createdAt: string;
+    replyCount: number;
+    isDeletable: boolean;
+    mentions: any[];
+    reactions: any[];
+    files: any[];
+  };
+}
+
+// API call
+export const addTaskDiscussionReply = async (
+  discussionId: number | string,
+  payload: TaskDiscussionReplyRequest
+): Promise<TaskDiscussionReplyResponse> => {
+  const res = await postRequest(
+    API_CONSTANTS.TASK.DISCUSSION_REPLY(discussionId),
+    payload
+  );
+  return res as TaskDiscussionReplyResponse;
+};
+
+
+export interface VerifyDiscussionFileResponse {
+  isSuccess: boolean;
+  message: string;
+  data: any; // backend returned null or no extra data
+}
+
+// API call
+export const verifyDiscussionFile = async (
+  fileId: number | string
+): Promise<VerifyDiscussionFileResponse> => {
+  const res = await postRequest(API_CONSTANTS.TASK.VERIFY_DISCUSSION_FILE(fileId));
+  return res as VerifyDiscussionFileResponse;
+};
+
+
+export interface DeleteDiscussionResponse {
+  isSuccess: boolean;
+  message: string;
+  data: null;
+}
+
+// API call
+export const deleteDiscussion = async (
+  discussionId: number | string
+): Promise<DeleteDiscussionResponse> => {
+  try {
+    const res = await deleteRequest(
+      API_CONSTANTS.TASK.DELETE_DISCUSSION(discussionId)
+    );
+    return res as DeleteDiscussionResponse;
+  } catch (error: any) {
+    console.error("Failed to delete discussion:", error.response || error.message);
+    throw error;
+  }
 };

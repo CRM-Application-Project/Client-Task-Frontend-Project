@@ -1,6 +1,47 @@
+import { 
+  Edit, 
+  FileText, 
+  MessageSquare, 
+  Paperclip, 
+  Reply, 
+  Save, 
+  Smile, 
+  Trash2, 
+  User, 
+  X, 
+  Search 
+} from "lucide-react";
 
+import { 
+  addTaskDiscussionComment, 
+  addTaskDiscussionReply,
+  AssignDropdown, 
+  getTaskDiscussionComments,
+  uploadDiscussionFile,
+  uploadFileToS3,
+  addTaskDiscussionReaction,
+  removeTaskDiscussionReaction,
+  verifyDiscussionFile,
+  deleteDiscussion,
+  TaskDiscussionReplyRequest
+} from "@/app/services/data.service";
+import { 
+  CommentAttachment, 
+  CommentItem, 
+  formatFileSize, 
+  timeAgo 
+} from "@/hooks/Detail";
 
-// Helper function to get caret coordinates
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Textarea } from "../ui/textarea";
+import { Button } from "../ui/button";
+import { Skeleton } from "../ui/skeleton";
+import { MentionPopup } from "./MentionPopup";
+import { Input } from "../ui/input";
+import { Mention, TaskDiscussionComment, TaskDiscussionFilterResponse, TaskDiscussionReactionRequest } from "@/lib/data";
+import { useToast } from "@/hooks/use-toast";
+
+// Helper function to get caret coordinates (keep as is)
 function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   const div = document.createElement('div');
   const style = getComputedStyle(element);
@@ -42,43 +83,6 @@ function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   return coordinates;
 }
 
-
-
-import { 
-  addTaskDiscussionComment, 
-  AssignDropdown, 
-  getTaskDiscussionComments, 
-
-} from "@/app/services/data.service";
-import { 
-  CommentAttachment, 
-  CommentItem, 
-  formatFileSize, 
-  timeAgo 
-} from "@/hooks/Detail";
-import { 
-  Edit, 
-  FileText, 
-  MessageSquare, 
-  Paperclip, 
-  Reply, 
-  Save, 
-  Smile, 
-  Trash2, 
-  User, 
-  X, 
-  Search 
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Textarea } from "../ui/textarea";
-import { Button } from "../ui/button";
-import { Skeleton } from "../ui/skeleton";
-import { MentionPopup } from "./MentionPopup";
-import { Input } from "../ui/input";
-import { Mention, TaskDiscussionComment, TaskDiscussionFilterResponse } from "@/lib/data";
-
-// ... (keep the helper function and imports as they are)
-
 export function DiscussionPanel({
   taskId,
   users,
@@ -102,6 +106,11 @@ export function DiscussionPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
+  // Add state for reply functionality
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
+  
   // Add search state
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -115,7 +124,17 @@ export function DiscussionPanel({
     numberOfElementsInThePage: 0,
   });
 
-  const defaultReactions = ["👍", "❤️", "🎉", "🚀"];
+  // Use the toast hook
+  const { toast } = useToast();
+
+  const defaultReactions = ["LIKE", "HEART", "LAUGH", "CLAP"];
+  const reactionEmojis: Record<string, string> = {
+    "LIKE": "👍",
+    "HEART": "❤️",
+    "LAUGH": "😂",
+    "CLAP": "👏"
+  };
+  
   const filteredUsers = users.filter((user: AssignDropdown) =>
     user.label.toLowerCase().includes(mentionQuery.toLowerCase())
   );
@@ -138,22 +157,34 @@ export function DiscussionPanel({
       
       if (response.isSuccess && response.data) {
         const formattedComments: CommentItem[] = response.data.content.map((comment: any) => ({
-          id: comment.id?.toString() || comment.commentId?.toString() || Date.now().toString(),
+          id: comment.id.toString(),
+          parentId: comment.parentId || null,
           author: {
-            id: comment.author?.id || comment.userId?.toString() || "unknown",
-            name: comment.author?.label || comment.author?.name || comment.userName || "Unknown User",
-            avatar: comment.author?.avatar || "",
+            id: comment.author.id,
+            name: comment.author.label,
+            avatar: "",
           },
-          content: comment.message || comment.content || "",
-          createdAt: comment.createdAt || comment.createdDate || new Date().toISOString(),
-          isEdited: comment.isEdited || comment.edited || false,
-          updatedAt: comment.updatedAt || comment.modifiedDate || new Date().toISOString(),
-          attachments: comment.attachments || [],
-          reactions: comment.reactions || [],
-          mentions: comment.mentions?.map((mention: any) => ({
-            id: mention.mentioned?.id || mention.userId || "unknown",
-            name: mention.mentioned?.label || mention.userName || "Unknown",
-          })) || [],
+          content: comment.message,
+          createdAt: comment.createdAt,
+          isEdited: false, // API doesn't provide this field
+          updatedAt: comment.createdAt, // Use createdAt as fallback
+          attachments: comment.files ? comment.files.map((file: any) => ({
+            id: file.id.toString(),
+            fileName: file.fileName,
+            fileSize: 0, // API doesn't provide file size
+            url: "#", // API doesn't provide direct URL
+          })) : [],
+          reactions: comment.reactions ? comment.reactions.map((reaction: any) => ({
+            emoji: reaction.reaction,
+            count: 1, // API doesn't provide count, we'll handle this differently
+            reacted: reaction.reactedBy !== null, // Check if current user reacted
+          })) : [],
+          mentions: comment.mentions ? comment.mentions.map((mention: any) => ({
+            id: mention.mentioned.id,
+            name: mention.mentioned.label,
+          })) : [],
+          replyCount: comment.replyCount || 0,
+          isDeletable: comment.isDeletable || false,
         }));
         
         if (append) {
@@ -176,12 +207,17 @@ export function DiscussionPanel({
       }
     } catch (e) {
       console.error("Error loading comments", e);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load comments",
+      });
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
       setIsSearching(false);
     }
-  }, [taskId]);
+  }, [taskId, toast]);
 
   // Initial load
   useEffect(() => {
@@ -285,7 +321,47 @@ export function DiscussionPanel({
     setMentionQuery("");
   };
 
-  // Handle posting with mentions
+  // Handle file upload
+  const uploadFile = async (file: File): Promise<CommentAttachment> => {
+    try {
+      // Step 1: Get presigned URL
+      const uploadResponse = await uploadDiscussionFile(taskId, {
+        message: editorValue,
+        mentions: mentionedUsers.map(user => user.id),
+        fileName: file.name,
+        fileType: file.type
+      });
+
+      if (!uploadResponse.isSuccess) {
+        throw new Error(uploadResponse.message);
+      }
+
+      // Step 2: Upload to S3
+      await uploadFileToS3(
+        uploadResponse.data.url,
+        file,
+        file.type
+      );
+
+      // Step 3: Verify file upload
+      const verifyResponse = await verifyDiscussionFile(uploadResponse.data.docId);
+      if (!verifyResponse.isSuccess) {
+        throw new Error("File verification failed");
+      }
+
+      return {
+        id: uploadResponse.data.docId.toString(),
+        fileName: file.name,
+        fileSize: file.size,
+        url: uploadResponse.data.url.split('?')[0] // Remove query params for the download URL
+      };
+    } catch (error) {
+      console.error("File upload failed:", error);
+      throw error;
+    }
+  };
+
+  // Handle posting with mentions and files
   const handlePost = async () => {
     if (!canComment) return;
     if (!editorValue?.trim() && pendingFiles.length === 0) return;
@@ -294,17 +370,38 @@ export function DiscussionPanel({
     try {
       const mentionIds = mentionedUsers.map(user => user.id);
       
+      // Upload files first
+      const uploadedAttachments: CommentAttachment[] = [];
+      for (const file of pendingFiles) {
+        try {
+          const attachment = await uploadFile(file);
+          uploadedAttachments.push(attachment);
+        } catch (error) {
+          console.error(`Failed to upload file ${file.name}:`, error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to upload file ${file.name}`,
+          });
+        }
+      }
+
       const newComment: CommentItem = {
         id: `${Date.now()}`,
+        parentId: null,
         author: { id: "me", name: "You" },
         content: editorValue || "",
         createdAt: new Date().toISOString(),
-        // attachments: uploaded,
+        isEdited: false,
+        updatedAt: new Date().toISOString(),
+        attachments: uploadedAttachments,
         reactions: [],
         mentions: mentionedUsers.map(user => ({
           id: user.id,
           name: user.label,
         })),
+        replyCount: 0,
+        isDeletable: true,
       };
 
       // Optimistic update
@@ -313,15 +410,78 @@ export function DiscussionPanel({
       setPendingFiles([]);
       setMentionedUsers([]);
 
-      // TODO: POST to backend with mentions
+      // Post comment to backend
       await addTaskDiscussionComment(taskId, {
         message: editorValue,
         mentions: mentionIds,
       });
+
+      toast({
+        title: "Success",
+        description: "Comment posted successfully",
+      });
+      
+      // Reload comments to get the actual data from backend
+      load(searchTerm, 0, paginationMeta.pageSize);
+
     } catch (e) {
       console.error("Error posting comment", e);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to post comment",
+      });
     } finally {
       setIsPosting(false);
+    }
+  };
+
+  // Handle reply functionality
+  const handleReply = (commentId: string, authorName: string) => {
+    setReplyingTo(commentId);
+    setReplyContent(`@${authorName} `);
+    // Focus on the reply textarea if it exists
+    setTimeout(() => {
+      const replyTextarea = document.getElementById(`reply-textarea-${commentId}`);
+      if (replyTextarea) {
+        (replyTextarea as HTMLTextAreaElement).focus();
+      }
+    }, 0);
+  };
+
+  const handleReplyPost = async (commentId: string) => {
+    if (!replyContent.trim()) return;
+    
+    setIsReplying(true);
+    try {
+      // Post reply to backend using the specific reply endpoint
+      const payload: TaskDiscussionReplyRequest = {
+        message: replyContent,
+        // Add any other required fields for reply
+      };
+      
+      await addTaskDiscussionReply(commentId, payload);
+
+      toast({
+        title: "Success",
+        description: "Reply posted successfully",
+      });
+      
+      // Reset reply state
+      setReplyingTo(null);
+      setReplyContent("");
+      
+      // Reload comments to get the actual data from backend
+      load(searchTerm, 0, paginationMeta.pageSize);
+    } catch (e) {
+      console.error("Error posting reply", e);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to post reply",
+      });
+    } finally {
+      setIsReplying(false);
     }
   };
 
@@ -334,65 +494,101 @@ export function DiscussionPanel({
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const toggleReaction = async (commentId: string, emoji: string) => {
+  const toggleReaction = async (commentId: string, reactionType: string) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    const existingReaction = comment.reactions?.find(r => r.emoji === reactionType);
+    const hasReacted = existingReaction?.reacted;
+
+    // Optimistic update
     setComments((prev) =>
       prev.map((c) => {
         if (c.id !== commentId) return c;
-        const existing = (c.reactions || []).find((r) => r.emoji === emoji);
-        if (existing) {
-          const reacted = !existing.reacted;
-          const count = Math.max(0, existing.count + (reacted ? 1 : -1));
+        
+        if (hasReacted) {
+          // Remove reaction
           return {
             ...c,
-            reactions: c.reactions!.map((r) =>
-              r.emoji === emoji ? { ...r, count, reacted } : r
-            ),
+            reactions: c.reactions!.filter(r => r.emoji !== reactionType)
+          };
+        } else {
+          // Add reaction
+          const newReaction = {
+            emoji: reactionType,
+            count: 1,
+            reacted: true
+          };
+          return {
+            ...c,
+            reactions: [...(c.reactions || []), newReaction]
           };
         }
-        return {
-          ...c,
-          reactions: [
-            ...(c.reactions || []),
-            { emoji, count: 1, reacted: true },
-          ],
-        };
       })
     );
 
-    // TODO: call backend toggle
-    // await toggleTaskCommentReaction(taskId, commentId, emoji)
-  };
-
-  const onDelete = async (commentId: string) => {
-    if (!confirm("Delete this comment?")) return;
-    const old = comments;
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
     try {
-      // await deleteTaskComment(taskId, commentId)
-    } catch (e) {
-      console.error(e);
-      // revert on error
-      setComments(old);
+      if (hasReacted) {
+        await removeTaskDiscussionReaction(commentId);
+        toast({
+          title: "Success",
+          description: "Reaction removed",
+        });
+      } else {
+        const payload: TaskDiscussionReactionRequest = { reactionType };
+        await addTaskDiscussionReaction(commentId, payload);
+        toast({
+          title: "Success",
+          description: "Reaction added",
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling reaction:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update reaction",
+      });
+      // Revert optimistic update on error
+      setComments((prev) =>
+        prev.map((c) => {
+          if (c.id !== commentId) return c;
+          return comment; // Revert to original comment
+        })
+      );
     }
   };
 
-  const onEdit = async (commentId: string, newText: string) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === commentId
-          ? {
-              ...c,
-              content: newText,
-              isEdited: true,
-              updatedAt: new Date().toISOString(),
-            }
-          : c
-      )
-    );
+  const onDelete = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+    
+    const oldComments = [...comments];
+    
+    // Optimistic update
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    
     try {
-      // await updateTaskComment(taskId, commentId, { content: newText })
-    } catch (e) {
-      console.error(e);
+      const response = await deleteDiscussion(commentId);
+      
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Comment deleted successfully",
+        });
+      } else {
+        throw new Error(response.message || "Failed to delete comment");
+      }
+    } catch (e: any) {
+      console.error("Error deleting comment:", e);
+      
+      // Revert optimistic update on error
+      setComments(oldComments);
+      
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: e.message || "Failed to delete comment",
+      });
     }
   };
 
@@ -467,17 +663,18 @@ export function DiscussionPanel({
 
       {/* Composer */}
       <div className="border rounded-md p-3 mb-4 bg-gray-50/60">
-          {!canComment && (
+        {!canComment && (
           <div className="text-xs text-red-600 mb-2">
             You don't have permission to comment on this task.
           </div>
         )}
-           <Textarea
+        <Textarea
           ref={textareaRef}
           value={editorValue}
           onChange={handleEditorChange}
           placeholder="Write a comment... Mention someone with @"
           className="min-h-[80px]"
+          disabled={!canComment}
         />
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-2">
@@ -487,6 +684,7 @@ export function DiscussionPanel({
               multiple
               className="hidden"
               onChange={(e) => onFilesPicked(e.target.files)}
+              disabled={!canComment}
             />
             <Button
               type="button"
@@ -495,6 +693,7 @@ export function DiscussionPanel({
               onClick={() => fileInputRef.current?.click()}
               className="text-gray-600"
               title="Attach files"
+              disabled={!canComment}
             >
               <Paperclip className="h-4 w-4" />
             </Button>
@@ -537,13 +736,14 @@ export function DiscussionPanel({
         </div>
       </div>
 
-  {showMentionPopup && (
-          <MentionPopup
-            users={filteredUsers}
-            onSelect={handleMentionSelect}
-            position={mentionPosition}
-          />
-        )}
+      {showMentionPopup && (
+        <MentionPopup
+          users={filteredUsers}
+          onSelect={handleMentionSelect}
+          position={mentionPosition}
+        />
+      )}
+
       {/* Comments List */}
       {isLoading ? (
         <div className="space-y-3">
@@ -612,9 +812,8 @@ export function DiscussionPanel({
                             <a
                               key={a.id}
                               href={a.url || "#"}
-                              onClick={(e) => {
-                                if (!a.url) e.preventDefault();
-                              }}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 text-xs border rounded px-2 py-1 bg-gray-50 hover:bg-gray-100"
                             >
                               <FileText className="h-3 w-3" />
@@ -634,16 +833,16 @@ export function DiscussionPanel({
 
                       {/* Reactions */}
                       <div className="mt-2 flex items-center gap-2">
-                        {defaultReactions.map((emoji) => {
+                        {defaultReactions.map((reactionType) => {
                           const reaction = c.reactions?.find(
-                            (r) => r.emoji === emoji
+                            (r) => r.emoji === reactionType
                           );
                           const active = reaction?.reacted;
                           const count = reaction?.count || 0;
                           return (
                             <button
-                              key={emoji}
-                              onClick={() => toggleReaction(c.id, emoji)}
+                              key={reactionType}
+                              onClick={() => toggleReaction(c.id, reactionType)}
                               className={`text-xs border rounded-full px-2 py-0.5 ${
                                 active
                                   ? "bg-blue-50 border-blue-200 text-blue-700"
@@ -651,7 +850,7 @@ export function DiscussionPanel({
                               }`}
                               title={active ? "Remove reaction" : "Add reaction"}
                             >
-                              <span className="mr-1">{emoji}</span>
+                              <span className="mr-1">{reactionEmojis[reactionType]}</span>
                               {count > 0 && <span>{count}</span>}
                             </button>
                           );
@@ -668,25 +867,56 @@ export function DiscussionPanel({
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2 text-gray-600"
+                            onClick={() => handleReply(c.id, c.author.name)}
                             title="Reply"
                           >
                             <Reply className="h-3.5 w-3.5" />
                           </Button>
-                          <InlineEditButton
-                            onSubmit={(text) => onEdit(c.id, text)}
-                            initialText={c.content}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-gray-600"
-                            onClick={() => onDelete(c.id)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {c.isDeletable && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-gray-600 hover:text-red-600"
+                              onClick={() => onDelete(c.id)}
+                              title="Delete comment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
+
+                      {/* Reply section */}
+                      {replyingTo === c.id && (
+                        <div className="mt-3 border-t pt-3">
+                          <Textarea
+                            id={`reply-textarea-${c.id}`}
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            placeholder="Write your reply..."
+                            className="min-h-[60px] mb-2"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReplyingTo(null);
+                                setReplyContent("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleReplyPost(c.id)}
+                              disabled={!replyContent.trim() || isReplying}
+                            >
+                              {isReplying ? "Posting…" : "Post Reply"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -712,64 +942,3 @@ export function DiscussionPanel({
     </div>
   );
 }
-
-function InlineEditButton({
-  initialText,
-  onSubmit,
-}: {
-  initialText: string;
-  onSubmit: (newText: string) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [value, setValue] = useState(initialText);
-
-  useEffect(() => setValue(initialText), [initialText]);
-
-  const handleEditClick = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setValue(initialText);
-    setIsEditing(false);
-  };
-
-  const handleSave = () => {
-    onSubmit(value);
-    setIsEditing(false);
-  };
-
-  if (!isEditing) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 px-2 text-gray-600"
-        onClick={handleEditClick}
-        title="Edit"
-      >
-        <Edit className="h-3.5 w-3.5" />
-      </Button>
-    );
-  }
-
-  return (
-    <div className="w-full border rounded-md p-2 bg-white mt-2">
-      <Textarea 
-        value={value} 
-        onChange={(e) => setValue(e.target.value)}
-        className="min-h-[80px] w-full"
-        autoFocus
-      />
-      <div className="flex justify-end gap-2 mt-2">
-        <Button size="sm" variant="outline" onClick={handleCancel}>
-          <X className="h-4 w-4 mr-1" /> Cancel
-        </Button>
-        <Button size="sm" onClick={handleSave}>
-          <Save className="h-4 w-4 mr-1" /> Save
-        </Button>
-      </div>
-    </div>
-  );
-}
-

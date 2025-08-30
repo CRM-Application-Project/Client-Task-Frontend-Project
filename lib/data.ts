@@ -340,30 +340,50 @@ export interface PaginationMeta {
   numberOfElementsInThePage: number;
 }
 
+export interface TaskDiscussionAuthor {
+  id: string;
+  label: string;
+}
+
+export interface TaskDiscussionFile {
+  id: number;
+  fileName: string;
+  filetype: string;
+}
+
+export interface TaskDiscussionMention {
+  id: number;
+  isRead: boolean;
+  mentioned: TaskDiscussionAuthor;
+  readAt: string | null;
+}
+
+export interface TaskDiscussionReaction {
+  id: number | null;
+  reactedBy: TaskDiscussionAuthor;
+  reaction: string; // e.g., "LIKE", "HEART"
+  createdAt: string;
+}
+
 export interface TaskDiscussionComment {
   id: number;
-  userId: number;
-  userName: string;
-  userImageUrl?: string;
+  parentId: number | null;
+  author: TaskDiscussionAuthor;
   message: string;
   createdAt: string;
-  isEdited: boolean;
-  updatedAt?: string;
-  attachments?: {
-    id: number;
-    fileName: string;
-    fileSize: number;
-    fileUrl: string;
-  }[];
-  reactions?: {
-    emoji: string;
-    count: number;
-    reacted: boolean;
-  }[];
-  mentions?: {
-    userId: number;
-    userName: string;
-  }[];
+  replyCount: number;
+  isDeletable: boolean;
+  mentions: TaskDiscussionMention[];
+  reactions: TaskDiscussionReaction[];
+  files: TaskDiscussionFile[];
+}
+
+export interface PaginationMeta {
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
+  pageIndex: number;
+  numberOfElementsInThePage: number;
 }
 
 export interface TaskDiscussionFilterResponse {
@@ -374,7 +394,29 @@ export interface TaskDiscussionFilterResponse {
   };
 }
 
+
 export interface Mention {
   userId: number;
   userName: string;
+}
+
+
+
+
+export interface TaskDiscussionReactionRequest {
+  reactionType: "LIKE" | "HEART" | "LAUGH" | "CLAP" | string; // extend as needed
+}
+
+export interface TaskDiscussionReactionResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: string | null;
+    reactedBy: {
+      id: string;
+      label: string;
+    };
+    reaction: string;
+    createdAt: string;
+  };
 }

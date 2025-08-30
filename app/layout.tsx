@@ -111,7 +111,6 @@ function generateThemeCSS(themeData: any) {
       --color-secondary: ${secondary};
       --color-accent: ${adjustBrightness(secondary, 0.3)};
       --color-surface: ${surface};
-      --color-border: ${adjustBrightness(primary, 0.7)};
       
       /* Brand Palette */
       --brand-primary: ${primary};
@@ -139,7 +138,6 @@ function generateThemeCSS(themeData: any) {
       --card-foreground: ${text};
       --primary: ${primary};
       --primary-foreground: ${headerText};
-      --border: ${adjustBrightness(primary, 0.7)};
       --input: ${adjustBrightness(primary, 0.85)};
     }
   `;
