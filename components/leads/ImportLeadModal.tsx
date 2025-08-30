@@ -127,7 +127,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-xl p-4">
+      <DialogContent className="max-w-xl p-4 bg-white">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-base font-semibold">
             Import Leads

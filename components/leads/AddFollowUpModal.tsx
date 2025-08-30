@@ -201,7 +201,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-4">
+      <DialogContent className="max-w-xl max-h-[90vh]  bg-white overflow-y-auto p-4">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg font-semibold text-gray-900">
             Schedule New Follow-up

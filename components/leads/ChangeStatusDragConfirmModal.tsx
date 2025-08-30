@@ -34,7 +34,7 @@ export const ChangeStatusConfirmModal = ({
 }: ChangeStatusConfirmModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-white">
         <DialogHeader>
           <DialogTitle>Change Lead Status</DialogTitle>
         </DialogHeader>

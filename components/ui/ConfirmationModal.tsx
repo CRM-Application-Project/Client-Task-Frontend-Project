@@ -32,7 +32,7 @@ export const ConfirmationModal = ({
 }: ConfirmationModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="bg-white">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

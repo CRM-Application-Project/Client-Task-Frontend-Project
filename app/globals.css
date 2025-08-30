@@ -63,6 +63,7 @@
     /* Primary Colors */
     --brand-primary: var(--color-primary);
     --brand-secondary: var(--color-secondary);
+    --brand-background: #ffffff;
 
     /* Text Colors */
     --text-primary: var(--color-primary);
@@ -70,6 +71,7 @@
     --text-light: var(--color-accent);
     --text-lighter: #d4d4d4;
     --text-white: var(--color-surface);
+
 
     /* Button Colors */
     --button-primary-background: var(--color-primary);

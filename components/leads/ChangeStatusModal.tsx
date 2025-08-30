@@ -195,7 +195,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md md:max-w-lg rounded-lg">
+      <DialogContent className="sm:max-w-md md:max-w-lg rounded-lg bg-white">
         <DialogHeader className="text-left">
           <DialogTitle className="text-xl font-semibold">
             Update Lead Status

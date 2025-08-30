@@ -89,7 +89,7 @@ export default function UpdateDepartmentModal({
         </Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent className="bg-white">
         <DialogHeader>
           <DialogTitle>Update Department</DialogTitle>
         </DialogHeader>
