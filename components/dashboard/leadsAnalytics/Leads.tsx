@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import KpiCard from "./KpiCard";
-import SalesFunnelCard from "./SalesFunnelCard";
+import LeadStatus from "./LeadStatusChart";
 import LeadSourcesCard from "./LeadSourcesCard";
 import DepartmentSnapshotsCard from "./DepartmentSnapshotsCard";
 import StaffStatusCard from "./StaffStatusCard";
@@ -110,19 +110,19 @@ export default function Leads() {
 
       {/* Funnel & Sources */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <SalesFunnelCard data={data?.data.leadStatusData} />
+        <LeadStatus data={data?.data.leadStatusData} />
         <LeadSourcesCard data={data?.data.leadSourceData} />
       </div>
 
       {/* Staff Section */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6">
         <StaffPerformance
           topPerformers={data?.data.topPerformerLeads}
           avgPerformers={data?.data.avgPerformerLeads}
           leastPerformers={data?.data.leastPerformerLeads}
         />
-        <DepartmentSnapshotsCard />
-        <StaffStatusCard />
+        {/* <DepartmentSnapshotsCard />
+        <StaffStatusCard /> */}
       </div>
     </div>
   );

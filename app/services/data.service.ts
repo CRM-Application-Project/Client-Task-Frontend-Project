@@ -45,7 +45,11 @@ import {
   LeadTransferRequest,
   LeadTransferResponse,
 } from "@/lib/leads";
-import { GenerateBrandResponse, RegisterRequestData, RegisterResponse } from "@/lib/color";
+import {
+  GenerateBrandResponse,
+  RegisterRequestData,
+  RegisterResponse,
+} from "@/lib/color";
 import axios from "axios";
 import { BASE_URL } from "../http-common";
 
@@ -74,9 +78,6 @@ export const registerUser = async (
   return res.data as RegisterResponse;
 };
 
-
-
-
 export const verifyUser = async (
   subDomainName: string,
   deviceType: string = "web"
@@ -92,9 +93,7 @@ export const verifyUser = async (
 
   console.log("Final URL:", url);
 
-  const res = await getRequest(url, {
-  
-  });
+  const res = await getRequest(url, {});
 
   return res as VerifyUserResponse;
 };
@@ -1085,7 +1084,18 @@ export interface TaskPerformer {
   userName: string;
   totalTasks: number;
   completedTasks: number;
-  completedPercentage: number;  
+  completedPercentage: number;
+}
+
+export type TaskFlowGraphAnalysis = Record<string, number>;
+
+export interface DepartmentAnalytics {
+  departmentName: string;
+  totalTasks: number;
+  completedTasks: number;
+  inReviewTasks: number;
+  ongoingTasks: number;
+  completedPercentage: number;
 }
 
 export interface TaskOverviewResponse {
@@ -1095,10 +1105,12 @@ export interface TaskOverviewResponse {
     startDate: string;
     endDate: string;
     taskAnalytics: TaskAnalytics;
+    taskFlowGraphAnalysis: TaskFlowGraphAnalysis;
     topPerformerTasks: TaskPerformer[];
     avgPerformerTasks: TaskPerformer[];
     leastPerformerTasks: TaskPerformer[];
     taskStatusGraphData: Record<string, number>;
+    departmentAnalytics: DepartmentAnalytics[];
   };
 }
 
@@ -1115,7 +1127,6 @@ export const fetchTasksOverview = async (
   const res = await getRequest(endpoint);
   return res as TaskOverviewResponse;
 };
-
 
 export const decideTask = async (
   taskId: number | string,
@@ -1135,7 +1146,6 @@ export const addTaskDiscussionComment = async (
   );
   return res as TaskDiscussionCommentResponse;
 };
-
 
 export const getTaskDiscussionComments = async (
   taskId: number | string,
@@ -1166,6 +1176,7 @@ export const generateBrandPalettes = async (
   );
   return res as GenerateBrandResponse;
 };
+
 
 
 export interface UploadFileResponse {
