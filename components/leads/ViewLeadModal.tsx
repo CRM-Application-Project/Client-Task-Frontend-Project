@@ -201,7 +201,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-start gap-4 pb-4 border-b">
             <Avatar className="h-14 w-14">

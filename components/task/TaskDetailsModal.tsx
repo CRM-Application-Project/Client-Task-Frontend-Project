@@ -213,7 +213,7 @@ export const TaskDetailsModal = ({ isOpen, onClose, taskId, onEdit }: TaskDetail
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 rounded-lg">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 rounded-lg bg-white">
         {isLoading ? (
           <div className="p-6 space-y-6">
             <div className="flex justify-between items-start">

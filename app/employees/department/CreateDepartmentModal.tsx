@@ -81,7 +81,7 @@ export default function CreateDepartmentModal({
           Add Department
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="bg-white">
         <DialogHeader>
           <DialogTitle>Create Department</DialogTitle>
         </DialogHeader>

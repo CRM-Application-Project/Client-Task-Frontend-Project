@@ -576,7 +576,7 @@ export const TaskCard = ({
 
       {/* Document management dialog with fixed overflow */}
       <Dialog open={showDocumentDialog} onOpenChange={setShowDocumentDialog}>
-        <DialogContent className="max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col bg-white">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="break-words">Task Documents</DialogTitle>
             <DialogDescription className="break-words">

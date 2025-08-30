@@ -178,7 +178,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white">
         <DialogHeader>
           <DialogTitle>Transfer Lead</DialogTitle>
           <DialogDescription>

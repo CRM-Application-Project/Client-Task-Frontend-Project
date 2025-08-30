@@ -489,7 +489,7 @@ estimatedHours: editingTask.estimatedHours ?? 0,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-foreground">
             {editingTask ? "Edit Task" : "Add Task"}

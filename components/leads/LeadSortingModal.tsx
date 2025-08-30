@@ -94,7 +94,7 @@ const LeadSortingModal: React.FC<LeadSortingModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white">
         <DialogHeader>
           <DialogTitle>Sort Leads</DialogTitle>
           <DialogDescription>
