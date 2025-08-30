@@ -1,12 +1,28 @@
 "use client";
 
 import { useMemo } from "react";
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, Cell } from "recharts";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 interface TasksByStatusCardProps {
   data?: Record<string, number>;
 }
 
-type Row = { label: string; value: number; color: string };
+type ChartPoint = { status: string; count: number; color: string };
 
 const statusColors: Record<string, string> = {
   "TO DO": "#60A5FA", // blue-400
@@ -17,125 +33,101 @@ const statusColors: Record<string, string> = {
   BACKLOG: "#64748B", // slate-500
 };
 
-export default function TasksByStatusCard({ data }: TasksByStatusCardProps) {
-  const rows: Row[] = data
-    ? Object.entries(data)
-        .filter(([_, value]) => value > 0)
-        .map(([status, value]) => ({
-          label: status,
-          value,
-          color: statusColors[status] || "#94A3B8",
-        }))
-    : [];
+// Always plot all stages in a fixed order so a single non-zero category doesn't stretch full-width.
+const ALL_STATUSES = [
+  "NEW",
+  "BACKLOG",
+  "TO DO",
+  "IN PROGRESS",
+  "IN REVIEW",
+  "DONE",
+] as const;
 
-  const total = useMemo(() => rows.reduce((s, r) => s + r.value, 0), [rows]);
+type StatusKey = (typeof ALL_STATUSES)[number];
+
+const chartConfig = {
+  count: {
+    label: "Tasks",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
+
+export default function TasksByStatusCard({ data }: TasksByStatusCardProps) {
+  const chartData: ChartPoint[] = useMemo(() => {
+    return ALL_STATUSES.map((status) => ({
+      status,
+      count: (data?.[status as StatusKey] ?? 0) as number,
+      color: statusColors[status] || "#94A3B8",
+    }));
+  }, [data]);
+
+  const total = useMemo(
+    () => chartData.reduce((sum, p) => sum + p.count, 0),
+    [chartData]
+  );
+
+  // Custom label: hide 0s to avoid visual noise
+  const renderValueLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    if (!value) return null;
+    const cx = x + width / 2;
+    return (
+      <text
+        x={cx}
+        y={(y ?? 0) - 8}
+        textAnchor="middle"
+        className="fill-foreground"
+        fontSize={12}
+      >
+        {value}
+      </text>
+    );
+  };
 
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-200/60">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-[18px] font-semibold text-slate-900">
-          Tasks by Status
-        </h3>
-        <div className="text-[12px] text-slate-500">
-          {total.toLocaleString()} total
+    <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
+      <CardHeader>
+        <CardTitle>Tasks by Status</CardTitle>
+        <CardDescription>{total.toLocaleString()} total tasks</CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <ChartContainer config={chartConfig} className="h-64 w-full">
+          <BarChart
+            accessibilityLayer
+            data={chartData}
+            margin={{ top: 16, right: 8, left: 8, bottom: 0 }}
+            barCategoryGap="25%"
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="status"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
+            />
+            <Bar dataKey="count" radius={8} barSize={60}>
+              {chartData.map((entry) => (
+                <Cell key={entry.status} fill={entry.color} />
+              ))}
+              <LabelList content={renderValueLabel} />
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="leading-none font-medium">
+          All stages shown, even when counts are zero
         </div>
-      </div>
-
-      {/* Rows */}
-      <div className="space-y-4">
-        {rows.length > 0 ? (
-          rows.map((r) => {
-            const pct = total > 0 ? (r.value / total) * 100 : 0;
-            const gradient = `linear-gradient(90deg, ${r.color}CC 0%, ${r.color}99 60%, ${r.color}80 100%)`;
-            return (
-              <div key={r.label} className="group">
-                <div className="mb-1 flex items-center justify-between">
-                  <div className="text-[13px] font-medium text-slate-700">
-                    {r.label}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
-                      {pct.toFixed(0)}%
-                    </span>
-                    <span className="tabular-nums text-[12px] text-slate-500">
-                      {r.value.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* track */}
-                <div
-                  className="relative h-4 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70"
-                  aria-label={`${r.label} ${r.value} tasks, ${pct.toFixed(
-                    0
-                  )} percent`}
-                  role="meter"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(pct)}
-                >
-                  <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.0) 60%)",
-                    }}
-                  />
-                  <div
-                    className="h-full rounded-full transition-[width] duration-500 ease-out will-change-[width]"
-                    style={{
-                      width: `${pct}%`,
-                      background: gradient,
-                      boxShadow:
-                        "0 4px 12px rgba(2,6,23,0.08), inset 0 1px 0 rgba(255,255,255,.5)",
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="text-center text-slate-400 py-8">
-            No data available
-          </div>
-        )}
-      </div>
-
-      {/* Mini stacked overview footer */}
-      {rows.length > 0 && (
-        <div className="mt-5">
-          <div className="mb-2 text-[12px] text-slate-500">Distribution</div>
-          <div className="flex h-2 overflow-hidden rounded-full ring-1 ring-slate-200/70">
-            {rows.map((r) => {
-              const pct = total > 0 ? (r.value / total) * 100 : 0;
-              return (
-                <div
-                  key={r.label}
-                  className="h-full"
-                  style={{
-                    width: `${pct}%`,
-                    backgroundColor: r.color,
-                    opacity: 0.7,
-                  }}
-                  title={`${r.label}: ${pct.toFixed(0)}%`}
-                />
-              );
-            })}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-            {rows.map((r) => (
-              <span key={r.label} className="inline-flex items-center gap-1">
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-full ring-2 ring-white"
-                  style={{ backgroundColor: r.color, opacity: 0.85 }}
-                />
-                {r.label}
-              </span>
-            ))}
-          </div>
+        <div className="text-muted-foreground leading-none">
+          Bar width is fixed so one category never dominates the layout
         </div>
-      )}
+      </CardFooter>
     </div>
   );
 }

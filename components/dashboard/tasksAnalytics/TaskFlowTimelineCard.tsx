@@ -2,18 +2,57 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TaskFlowGraphAnalysis } from "@/app/services/data.service";
+
+interface TaskFlowTimelineCardProps {
+  data?: TaskFlowGraphAnalysis;
+  title?: string;
+  description?: string;
+}
 
 type Point = { x: number; y: number; label: string; value: number };
 
-export default function TaskFlowTimelineCard() {
-  // Data: Mon..Sun
-  const values = [40, 48, 35, 60, 40, 28, 20];
-  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export default function TaskFlowTimelineCard({
+  data,
+  title = "Task Flow",
+  description,
+}: TaskFlowTimelineCardProps) {
+  // Default data if none provided
+  const defaultValues = [40, 48, 35, 60, 40, 28, 20];
+  const defaultLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Process the incoming data
+  const values = useMemo(() => {
+    if (!data) return defaultValues;
+    return Object.values(data);
+  }, [data]);
+
+  const labels = useMemo(() => {
+    if (!data) return defaultLabels;
+    return Object.keys(data);
+  }, [data]);
+
+  // Calculate peak day
+  const peakDay = useMemo(() => {
+    if (!values.length) return "";
+    const maxValue = Math.max(...values);
+    const peakIndex = values.indexOf(maxValue);
+    return labels[peakIndex];
+  }, [values, labels]);
+
+  // Calculate week-over-week change
+  const wowChange = useMemo(() => {
+    if (values.length < 2) return 0;
+    const lastValue = values[values.length - 1];
+    const prevValue = values[values.length - 2];
+    if (prevValue === 0) return 0;
+    return ((lastValue - prevValue) / prevValue) * 100;
+  }, [values]);
 
   // Layout (height fixed, width responsive)
   const pad = 32;
   const h = 280;
-  const maxY = 80;
+  const maxY = useMemo(() => Math.max(...values, 80), [values]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -55,7 +94,7 @@ export default function TaskFlowTimelineCard() {
         label: labels[i],
         value: v,
       })),
-    [w]
+    [w, values, labels]
   );
 
   // Hover state
@@ -94,17 +133,22 @@ export default function TaskFlowTimelineCard() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">Task Flow</h3>
-          <p className="text-sm text-slate-500">Last 7 days</p>
+          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+          <p className="text-sm text-slate-500">
+            {description ||
+              `Last ${values.length} ${values.length === 1 ? "day" : "days"}`}
+          </p>
         </div>
         <div className="flex items-center">
           <div className="flex items-center mr-4">
             <div className="w-3 h-3 rounded-full bg-indigo-500 mr-2"></div>
             <span className="text-sm text-slate-600">Tasks Processed</span>
           </div>
-          <div className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-            Peak: Thu
-          </div>
+          {peakDay && (
+            <div className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
+              Peak: {peakDay}
+            </div>
+          )}
         </div>
       </div>
 
@@ -126,7 +170,13 @@ export default function TaskFlowTimelineCard() {
           </defs>
 
           {/* Horizontal gridlines */}
-          {[0, 20, 40, 60, 80].map((v) => (
+          {[
+            0,
+            Math.floor(maxY / 4),
+            Math.floor(maxY / 2),
+            Math.floor((3 * maxY) / 4),
+            maxY,
+          ].map((v) => (
             <g key={v}>
               <line
                 x1={xMin}
@@ -248,19 +298,21 @@ export default function TaskFlowTimelineCard() {
             <span className="font-medium text-slate-900">
               {values.reduce((a, b) => a + b, 0)}
             </span>{" "}
-            tasks completed this week
+            tasks completed this period
           </div>
-          <div className="text-sm text-slate-600">
-            <span
-              className={
-                values[6] > values[5] ? "text-emerald-600" : "text-rose-600"
-              }
-            >
-              {values[6] > values[5] ? "+" : ""}
-              {Math.round(((values[6] - values[5]) / values[5]) * 100)}%
-            </span>{" "}
-            from yesterday
-          </div>
+          {values.length >= 2 && (
+            <div className="text-sm text-slate-600">
+              <span
+                className={
+                  wowChange >= 0 ? "text-emerald-600" : "text-rose-600"
+                }
+              >
+                {wowChange >= 0 ? "+" : ""}
+                {Math.round(wowChange)}%
+              </span>{" "}
+              from previous day
+            </div>
+          )}
         </div>
       </div>
     </div>
