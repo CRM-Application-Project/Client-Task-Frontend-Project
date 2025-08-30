@@ -43,7 +43,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { registerUser, generateBrandPalettes } from "../services/data.service";
-import ColorThief from "colorthief";
+// @ts-ignore
+import ColorThief from "color-thief-browser";
 import LoginPreview from "@/components/register/LoginPreview";
 
 // Updated theme interfaces matching the API response format
@@ -228,9 +229,9 @@ export default function RegisterPage() {
         const colorThief = new ColorThief();
         const colorPalette = colorThief.getPalette(img, 5);
       
-        
-        const hexColors = colorPalette.map(rgb => 
-          `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
+        // RGB colors are returned as arrays, not as objects with numeric indices
+        const hexColors: string[] = colorPalette.map((rgb: number[]) => 
+          `#${rgb.map((c: number) => c.toString(16).padStart(2, '0')).join('')}`
         );
         
         setExtractedColors(hexColors);
