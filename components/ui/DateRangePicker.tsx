@@ -22,6 +22,12 @@ export interface DateRange {
   endDate: Date;
 }
 
+const isFutureDate = (date: Date): boolean => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+  return date > today;
+};
+
 export interface DateRangePickerProps {
   onDateRangeChange: (range: DateRange) => void;
   initialRange: DateRange;
@@ -29,7 +35,13 @@ export interface DateRangePickerProps {
 }
 
 const quickRanges = [
-  { label: "Today", range: { startDate: new Date(), endDate: new Date() } },
+  {
+    label: "Today",
+    range: {
+      startDate: new Date(),
+      endDate: new Date(),
+    },
+  },
   {
     label: "Yesterday",
     range: {
@@ -53,7 +65,10 @@ const quickRanges = [
   },
   {
     label: "Last 30 Days",
-    range: { startDate: subDays(new Date(), 30), endDate: new Date() },
+    range: {
+      startDate: subDays(new Date(), 30),
+      endDate: new Date(),
+    },
   },
 ];
 
@@ -94,10 +109,15 @@ const DateRangePicker = ({
 
   const handleDateClick = useCallback(
     (date: Date) => {
+      // Prevent selecting future dates
+      if (isFutureDate(date)) {
+        return;
+      }
+
       if (selectingStart) {
         const newRange = { startDate: date, endDate: date };
         setSelectedRange(newRange);
-        onDateRangeChange(newRange); // <-- notify immediately
+        onDateRangeChange(newRange);
         setSelectingStart(false);
       } else {
         setSelectedRange((prevRange: DateRange) => {
@@ -123,9 +143,16 @@ const DateRangePicker = ({
 
   const handleQuickRangeSelect = useCallback(
     (range: DateRange) => {
-      setSelectedRange(range);
-      onDateRangeChange(range);
-      setCurrentMonth(range.startDate);
+      // Ensure end date is not in the future
+      const today = new Date();
+      const safeRange = {
+        startDate: range.startDate,
+        endDate: range.endDate > today ? today : range.endDate,
+      };
+
+      setSelectedRange(safeRange);
+      onDateRangeChange(safeRange);
+      setCurrentMonth(safeRange.startDate);
       setShowPicker(false);
       setSelectingStart(true);
     },
@@ -251,20 +278,28 @@ const DateRangePicker = ({
                 {daysInMonth.map((day) => {
                   const { isSelected, isStart, isEnd, isCurrentMonth } =
                     dateState(day);
+                  const futureDate = isFutureDate(day);
 
                   return (
                     <button
                       key={day.toString()}
-                      onClick={() => handleDateClick(day)}
+                      onClick={() => !futureDate && handleDateClick(day)}
                       className={clsx(
                         "h-8 w-8 rounded-full text-sm flex items-center justify-center",
                         "transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300",
-                        isCurrentMonth ? "text-gray-900" : "text-gray-400",
-                        isSelected && "bg-blue-100",
-                        isStart && "bg-blue-500 text-white rounded-l-full",
-                        isEnd && "bg-blue-500 text-white rounded-r-full",
-                        !isStart && !isEnd && "hover:bg-gray-100"
+                        futureDate && "opacity-50 cursor-not-allowed",
+                        !futureDate && isCurrentMonth && "text-gray-900",
+                        !futureDate && !isCurrentMonth && "text-gray-400",
+                        !futureDate && isSelected && "bg-blue-100",
+                        !futureDate &&
+                          isStart &&
+                          "bg-blue-500 text-white rounded-l-full",
+                        !futureDate &&
+                          isEnd &&
+                          "bg-blue-500 text-white rounded-r-full",
+                        !futureDate && !isStart && !isEnd && "hover:bg-gray-100"
                       )}
+                      disabled={futureDate}
                       aria-label={`Select ${format(day, "MMMM do, yyyy")}`}
                     >
                       {format(day, "d")}

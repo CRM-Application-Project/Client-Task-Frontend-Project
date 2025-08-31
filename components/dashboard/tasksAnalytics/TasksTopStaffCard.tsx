@@ -40,9 +40,8 @@ export default function TasksTopStaffCard({
     <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
       <div className="mb-3 flex items-start justify-between">
         <div className="leading-tight">
-          <h3 className="text-[18px] font-semibold text-slate-900">Staff by</h3>
           <h3 className="text-[18px] font-semibold text-slate-900">
-            Performance
+            Staff by Performance
           </h3>
         </div>
         <div className="flex gap-2">
