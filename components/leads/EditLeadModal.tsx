@@ -60,7 +60,10 @@ const formSchema = z.object({
   customerName: z
     .string()
     .min(1, "Name is required")
-    .regex(/^[A-Za-z\s.'-]+$/, "Name must only contain letters and valid symbols"),
+    .regex(
+      /^[A-Za-z\s.'-]+$/,
+      "Name must only contain letters and valid symbols"
+    ),
   customerEmailAddress: z.string().email("Invalid email address"),
   customerMobileNumber: z
     .string()
@@ -176,12 +179,15 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     }
   }, [lead, form, countryCodes]);
 
-  // ✅ Correctly extracts country code + local number
   const parsePhoneNumber = (
     phone: string,
     countryCodes: { code: string }[]
   ) => {
     if (!phone) return { code: "+91", number: "" };
+
+    const sortedCodes = [...countryCodes].sort(
+      (a, b) => b.code.length - a.code.length
+    );
 
     // find the longest matching code from your list
     const matched = countryCodes.find((c) => phone.startsWith(c.code));
@@ -260,7 +266,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         // Show success toast
         toast({
           title: "Lead updated",
-          description: "Lead information has been successfully updated.",
+          description:
+            response.message ||
+            "Lead information has been successfully updated.",
         });
       } else {
         toast({
