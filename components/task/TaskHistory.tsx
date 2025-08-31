@@ -211,7 +211,7 @@ export function TaskHistory({
     
     return updateData.filter(update => 
       !fieldsToExclude.some(field => 
-        update.fieldName.toLowerCase().includes(field.toLowerCase())
+        update.fieldName?.toLowerCase().includes(field.toLowerCase())
       )
     );
   };

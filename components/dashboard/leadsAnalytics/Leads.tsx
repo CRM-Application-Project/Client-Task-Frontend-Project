@@ -10,6 +10,7 @@ import {
   fetchLeadsOverview,
   LeadOverviewResponse,
 } from "@/app/services/data.service";
+import { format } from "date-fns";
 
 export default function Leads() {
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -24,10 +25,8 @@ export default function Leads() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const formattedStartDate = dateRange.startDate
-          .toISOString()
-          .split("T")[0];
-        const formattedEndDate = dateRange.endDate.toISOString().split("T")[0];
+        const formattedStartDate = format(dateRange.startDate, "yyyy-MM-dd");
+        const formattedEndDate = format(dateRange.endDate, "yyyy-MM-dd");
 
         const response = await fetchLeadsOverview(
           formattedStartDate,

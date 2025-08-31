@@ -39,6 +39,7 @@ export interface Task {
   completedAt?: string | null;
   documents?: TaskDocument[];
   acceptanceInfo?: { acceptanceCriteria: string };
+  isEditable?: boolean;
 }
 
 export interface TaskFilters {
