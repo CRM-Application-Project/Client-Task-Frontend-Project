@@ -9,7 +9,8 @@ import {
   Trash2, 
   User, 
   X, 
-  Search 
+  Search,
+  Download 
 } from "lucide-react";
 
 import { 
@@ -23,7 +24,9 @@ import {
   removeTaskDiscussionReaction,
   verifyDiscussionFile,
   deleteDiscussion,
-  TaskDiscussionReplyRequest
+  TaskDiscussionReplyRequest,
+  getDiscussionFileDownloadLink,
+  GetDiscussionFileDownloadLinkResponse
 } from "@/app/services/data.service";
 import { 
   CommentAttachment, 
@@ -81,6 +84,12 @@ function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   return coordinates;
 }
 
+// Helper function to check if file is an image
+function isImageFile(fileName: string): boolean {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+  return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+}
+
 export function DiscussionPanel({
   taskId,
   users,
@@ -124,6 +133,9 @@ export function DiscussionPanel({
     pageIndex: 0,
     numberOfElementsInThePage: 0,
   });
+
+  // Add state for downloading files
+  const [downloadingFiles, setDownloadingFiles] = useState<string[]>([]);
 
   const { toast } = useToast();
 
@@ -271,7 +283,7 @@ export function DiscussionPanel({
             id: mention.mentioned.id,
             name: mention.mentioned.label,
           })) : [],
-          replyCount: 0,
+          replyCount: reply.replyCount || 0,
           isDeletable: reply.isDeletable || false,
         }));
         
@@ -441,6 +453,85 @@ export function DiscussionPanel({
       throw error;
     }
   };
+
+  // Handle file download
+const handleFileDownload = async (fileId: string, fileName: string) => {
+  setDownloadingFiles(prev => [...prev, fileId]);
+  
+  try {
+    const response: GetDiscussionFileDownloadLinkResponse = await getDiscussionFileDownloadLink(fileId);
+    
+    if (response.isSuccess && response.data) {
+      // For images and other files, force download instead of opening in new tab
+      try {
+        // Fetch the file as a blob
+        const fileResponse = await fetch(response.data.url, {
+          method: 'GET',
+          headers: {
+            'Accept': '*/*',
+          },
+        });
+        
+        if (!fileResponse.ok) {
+          throw new Error('Failed to fetch file');
+        }
+        
+        const blob = await fileResponse.blob();
+        
+        // Create blob URL and trigger download
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        link.style.display = 'none';
+        
+        // Add to DOM, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up blob URL after a short delay
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+        }, 100);
+        
+        toast({
+          title: "Success",
+          description: `${fileName} downloaded successfully`,
+        });
+      } catch (fetchError) {
+        console.warn('Blob download failed, falling back to direct link:', fetchError);
+        // Fallback: try direct download with proper attributes
+        const link = document.createElement('a');
+        link.href = response.data.url;
+        link.download = fileName;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Download Started",
+          description: `${fileName} download initiated`,
+        });
+      }
+    } else {
+      throw new Error(response.message || "Failed to get download link");
+    }
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: `Failed to download ${fileName}`,
+    });
+  } finally {
+    setDownloadingFiles(prev => prev.filter(id => id !== fileId));
+  }
+};
 
   // Handle posting with mentions and files
   const handlePost = async () => {
@@ -718,6 +809,239 @@ export function DiscussionPanel({
     }
   };
 
+const renderAttachment = (attachment: CommentAttachment) => {
+  const isImage = isImageFile(attachment.fileName);
+  const isDownloading = downloadingFiles.includes(attachment.id);
+  
+  return (
+    <div
+      key={attachment.id}
+      className="inline-flex items-center gap-2 text-xs border rounded-lg px-3 py-2 bg-white hover:bg-gray-50 transition-colors shadow-sm"
+    >
+      <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
+      <div className="flex flex-col min-w-0">
+        <span
+          className="truncate max-w-[140px] font-medium text-gray-700"
+          title={attachment.fileName}
+        >
+          {attachment.fileName}
+        </span>
+        {!isImage && (
+          <span className="text-gray-400 text-xs">
+            {formatFileSize(attachment.fileSize)}
+          </span>
+        )}
+      </div>
+      <button
+        onClick={() => handleFileDownload(attachment.id, attachment.fileName)}
+        disabled={isDownloading}
+        className="text-gray-500 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded hover:bg-gray-100 transition-colors"
+        title={`Download ${attachment.fileName}`}
+      >
+        {isDownloading ? (
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+        ) : (
+          <svg 
+            className="h-4 w-4" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+            />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+};
+
+  // Render comment component (reusable for both main comments and replies)
+  const renderComment = (comment: CommentItem, isReply = false, depth = 0) => {
+    const canReplyToThis = !isReply || depth < 2; // Allow replies to replies but limit depth
+    
+    return (
+      <div key={comment.id} className={isReply ? "ml-4" : ""}>
+        <div className="flex items-start gap-3">
+          {comment.author.avatar ? (
+            <img
+              src={comment.author.avatar}
+              alt={comment.author.name}
+              className={`${isReply ? "h-6 w-6" : "h-8 w-8"} rounded-full object-cover`}
+            />
+          ) : (
+            <div className={`${isReply ? "h-6 w-6" : "h-8 w-8"} rounded-full ${isReply ? "bg-green-100" : "bg-blue-100"} flex items-center justify-center`}>
+              <User className={`${isReply ? "h-3 w-3 text-green-600" : "h-4 w-4 text-blue-600"}`} />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="font-medium text-gray-900 text-sm">
+                {comment.author.name}
+              </span>
+              <span>•</span>
+              <span title={new Date(comment.createdAt).toLocaleString()}>
+                {timeAgo(comment.createdAt)}
+              </span>
+              {comment.isEdited && <span className="italic">(edited)</span>}
+            </div>
+
+            {/* Plain text content */}
+            <div className="text-gray-700 mt-1 whitespace-pre-wrap">
+              {comment.content.split(/(@\w+)/g).map((part, i) => {
+                if (part.startsWith('@')) {
+                  const username = part.substring(1);
+                  const mentionedUser = comment.mentions?.find(m => m.name === username);
+                  if (mentionedUser) {
+                    return (
+                      <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
+                        @{username}
+                      </span>
+                    );
+                  }
+                }
+                return part;
+              })}
+            </div>
+
+            {/* Attachments */}
+            {comment.attachments && comment.attachments.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {comment.attachments.map((attachment) => renderAttachment(attachment))}
+              </div>
+            )}
+
+            {/* Reactions */}
+            <div className="mt-2 flex items-center gap-2">
+              {defaultReactions.map((reactionType) => {
+                const reaction = comment.reactions?.find(
+                  (r: any) => r.emoji === reactionType
+                );
+                const active = reaction?.reacted;
+                const count = reaction?.count || 0;
+                return (
+                  <button
+                    key={reactionType}
+                    onClick={() => toggleReaction(comment.id, reactionType)}
+                    className={`text-xs border rounded-full px-2 py-0.5 ${
+                      active
+                        ? "bg-blue-50 border-blue-200 text-blue-700"
+                        : "text-gray-600"
+                    }`}
+                    title={active ? "Remove reaction" : "Add reaction"}
+                  >
+                    <span className="mr-1">{reactionEmojis[reactionType]}</span>
+                    {count > 0 && <span>{count}</span>}
+                  </button>
+                );
+              })}
+              <button
+                className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
+                title="More reactions"
+              >
+                <Smile className="h-3 w-3" />
+                React
+              </button>
+              <div className="ml-auto flex items-center gap-1">
+                {/* Show replies button if there are replies and it's not a reply itself */}
+                {!isReply && comment.replyCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-blue-600 hover:text-blue-700"
+                    onClick={() => toggleReplies(comment.id)}
+                    title={expandedReplies.includes(comment.id) ? "Hide replies" : "Show replies"}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                    {expandedReplies.includes(comment.id) ? "Hide" : "Show"} {comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}
+                  </Button>
+                )}
+                {canReplyToThis && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-gray-600"
+                    onClick={() => handleReply(comment.id, comment.author.name)}
+                    title="Reply"
+                  >
+                    <Reply className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {comment.isDeletable && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-gray-600 hover:text-red-600"
+                    onClick={() => onDelete(comment.id)}
+                    title="Delete comment"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Replies section for main comments */}
+            {!isReply && expandedReplies.includes(comment.id) && (
+              <div className="mt-3 border-l-2 border-gray-200 pl-4">
+                {loadingReplies.includes(comment.id) ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 rounded-md" />
+                    <Skeleton className="h-12 rounded-md" />
+                  </div>
+                ) : repliesData[comment.id] && repliesData[comment.id].length > 0 ? (
+                  <div className="space-y-3">
+                    {repliesData[comment.id].map((reply) => renderComment(reply, true, 1))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 italic">
+                    No replies yet.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Reply section */}
+            {replyingTo === comment.id && (
+              <div className="mt-3 border-t pt-3">
+                <Textarea
+                  id={`reply-textarea-${comment.id}`}
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  placeholder="Write your reply..."
+                  className="min-h-[60px] mb-2"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setReplyingTo(null);
+                      setReplyContent("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleReplyPost(comment.id)}
+                    disabled={!replyContent.trim() || isReplying}
+                  >
+                    {isReplying ? "Posting…" : "Post Reply"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const list = [...comments].sort((a, b) =>
     sort === "newest"
       ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -887,302 +1211,9 @@ export function DiscussionPanel({
             className="space-y-3 max-h-[500px] overflow-y-auto"
           >
             <ul className="space-y-3">
-              {list.map((c) => (
-                <li key={c.id} className="border rounded-md p-3">
-                  <div className="flex items-start gap-3">
-                    {c.author.avatar ? (
-                      <img
-                        src={c.author.avatar}
-                        alt={c.author.name}
-                        className="h-8 w-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                        <User className="h-4 w-4 text-blue-600" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span className="font-medium text-gray-900 text-sm">
-                          {c.author.name}
-                        </span>
-                        <span>•</span>
-                        <span title={new Date(c.createdAt).toLocaleString()}>
-                          {timeAgo(c.createdAt)}
-                        </span>
-                        {c.isEdited && <span className="italic">(edited)</span>}
-                      </div>
-
-                      {/* Plain text content */}
-                      <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-                        {c.content.split(/(@\w+)/g).map((part, i) => {
-                          if (part.startsWith('@')) {
-                            const username = part.substring(1);
-                            const mentionedUser = c.mentions?.find(m => m.name === username);
-                            if (mentionedUser) {
-                              return (
-                                <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-                                  @{username}
-                                </span>
-                              );
-                            }
-                          }
-                          return part;
-                        })}
-                      </div>
-
-                      {/* Attachments */}
-                      {c.attachments && c.attachments.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {c.attachments.map((a) => (
-                            <a
-                              key={a.id}
-                              href={a.url || "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-xs border rounded px-2 py-1 bg-gray-50 hover:bg-gray-100"
-                            >
-                              <FileText className="h-3 w-3" />
-                              <span
-                                className="truncate max-w-[140px]"
-                                title={a.fileName}
-                              >
-                                {a.fileName}
-                              </span>
-                              <span className="text-gray-400">
-                                {formatFileSize(a.fileSize)}
-                              </span>
-                            </a>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Reactions */}
-                      <div className="mt-2 flex items-center gap-2">
-                        {defaultReactions.map((reactionType) => {
-                          const reaction = c.reactions?.find(
-                            (r: any) => r.emoji === reactionType
-                          );
-                          const active = reaction?.reacted;
-                          const count = reaction?.count || 0;
-                          return (
-                            <button
-                              key={reactionType}
-                              onClick={() => toggleReaction(c.id, reactionType)}
-                              className={`text-xs border rounded-full px-2 py-0.5 ${
-                                active
-                                  ? "bg-blue-50 border-blue-200 text-blue-700"
-                                  : "text-gray-600"
-                              }`}
-                              title={active ? "Remove reaction" : "Add reaction"}
-                            >
-                              <span className="mr-1">{reactionEmojis[reactionType]}</span>
-                              {count > 0 && <span>{count}</span>}
-                            </button>
-                          );
-                        })}
-                        <button
-                          className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
-                          title="More reactions"
-                        >
-                          <Smile className="h-3 w-3" />
-                          React
-                        </button>
-                        <div className="ml-auto flex items-center gap-1">
-                          {/* Show replies button if there are replies */}
-                          {c.replyCount > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-blue-600 hover:text-blue-700"
-                              onClick={() => toggleReplies(c.id)}
-                              title={expandedReplies.includes(c.id) ? "Hide replies" : "Show replies"}
-                            >
-                              <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                              {expandedReplies.includes(c.id) ? "Hide" : "Show"} {c.replyCount} {c.replyCount === 1 ? "reply" : "replies"}
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-gray-600"
-                            onClick={() => handleReply(c.id, c.author.name)}
-                            title="Reply"
-                          >
-                            <Reply className="h-3.5 w-3.5" />
-                          </Button>
-                          {c.isDeletable && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-gray-600 hover:text-red-600"
-                              onClick={() => onDelete(c.id)}
-                              title="Delete comment"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Replies section */}
-                      {expandedReplies.includes(c.id) && (
-                        <div className="mt-3 border-l-2 border-gray-200 pl-4">
-                          {loadingReplies.includes(c.id) ? (
-                            <div className="space-y-2">
-                              <Skeleton className="h-12 rounded-md" />
-                              <Skeleton className="h-12 rounded-md" />
-                            </div>
-                          ) : repliesData[c.id] && repliesData[c.id].length > 0 ? (
-                            <div className="space-y-3">
-                              {repliesData[c.id].map((reply) => (
-                                <div key={reply.id} className="flex items-start gap-3">
-                                  {reply.author.avatar ? (
-                                    <img
-                                      src={reply.author.avatar}
-                                      alt={reply.author.name}
-                                      className="h-6 w-6 rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                                      <User className="h-3 w-3 text-green-600" />
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                      <span className="font-medium text-gray-900 text-sm">
-                                        {reply.author.name}
-                                      </span>
-                                      <span>•</span>
-                                      <span title={new Date(reply.createdAt).toLocaleString()}>
-                                        {timeAgo(reply.createdAt)}
-                                      </span>
-                                      {reply.isEdited && <span className="italic">(edited)</span>}
-                                    </div>
-
-                                    <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-                                      {reply.content.split(/(@\w+)/g).map((part, i) => {
-                                        if (part.startsWith('@')) {
-                                          const username = part.substring(1);
-                                          const mentionedUser = reply.mentions?.find(m => m.name === username);
-                                          if (mentionedUser) {
-                                            return (
-                                              <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-                                                @{username}
-                                              </span>
-                                            );
-                                          }
-                                        }
-                                        return part;
-                                      })}
-                                    </div>
-
-                                    {/* Reply attachments */}
-                                    {reply.attachments && reply.attachments.length > 0 && (
-                                      <div className="mt-2 flex flex-wrap gap-2">
-                                        {reply.attachments.map((a) => (
-                                          <a
-                                            key={a.id}
-                                            href={a.url || "#"}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 text-xs border rounded px-2 py-1 bg-gray-50 hover:bg-gray-100"
-                                          >
-                                            <FileText className="h-3 w-3" />
-                                            <span className="truncate max-w-[120px]" title={a.fileName}>
-                                              {a.fileName}
-                                            </span>
-                                            <span className="text-gray-400">
-                                              {formatFileSize(a.fileSize)}
-                                            </span>
-                                          </a>
-                                        ))}
-                                      </div>
-                                    )}
-
-                                    {/* Reply reactions */}
-                                    <div className="mt-2 flex items-center gap-2">
-                                      {defaultReactions.map((reactionType) => {
-                                        const reaction = reply.reactions?.find(
-                                          (r: any) => r.emoji === reactionType
-                                        );
-                                        const active = reaction?.reacted;
-                                        const count = reaction?.count || 0;
-                                        return (
-                                          <button
-                                            key={reactionType}
-                                            onClick={() => toggleReaction(reply.id, reactionType)}
-                                            className={`text-xs border rounded-full px-2 py-0.5 ${
-                                              active
-                                                ? "bg-blue-50 border-blue-200 text-blue-700"
-                                                : "text-gray-600"
-                                            }`}
-                                            title={active ? "Remove reaction" : "Add reaction"}
-                                          >
-                                            <span className="mr-1">{reactionEmojis[reactionType]}</span>
-                                            {count > 0 && <span>{count}</span>}
-                                          </button>
-                                        );
-                                      })}
-                                      <div className="ml-auto">
-                                        {reply.isDeletable && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 px-2 text-gray-600 hover:text-red-600"
-                                            onClick={() => onDelete(reply.id)}
-                                            title="Delete reply"
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-500 italic">
-                              No replies yet.
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Reply section */}
-                      {replyingTo === c.id && (
-                        <div className="mt-3 border-t pt-3">
-                          <Textarea
-                            id={`reply-textarea-${c.id}`}
-                            value={replyContent}
-                            onChange={(e) => setReplyContent(e.target.value)}
-                            placeholder="Write your reply..."
-                            className="min-h-[60px] mb-2"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setReplyingTo(null);
-                                setReplyContent("");
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleReplyPost(c.id)}
-                              disabled={!replyContent.trim() || isReplying}
-                            >
-                              {isReplying ? "Posting…" : "Post Reply"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {list.map((comment) => (
+                <li key={comment.id} className="border rounded-md p-3">
+                  {renderComment(comment)}
                 </li>
               ))}
             </ul>

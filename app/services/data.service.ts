@@ -1336,3 +1336,31 @@ export const deleteDiscussion = async (
     throw error;
   }
 };
+
+
+export interface GetDiscussionFileDownloadLinkResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    docId: number;
+    type: string; // DOWNLOAD
+    fileName: string;
+    fileType: string;
+    url: string; // presigned S3 download link
+  };
+}
+
+// API call
+export const getDiscussionFileDownloadLink = async (
+  fileId: number | string
+): Promise<GetDiscussionFileDownloadLinkResponse> => {
+  try {
+    const res = await getRequest(
+      API_CONSTANTS.TASK.GET_DISCUSSION_FILE_DOWNLOAD_LINK(fileId)
+    );
+    return res as GetDiscussionFileDownloadLinkResponse;
+  } catch (error: any) {
+    console.error("Failed to get discussion file download link:", error.response || error.message);
+    throw error;
+  }
+};
