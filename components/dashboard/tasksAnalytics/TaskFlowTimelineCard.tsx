@@ -300,7 +300,7 @@ export default function TaskFlowTimelineCard({
             </span>{" "}
             tasks completed this period
           </div>
-          {values.length >= 2 && (
+          {/* {values.length >= 2 && (
             <div className="text-sm text-slate-600">
               <span
                 className={
@@ -312,7 +312,7 @@ export default function TaskFlowTimelineCard({
               </span>{" "}
               from previous day
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>
