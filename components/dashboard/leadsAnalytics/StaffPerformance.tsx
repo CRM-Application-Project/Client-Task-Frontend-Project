@@ -34,10 +34,7 @@ export default function StaffPerformance({
       {/* Header */}
       <div className="mb-4 flex items-start justify-between">
         <div className="leading-tight">
-          <h3 className="text-[18px] font-semibold text-slate-900">Staff by</h3>
-          <h3 className="text-[18px] font-semibold text-slate-900">
-            Performance
-          </h3>
+          <h3 className="text-[18px] font-semibold text-slate-900">Staff by Performance</h3>
         </div>
         <div className="flex gap-2">
           {(["Top", "Avg", "Low"] as const).map((tab) => (
