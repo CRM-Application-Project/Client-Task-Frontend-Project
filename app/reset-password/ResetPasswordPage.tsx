@@ -1,37 +1,41 @@
 "use client";
-import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Key, CheckCircle, Shield } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { changePassword } from '../services/data.service';
-import { z } from 'zod';
+import { useState } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Eye, EyeOff, Key, CheckCircle, Shield } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { changePassword } from "../services/data.service";
+import { z } from "zod";
 
 // Password regex: at least 8 characters, uppercase, lowercase, number, and special character
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[*@#$%^&+=!])[A-Za-z\d*@#$%^&+=!]{8,16}$/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[*@#$%^&+=!])[A-Za-z\d*@#$%^&+=!]{8,16}$/;
 
 // Define the validation schema
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string()
-    .min(1, 'New password is required')
-    .regex(PASSWORD_REGEX, {
-      message: 'Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character'
-    }),
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
-})
-.refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-})
-.refine((data) => data.currentPassword !== data.newPassword, {
-  message: "New password must be different from current password",
-  path: ["newPassword"],
-});
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(1, "New password is required")
+      .regex(PASSWORD_REGEX, {
+        message:
+          "Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character",
+      }),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"],
+  });
 
 // Define types for the API request/response
 interface ChangePasswordRequest {
@@ -45,9 +49,9 @@ interface ChangePasswordResponse {
 }
 
 export default function ResetPasswordPage() {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -62,7 +66,7 @@ export default function ResetPasswordPage() {
       changePasswordSchema.parse({
         currentPassword,
         newPassword,
-        confirmPassword
+        confirmPassword,
       });
       setErrors({});
       return true;
@@ -75,13 +79,13 @@ export default function ResetPasswordPage() {
           }
         });
         setErrors(newErrors);
-        
+
         // Show the first error in toast
         if (error.errors.length > 0) {
           toast({
             title: "Validation Error",
             description: error.errors[0].message,
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       }
@@ -92,7 +96,7 @@ export default function ResetPasswordPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     // Validate form using Zod schema
     if (!validateForm()) {
       setIsLoading(false);
@@ -100,13 +104,13 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const userId = localStorage.getItem('userId');
-      
+      const userId = localStorage.getItem("userId");
+
       if (!userId) {
         toast({
           title: "Error",
           description: "User not found. Please log in again.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsLoading(false);
         return;
@@ -115,7 +119,7 @@ export default function ResetPasswordPage() {
       // Call the change password API
       const response = await changePassword(userId, {
         oldPassword: currentPassword,
-        newPassword: newPassword
+        newPassword: newPassword,
       });
 
       if (response) {
@@ -124,24 +128,25 @@ export default function ResetPasswordPage() {
           description: "Your password has been updated successfully",
         });
         setIsSuccess(true);
-        
+
         // Redirect to login after 2 seconds
         setTimeout(() => {
-          router.push('/login');
+          router.push("/login");
         }, 2000);
       } else {
         toast({
           title: "Error",
           description: response || "Failed to change password",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Password change error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -153,8 +158,8 @@ export default function ResetPasswordPage() {
       {/* Left Side - Image */}
       <div className="lg:w-1/2 relative hidden lg:block animate-slide-in-left">
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
-          <Image 
-            src="/login.jpeg" 
+          <Image
+            src="/login.jpeg"
             alt="CRM Background"
             layout="fill"
             objectFit="cover"
@@ -162,7 +167,7 @@ export default function ResetPasswordPage() {
             priority
           />
         </div>
-        
+
         {/* Overlay */}
         <div className="absolute inset-0 bg-primary/10" />
       </div>
@@ -177,7 +182,7 @@ export default function ResetPasswordPage() {
                 {isSuccess ? "Password Reset!" : "Change Your Password"}
               </h2>
               <p className="text-muted-foreground">
-                {isSuccess 
+                {isSuccess
                   ? "Your password has been updated successfully. Redirecting to login..."
                   : "Please enter your current and new password below"}
               </p>
@@ -190,7 +195,10 @@ export default function ResetPasswordPage() {
                 <form onSubmit={handleResetPassword} className="space-y-6">
                   {/* Current Password Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="currentPassword" className="text-sm font-medium text-foreground">
+                    <Label
+                      htmlFor="currentPassword"
+                      className="text-sm font-medium text-foreground"
+                    >
                       Current Password
                     </Label>
                     <div className="relative">
@@ -208,7 +216,9 @@ export default function ResetPasswordPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        onClick={() =>
+                          setShowCurrentPassword(!showCurrentPassword)
+                        }
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {showCurrentPassword ? (
@@ -219,12 +229,17 @@ export default function ResetPasswordPage() {
                       </button>
                     </div>
                     {errors.currentPassword && (
-                      <p className="text-sm text-destructive">{errors.currentPassword}</p>
+                      <p className="text-sm text-destructive">
+                        {errors.currentPassword}
+                      </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="newPassword" className="text-sm font-medium text-foreground">
+                    <Label
+                      htmlFor="newPassword"
+                      className="text-sm font-medium text-foreground"
+                    >
                       New Password
                     </Label>
                     <div className="relative">
@@ -254,12 +269,17 @@ export default function ResetPasswordPage() {
                       </button>
                     </div>
                     {errors.newPassword && (
-                      <p className="text-sm text-destructive">{errors.newPassword}</p>
+                      <p className="text-sm text-destructive">
+                        {errors.newPassword}
+                      </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
+                    <Label
+                      htmlFor="confirmPassword"
+                      className="text-sm font-medium text-foreground"
+                    >
                       Confirm New Password
                     </Label>
                     <div className="relative">
@@ -278,7 +298,9 @@ export default function ResetPasswordPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {showConfirmPassword ? (
@@ -289,7 +311,9 @@ export default function ResetPasswordPage() {
                       </button>
                     </div>
                     {errors.confirmPassword && (
-                      <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                      <p className="text-sm text-destructive">
+                        {errors.confirmPassword}
+                      </p>
                     )}
                   </div>
 
@@ -318,13 +342,15 @@ export default function ResetPasswordPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
-              <h3 className="mt-4 text-lg font-medium text-foreground">Password updated successfully</h3>
+              <h3 className="mt-4 text-lg font-medium text-foreground">
+                Password updated successfully
+              </h3>
               <p className="mt-2 text-muted-foreground">
                 You'll be redirected to the login page shortly.
               </p>
               <div className="mt-6">
                 <Button
-                  onClick={() => router.push('/login')}
+                  onClick={() => router.push("/login")}
                   className="inline-flex items-center rounded-md bg-brand-primary px-3 py-2 text-sm font-semibold text-text-white shadow-sm hover:bg-brand-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
                 >
                   Go back to login
@@ -336,15 +362,15 @@ export default function ResetPasswordPage() {
           {/* Additional Links */}
           <div className="text-center space-y-4">
             <p className="text-sm text-muted-foreground">
-              Remember your password?{' '}
-              <button 
-                onClick={() => router.push('/login')}
+              Remember your password?{" "}
+              <button
+                onClick={() => router.push("/login")}
                 className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Sign in
               </button>
             </p>
-            
+
             {/* Feature Pills */}
             <div className="flex flex-wrap justify-center gap-2 pt-4">
               <div className="flex items-center gap-2 px-3 py-1 bg-secondary rounded-full text-xs text-secondary-foreground">
