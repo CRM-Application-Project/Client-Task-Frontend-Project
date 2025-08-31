@@ -1,11 +1,13 @@
 export interface TaskStage {
   id: number;
   name: string;
+  isDeletable: boolean;
 }
 
 export interface TaskStagesDropdownResponse {
   isSuccess: boolean;
   message: string;
+  isDeletable: boolean;
   data: TaskStage[];
 }
 

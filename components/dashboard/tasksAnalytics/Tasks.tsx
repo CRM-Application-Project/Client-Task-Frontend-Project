@@ -10,6 +10,7 @@ import {
   fetchTasksOverview,
   TaskOverviewResponse,
 } from "@/app/services/data.service";
+import { format } from "date-fns";
 
 export default function Tasks() {
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -24,10 +25,8 @@ export default function Tasks() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const formattedStartDate = dateRange.startDate
-          .toISOString()
-          .split("T")[0];
-        const formattedEndDate = dateRange.endDate.toISOString().split("T")[0];
+        const formattedStartDate = format(dateRange.startDate, "yyyy-MM-dd");
+        const formattedEndDate = format(dateRange.endDate, "yyyy-MM-dd");
 
         const response = await fetchTasksOverview(
           formattedStartDate,

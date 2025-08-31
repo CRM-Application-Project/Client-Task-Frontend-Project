@@ -28,7 +28,6 @@ export interface DateRangePickerProps {
   dropdownPosition?: "left" | "right";
 }
 
-
 const quickRanges = [
   { label: "Today", range: { startDate: new Date(), endDate: new Date() } },
   {
@@ -93,19 +92,22 @@ const DateRangePicker = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClickOutside]);
 
-
   const handleDateClick = useCallback(
     (date: Date) => {
       if (selectingStart) {
-        setSelectedRange({ startDate: date, endDate: date });
-
+        const newRange = { startDate: date, endDate: date };
+        setSelectedRange(newRange);
+        onDateRangeChange(newRange); // <-- notify immediately
         setSelectingStart(false);
       } else {
         setSelectedRange((prevRange: DateRange) => {
           const [newStart, newEnd] = [prevRange.startDate, date].sort(
             (a: Date, b: Date) => a.getTime() - b.getTime()
           );
-          const finalRange: DateRange = { startDate: newStart, endDate: newEnd };
+          const finalRange: DateRange = {
+            startDate: newStart,
+            endDate: newEnd,
+          };
 
           onDateRangeChange(finalRange);
 

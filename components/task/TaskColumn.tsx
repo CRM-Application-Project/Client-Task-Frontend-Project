@@ -20,6 +20,7 @@ interface TaskStage {
   name: string;
   description?: string;
   orderNumber?: number;
+  isDeletable: boolean;
 }
 
 interface TaskColumnProps {
@@ -600,6 +601,15 @@ export const TaskColumn = ({
   };
 
   const handleDeleteStage = async () => {
+    if (!stage.isDeletable) {
+      toast({
+        title: "Stage Cannot Be Deleted",
+        description: `"${stage.name}" is a protected stage and cannot be deleted.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (tasks.length > 0) {
       toast({
         title: "Cannot Delete Stage",
@@ -748,12 +758,11 @@ export const TaskColumn = ({
                         </button>
                       )}
                       <hr className="my-1 border-gray-200" />
-                      {stagePermissions.canDelete && (
+                      {stagePermissions.canDelete && stage.isDeletable && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setIsStageMenuOpen(false);
-                            // Call the parent handler which will open the confirmation modal
                             onDeleteStage?.(stage);
                           }}
                           className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
@@ -848,7 +857,7 @@ export const TaskColumn = ({
                 onEdit={onEditTask}
                 onDelete={onDeleteTask}
                 onTaskClick={() => onTaskClick?.(task.id)}
-                draggable={!isUpdating}
+                draggable={!isUpdating && task.isEditable}
                 isDragging={draggedTaskId === task.id}
                 onDragStart={handleDragStart}
                 onActionClick={onActionClick}

@@ -22,12 +22,12 @@ import {
 import { CreateStageModal } from "@/components/task/CreateStageModal";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  TaskPriority, 
-  TaskStatus, 
-  TaskActionType, 
-  Task, 
-  Assignee 
+import {
+  TaskPriority,
+  TaskStatus,
+  TaskActionType,
+  Task,
+  Assignee,
 } from "@/lib/task";
 
 // ========== TYPE DEFINITIONS ==========
@@ -35,6 +35,7 @@ import {
 interface TaskStage {
   id: number;
   name: string;
+  isDeletable:boolean;
 }
 interface TaskStageEdit {
   id: number;
@@ -84,9 +85,8 @@ interface EditingTaskResponse {
   createdAt: string;
   updatedAt: string;
   assignee: Assignee;
-    graceHours?: number; // Add this
+  graceHours?: number; // Add this
   estimatedHours?: number; // Add this
-
 }
 
 interface FilterTasksParams {
@@ -220,7 +220,8 @@ const DeleteStageModal = ({
                 {`Are you sure you want to delete ${stageName}?`}
               </h3>
               <p className="text-sm text-gray-500">
-                This action cannot be undone.The stage will be removed permanently.
+                This action cannot be undone.The stage will be removed
+                permanently.
               </p>
             </div>
           </div>
@@ -540,9 +541,7 @@ const StopTaskModal = ({
       <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Stop Task
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">Stop Task</h2>
             <button
               onClick={handleClose}
               className="p-1 rounded-full hover:bg-gray-200 transition-colors"
@@ -577,7 +576,7 @@ const StopTaskModal = ({
                   Please provide a comment about stopping this task.
                 </p>
               </div>
-              
+
               <div>
                 <label
                   htmlFor="stopComment"
@@ -720,6 +719,7 @@ export default function TaskBoard() {
               completedAt: task.completedAt,
               documents: task.documents || [],
               acceptanceInfo: task.acceptanceInfo,
+              isEditable: (task as any).isEditable ?? true,
             })
           )
         );
@@ -756,47 +756,51 @@ export default function TaskBoard() {
   );
 
   // Convert filter object to API parameters
- const convertFiltersToApiParams = useCallback(
-  (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
-    const apiParams: FilterTasksParams = {};
+  const convertFiltersToApiParams = useCallback(
+    (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
+      const apiParams: FilterTasksParams = {};
 
-    if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
-    if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
-    if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
-    if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
+      if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
+      if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
+      if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
+      if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
 
-    if (uiFilters.dateRange) {
-      const formatDateWithTime = (date: Date) => {
-        return date.toISOString().split("T")[0] + "T00:00:00";
-      };
+      if (uiFilters.dateRange) {
+        const formatDateWithTime = (date: Date) => {
+          return date.toISOString().split("T")[0] + "T00:00:00";
+        };
 
-      // Helper functions to check if dates are placeholder dates
-      const isPlaceholderFromDate = (date: Date) => 
-        date.getTime() <= new Date('1970-01-02').getTime();
-      
-      const isPlaceholderToDate = (date: Date) => 
-        date.getTime() >= new Date('2099-12-30').getTime();
+        // Helper functions to check if dates are placeholder dates
+        const isPlaceholderFromDate = (date: Date) =>
+          date.getTime() <= new Date("1970-01-02").getTime();
 
-      // Handle partial date ranges
-      const hasRealFromDate = uiFilters.dateRange.from && !isPlaceholderFromDate(uiFilters.dateRange.from);
-      const hasRealToDate = uiFilters.dateRange.to && !isPlaceholderToDate(uiFilters.dateRange.to);
+        const isPlaceholderToDate = (date: Date) =>
+          date.getTime() >= new Date("2099-12-30").getTime();
 
-      if (hasRealFromDate) {
-        apiParams.startDateFrom = formatDateWithTime(uiFilters.dateRange.from);
-        // Also set endDateFrom if we want tasks that end after the from date
-        
+        // Handle partial date ranges
+        const hasRealFromDate =
+          uiFilters.dateRange.from &&
+          !isPlaceholderFromDate(uiFilters.dateRange.from);
+        const hasRealToDate =
+          uiFilters.dateRange.to &&
+          !isPlaceholderToDate(uiFilters.dateRange.to);
+
+        if (hasRealFromDate) {
+          apiParams.startDateFrom = formatDateWithTime(
+            uiFilters.dateRange.from
+          );
+          // Also set endDateFrom if we want tasks that end after the from date
+        }
+
+        if (hasRealToDate) {
+          apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
+        }
       }
-      
-      if (hasRealToDate) {
-      
-        apiParams.startDateTo = formatDateWithTime(uiFilters.dateRange.to);
-      }
-    }
 
-    return apiParams;
-  },
-  []
-);
+      return apiParams;
+    },
+    []
+  );
 
   // Optimized task fetching function
   const fetchTasks = useCallback(
@@ -1135,38 +1139,41 @@ export default function TaskBoard() {
   }, []);
 
   // Stop task modal handlers
-  const handleStopTaskConfirm = useCallback(async (comment: string) => {
-    if (!taskToStop) return;
+  const handleStopTaskConfirm = useCallback(
+    async (comment: string) => {
+      if (!taskToStop) return;
 
-    setIsStoppingTask(true);
+      setIsStoppingTask(true);
 
-    try {
-      await stopTask(taskToStop.toString(), { comment });
-      
-      toast({
-        title: "Task Stopped",
-        description: `Task #${taskToStop} has been stopped successfully.`,
-        variant: "default",
-      });
-      
-      // Refresh tasks after stopping
-      await fetchTasks(undefined, true);
-      
-      // Close modal and reset state
-      setIsStopTaskModalOpen(false);
-      setTaskToStop(null);
-      setStopTaskComment("");
-    } catch (error) {
-      console.error("Error stopping task:", error);
-      toast({
-        title: "Error",
-        description: "Failed to stop task. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsStoppingTask(false);
-    }
-  }, [taskToStop, toast, fetchTasks]);
+      try {
+        await stopTask(taskToStop.toString(), { comment });
+
+        toast({
+          title: "Task Stopped",
+          description: `Task #${taskToStop} has been stopped successfully.`,
+          variant: "default",
+        });
+
+        // Refresh tasks after stopping
+        await fetchTasks(undefined, true);
+
+        // Close modal and reset state
+        setIsStopTaskModalOpen(false);
+        setTaskToStop(null);
+        setStopTaskComment("");
+      } catch (error) {
+        console.error("Error stopping task:", error);
+        toast({
+          title: "Error",
+          description: "Failed to stop task. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsStoppingTask(false);
+      }
+    },
+    [taskToStop, toast, fetchTasks]
+  );
 
   const handleStopTaskCancel = useCallback(() => {
     setIsStopTaskModalOpen(false);
@@ -1208,40 +1215,43 @@ export default function TaskBoard() {
     setPreSelectedStageId(null); // Clear pre-selected stage
   }, []);
 
-  const handleActionClick = useCallback(async (taskId: number, actionType: TaskActionType) => {
-    if (actionType === "START") {
-      try {
-        toast({
-          title: "Starting Task",
-          description: `Starting task #${taskId}...`,
-          variant: "default",
-        });
-        
-        await startTask(taskId.toString());
-        
-        toast({
-          title: "Task Started",
-          description: `Task #${taskId} has been started successfully.`,
-          variant: "default",
-        });
-        
-        // Refresh tasks after action
-        await fetchTasks(undefined, true);
-      } catch (error) {
-        console.error("Error starting task:", error);
-        toast({
-          title: "Error",
-          description: "Failed to start task. Please try again.",
-          variant: "destructive",
-        });
+  const handleActionClick = useCallback(
+    async (taskId: number, actionType: TaskActionType) => {
+      if (actionType === "START") {
+        try {
+          toast({
+            title: "Starting Task",
+            description: `Starting task #${taskId}...`,
+            variant: "default",
+          });
+
+          await startTask(taskId.toString());
+
+          toast({
+            title: "Task Started",
+            description: `Task #${taskId} has been started successfully.`,
+            variant: "default",
+          });
+
+          // Refresh tasks after action
+          await fetchTasks(undefined, true);
+        } catch (error) {
+          console.error("Error starting task:", error);
+          toast({
+            title: "Error",
+            description: "Failed to start task. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } else if (actionType === "STOP") {
+        // Show comment modal for stop action
+        setTaskToStop(taskId);
+        setStopTaskComment("");
+        setIsStopTaskModalOpen(true);
       }
-    } else if (actionType === "STOP") {
-      // Show comment modal for stop action
-      setTaskToStop(taskId);
-      setStopTaskComment("");
-      setIsStopTaskModalOpen(true);
-    }
-  }, [toast, fetchTasks]);
+    },
+    [toast, fetchTasks]
+  );
 
   const handleCloseTaskDetails = useCallback(() => {
     setIsDetailsModalOpen(false);
@@ -1266,69 +1276,71 @@ export default function TaskBoard() {
   }, [fetchTasks]);
 
   // Client-side filtering for immediate UI response
-const filteredTasks = tasks.filter((task) => {
-  const matchesSearch =
-    searchQuery === "" ||
-    task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch =
+      searchQuery === "" ||
+      task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const matchesPriority =
-    !filters.priority || task.priority === filters.priority;
-  const matchesStage =
-    !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
-  const matchesAssignee =
-    !filters.assignedTo || task.assignee?.id === filters.assignedTo;
+    const matchesPriority =
+      !filters.priority || task.priority === filters.priority;
+    const matchesStage =
+      !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
+    const matchesAssignee =
+      !filters.assignedTo || task.assignee?.id === filters.assignedTo;
 
-  // Enhanced date range matching
-  const matchesDateRange = (() => {
-    if (!filters.dateRange) return true;
-    
-    const { from, to } = filters.dateRange;
-    const taskStartDate = task.startDate;
-    const taskEndDate = task.endDate;
-    
-    // Helper functions to check if dates are placeholder dates
-    const isPlaceholderFromDate = (date: Date) => 
-      date.getTime() <= new Date('1970-01-02').getTime();
-    
-    const isPlaceholderToDate = (date: Date) => 
-      date.getTime() >= new Date('2099-12-30').getTime();
-    
-    // Check if we have real dates (not placeholders)
-    const hasRealFromDate = from && !isPlaceholderFromDate(from);
-    const hasRealToDate = to && !isPlaceholderToDate(to);
-    
-    if (hasRealFromDate && hasRealToDate) {
-      // Both dates specified - show tasks that overlap with the date range
-      // A task overlaps if:
-      // 1. Task starts within the range, OR
-      // 2. Task ends within the range, OR  
-      // 3. Task spans the entire range (starts before and ends after)
-      const taskStartsInRange = taskStartDate >= from && taskStartDate <= to;
-      const taskEndsInRange = taskEndDate && taskEndDate >= from && taskEndDate <= to;
-      const taskSpansRange = taskStartDate <= from && taskEndDate && taskEndDate >= to;
-      
-      return taskStartsInRange || taskEndsInRange || taskSpansRange;
-    } else if (hasRealFromDate) {
-      // Only from date specified - show tasks that start on or after this date
-      // OR tasks that are still ongoing (end date is after the from date)
-      return taskStartDate >= from || (taskEndDate && taskEndDate >= from);
-    } else if (hasRealToDate) {
-      // Only to date specified - show tasks that start on or before this date
-      return taskStartDate <= to;
-    }
-    
-    return true;
-  })();
+    // Enhanced date range matching
+    const matchesDateRange = (() => {
+      if (!filters.dateRange) return true;
 
-  return (
-    matchesSearch &&
-    matchesPriority &&
-    matchesStage &&
-    matchesAssignee &&
-    matchesDateRange
-  );
-});
+      const { from, to } = filters.dateRange;
+      const taskStartDate = task.startDate;
+      const taskEndDate = task.endDate;
+
+      // Helper functions to check if dates are placeholder dates
+      const isPlaceholderFromDate = (date: Date) =>
+        date.getTime() <= new Date("1970-01-02").getTime();
+
+      const isPlaceholderToDate = (date: Date) =>
+        date.getTime() >= new Date("2099-12-30").getTime();
+
+      // Check if we have real dates (not placeholders)
+      const hasRealFromDate = from && !isPlaceholderFromDate(from);
+      const hasRealToDate = to && !isPlaceholderToDate(to);
+
+      if (hasRealFromDate && hasRealToDate) {
+        // Both dates specified - show tasks that overlap with the date range
+        // A task overlaps if:
+        // 1. Task starts within the range, OR
+        // 2. Task ends within the range, OR
+        // 3. Task spans the entire range (starts before and ends after)
+        const taskStartsInRange = taskStartDate >= from && taskStartDate <= to;
+        const taskEndsInRange =
+          taskEndDate && taskEndDate >= from && taskEndDate <= to;
+        const taskSpansRange =
+          taskStartDate <= from && taskEndDate && taskEndDate >= to;
+
+        return taskStartsInRange || taskEndsInRange || taskSpansRange;
+      } else if (hasRealFromDate) {
+        // Only from date specified - show tasks that start on or after this date
+        // OR tasks that are still ongoing (end date is after the from date)
+        return taskStartDate >= from || (taskEndDate && taskEndDate >= from);
+      } else if (hasRealToDate) {
+        // Only to date specified - show tasks that start on or before this date
+        return taskStartDate <= to;
+      }
+
+      return true;
+    })();
+
+    return (
+      matchesSearch &&
+      matchesPriority &&
+      matchesStage &&
+      matchesAssignee &&
+      matchesDateRange
+    );
+  });
 
   // Smooth scroll navigation functions
   const scrollLeft = () => {
