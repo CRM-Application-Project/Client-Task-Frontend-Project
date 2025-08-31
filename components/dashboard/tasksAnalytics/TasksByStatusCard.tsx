@@ -121,12 +121,12 @@ export default function TasksByStatusCard({ data }: TasksByStatusCardProps) {
       </CardContent>
 
       <CardFooter className="flex-col items-start gap-2 text-sm">
-        <div className="leading-none font-medium">
+        {/* <div className="leading-none font-medium">
           All stages shown, even when counts are zero
-        </div>
-        <div className="text-muted-foreground leading-none">
-          Bar width is fixed so one category never dominates the layout
-        </div>
+        </div> */}
+        {/* <div className="text-muted-foreground leading-none"> */}
+          {/* Bar width is fixed so one category never dominates the layout */}
+        {/* </div> */}
       </CardFooter>
     </div>
   );

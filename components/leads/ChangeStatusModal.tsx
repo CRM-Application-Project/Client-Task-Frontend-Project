@@ -158,8 +158,8 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
       color: "text-gray-800",
     },
     {
-      value: "PROPOSAL",
-      label: "Proposal",
+      value: "PROPOSAL SENT",
+      label: "Proposal Sente",
       description: "Proposal sent to lead",
       color: "text-gray-800",
     },

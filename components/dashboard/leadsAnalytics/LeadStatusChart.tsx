@@ -99,7 +99,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
         <CardTitle>Lead Status</CardTitle>
         <CardDescription>Sales Funnel Overview</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-6">
+      <CardContent className="flex flex-col gap-6 items-center">
         {total > 0 ? (
           <>
             <div className="flex flex-col lg:flex-row gap-6">
@@ -255,7 +255,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
             </div>
           </>
         ) : (
-          <div className="text-slate-400 text-sm py-8 text-center">
+          <div className="flex items-center justify-center w-full py-12 text-slate-400 text-sm text-center">
             No lead data available for the selected period
           </div>
         )}
