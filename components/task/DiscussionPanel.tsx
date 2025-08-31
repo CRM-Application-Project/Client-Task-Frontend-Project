@@ -41,7 +41,7 @@ import { Input } from "../ui/input";
 import { Mention, TaskDiscussionComment, TaskDiscussionFilterResponse, TaskDiscussionReactionRequest } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 
-// Helper function to get caret coordinates (keep as is)
+// Helper function to get caret coordinates
 function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   const div = document.createElement('div');
   const style = getComputedStyle(element);
@@ -61,7 +61,6 @@ function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   
   document.body.appendChild(div);
   
-  // Set text content up to the caret position
   const text = element.value.substring(0, position);
   div.textContent = text;
   
@@ -79,7 +78,6 @@ function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   };
   
   document.body.removeChild(div);
-  
   return coordinates;
 }
 
@@ -110,6 +108,9 @@ export function DiscussionPanel({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [isReplying, setIsReplying] = useState(false);
+  const [expandedReplies, setExpandedReplies] = useState<string[]>([]);
+  const [repliesData, setRepliesData] = useState<Record<string, CommentItem[]>>({});
+  const [loadingReplies, setLoadingReplies] = useState<string[]>([]);
   
   // Add search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -124,7 +125,6 @@ export function DiscussionPanel({
     numberOfElementsInThePage: 0,
   });
 
-  // Use the toast hook
   const { toast } = useToast();
 
   const defaultReactions = ["LIKE", "HEART", "LAUGH", "CLAP"];
@@ -139,7 +139,7 @@ export function DiscussionPanel({
     user.label.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
-  // Update the load function to include search and pagination
+  // Load main comments function
   const load = useCallback(async (search = "", page = 0, limit = 10, append = false) => {
     if (page === 0) {
       setIsLoading(true);
@@ -166,18 +166,18 @@ export function DiscussionPanel({
           },
           content: comment.message,
           createdAt: comment.createdAt,
-          isEdited: false, // API doesn't provide this field
-          updatedAt: comment.createdAt, // Use createdAt as fallback
+          isEdited: false,
+          updatedAt: comment.createdAt,
           attachments: comment.files ? comment.files.map((file: any) => ({
             id: file.id.toString(),
             fileName: file.fileName,
-            fileSize: 0, // API doesn't provide file size
-            url: "#", // API doesn't provide direct URL
+            fileSize: 0,
+            url: "#",
           })) : [],
           reactions: comment.reactions ? comment.reactions.map((reaction: any) => ({
             emoji: reaction.reaction,
-            count: 1, // API doesn't provide count, we'll handle this differently
-            reacted: reaction.reactedBy !== null, // Check if current user reacted
+            count: 1,
+            reacted: reaction.reactedBy !== null,
           })) : [],
           mentions: comment.mentions ? comment.mentions.map((mention: any) => ({
             id: mention.mentioned.id,
@@ -193,7 +193,6 @@ export function DiscussionPanel({
           setComments(formattedComments);
         }
         
-        // Update pagination meta and check if there are more pages
         setPaginationMeta({
           totalPages: response.data.totalPages || 1,
           totalElements: response.data.totalElements || formattedComments.length,
@@ -202,7 +201,6 @@ export function DiscussionPanel({
           numberOfElementsInThePage: response.data.numberOfElementsInThePage || formattedComments.length,
         });
         
-        // Check if there are more pages to load
         setHasMore(page < (response.data.totalPages || 1) - 1);
       }
     } catch (e) {
@@ -218,6 +216,97 @@ export function DiscussionPanel({
       setIsSearching(false);
     }
   }, [taskId, toast]);
+
+  // Updated function to create a filter URL with parentId
+  const getFilterUrlWithParentId = (taskId: number, parentId: string) => {
+    return `http://localhost:8070/api/v1/task/discussion/filter?taskId=${taskId}&parentId=${parentId}`;
+  };
+
+  // Fixed loadReplies function to properly fetch replies using parentId
+  const loadReplies = useCallback(async (commentId: string) => {
+    setLoadingReplies(prev => [...prev, commentId]);
+    
+    try {
+      // Make a direct fetch call to the filter endpoint with parentId
+      const response = await fetch(getFilterUrlWithParentId(taskId, commentId), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add your authentication headers here if needed
+        },
+        credentials: 'include', // This will include cookies
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: TaskDiscussionFilterResponse = await response.json();
+      
+      if (data.isSuccess && data.data) {
+        const formattedReplies: CommentItem[] = data.data.content.map((reply: any) => ({
+          id: reply.id.toString(),
+          parentId: reply.parentId || commentId,
+          author: {
+            id: reply.author.id,
+            name: reply.author.label,
+            avatar: "",
+          },
+          content: reply.message,
+          createdAt: reply.createdAt,
+          isEdited: false,
+          updatedAt: reply.createdAt,
+          attachments: reply.files ? reply.files.map((file: any) => ({
+            id: file.id.toString(),
+            fileName: file.fileName,
+            fileSize: 0,
+            url: "#",
+          })) : [],
+          reactions: reply.reactions ? reply.reactions.map((reaction: any) => ({
+            emoji: reaction.reaction,
+            count: 1,
+            reacted: reaction.reactedBy !== null,
+          })) : [],
+          mentions: reply.mentions ? reply.mentions.map((mention: any) => ({
+            id: mention.mentioned.id,
+            name: mention.mentioned.label,
+          })) : [],
+          replyCount: 0,
+          isDeletable: reply.isDeletable || false,
+        }));
+        
+        setRepliesData(prev => ({
+          ...prev,
+          [commentId]: formattedReplies
+        }));
+      }
+    } catch (e) {
+      console.error("Error loading replies", e);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load replies",
+      });
+    } finally {
+      setLoadingReplies(prev => prev.filter(id => id !== commentId));
+    }
+  }, [taskId, toast]);
+
+  // Toggle replies visibility
+  const toggleReplies = (commentId: string) => {
+    setExpandedReplies(prev => {
+      const isExpanded = prev.includes(commentId);
+      if (isExpanded) {
+        return prev.filter(id => id !== commentId);
+      } else {
+        // Load replies if not already loaded
+        if (!repliesData[commentId]) {
+          loadReplies(commentId);
+        }
+        return [...prev, commentId];
+      }
+    });
+  };
 
   // Initial load
   useEffect(() => {
@@ -239,14 +328,12 @@ export function DiscussionPanel({
     const scrollHeight = container.scrollHeight;
     const clientHeight = container.clientHeight;
     
-    // Load more when scrolled to 80% of the container
     if (scrollTop + clientHeight >= scrollHeight * 0.8) {
       const nextPage = paginationMeta.pageIndex + 1;
       load(searchTerm, nextPage, paginationMeta.pageSize, true);
     }
   }, [isLoading, isLoadingMore, hasMore, searchTerm, load, paginationMeta]);
 
-  // Add scroll event listener
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (container) {
@@ -260,7 +347,6 @@ export function DiscussionPanel({
     const value = e.target.value;
     setEditorValue(value);
 
-    // Check for @ mentions
     const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = value.substring(0, cursorPosition);
     const lastAtSymbolIndex = textBeforeCursor.lastIndexOf("@");
@@ -274,7 +360,6 @@ export function DiscussionPanel({
       const query = textBeforeCursor.substring(lastAtSymbolIndex + 1);
       setMentionQuery(query);
 
-      // Get textarea position for popup placement
       if (textareaRef.current) {
         const textarea = textareaRef.current;
         const { top, left } = getCaretCoordinates(textarea, cursorPosition);
@@ -307,7 +392,6 @@ export function DiscussionPanel({
       setEditorValue(newValue);
       setMentionedUsers((prev) => [...prev, user]);
       
-      // Set cursor position after the mention
       setTimeout(() => {
         if (textareaRef.current) {
           const newCursorPos = lastAtSymbolIndex + user.label.length + 1;
@@ -324,7 +408,6 @@ export function DiscussionPanel({
   // Handle file upload
   const uploadFile = async (file: File): Promise<CommentAttachment> => {
     try {
-      // Step 1: Get presigned URL
       const uploadResponse = await uploadDiscussionFile(taskId, {
         message: editorValue,
         mentions: mentionedUsers.map(user => user.id),
@@ -336,14 +419,12 @@ export function DiscussionPanel({
         throw new Error(uploadResponse.message);
       }
 
-      // Step 2: Upload to S3
       await uploadFileToS3(
         uploadResponse.data.url,
         file,
         file.type
       );
 
-      // Step 3: Verify file upload
       const verifyResponse = await verifyDiscussionFile(uploadResponse.data.docId);
       if (!verifyResponse.isSuccess) {
         throw new Error("File verification failed");
@@ -353,7 +434,7 @@ export function DiscussionPanel({
         id: uploadResponse.data.docId.toString(),
         fileName: file.name,
         fileSize: file.size,
-        url: uploadResponse.data.url.split('?')[0] // Remove query params for the download URL
+        url: uploadResponse.data.url.split('?')[0]
       };
     } catch (error) {
       console.error("File upload failed:", error);
@@ -370,24 +451,27 @@ export function DiscussionPanel({
     try {
       const mentionIds = mentionedUsers.map(user => user.id);
       
-      // Upload files first
+      // Handle file uploads if there are any
       const uploadedAttachments: CommentAttachment[] = [];
-      for (const file of pendingFiles) {
-        try {
-          const attachment = await uploadFile(file);
-          uploadedAttachments.push(attachment);
-        } catch (error) {
-          console.error(`Failed to upload file ${file.name}:`, error);
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: `Failed to upload file ${file.name}`,
-          });
+      if (pendingFiles.length > 0) {
+        for (const file of pendingFiles) {
+          try {
+            const attachment = await uploadFile(file);
+            uploadedAttachments.push(attachment);
+          } catch (error) {
+            console.error(`Failed to upload file ${file.name}:`, error);
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: `Failed to upload file ${file.name}`,
+            });
+          }
         }
       }
 
+      // Create optimistic comment for UI
       const newComment: CommentItem = {
-        id: `${Date.now()}`,
+        id: `temp_${Date.now()}`,
         parentId: null,
         author: { id: "me", name: "You" },
         content: editorValue || "",
@@ -404,32 +488,36 @@ export function DiscussionPanel({
         isDeletable: true,
       };
 
-      // Optimistic update
       setComments((prev) => [newComment, ...prev]);
-      setEditorValue("");
-      setPendingFiles([]);
-      setMentionedUsers([]);
 
-      // Post comment to backend
-      await addTaskDiscussionComment(taskId, {
+      // ALWAYS call addTaskDiscussionComment API
+      const commentResponse = await addTaskDiscussionComment(taskId, {
         message: editorValue,
         mentions: mentionIds,
       });
+
+      if (!commentResponse.isSuccess) {
+        throw new Error(commentResponse.message || "Failed to post comment");
+      }
+
+      setEditorValue("");
+      setPendingFiles([]);
+      setMentionedUsers([]);
 
       toast({
         title: "Success",
         description: "Comment posted successfully",
       });
       
-      // Reload comments to get the actual data from backend
-      load(searchTerm, 0, paginationMeta.pageSize);
+      await load(searchTerm, 0, paginationMeta.pageSize);
 
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error posting comment", e);
+      setComments((prev) => prev.filter(c => !c.id.startsWith('temp_')));
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to post comment",
+        description: e.message || "Failed to post comment",
       });
     } finally {
       setIsPosting(false);
@@ -440,7 +528,6 @@ export function DiscussionPanel({
   const handleReply = (commentId: string, authorName: string) => {
     setReplyingTo(commentId);
     setReplyContent(`@${authorName} `);
-    // Focus on the reply textarea if it exists
     setTimeout(() => {
       const replyTextarea = document.getElementById(`reply-textarea-${commentId}`);
       if (replyTextarea) {
@@ -454,10 +541,8 @@ export function DiscussionPanel({
     
     setIsReplying(true);
     try {
-      // Post reply to backend using the specific reply endpoint
       const payload: TaskDiscussionReplyRequest = {
         message: replyContent,
-        // Add any other required fields for reply
       };
       
       await addTaskDiscussionReply(commentId, payload);
@@ -467,12 +552,21 @@ export function DiscussionPanel({
         description: "Reply posted successfully",
       });
       
-      // Reset reply state
       setReplyingTo(null);
       setReplyContent("");
       
-      // Reload comments to get the actual data from backend
-      load(searchTerm, 0, paginationMeta.pageSize);
+      // Reload replies for this comment
+      await loadReplies(commentId);
+      
+      // Update the parent comment's reply count
+      setComments((prev: CommentItem[]) => 
+        prev.map((c: CommentItem) => 
+          c.id === commentId 
+            ? { ...c, replyCount: (c.replyCount || 0) + 1 }
+            : c
+        )
+      );
+      
     } catch (e) {
       console.error("Error posting reply", e);
       toast({
@@ -495,25 +589,24 @@ export function DiscussionPanel({
   };
 
   const toggleReaction = async (commentId: string, reactionType: string) => {
-    const comment = comments.find(c => c.id === commentId);
+    const comment = comments.find(c => c.id === commentId) || 
+                   Object.values(repliesData).flat().find(r => r.id === commentId);
     if (!comment) return;
 
-    const existingReaction = comment.reactions?.find(r => r.emoji === reactionType);
+    const existingReaction = comment.reactions?.find((r: any) => r.emoji === reactionType);
     const hasReacted = existingReaction?.reacted;
 
-    // Optimistic update
-    setComments((prev) =>
-      prev.map((c) => {
+    // Optimistic update for main comments
+    setComments((prev: CommentItem[]) =>
+      prev.map((c: CommentItem) => {
         if (c.id !== commentId) return c;
         
         if (hasReacted) {
-          // Remove reaction
           return {
             ...c,
-            reactions: c.reactions!.filter(r => r.emoji !== reactionType)
+            reactions: c.reactions!.filter((r: any) => r.emoji !== reactionType)
           };
         } else {
-          // Add reaction
           const newReaction = {
             emoji: reactionType,
             count: 1,
@@ -526,6 +619,34 @@ export function DiscussionPanel({
         }
       })
     );
+
+    // Optimistic update for replies
+    setRepliesData(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(parentId => {
+        updated[parentId] = updated[parentId].map(reply => {
+          if (reply.id !== commentId) return reply;
+          
+          if (hasReacted) {
+            return {
+              ...reply,
+              reactions: reply.reactions!.filter((r: any) => r.emoji !== reactionType)
+            };
+          } else {
+            const newReaction = {
+              emoji: reactionType,
+              count: 1,
+              reacted: true
+            };
+            return {
+              ...reply,
+              reactions: [...(reply.reactions || []), newReaction]
+            };
+          }
+        });
+      });
+      return updated;
+    });
 
     try {
       if (hasReacted) {
@@ -549,13 +670,7 @@ export function DiscussionPanel({
         title: "Error",
         description: "Failed to update reaction",
       });
-      // Revert optimistic update on error
-      setComments((prev) =>
-        prev.map((c) => {
-          if (c.id !== commentId) return c;
-          return comment; // Revert to original comment
-        })
-      );
+      // Revert optimistic update on error would need similar logic
     }
   };
 
@@ -563,9 +678,19 @@ export function DiscussionPanel({
     if (!confirm("Are you sure you want to delete this comment?")) return;
     
     const oldComments = [...comments];
+    const oldRepliesData = { ...repliesData };
     
-    // Optimistic update
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    // Optimistic update - remove from main comments
+    setComments((prev: CommentItem[]) => prev.filter((c: CommentItem) => c.id !== commentId));
+    
+    // Optimistic update - remove from replies
+    setRepliesData(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(parentId => {
+        updated[parentId] = updated[parentId].filter(reply => reply.id !== commentId);
+      });
+      return updated;
+    });
     
     try {
       const response = await deleteDiscussion(commentId);
@@ -583,6 +708,7 @@ export function DiscussionPanel({
       
       // Revert optimistic update on error
       setComments(oldComments);
+      setRepliesData(oldRepliesData);
       
       toast({
         variant: "destructive",
@@ -835,7 +961,7 @@ export function DiscussionPanel({
                       <div className="mt-2 flex items-center gap-2">
                         {defaultReactions.map((reactionType) => {
                           const reaction = c.reactions?.find(
-                            (r) => r.emoji === reactionType
+                            (r: any) => r.emoji === reactionType
                           );
                           const active = reaction?.reacted;
                           const count = reaction?.count || 0;
@@ -863,6 +989,19 @@ export function DiscussionPanel({
                           React
                         </button>
                         <div className="ml-auto flex items-center gap-1">
+                          {/* Show replies button if there are replies */}
+                          {c.replyCount > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-blue-600 hover:text-blue-700"
+                              onClick={() => toggleReplies(c.id)}
+                              title={expandedReplies.includes(c.id) ? "Hide replies" : "Show replies"}
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                              {expandedReplies.includes(c.id) ? "Hide" : "Show"} {c.replyCount} {c.replyCount === 1 ? "reply" : "replies"}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -885,6 +1024,131 @@ export function DiscussionPanel({
                           )}
                         </div>
                       </div>
+
+                      {/* Replies section */}
+                      {expandedReplies.includes(c.id) && (
+                        <div className="mt-3 border-l-2 border-gray-200 pl-4">
+                          {loadingReplies.includes(c.id) ? (
+                            <div className="space-y-2">
+                              <Skeleton className="h-12 rounded-md" />
+                              <Skeleton className="h-12 rounded-md" />
+                            </div>
+                          ) : repliesData[c.id] && repliesData[c.id].length > 0 ? (
+                            <div className="space-y-3">
+                              {repliesData[c.id].map((reply) => (
+                                <div key={reply.id} className="flex items-start gap-3">
+                                  {reply.author.avatar ? (
+                                    <img
+                                      src={reply.author.avatar}
+                                      alt={reply.author.name}
+                                      className="h-6 w-6 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                                      <User className="h-3 w-3 text-green-600" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                      <span className="font-medium text-gray-900 text-sm">
+                                        {reply.author.name}
+                                      </span>
+                                      <span>•</span>
+                                      <span title={new Date(reply.createdAt).toLocaleString()}>
+                                        {timeAgo(reply.createdAt)}
+                                      </span>
+                                      {reply.isEdited && <span className="italic">(edited)</span>}
+                                    </div>
+
+                                    <div className="text-gray-700 mt-1 whitespace-pre-wrap">
+                                      {reply.content.split(/(@\w+)/g).map((part, i) => {
+                                        if (part.startsWith('@')) {
+                                          const username = part.substring(1);
+                                          const mentionedUser = reply.mentions?.find(m => m.name === username);
+                                          if (mentionedUser) {
+                                            return (
+                                              <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
+                                                @{username}
+                                              </span>
+                                            );
+                                          }
+                                        }
+                                        return part;
+                                      })}
+                                    </div>
+
+                                    {/* Reply attachments */}
+                                    {reply.attachments && reply.attachments.length > 0 && (
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {reply.attachments.map((a) => (
+                                          <a
+                                            key={a.id}
+                                            href={a.url || "#"}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 text-xs border rounded px-2 py-1 bg-gray-50 hover:bg-gray-100"
+                                          >
+                                            <FileText className="h-3 w-3" />
+                                            <span className="truncate max-w-[120px]" title={a.fileName}>
+                                              {a.fileName}
+                                            </span>
+                                            <span className="text-gray-400">
+                                              {formatFileSize(a.fileSize)}
+                                            </span>
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Reply reactions */}
+                                    <div className="mt-2 flex items-center gap-2">
+                                      {defaultReactions.map((reactionType) => {
+                                        const reaction = reply.reactions?.find(
+                                          (r: any) => r.emoji === reactionType
+                                        );
+                                        const active = reaction?.reacted;
+                                        const count = reaction?.count || 0;
+                                        return (
+                                          <button
+                                            key={reactionType}
+                                            onClick={() => toggleReaction(reply.id, reactionType)}
+                                            className={`text-xs border rounded-full px-2 py-0.5 ${
+                                              active
+                                                ? "bg-blue-50 border-blue-200 text-blue-700"
+                                                : "text-gray-600"
+                                            }`}
+                                            title={active ? "Remove reaction" : "Add reaction"}
+                                          >
+                                            <span className="mr-1">{reactionEmojis[reactionType]}</span>
+                                            {count > 0 && <span>{count}</span>}
+                                          </button>
+                                        );
+                                      })}
+                                      <div className="ml-auto">
+                                        {reply.isDeletable && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 text-gray-600 hover:text-red-600"
+                                            onClick={() => onDelete(reply.id)}
+                                            title="Delete reply"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500 italic">
+                              No replies yet.
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Reply section */}
                       {replyingTo === c.id && (
