@@ -51,6 +51,8 @@ export function CreateLeadStageModal({
         newErrors.orderNumber = "Order number must be at least 1";
       } else if (!Number.isInteger(formData.orderNumber)) {
         newErrors.orderNumber = "Order number must be a whole number";
+      } else if (formData.orderNumber > 20) {
+        newErrors.orderNumber = "Order number cannot be greater than 20";
       }
     }
 
@@ -160,9 +162,8 @@ export function CreateLeadStageModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Order Number 
-                            <span className="text-red-500 ml-1">*</span>
-
+              Order Number
+              <span className="text-red-500 ml-1">*</span>
             </label>
             <input
               type="number"
@@ -170,15 +171,17 @@ export function CreateLeadStageModal({
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  orderNumber: parseInt(e.target.value) || 1,
+                  orderNumber: Math.min(parseInt(e.target.value) || 1, 20), // ✅ clamp to 20
                 })
               }
               onBlur={() => setTouched({ ...touched, orderNumber: true })}
               min="1"
+              max="20"
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
                 errors.orderNumber ? "border-red-500" : "border-gray-300"
               }`}
             />
+
             {errors.orderNumber ? (
               <p className="text-red-500 text-sm mt-1">{errors.orderNumber}</p>
             ) : (

@@ -175,13 +175,18 @@ const EditStageModal = ({
                   id="orderNumber"
                   type="number"
                   min="1"
+                  max="20" // ✅ native max
                   value={orderNumber}
-                  onChange={(e) =>
-                    setOrderNumber(parseInt(e.target.value) || 1)
+                  onChange={
+                    (e) =>
+                      setOrderNumber(
+                        Math.min(parseInt(e.target.value) || 1, 20)
+                      ) // ✅ clamp in state
                   }
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900"
                   required
                 />
+
                 <p className="mt-1 text-xs text-gray-500">
                   Determines the display order of this stage
                 </p>
@@ -256,9 +261,8 @@ export const LeadColumn = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentStage, setCurrentStage] = useState<LeadStage>(stage);
 
-    const isFinalStage = currentStage.finalStage;
+  const isFinalStage = currentStage.finalStage;
 
-  
   // Column drag states
   const [isColumnDragging, setIsColumnDragging] = useState(false);
   const [isColumnDraggedOver, setIsColumnDraggedOver] = useState(false);
@@ -337,7 +341,10 @@ export const LeadColumn = ({
       const dragDataString = e.dataTransfer.getData("application/json");
       if (dragDataString) {
         const dragData = JSON.parse(dragDataString);
-        if (dragData.type === "stage" && dragData.stageId !== currentStage.leadStageId) {
+        if (
+          dragData.type === "stage" &&
+          dragData.stageId !== currentStage.leadStageId
+        ) {
           setIsColumnDraggedOver(true);
         }
       }
@@ -453,18 +460,21 @@ export const LeadColumn = ({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    
+
     try {
       const dragDataString = e.dataTransfer.getData("application/json");
       if (dragDataString) {
         const dragData = JSON.parse(dragDataString);
-        
+
         // Handle stage reordering
-        if (dragData.type === "stage" && dragData.stageId !== currentStage.leadStageId) {
+        if (
+          dragData.type === "stage" &&
+          dragData.stageId !== currentStage.leadStageId
+        ) {
           setIsColumnDraggedOver(true);
           return;
         }
-        
+
         // Handle lead dragging
         if (dragData.type !== "stage") {
           onDragOver(e, currentStage.leadStageName);
@@ -478,7 +488,7 @@ export const LeadColumn = ({
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsColumnDraggedOver(false);
-    
+
     if (scrollIntervalRef.current) {
       clearInterval(scrollIntervalRef.current);
       scrollIntervalRef.current = null;
@@ -497,14 +507,14 @@ export const LeadColumn = ({
       if (dragData.type === "stage" && onStageReorder) {
         const { sourceIndex } = dragData;
         const targetIndex = stageIndex;
-        
+
         if (sourceIndex !== targetIndex) {
           const reorderedStages = [...allStages];
           const [movedStage] = reorderedStages.splice(sourceIndex, 1);
           reorderedStages.splice(targetIndex, 0, movedStage);
-          
+
           onStageReorder(reorderedStages);
-          
+
           toast({
             title: "Stages Reordered",
             description: "Stage order has been updated successfully.",
@@ -556,70 +566,70 @@ export const LeadColumn = ({
               </h2>
             </div>
 
-      <div className="flex items-center gap-3">
-  <Badge
-    variant="secondary"
-    className="bg-white/20 text-white border-white/30 flex-shrink-0"
-  >
-    {leads.length}
-  </Badge>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant="secondary"
+                className="bg-white/20 text-white border-white/30 flex-shrink-0"
+              >
+                {leads.length}
+              </Badge>
 
-  {/* Container with fixed width to maintain consistent spacing */}
-  <div className="w-6 h-6 flex items-center justify-center">
-    {!isFinalStage && (
-      <div className="relative">
-        <button
-          onClick={handleStageMenuToggle}
-          className="p-1.5 rounded hover:bg-white/20 transition-colors"
-          title="Stage options"
-          type="button"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
+              {/* Container with fixed width to maintain consistent spacing */}
+              <div className="w-6 h-6 flex items-center justify-center">
+                {!isFinalStage && (
+                  <div className="relative">
+                    <button
+                      onClick={handleStageMenuToggle}
+                      className="p-1.5 rounded hover:bg-white/20 transition-colors"
+                      title="Stage options"
+                      type="button"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
 
-        {/* Dropdown Menu */}
-        {isStageMenuOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setIsStageMenuOpen(false)}
-            />
+                    {/* Dropdown Menu */}
+                    {isStageMenuOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setIsStageMenuOpen(false)}
+                        />
 
-            <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-              {permissions.canEdit && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsStageMenuOpen(false);
-                    handleEditStage();
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                >
-                  <Pencil className="w-4 h-4 flex-shrink-0" />
-                  Edit Stage
-                </button>
-              )}
-              <hr className="my-1 border-gray-200" />
-              {permissions.canDelete && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsStageMenuOpen(false);
-                    handleDeleteStage();
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4 flex-shrink-0" />
-                  Delete Stage
-                </button>
-              )}
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                          {permissions.canEdit && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsStageMenuOpen(false);
+                                handleEditStage();
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
+                            >
+                              <Pencil className="w-4 h-4 flex-shrink-0" />
+                              Edit Stage
+                            </button>
+                          )}
+                          <hr className="my-1 border-gray-200" />
+                          {permissions.canDelete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsStageMenuOpen(false);
+                                handleDeleteStage();
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 flex-shrink-0" />
+                              Delete Stage
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </>
-        )}
-      </div>
-    )}
-  </div>
-</div>
           </div>
         </div>
 
