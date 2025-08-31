@@ -57,7 +57,10 @@ interface Lead {
 }
 
 const formSchema = z.object({
-  customerName: z.string().min(1, "Name is required"),
+  customerName: z
+    .string()
+    .min(1, "Name is required")
+    .regex(/^[A-Za-z\s.'-]+$/, "Name must only contain letters and valid symbols"),
   customerEmailAddress: z.string().email("Invalid email address"),
   customerMobileNumber: z
     .string()
@@ -149,11 +152,16 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   }, [formValues, lead]);
 
   useEffect(() => {
-    if (lead) {
+    if (lead && countryCodes.length > 0) {
+      const { code, number } = parsePhoneNumber(
+        lead.customerMobileNumber,
+        countryCodes
+      );
+
       form.reset({
         customerName: lead.customerName,
         customerEmailAddress: lead.customerEmailAddress,
-        customerMobileNumber: lead.customerMobileNumber,
+        customerMobileNumber: number,
         companyEmailAddress: lead.companyEmailAddress,
         leadAddress: lead.leadAddress,
         leadStatus: lead.leadStatus,
@@ -164,18 +172,30 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         comment: lead.comment || "",
       });
 
-      // Extract country code from stored phone number if available
-      if (lead.customerMobileNumber) {
-        const codeMatch = lead.customerMobileNumber.match(/^(\+\d+)/);
-        if (
-          codeMatch &&
-          countryCodes.some((code) => code.code === codeMatch[1])
-        ) {
-          setSelectedCode(codeMatch[1]);
-        }
-      }
+      setSelectedCode(code);
     }
   }, [lead, form, countryCodes]);
+
+  // ✅ Correctly extracts country code + local number
+  const parsePhoneNumber = (
+    phone: string,
+    countryCodes: { code: string }[]
+  ) => {
+    if (!phone) return { code: "+91", number: "" };
+
+    // find the longest matching code from your list
+    const matched = countryCodes.find((c) => phone.startsWith(c.code));
+
+    if (matched) {
+      return {
+        code: matched.code,
+        number: phone.slice(matched.code.length),
+      };
+    }
+
+    // fallback: treat entire number as local
+    return { code: "+91", number: phone };
+  };
 
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
@@ -225,6 +245,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           updatedAt: new Date().toISOString(),
         };
 
+        form.reset({
+          ...data,
+          customerMobileNumber: getPhoneWithoutCode(phoneWithCode),
+        });
+        setSelectedCode(selectedCode);
+
         // Close modal first
         onClose();
 
@@ -243,11 +269,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating lead:", error);
       toast({
         title: "Error",
-        description: "An error occurred while updating the lead.",
+        description:
+          error.message || "An error occurred while updating the lead.",
         variant: "destructive",
       });
     } finally {
@@ -341,13 +368,13 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         <Input
                           placeholder="1234567890"
                           {...field}
-                          value={getPhoneWithoutCode(field.value)}
                           onChange={(e) => {
                             const value = e.target.value.replace(/\D/g, "");
                             field.onChange(value);
                             form.trigger("customerMobileNumber");
                           }}
                           maxLength={10}
+                          minLength={10}
                         />
                       </FormControl>
                     </div>
