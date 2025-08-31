@@ -755,7 +755,7 @@ const getSubdomain = (host: string): string => {
                   </div>
 
                   {/* Company Name Field - Show dynamically for personal emails */}
-                  {showCompanyField && (
+                  {/* {showCompanyField && (
                     <div className="space-y-2 animate-slide-down">
                       <Label
                         htmlFor="company"
@@ -771,7 +771,7 @@ const getSubdomain = (host: string): string => {
                           placeholder="Enter your company name"
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
-                          required
+                          // required
                           className="h-12 pl-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                         />
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -780,7 +780,7 @@ const getSubdomain = (host: string): string => {
                         Required for personal email addresses
                       </p>
                     </div>
-                  )}
+                  )} */}
 
                   <div className="space-y-2">
                     <Label
