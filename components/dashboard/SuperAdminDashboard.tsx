@@ -24,13 +24,13 @@ export default function SuperAdminDashboard() {
             </p>
           </div>
 
-          <Link
+          {/* <Link
             href="#"
             className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition"
           >
             <Download className="h-4 w-4" />
             Export Reports
-          </Link>
+          </Link> */}
         </div>
 
         {/* Tabbed menu with sliding pill */}

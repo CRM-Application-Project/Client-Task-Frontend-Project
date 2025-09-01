@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import KpiCard from "./KpiCard";
 import LeadStatus from "./LeadStatusChart";
 import LeadSourcesCard from "./LeadSourcesCard";
-import DepartmentSnapshotsCard from "./DepartmentSnapshotsCard";
-import StaffStatusCard from "./StaffStatusCard";
 import StaffPerformance from "./StaffPerformance";
 import DateRangePicker, { DateRange } from "@/components/ui/DateRangePicker";
 import {
