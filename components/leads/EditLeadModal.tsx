@@ -30,8 +30,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { LeadStatus, LeadSource, LeadPriority } from "../../lib/leads";
 import { useToast } from "@/hooks/use-toast";
-import { updateLead } from "@/app/services/data.service";
+import { updateLead, fetchLeadStages } from "@/app/services/data.service";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
+import { LeadStage } from "@/lib/data";
 
 // Updated Lead interface to match the new structure
 interface Lead {
@@ -91,6 +92,7 @@ interface EditLeadModalProps {
   onClose: () => void;
   onUpdateLead: (lead: Lead) => void;
   lead: Lead | null;
+  leadStages: LeadStage[]; // Add leadStages prop
 }
 
 const EditLeadModal: React.FC<EditLeadModalProps> = ({
@@ -98,6 +100,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   onClose,
   onUpdateLead,
   lead,
+  leadStages, // Receive leadStages as prop
 }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,6 +108,39 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   const [selectedCode, setSelectedCode] = useState("+91");
   const { codes: countryCodes, loading: loadingCountryCodes } =
     useCountryCodes();
+  const [stages, setStages] = useState<LeadStage[]>([]);
+  const [loadingStages, setLoadingStages] = useState(false);
+
+  // Fetch lead stages if not provided via props
+  useEffect(() => {
+    const fetchStages = async () => {
+      if (leadStages && leadStages.length > 0) {
+        setStages(leadStages);
+        return;
+      }
+
+      setLoadingStages(true);
+      try {
+        const response = await fetchLeadStages();
+        if (response.isSuccess && response.data) {
+          setStages(response.data);
+        } else {
+          console.error("Failed to fetch lead stages:", response.message);
+          // Fallback to empty array
+          setStages([]);
+        }
+      } catch (error) {
+        console.error("Error fetching lead stages:", error);
+        setStages([]);
+      } finally {
+        setLoadingStages(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchStages();
+    }
+  }, [isOpen, leadStages]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -484,16 +520,24 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="NEW LEAD">New Lead</SelectItem>
-                        <SelectItem value="CONTACTED">Contacted</SelectItem>
-                        <SelectItem value="QUALIFIED">Qualified</SelectItem>
-                        <SelectItem value="PROPOSAL SENT">Proposal Sent</SelectItem>
-                        <SelectItem value="DEMO">Demo</SelectItem>
-                        <SelectItem value="NEGOTIATIONS">
-                          Negotiations
-                        </SelectItem>
-                        <SelectItem value="CLOSED_WON">Closed Won</SelectItem>
-                        <SelectItem value="CLOSED_LOST">Closed Lost</SelectItem>
+                        {loadingStages ? (
+                          <SelectItem value="loading" disabled>
+                            Loading stages...
+                          </SelectItem>
+                        ) : stages.length > 0 ? (
+                          stages.map((stage) => (
+                            <SelectItem
+                              key={stage.leadStageId}
+                              value={stage.leadStageName}
+                            >
+                              {stage.leadStageName}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="loading" disabled>
+                            No stages available
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
