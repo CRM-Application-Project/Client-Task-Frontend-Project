@@ -60,6 +60,25 @@ const changePasswordSchema = z
     path: ["newPassword"],
   });
 
+// -------------------- Theme Interfaces --------------------
+interface BrandSettings {
+  primaryColor?: string;
+  secondaryColor?: string;
+  textColor?: string;
+  backgroundColor?: string;
+  headerBgColor?: string;
+  headerTextColor?: string;
+}
+
+interface WhiteLabelData {
+  brandSettings?: BrandSettings;
+}
+
+interface ThemeData {
+  logoUrl?: string;
+  whiteLabelData?: WhiteLabelData;
+}
+
 interface UserModuleAccess {
   id: number;
   moduleId: number;
@@ -116,6 +135,10 @@ export default function LoginPage() {
   const [otpId, setOtpId] = useState<number | null>(null);
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
 
+  // -------------------- Theme State --------------------
+  const [themeData, setThemeData] = useState<ThemeData | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string>("/default-logo.png");
+
   // live validation state for login email/password
   const [loginTouched, setLoginTouched] = useState({
     email: false,
@@ -129,6 +152,173 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
   const dispatch = useDispatch();
+
+  // -------------------- Theme Helper Functions --------------------
+  const getSubdomain = (host: string): string => {
+    // Remove port number if present
+    const hostWithoutPort = host.split(":")[0];
+
+    // Handle localhost and IP addresses
+    if (
+      hostWithoutPort.includes("localhost") ||
+      hostWithoutPort.match(/^\d+\.\d+\.\d+\.\d+$/)
+    ) {
+      // For local development, check if it has a subdomain prefix
+      const parts = hostWithoutPort.split(".");
+      if (parts.length > 1 && parts[0] !== "www" && parts[0] !== "localhost") {
+        return parts[0]; // Return the subdomain part
+      }
+      return "seabed2crest"; // Default for local development
+    }
+
+    // For production domains with subdomains
+    const parts = hostWithoutPort.split(".");
+    if (parts.length > 2) {
+      return parts[0]; // Return the subdomain part
+    }
+
+    return "seabed2crest"; // Default if no subdomain detected
+  };
+
+  const adjustBrightness = (hex: string, percent: number): string => {
+    // Remove # if present
+    let color = hex.replace("#", "");
+
+    // Parse r, g, b values
+    let r = parseInt(color.substring(0, 2), 16);
+    let g = parseInt(color.substring(2, 4), 16);
+    let b = parseInt(color.substring(4, 6), 16);
+
+    // Adjust brightness
+    r = Math.max(0, Math.min(255, Math.round(r + r * percent)));
+    g = Math.max(0, Math.min(255, Math.round(g + g * percent)));
+    b = Math.max(0, Math.min(255, Math.round(b + b * percent)));
+
+    // Convert back to hex
+    return `#${r.toString(16).padStart(2, "0")}${g
+      .toString(16)
+      .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  };
+
+  const applyThemeToDOM = (themeData: WhiteLabelData | null) => {
+    if (!themeData?.brandSettings) return;
+
+    const {
+      primaryColor,
+      secondaryColor,
+      textColor,
+      backgroundColor,
+      headerBgColor,
+      headerTextColor,
+    } = themeData.brandSettings;
+
+    const primary = primaryColor || "#3b3b3b";
+    const secondary = secondaryColor || "#636363";
+    const surface = backgroundColor || "#ffffff";
+    const text = textColor || "#3b3b3b";
+    const headerBg = headerBgColor || primary;
+    const headerText = headerTextColor || surface;
+
+    // Create or update style element
+    let styleElement = document.getElementById("dynamic-theme-styles");
+    if (!styleElement) {
+      styleElement = document.createElement("style");
+      styleElement.id = "dynamic-theme-styles";
+      document.head.appendChild(styleElement);
+    }
+
+    styleElement.textContent = `
+      :root {
+        /* Override base palette with brand colors */
+        --color-primary: ${primary};
+        --color-secondary: ${secondary};
+        --color-accent: ${adjustBrightness(secondary, 0.3)};
+        --color-surface: ${surface};
+        
+        /* Brand Palette */
+        --brand-primary: ${primary};
+        --brand-secondary: ${secondary};
+        
+        /* Text Colors */
+        --text-primary: ${text};
+        --text-secondary: ${adjustBrightness(text, 0.7)};
+        --text-white: ${headerText};
+        
+        /* Button Colors */
+        --button-primary-background: ${primary};
+        --button-primary-hover: ${adjustBrightness(primary, -0.2)};
+        
+        /* Background Colors */
+        --background-primary: ${surface};
+        
+        /* Sidebar Colors */
+        --sidebar-background: ${primary};
+        --sidebar-foreground: ${headerText};
+        
+        /* Additional theme-specific overrides */
+        --background: ${surface};
+        --foreground: ${text};
+        --card: ${surface};
+        --card-foreground: ${text};
+        --primary: ${primary};
+        --primary-foreground: ${headerText};
+        --input: ${adjustBrightness(primary, 0.85)};
+        --border: ${adjustBrightness(primary, 0.7)};
+        --muted: ${adjustBrightness(surface, -0.05)};
+        --muted-foreground: ${adjustBrightness(text, 0.4)};
+      }
+    `;
+  };
+
+  // -------------------- Theme Verification Effect --------------------
+  useEffect(() => {
+    const verifyUserAndSetTheme = async () => {
+      try {
+        // Extract subdomain from current URL
+        const host = window.location.hostname;
+        const subDomainName = getSubdomain(host);
+
+        console.log("Extracted subdomain:", subDomainName);
+
+        // Call verifyUser endpoint
+        const verifyResponse = await verifyUser(subDomainName, "web");
+
+        console.log("Verify user response:", verifyResponse);
+
+        if (verifyResponse.isSuccess && verifyResponse.data) {
+          // Store logoUrl in localStorage and state
+          const logoUrl = verifyResponse.data.logoUrl;
+          if (logoUrl) {
+            localStorage.setItem("logoUrl", logoUrl);
+            setLogoUrl(logoUrl);
+          }
+
+          // Store and apply theme data
+          const whiteLabelData = verifyResponse.data.whiteLabelData;
+          if (whiteLabelData) {
+            setThemeData({ logoUrl, whiteLabelData });
+            applyThemeToDOM(whiteLabelData);
+
+            // Optionally store theme data in localStorage for persistence
+            localStorage.setItem("themeData", JSON.stringify(whiteLabelData));
+          }
+        } else {
+          console.warn(
+            "Failed to verify user or get theme data:",
+            verifyResponse.message
+          );
+          // Set default logo if verification fails
+          setLogoUrl("/default-logo.png");
+        }
+      } catch (error) {
+        console.error("Failed to verify user and set theme:", error);
+        // Set default logo on error
+        setLogoUrl("/default-logo.png");
+      }
+    };
+
+    verifyUserAndSetTheme();
+  }, []);
 
   // -------------------- Helpers: Validation --------------------
   const validateLoginField = (
@@ -189,8 +379,8 @@ export default function LoginPage() {
       : loginTouched[field] &&
         !loginErrors[field] &&
         (field === "email" ? email : password)
-        ? "border-green-500"
-        : "";
+      ? "border-green-500"
+      : "";
 
   const renderValidationStatus = (field: "email" | "password") => {
     if (!loginTouched[field]) return null;
@@ -393,59 +583,6 @@ export default function LoginPage() {
     }
   };
 
-useEffect(() => {
-  const verifyUserAndSetTheme = async () => {
-    try {
-      // Extract subdomain from current URL
-      const host = window.location.hostname;
-      const subDomainName = getSubdomain(host);
-
-      // Call verifyUser endpoint
-      const verifyResponse = await verifyUser(subDomainName, "web");
-
-      console.log("Verify user response:", verifyResponse);
-
-      // Store logoUrl in localStorage
-      const logoUrl = verifyResponse?.data?.logoUrl;
-      if (logoUrl) {
-        localStorage.setItem("logoUrl", logoUrl);
-      }
-
-      // Optionally store whiteLabelData in state
-      // setThemeData(verifyResponse.data?.whiteLabelData || null);
-    } catch (error) {
-      console.error("Failed to verify user:", error);
-    }
-  };
-
-  verifyUserAndSetTheme();
-}, []);
-
-
-// Add the getSubdomain function inside your component (or outside if you prefer)
-const getSubdomain = (host: string): string => {
-  // Remove port number if present
-  const hostWithoutPort = host.split(':')[0];
-  
-  // Handle localhost and IP addresses
-  if (hostWithoutPort.includes('localhost') || 
-      hostWithoutPort.match(/^\d+\.\d+\.\d+\.\d+$/)) {
-    // For local development, check if it has a subdomain prefix
-    const parts = hostWithoutPort.split('.');
-    if (parts.length > 1 && parts[0] !== 'www' && parts[0] !== 'localhost') {
-      return parts[0]; // Return the subdomain part
-    }
-    return 'seabed2crest'; // Default for local development
-  }
-  
-  // For production domains with subdomains
-  const parts = hostWithoutPort.split('.');
-  if (parts.length > 2) {
-    return parts[0]; // Return the subdomain part
-  }
-  
-  return 'seabed2crest'; // Default if no subdomain detected
-};
   const handleResetPassword = async () => {
     if (!otpId || !newPassword || !confirmPassword) {
       toast({
@@ -639,7 +776,7 @@ const getSubdomain = (host: string): string => {
         });
 
         let redirectPath = "/not-found";
-        
+
         // Check if user is SUPER_ADMIN
         if (profileResponse.userRole === "SUPER_ADMIN") {
           redirectPath = "/dashboard";
@@ -697,28 +834,31 @@ const getSubdomain = (host: string): string => {
       <div className="lg:w-1/2 flex items-center justify-center p-8 lg:p-12 animate-slide-in-right">
         <div className="w-full max-w-md space-y-8">
           {/* Logo and Branding */}
-       <div className="text-center space-y-4">
-  {/* Logo Section */}
-  <div>
-    <img
-      src={localStorage.getItem("logoUrl") || "/default-logo.png"} 
-      alt="Logo"
-      className="mx-auto h-16 w-auto"
-    />
-  </div>
+          <div className="text-center space-y-4">
+            {/* Logo Section */}
+            <div>
+              <img
+                src={logoUrl}
+                alt="Logo"
+                className="mx-auto h-16 w-auto"
+                onError={(e) => {
+                  // Fallback to default logo if the loaded logo fails
+                  (e.target as HTMLImageElement).src = "/default-logo.png";
+                }}
+              />
+            </div>
 
-  <div className="space-y-2">
-    <h2 className="text-2xl font-bold text-foreground">
-      {forgotPasswordMode ? "Reset Password" : "Welcome Back"}
-    </h2>
-    <p className="text-muted-foreground">
-      {forgotPasswordMode
-        ? "Follow the steps to reset your password"
-        : "Please sign in to your account to continue"}
-    </p>
-  </div>
-</div>
-
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">
+                {forgotPasswordMode ? "Reset Password" : "Welcome Back"}
+              </h2>
+              <p className="text-muted-foreground">
+                {forgotPasswordMode
+                  ? "Follow the steps to reset your password"
+                  : "Please sign in to your account to continue"}
+              </p>
+            </div>
+          </div>
 
           {/* Back button for forgot password flow */}
           {forgotPasswordMode && (
@@ -770,7 +910,7 @@ const getSubdomain = (host: string): string => {
                   </div>
 
                   {/* Company Name Field - Show dynamically for personal emails */}
-                  {/* {showCompanyField && (
+                  {showCompanyField && (
                     <div className="space-y-2 animate-slide-down">
                       <Label
                         htmlFor="company"
@@ -786,7 +926,6 @@ const getSubdomain = (host: string): string => {
                           placeholder="Enter your company name"
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
-                          // required
                           className="h-12 pl-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                         />
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -795,7 +934,7 @@ const getSubdomain = (host: string): string => {
                         Required for personal email addresses
                       </p>
                     </div>
-                  )} */}
+                  )}
 
                   <div className="space-y-2">
                     <Label
@@ -861,8 +1000,9 @@ const getSubdomain = (host: string): string => {
                   <Button
                     type="submit"
                     disabled={isLoading || !isLoginFormValid}
-                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${isLoading || !isLoginFormValid ? "btn-disabled" : ""
-                      }`}
+                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${
+                      isLoading || !isLoginFormValid ? "btn-disabled" : ""
+                    }`}
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
@@ -933,8 +1073,9 @@ const getSubdomain = (host: string): string => {
                       <Button
                         onClick={handleVerifyOtp}
                         disabled={isLoading || !otp}
-                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${isLoading || !otp ? "btn-disabled" : ""
-                          }`}
+                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${
+                          isLoading || !otp ? "btn-disabled" : ""
+                        }`}
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -1048,13 +1189,14 @@ const getSubdomain = (host: string): string => {
                           !confirmPassword ||
                           passwordErrors.length > 0
                         }
-                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${isLoading ||
-                            !newPassword ||
-                            !confirmPassword ||
-                            passwordErrors.length > 0
+                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${
+                          isLoading ||
+                          !newPassword ||
+                          !confirmPassword ||
+                          passwordErrors.length > 0
                             ? "btn-disabled"
                             : ""
-                          }`}
+                        }`}
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -1078,17 +1220,7 @@ const getSubdomain = (host: string): string => {
           {/* Additional Links */}
           {!forgotPasswordMode && (
             <div className="text-center space-y-4">
-              {/* <p className="text-sm text-muted-foreground">
-                {`Don't have an account?  `}
-                <button
-                  onClick={() => router.push("/register")}
-                  className="text-primary hover:text-primary/80 font-medium transition-colors"
-                >
-                  Register
-                </button>
-              </p> */}
-
-           
+              {/* You can add additional links here if needed */}
             </div>
           )}
         </div>
