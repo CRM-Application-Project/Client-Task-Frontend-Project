@@ -243,7 +243,7 @@ export function DashboardSidebar({
     const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
 
     return (
-      <div className="flex h-full flex-col bg-sidebar relative">
+      <div className="flex h-full flex-col bg-[#3b3b3b] relative">
         {/* Logo */}
         <div
           className={cn(

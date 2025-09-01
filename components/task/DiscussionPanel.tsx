@@ -90,6 +90,36 @@ function isImageFile(fileName: string): boolean {
   return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
 }
 
+// Helper function to find mention boundaries
+function findMentionBoundaries(text: string, cursorPosition: number) {
+  const textBeforeCursor = text.substring(0, cursorPosition);
+  const lastAtSymbolIndex = textBeforeCursor.lastIndexOf("@");
+  
+  if (lastAtSymbolIndex === -1) return null;
+  
+  // Check if @ is at start or preceded by whitespace
+  const charBeforeAt = lastAtSymbolIndex > 0 ? textBeforeCursor[lastAtSymbolIndex - 1] : null;
+  const isValidMentionStart = charBeforeAt === null || charBeforeAt === " " || charBeforeAt === "\n";
+  
+  if (!isValidMentionStart) return null;
+  
+  // Find the end of the mention (space, newline, or end of string)
+  const textAfterAt = text.substring(lastAtSymbolIndex + 1);
+  const endMatch = textAfterAt.match(/[\s\n]/);
+  const mentionEnd = endMatch ? lastAtSymbolIndex + 1 + endMatch.index! : text.length;
+  
+  // Only show popup if cursor is within the mention
+  if (cursorPosition > mentionEnd) return null;
+  
+  const query = text.substring(lastAtSymbolIndex + 1, cursorPosition);
+  
+  return {
+    start: lastAtSymbolIndex,
+    end: mentionEnd,
+    query: query
+  };
+}
+
 export function DiscussionPanel({
   taskId,
   users,
@@ -121,6 +151,12 @@ export function DiscussionPanel({
   const [repliesData, setRepliesData] = useState<Record<string, CommentItem[]>>({});
   const [loadingReplies, setLoadingReplies] = useState<string[]>([]);
   
+  const [replyMentionQuery, setReplyMentionQuery] = useState("");
+  const [replyMentionedUsers, setReplyMentionedUsers] = useState<AssignDropdown[]>([]);
+  const [showReplyMentionPopup, setShowReplyMentionPopup] = useState(false);
+  const [replyMentionPosition, setReplyMentionPosition] = useState({ top: 0, left: 0 });
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
   // Add search state
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -150,6 +186,65 @@ export function DiscussionPanel({
   const filteredUsers = users.filter((user: AssignDropdown) =>
     user.label.toLowerCase().includes(mentionQuery.toLowerCase())
   );
+
+  const filteredReplyUsers = users.filter((user: AssignDropdown) =>
+    user.label.toLowerCase().includes(replyMentionQuery.toLowerCase())
+  );
+
+  // Fixed reply change handler with improved mention detection
+  const handleReplyChange = (e: React.ChangeEvent<HTMLTextAreaElement>, commentId: string) => {
+    const value = e.target.value;
+    setReplyContent(value);
+
+    const cursorPosition = e.target.selectionStart;
+    const mentionBoundaries = findMentionBoundaries(value, cursorPosition);
+
+    if (mentionBoundaries) {
+      setReplyMentionQuery(mentionBoundaries.query);
+
+      if (e.target) {
+        const textarea = e.target;
+        const { top, left } = getCaretCoordinates(textarea, cursorPosition);
+        setReplyMentionPosition({
+          top: top + textarea.offsetTop + 20,
+          left: left + textarea.offsetLeft,
+        });
+      }
+
+      setShowReplyMentionPopup(true);
+    } else {
+      setShowReplyMentionPopup(false);
+      setReplyMentionQuery("");
+    }
+  };
+
+  const handleReplyMentionSelect = (user: AssignDropdown) => {
+    if (!replyTextareaRef.current) return;
+
+    const textarea = replyTextareaRef.current;
+    const cursorPosition = textarea.selectionStart;
+    const mentionBoundaries = findMentionBoundaries(replyContent, cursorPosition);
+
+    if (mentionBoundaries) {
+      const textBeforeAt = replyContent.substring(0, mentionBoundaries.start);
+      const textAfterMention = replyContent.substring(mentionBoundaries.end);
+      const newValue = `${textBeforeAt}@${user.label} ${textAfterMention}`;
+
+      setReplyContent(newValue);
+      setReplyMentionedUsers((prev) => [...prev, user]);
+      
+      setTimeout(() => {
+        if (replyTextareaRef.current) {
+          const newCursorPos = mentionBoundaries.start + user.label.length + 2; // +2 for @ and space
+          replyTextareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          replyTextareaRef.current.focus();
+        }
+      }, 0);
+    }
+
+    setShowReplyMentionPopup(false);
+    setReplyMentionQuery("");
+  };
 
   // Load main comments function
   const load = useCallback(async (search = "", page = 0, limit = 10, append = false) => {
@@ -354,23 +449,16 @@ export function DiscussionPanel({
     }
   }, [handleScroll]);
 
-  // Handle textarea changes to detect @ mentions
+  // Fixed main editor change handler with improved mention detection
   const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setEditorValue(value);
 
     const cursorPosition = e.target.selectionStart;
-    const textBeforeCursor = value.substring(0, cursorPosition);
-    const lastAtSymbolIndex = textBeforeCursor.lastIndexOf("@");
+    const mentionBoundaries = findMentionBoundaries(value, cursorPosition);
 
-    if (
-      lastAtSymbolIndex !== -1 &&
-      (lastAtSymbolIndex === 0 ||
-        textBeforeCursor[lastAtSymbolIndex - 1] === " " ||
-        textBeforeCursor[lastAtSymbolIndex - 1] === "\n")
-    ) {
-      const query = textBeforeCursor.substring(lastAtSymbolIndex + 1);
-      setMentionQuery(query);
+    if (mentionBoundaries) {
+      setMentionQuery(mentionBoundaries.query);
 
       if (textareaRef.current) {
         const textarea = textareaRef.current;
@@ -384,29 +472,29 @@ export function DiscussionPanel({
       setShowMentionPopup(true);
     } else {
       setShowMentionPopup(false);
+      setMentionQuery("");
     }
   };
 
-  // Insert mention into textarea
+  // Fixed main mention select handler
   const handleMentionSelect = (user: AssignDropdown) => {
     if (!textareaRef.current) return;
 
     const textarea = textareaRef.current;
     const cursorPosition = textarea.selectionStart;
-    const textBeforeCursor = editorValue.substring(0, cursorPosition);
-    const lastAtSymbolIndex = textBeforeCursor.lastIndexOf("@");
+    const mentionBoundaries = findMentionBoundaries(editorValue, cursorPosition);
 
-    if (lastAtSymbolIndex !== -1) {
-      const textBeforeAt = editorValue.substring(0, lastAtSymbolIndex);
-      const textAfterCursor = editorValue.substring(cursorPosition);
-      const newValue = `${textBeforeAt}@${user.label}${textAfterCursor}`;
+    if (mentionBoundaries) {
+      const textBeforeAt = editorValue.substring(0, mentionBoundaries.start);
+      const textAfterMention = editorValue.substring(mentionBoundaries.end);
+      const newValue = `${textBeforeAt}@${user.label} ${textAfterMention}`;
 
       setEditorValue(newValue);
       setMentionedUsers((prev) => [...prev, user]);
       
       setTimeout(() => {
         if (textareaRef.current) {
-          const newCursorPos = lastAtSymbolIndex + user.label.length + 1;
+          const newCursorPos = mentionBoundaries.start + user.label.length + 2; // +2 for @ and space
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
           textareaRef.current.focus();
         }
@@ -533,6 +621,22 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
   }
 };
 
+ 
+
+
+  // Helper function to extract clean message without mention syntax
+  const extractCleanMessage = (text: string, mentionedUsers: AssignDropdown[]) => {
+    let cleanText = text;
+
+    // Remove @mentions from the text
+    mentionedUsers.forEach(user => {
+      const mentionPattern = new RegExp(`@${user.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'g');
+      cleanText = cleanText.replace(mentionPattern, '');
+    });
+
+    return cleanText.trim();
+  };
+
   // Handle posting with mentions and files
   const handlePost = async () => {
     if (!canComment) return;
@@ -541,6 +645,9 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
     setIsPosting(true);
     try {
       const mentionIds = mentionedUsers.map(user => user.id);
+      
+      // Extract clean message without @mentions
+      const cleanMessage = extractCleanMessage(editorValue, mentionedUsers);
       
       // Handle file uploads if there are any
       const uploadedAttachments: CommentAttachment[] = [];
@@ -560,7 +667,7 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
         }
       }
 
-      // Create optimistic comment for UI
+      // Create optimistic comment for UI (show full text with mentions for display)
       const newComment: CommentItem = {
         id: `temp_${Date.now()}`,
         parentId: null,
@@ -581,9 +688,9 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
 
       setComments((prev) => [newComment, ...prev]);
 
-      // ALWAYS call addTaskDiscussionComment API
+      // Send clean message to API (without @mentions)
       const commentResponse = await addTaskDiscussionComment(taskId, {
-        message: editorValue,
+        message: cleanMessage,
         mentions: mentionIds,
       });
 
@@ -627,13 +734,19 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
     }, 0);
   };
 
+  // Fixed reply post handler (removed file upload functionality and clean message)
   const handleReplyPost = async (commentId: string) => {
     if (!replyContent.trim()) return;
     
     setIsReplying(true);
     try {
-      const payload: TaskDiscussionReplyRequest = {
-        message: replyContent,
+      // Extract clean message without @mentions
+      const cleanReplyMessage = extractCleanMessage(replyContent, replyMentionedUsers);
+      
+      // Simple payload without file uploads
+      const payload = {
+        message: cleanReplyMessage,
+        mentions: replyMentionedUsers.map(user => user.id),
       };
       
       await addTaskDiscussionReply(commentId, payload);
@@ -643,8 +756,10 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
         description: "Reply posted successfully",
       });
       
+      // Reset reply state
       setReplyingTo(null);
       setReplyContent("");
+      setReplyMentionedUsers([]);
       
       // Reload replies for this comment
       await loadReplies(commentId);
@@ -1005,16 +1120,29 @@ const renderAttachment = (attachment: CommentAttachment) => {
               </div>
             )}
 
-            {/* Reply section */}
+            {/* Reply section - simplified without file uploads */}
             {replyingTo === comment.id && (
               <div className="mt-3 border-t pt-3">
-                <Textarea
-                  id={`reply-textarea-${comment.id}`}
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  placeholder="Write your reply..."
-                  className="min-h-[60px] mb-2"
-                />
+                <div className="relative">
+                  <Textarea
+                    ref={replyTextareaRef}
+                    id={`reply-textarea-${comment.id}`}
+                    value={replyContent}
+                    onChange={(e) => handleReplyChange(e, comment.id)}
+                    placeholder="Write your reply... Mention someone with @"
+                    className="min-h-[60px] mb-2"
+                  />
+                  
+                  {/* Reply mention popup */}
+                  {showReplyMentionPopup && (
+                    <MentionPopup
+                      users={filteredReplyUsers}
+                      onSelect={handleReplyMentionSelect}
+                      position={replyMentionPosition}
+                    />
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Button
                     size="sm"
@@ -1022,6 +1150,7 @@ const renderAttachment = (attachment: CommentAttachment) => {
                     onClick={() => {
                       setReplyingTo(null);
                       setReplyContent("");
+                      setReplyMentionedUsers([]);
                     }}
                   >
                     Cancel
