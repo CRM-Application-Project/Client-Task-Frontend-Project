@@ -575,6 +575,7 @@ export const LeadColumn = ({
               </Badge>
 
               {/* Container with fixed width to maintain consistent spacing */}
+              {permissions.canEdit && permissions.canDelete &&
               <div className="w-6 h-6 flex items-center justify-center">
                 {!isFinalStage && (
                   <div className="relative">
@@ -629,6 +630,7 @@ export const LeadColumn = ({
                   </div>
                 )}
               </div>
+}
             </div>
           </div>
         </div>

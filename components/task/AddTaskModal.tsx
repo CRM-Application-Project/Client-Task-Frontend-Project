@@ -259,6 +259,30 @@ export const AddTaskModal = ({
     return formData.taskStageId !== originalFormData.taskStageId;
   }, [editingTask, formData.taskStageId, originalFormData]);
 
+  // Check if all mandatory fields are filled for new tasks
+  const isMandatoryFieldsFilled = useMemo(() => {
+    if (editingTask) return true; // For edit mode, always allow submission
+    
+    return (
+      formData.subject.trim() !== "" &&
+      formData.description.trim() !== "" &&
+      formData.taskStageId > 0 &&
+      formData.assignee.trim() !== "" &&
+      (formData.estimatedHours ?? 0) > 0
+    );
+  }, [editingTask, formData]);
+
+  // Check if form is submittable
+  const canSubmit = useMemo(() => {
+    if (editingTask) {
+      // For edit mode: allow if there are changes or stage changed with comment
+      return dirtyFields.size > 0 || (stageChanged && comment.trim() !== "");
+    } else {
+      // For add mode: only allow if all mandatory fields are filled
+      return isMandatoryFieldsFilled;
+    }
+  }, [editingTask, dirtyFields.size, stageChanged, comment, isMandatoryFieldsFilled]);
+
   useEffect(() => {
     if (!isOpen) {
       setOriginalFormData(null);
@@ -571,7 +595,7 @@ export const AddTaskModal = ({
               className={`w-full ${validationErrors.subject ? "border-red-500" : ""}`}
             />
             {validationErrors.subject && (
-              <p className="text-red-500 text-xs">{validationErrors.subject}</p>
+              <p className="text-red-500 text-xs mt-1">{validationErrors.subject}</p>
             )}
           </div>
 
@@ -602,7 +626,7 @@ export const AddTaskModal = ({
                 </SelectContent>
               </Select>
               {validationErrors.priority && (
-                <p className="text-red-500 text-xs">{validationErrors.priority}</p>
+                <p className="text-red-500 text-xs mt-1">{validationErrors.priority}</p>
               )}
             </div>
           
@@ -615,56 +639,68 @@ export const AddTaskModal = ({
               </Label>
 
               {hasPreSelectedStage ? (
-                <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
-                  <span className="text-sm">
-                    {stages.find((stage) => stage.id === preSelectedStageId)
-                      ?.name || "Selected Stage"}
-                  </span>
-                  <input
-                    type="hidden"
-                    value={preSelectedStageId || ""}
-                    onChange={(e) =>
-                      updateFormField("taskStageId", parseInt(e.target.value))
-                    }
-                  />
-                </div>
+                <>
+                  <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
+                    <span className="text-sm">
+                      {stages.find((stage) => stage.id === preSelectedStageId)
+                        ?.name || "Selected Stage"}
+                    </span>
+                    <input
+                      type="hidden"
+                      value={preSelectedStageId || ""}
+                      onChange={(e) =>
+                        updateFormField("taskStageId", parseInt(e.target.value))
+                      }
+                    />
+                  </div>
+                  {validationErrors.taskStageId && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.taskStageId}</p>
+                  )}
+                </>
               ) : editingTask ? (
-                <Select
-                  value={formData.taskStageId?.toString() || ""}
-                  onValueChange={(value) => {
-                    const numValue = parseInt(value, 10);
-                    if (!isNaN(numValue)) {
-                      updateFormField("taskStageId", numValue);
-                    }
-                  }}
-                >
-                  <SelectTrigger className={validationErrors.taskStageId ? "border-red-500" : ""}>
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id.toString()}>
-                        {stage.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select
+                    value={formData.taskStageId?.toString() || ""}
+                    onValueChange={(value) => {
+                      const numValue = parseInt(value, 10);
+                      if (!isNaN(numValue)) {
+                        updateFormField("taskStageId", numValue);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={validationErrors.taskStageId ? "border-red-500" : ""}>
+                      <SelectValue placeholder="Select stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id.toString()}>
+                          {stage.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.taskStageId && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.taskStageId}</p>
+                  )}
+                </>
               ) : (
-                <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
-                  <span className="text-sm">
-                    {stages.length > 0 ? stages[0].name : "No stages available"}
-                  </span>
-                  <input
-                    type="hidden"
-                    value={stages.length > 0 ? stages[0].id : ""}
-                    onChange={(e) =>
-                      updateFormField("taskStageId", parseInt(e.target.value))
-                    }
-                  />
-                </div>
-              )}
-              {validationErrors.taskStageId && (
-                <p className="text-red-500 text-xs">{validationErrors.taskStageId}</p>
+                <>
+                  <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
+                    <span className="text-sm">
+                      {stages.length > 0 ? stages[0].name : "No stages available"}
+                    </span>
+                    <input
+                      type="hidden"
+                      value={stages.length > 0 ? stages[0].id : ""}
+                      onChange={(e) =>
+                        updateFormField("taskStageId", parseInt(e.target.value))
+                      }
+                    />
+                  </div>
+                  {validationErrors.taskStageId && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.taskStageId}</p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -686,7 +722,7 @@ export const AddTaskModal = ({
                 className={`resize-none ${validationErrors.comment ? "border-red-500" : ""}`}
               />
               {validationErrors.comment && (
-                <p className="text-red-500 text-xs">{validationErrors.comment}</p>
+                <p className="text-red-500 text-xs mt-1">{validationErrors.comment}</p>
               )}
             </div>
           )}
@@ -708,7 +744,7 @@ export const AddTaskModal = ({
                 min={getCurrentDateTime()}
               />
               {validationErrors.startDate && (
-                <p className="text-red-500 text-xs">{validationErrors.startDate}</p>
+                <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
               )}
             </div>
 
@@ -727,7 +763,7 @@ export const AddTaskModal = ({
                 min={getMinEndDate()}
               />
               {validationErrors.endDate && (
-                <p className="text-red-500 text-xs">{validationErrors.endDate}</p>
+                <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
               )}
             </div>
           </div>
@@ -752,7 +788,7 @@ export const AddTaskModal = ({
                 className={`w-full ${validationErrors.estimatedHours ? "border-red-500" : ""}`}
               />
               {validationErrors.estimatedHours && (
-                <p className="text-red-500 text-xs">{validationErrors.estimatedHours}</p>
+                <p className="text-red-500 text-xs mt-1">{validationErrors.estimatedHours}</p>
               )}
             </div>
 
@@ -805,7 +841,7 @@ export const AddTaskModal = ({
               </SelectContent>
             </Select>
             {validationErrors.assignee && (
-              <p className="text-red-500 text-xs">{validationErrors.assignee}</p>
+              <p className="text-red-500 text-xs mt-1">{validationErrors.assignee}</p>
             )}
           </div>
 
@@ -825,7 +861,7 @@ export const AddTaskModal = ({
               className={validationErrors.description ? "border-red-500" : ""}
             />
             {validationErrors.description && (
-              <p className="text-red-500 text-xs">{validationErrors.description}</p>
+              <p className="text-red-500 text-xs mt-1">{validationErrors.description}</p>
             )}
           </div>
 
@@ -852,8 +888,8 @@ export const AddTaskModal = ({
             </Button>
             <Button
               type="submit"
-              className="bg-brand-primary text-text-white hover:bg-brand-primary/90"
-              disabled={isLoading}
+              className="bg-brand-primary text-text-white hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || !canSubmit}
             >
               {isLoading ? "Loading..." : editingTask ? "Update" : "Submit"}
             </Button>
@@ -863,3 +899,5 @@ export const AddTaskModal = ({
     </Dialog>
   );
 };
+
+          

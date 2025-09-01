@@ -94,7 +94,8 @@ export const LeadFilters = ({
   const [localFilters, setLocalFilters] =
     useState<ExtendedLeadFilters>(filters);
   const [isExpanded, setIsExpanded] = useState(false);
-  const { permissions, loading: permissionsLoading } = usePermissions("lead");
+  const { permissions:leadPermissions, loading: permissionsLoading } = usePermissions("lead");
+  const {permissions:stagepermissions,loading:stagepermissionsLoading}=usePermissions("lead_stage")
 
   useEffect(() => {
     setLocalFilters(filters);
@@ -161,7 +162,7 @@ export const LeadFilters = ({
           </div>
 
           <div className="flex items-center gap-3">
-            {permissions.canCreate && !permissionsLoading && (
+            {stagepermissions.canCreate && !permissionsLoading && (
               <Button
                 onClick={onAddStage}
                 variant="outline"
@@ -171,7 +172,7 @@ export const LeadFilters = ({
                 Add Stage
               </Button>
             )}
-            {permissions.canCreate && !permissionsLoading && (
+            {leadPermissions.canCreate && !permissionsLoading && (
               <Button
                 onClick={onAddLead}
                 className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-md shadow-sm flex items-center px-3 py-2"
