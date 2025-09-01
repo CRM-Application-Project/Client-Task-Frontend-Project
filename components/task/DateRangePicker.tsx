@@ -134,7 +134,7 @@ export const DateRangePicker = ({
   return (
     <Dialog open={isOpen}>
       <CustomDialogContent
-        className="max-w-3xl p-0 overflow-hidden"
+        className="max-w-3xl p-0 overflow-hidden bg-white"
         onInteractOutside={onClose}
         hideCloseButton
       >

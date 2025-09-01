@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TaskPerformer } from "@/app/services/data.service";
+import { CheckCircle2, XCircle, ClipboardList } from "lucide-react";
 
 interface TasksTopStaffCardProps {
   topPerformers?: TaskPerformer[];
@@ -29,19 +30,27 @@ export default function TasksTopStaffCard({
     }
   };
 
-  const currentData = getCurrentData().map((performer, index) => ({
+  const currentData: Row[] = getCurrentData().map((performer, index) => ({
     n: index + 1,
     name: performer.userName,
     tasks: performer.totalTasks,
     pct: performer.completedPercentage,
   }));
 
+  const getPctColor = (pct: number) => {
+    if (pct >= 70) return "text-green-600 bg-green-50 ring-green-200";
+    if (pct >= 40) return "text-yellow-600 bg-yellow-50 ring-yellow-200";
+    return "text-red-600 bg-red-50 ring-red-200";
+  };
+
   return (
     <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
+      {/* Header */}
       <div className="mb-3 flex items-start justify-between">
         <div className="leading-tight">
-          <h3 className="text-[18px] font-semibold text-slate-900">
-            Staff by Performance
+          <h3 className="text-[18px] font-semibold text-slate-900 flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-slate-600" />
+            Staff by Task Performance
           </h3>
         </div>
         <div className="flex gap-2">
@@ -57,25 +66,39 @@ export default function TasksTopStaffCard({
         </div>
       </div>
 
+      {/* List */}
       <ul className="space-y-3">
         {currentData.length > 0 ? (
           currentData.map((p) => (
-            <li key={p.n} className="rounded-2xl bg-slate-50 px-4 py-3">
+            <li
+              key={p.n}
+              className="rounded-2xl bg-slate-50 px-4 py-3 hover:shadow-md transition"
+            >
               <div className="flex items-center justify-between">
+                {/* Left */}
                 <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 place-items-center rounded-full bg-white text-[12px] font-semibold text-slate-600 ring-1 ring-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,.7)]">
+                  <div className="grid h-8 w-8 place-items-center rounded-full bg-white text-[12px] font-semibold text-slate-600 ring-1 ring-slate-200 shadow-sm">
                     {p.n}
                   </div>
                   <div className="leading-tight">
                     <div className="text-[15px] font-medium text-slate-900">
                       {p.name}
                     </div>
-                    <div className="text-[12px] text-slate-500">
-                      {p.tasks} tasks
+                    <div className="flex items-center gap-3 mt-1 text-[12px]">
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                        {p.tasks} tasks
+                      </span>
                     </div>
                   </div>
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-[12px] font-semibold text-slate-900 ring-1 ring-slate-200">
+
+                {/* Right */}
+                <span
+                  className={`rounded-full px-3 py-1 text-[12px] font-semibold ring-1 ${getPctColor(
+                    p.pct
+                  )}`}
+                >
                   {p.pct}%
                 </span>
               </div>

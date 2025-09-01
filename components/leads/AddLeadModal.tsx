@@ -37,6 +37,7 @@ import { LeadStage } from "@/lib/data";
 // Enhanced validation schema with better phone validation
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
+  companyName: z.string().min(1, "Company name is required"),
   customerEmailAddress: z.string().email("Invalid email address"),
   customerMobileNumber: z
     .string()
@@ -94,17 +95,16 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
 
   // Find the "New" stage or use the first available stage
- const findDefaultStage = () => {
-  if (!leadStages || leadStages.length === 0) return null;
+  const findDefaultStage = () => {
+    if (!leadStages || leadStages.length === 0) return null;
 
-  // Sort by priority and return the first stage
-  const sortedStages = [...leadStages].sort(
-    (a, b) => a.leadStagePriority - b.leadStagePriority
-  );
+    // Sort by priority and return the first stage
+    const sortedStages = [...leadStages].sort(
+      (a, b) => a.leadStagePriority - b.leadStagePriority
+    );
 
-  return sortedStages[0];
-};
-
+    return sortedStages[0];
+  };
 
   const defaultStage = findDefaultStage();
   const defaultStageName = defaultStage ? defaultStage.leadStageName : "";
@@ -115,11 +115,13 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       // For restricted mode, only return the default stage
       return defaultStage ? [defaultStage] : [];
     }
-    
+
     // Normal behavior - filter out CLOSED WON and CLOSED LOST statuses
     return leadStages.filter(
       (stage) =>
-        !["CLOSED WON", "CLOSED LOST"].includes(stage.leadStageName.toUpperCase())
+        !["CLOSED WON", "CLOSED LOST"].includes(
+          stage.leadStageName.toUpperCase()
+        )
     );
   };
 
@@ -130,6 +132,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
     mode: "onChange",
     defaultValues: {
       customerName: "",
+      companyName: "",
       customerEmailAddress: "",
       customerMobileNumber: "",
       companyEmailAddress: "",
@@ -213,6 +216,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
         )}${data.customerMobileNumber.trim()}`,
         companyEmailAddress: data.companyEmailAddress ?? "",
         customerName: data.customerName,
+        companyName: data.companyName,
         customerEmailAddress: data.customerEmailAddress,
         leadLabel: data.leadLabel ?? "",
         leadReference: data.leadReference ?? "",
@@ -281,7 +285,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
           <DialogTitle>Add New Lead</DialogTitle>
           <DialogDescription>
             Fill in the details below to add a new lead to your CRM.
-            {restrictToFirstStage && " This lead will be added to the initial stage."}
+            {restrictToFirstStage &&
+              " This lead will be added to the initial stage."}
           </DialogDescription>
         </DialogHeader>
 
@@ -307,6 +312,33 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                           );
                           field.onChange(value);
                           form.trigger("customerName");
+                        }}
+                      />
+                    </FormControl>
+                    {fieldState.error && <FormMessage />}
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="companyName"
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Company Name <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter company name"
+                        {...field}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(
+                            /[^a-zA-Z0-9\s]/g,
+                            ""
+                          );
+                          field.onChange(value);
+                          form.trigger("companyName");
                         }}
                       />
                     </FormControl>

@@ -167,7 +167,7 @@ export const TaskDateRangePicker = ({
   return (
     <Dialog open={isOpen}>
       <CustomDialogContent
-        className="max-w-4xl max-h-[90vh] p-0 overflow-hidden"
+        className="max-w-4xl max-h-[90vh] p-0 overflow-hidden bg-white"
         onInteractOutside={onClose}
         hideCloseButton
       >
@@ -271,7 +271,7 @@ export const TaskDateRangePicker = ({
                     )}
                     classNames={{
                       day: "h-6 w-6 text-xs rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors",
-                      day_selected: "bg-primary text-white rounded-full",
+                      day_selected: "bg-black hover:bg-black text-white rounded-full",
                       day_today:
                         "border border-primary text-primary font-semibold",
                       caption: "flex justify-center pt-0.5 relative items-center text-xs",
@@ -296,7 +296,7 @@ export const TaskDateRangePicker = ({
                     )}
                     classNames={{
                       day: "h-6 w-6 text-xs rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors",
-                      day_selected: "bg-primary text-white rounded-full",
+                      day_selected: "bg-black hover:bg-black text-white rounded-full",
                       day_today:
                         "border border-primary text-primary font-semibold",
                       caption: "flex justify-center pt-0.5 relative items-center text-xs",

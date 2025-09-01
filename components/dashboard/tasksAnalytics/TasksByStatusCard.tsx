@@ -108,7 +108,12 @@ export default function TasksByStatusCard({ data }: TasksByStatusCardProps) {
             />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  className="!bg-[var(--color-surface)] !text-[var(--text-primary)] !shadow-lg !rounded-lg"
+                />
+              }
             />
             <Bar dataKey="count" radius={8} barSize={60}>
               {chartData.map((entry) => (
@@ -125,7 +130,7 @@ export default function TasksByStatusCard({ data }: TasksByStatusCardProps) {
           All stages shown, even when counts are zero
         </div> */}
         {/* <div className="text-muted-foreground leading-none"> */}
-          {/* Bar width is fixed so one category never dominates the layout */}
+        {/* Bar width is fixed so one category never dominates the layout */}
         {/* </div> */}
       </CardFooter>
     </div>

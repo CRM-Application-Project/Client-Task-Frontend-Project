@@ -23,6 +23,7 @@ interface CreateLeadRequest {
   customerMobileNumber?: string;
   companyEmailAddress: string;
   customerName: string;
+  companyName: string;
   customerEmailAddress: string;
   leadLabel?: string;
   leadReference?: string;
