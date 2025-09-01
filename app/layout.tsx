@@ -11,7 +11,7 @@ async function verifyUser(
   subDomainName: string,
   deviceType: string = "web"
 ): Promise<any> {
-  const baseUrl = "https://dev.crm.seabed2crest.com/api/v1/verify";
+  const baseUrl = "https://devcrm.seabed2crest.com/api/v1/verify";
 
   // Append query params
   const url = `${baseUrl}?deviceType=${encodeURIComponent(deviceType)}&subDomainName=${encodeURIComponent(subDomainName)}`;
