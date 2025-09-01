@@ -97,9 +97,9 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
     <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
       <CardHeader className="items-start pb-0">
         <CardTitle>Lead Status</CardTitle>
-        <CardDescription>Sales Funnel Overview</CardDescription>
+        <CardDescription>Sales Status Overview</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-6">
+      <CardContent className="flex flex-col gap-6 items-center">
         {total > 0 ? (
           <>
             <div className="flex flex-col lg:flex-row gap-6">
@@ -112,7 +112,12 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
                   <PieChart>
                     <ChartTooltip
                       cursor={false}
-                      content={<ChartTooltipContent hideLabel />}
+                      content={
+                        <ChartTooltipContent
+                          hideLabel
+                          className="!bg-[var(--color-surface)] !text-[var(--text-primary)] !shadow-lg !rounded-lg"
+                        />
+                      }
                     />
                     <Pie
                       data={chartData}
@@ -183,10 +188,10 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
                       <div key={stage} className="space-y-2">
                         {previousStage && (
                           <div className="flex justify-between items-center text-xs text-muted-foreground">
-                            <span>
+                            {/* <span>
                               {conversionRate}% conversion from{" "}
                               {statusLabels[previousStage]}
-                            </span>
+                            </span> */}
                           </div>
                         )}
                         <div
@@ -255,7 +260,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
             </div>
           </>
         ) : (
-          <div className="text-slate-400 text-sm py-8 text-center">
+          <div className="flex items-center justify-center w-full py-12 text-slate-400 text-sm text-center">
             No lead data available for the selected period
           </div>
         )}

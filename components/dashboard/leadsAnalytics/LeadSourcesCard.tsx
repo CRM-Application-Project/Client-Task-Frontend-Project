@@ -67,12 +67,10 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
   const [activeIndex, setActiveIndex] = React.useState<number | null>(null);
 
   return (
-    <div className="rounded-[24px] bg-white p-6 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
-      <CardHeader className="items-center pb-0">
-        <CardTitle className="text-lg font-bold">Lead Sources</CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
-          Distribution of captured leads
-        </CardDescription>
+    <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
+      <CardHeader className="items-start pb-0">
+        <CardTitle>Lead Sources</CardTitle>
+        <CardDescription>Distribution of captured leads</CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col items-center lg:flex-row gap-6 pb-0">
@@ -81,7 +79,7 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
             {/* Chart */}
             <ChartContainer
               config={chartConfig}
-              className="relative mx-auto h-[240px] w-[240px]"
+              className="relative mx-auto h-[250px] w-[250px]"
             >
               <ResponsiveContainer>
                 <PieChart>
@@ -177,7 +175,7 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
             </div>
           </>
         ) : (
-          <div className="text-slate-400 text-sm text-center py-12">
+          <div className="flex items-center justify-center w-full py-12 text-slate-400 text-sm text-center">
             No data available
           </div>
         )}
