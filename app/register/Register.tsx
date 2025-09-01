@@ -1023,7 +1023,6 @@ export default function RegisterPage() {
                     className="text-sm"
                     style={{ color: theme.brandSettings.textColor + "80" }}
                   >
-                    {`Don't have an account?{" "}`}
                     <button
                       className="font-medium transition-colors"
                       style={{ color: theme.brandSettings.primaryColor }}

@@ -11,7 +11,7 @@ async function verifyUser(
   subDomainName: string,
   deviceType: string = "web"
 ): Promise<any> {
-  const baseUrl = "https://devcrm.seabed2crest.com/api/v1/verify";
+  const baseUrl = "http://localhost:8070/api/v1/verify";
 
   // Append query params
   const url = `${baseUrl}?deviceType=${encodeURIComponent(deviceType)}&subDomainName=${encodeURIComponent(subDomainName)}`;
@@ -128,7 +128,7 @@ function generateThemeCSS(themeData: any) {
       --background-primary: ${surface};
       
       /* Sidebar Colors */
-      --sidebar-background: ${headerBg};
+      --sidebar-background: ${primary};
       --sidebar-foreground: ${headerText};
       
       /* Additional theme-specific overrides */

@@ -501,50 +501,50 @@ const handleAddLeadForStage = (stageId?: string) => {
     setLeads((prevLeads) => [newLead, ...prevLeads]);
   };
 
-  const fetchFilteredLeads = async () => {
-    try {
-      setIsLoading(true);
+  // const fetchFilteredLeads = async () => {
+  //   try {
+  //     setIsLoading(true);
 
-      const filterParams: FilterLeadsParams = {
-        startDate: filters.dateRange?.from
-          ? format(filters.dateRange.from, "yyyy-MM-dd")
-          : null,
-        endDate: filters.dateRange?.to
-          ? format(filters.dateRange.to, "yyyy-MM-dd")
-          : null,
-        leadStatus: filters.status || null,
-        leadPriority: filters.priority || null,
-        leadLabel: filters.label || null,
-        leadSource: filters.source || null,
-        assignedTo: getAssignedToLabel(filters.assignedTo) || null,
-        sortBy: filters.sortBy || null,
-        direction: filters.sortOrder || null,
-      };
+  //     const filterParams: FilterLeadsParams = {
+  //       startDate: filters.dateRange?.from
+  //         ? format(filters.dateRange.from, "yyyy-MM-dd")
+  //         : null,
+  //       endDate: filters.dateRange?.to
+  //         ? format(filters.dateRange.to, "yyyy-MM-dd")
+  //         : null,
+  //       leadStatus: filters.status || null,
+  //       leadPriority: filters.priority || null,
+  //       leadLabel: filters.label || null,
+  //       leadSource: filters.source || null,
+  //       assignedTo: getAssignedToLabel(filters.assignedTo) || null,
+  //       sortBy: filters.sortBy || null,
+  //       direction: filters.sortOrder || null,
+  //     };
 
-      const cleanedParams = Object.fromEntries(
-        Object.entries(filterParams).filter(
-          ([_, value]) => value !== null && value !== undefined
-        )
-      );
+  //     const cleanedParams = Object.fromEntries(
+  //       Object.entries(filterParams).filter(
+  //         ([_, value]) => value !== null && value !== undefined
+  //       )
+  //     );
 
-      const response = await filterLeads(cleanedParams);
+  //     const response = await filterLeads(cleanedParams);
 
-      if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.map((lead) =>
-          enhanceLeadWithAssigneeName(lead, assignOptions)
-        );
-        setLeads(enhancedLeads);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to filter leads",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     if (response.isSuccess && response.data) {
+  //       const enhancedLeads = response.data.map((lead) =>
+  //         enhanceLeadWithAssigneeName(lead, assignOptions)
+  //       );
+  //       setLeads(enhancedLeads);
+  //     }
+  //   } catch (error: any) {
+  //     toast({
+  //       title: "Error",
+  //       description: error.message || "Failed to filter leads",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   useEffect(() => {
     const hasActiveFilters = Object.keys(filters).length > 0;
@@ -556,50 +556,210 @@ const handleAddLeadForStage = (stageId?: string) => {
     }
   }, [filters]);
 
-  const fetchLeads = async (showLoading: boolean = true) => {
-    try {
-      if (showLoading) {
-        setIsLoading(true);
-      }
+  // const fetchLeads = async (showLoading: boolean = true) => {
+  //   try {
+  //     if (showLoading) {
+  //       setIsLoading(true);
+  //     }
 
-      const response = await getAllLeads();
-      if (response.isSuccess && response.data) {
+  //     const response = await getAllLeads();
+  //     if (response.isSuccess && response.data) {
+  //       const enhancedLeads = response.data.map((lead) =>
+  //         enhanceLeadWithAssigneeName(lead, assignOptions)
+  //       );
+  //       setLeads(enhancedLeads);
+  //     }
+  //   } catch (error: any) {
+  //     console.error("Failed to fetch leads:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: error.message || "Failed to fetch leads",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     if (showLoading) {
+  //       setIsLoading(false);
+  //     }
+  //   }
+  // };
+
+// Key changes to fix the filter data mapping issue:
+
+// 1. Update the useEffect that handles filtering to wait for assignOptions
+useEffect(() => {
+  // Don't apply filters if assignOptions haven't loaded yet
+  if (assignOptions.length === 0) return;
+  
+  const hasActiveFilters = Object.keys(filters).length > 0;
+
+  if (hasActiveFilters && !searchQuery) {
+    fetchFilteredLeads();
+  } else if (!hasActiveFilters && !searchQuery) {
+    fetchLeads();
+  }
+}, [filters, assignOptions]); // Add assignOptions as dependency
+
+// 2. Update the fetchFilteredLeads function to ensure proper mapping
+const fetchFilteredLeads = async () => {
+  try {
+    setIsLoading(true);
+
+    const filterParams: FilterLeadsParams = {
+      startDate: filters.dateRange?.from
+        ? format(filters.dateRange.from, "yyyy-MM-dd")
+        : null,
+      endDate: filters.dateRange?.to
+        ? format(filters.dateRange.to, "yyyy-MM-dd")
+        : null,
+      leadStatus: filters.status || null,
+      leadPriority: filters.priority || null,
+      leadLabel: filters.label || null,
+      leadSource: filters.source || null,
+      assignedTo: getAssignedToLabel(filters.assignedTo) || null,
+      sortBy: filters.sortBy || null,
+      direction: filters.sortOrder || null,
+    };
+
+    const cleanedParams = Object.fromEntries(
+      Object.entries(filterParams).filter(
+        ([_, value]) => value !== null && value !== undefined
+      )
+    );
+
+    const response = await filterLeads(cleanedParams);
+
+    if (response.isSuccess && response.data) {
+      // Ensure assignOptions are available before mapping
+      if (assignOptions.length > 0) {
         const enhancedLeads = response.data.map((lead) =>
           enhanceLeadWithAssigneeName(lead, assignOptions)
         );
         setLeads(enhancedLeads);
+      } else {
+        // If assignOptions not ready, set leads without enhancement and let the other useEffect handle it
+        setLeads(response.data);
       }
-    } catch (error: any) {
-      console.error("Failed to fetch leads:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch leads",
-        variant: "destructive",
-      });
-    } finally {
-      if (showLoading) {
-        setIsLoading(false);
+    }
+  } catch (error: any) {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to filter leads",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// 3. Update the assignOptions useEffect to re-enhance leads when assignOptions load
+useEffect(() => {
+  const fetchAssignOptions = async () => {
+    try {
+      const response = await getAssignDropdown();
+      if (response.isSuccess && response.data) {
+        setAssignOptions(response.data);
+        
+        // If we have leads but they're not enhanced, enhance them now
+        setLeads(prevLeads => {
+          if (prevLeads.length > 0) {
+            return prevLeads.map((lead) => 
+              enhanceLeadWithAssigneeName(lead, response.data!)
+            );
+          }
+          return prevLeads;
+        });
       }
+    } catch (error) {
+      console.error("Failed to fetch assign options:", error);
     }
   };
 
-  useEffect(() => {
-    if (assignOptions.length > 0 && leads.length > 0) {
-      const updatedLeads = leads.map((lead) => {
-        if (lead.leadAddedBy && !lead.assignedToName) {
-          const assignee = assignOptions.find(
-            (opt) => opt.id === lead.leadAddedBy
-          );
-          return {
-            ...lead,
-            assignedToName: assignee ? assignee.label : lead.leadAddedBy,
-          };
-        }
-        return lead;
-      });
-      setLeads(updatedLeads);
+  fetchAssignOptions();
+  fetchLeadStagesData();
+}, []);
+
+// 4. Remove the redundant useEffect that was causing double updates
+// DELETE THIS useEffect:
+/*
+useEffect(() => {
+  if (assignOptions.length > 0 && leads.length > 0) {
+    const updatedLeads = leads.map((lead) => {
+      if (lead.leadAddedBy && !lead.assignedToName) {
+        const assignee = assignOptions.find(
+          (opt) => opt.id === lead.leadAddedBy
+        );
+        return {
+          ...lead,
+          assignedToName: assignee ? assignee.label : lead.leadAddedBy,
+        };
+      }
+      return lead;
+    });
+    setLeads(updatedLeads);
+  }
+}, [assignOptions]);
+*/
+
+// 5. Update fetchLeads to also wait for assignOptions
+const fetchLeads = async (showLoading: boolean = true) => {
+  try {
+    if (showLoading) {
+      setIsLoading(true);
     }
-  }, [assignOptions]);
+
+    const response = await getAllLeads();
+    if (response.isSuccess && response.data) {
+      // Ensure assignOptions are available before mapping
+      if (assignOptions.length > 0) {
+        const enhancedLeads = response.data.map((lead) =>
+          enhanceLeadWithAssigneeName(lead, assignOptions)
+        );
+        setLeads(enhancedLeads);
+      } else {
+        // If assignOptions not ready, set leads without enhancement
+        setLeads(response.data);
+      }
+    }
+  } catch (error: any) {
+    console.error("Failed to fetch leads:", error);
+    toast({
+      title: "Error",
+      description: error.message || "Failed to fetch leads",
+      variant: "destructive",
+    });
+  } finally {
+    if (showLoading) {
+      setIsLoading(false);
+    }
+  }
+};
+
+// 6. Update the initial fetchLeads call to happen after assignOptions load
+useEffect(() => {
+  // Only fetch leads after assignOptions are loaded
+  if (assignOptions.length > 0) {
+    fetchLeads();
+  }
+}, [assignOptions.length]);
+
+// 7. Add a separate useEffect to handle the refreshAssignOptions logic
+useEffect(() => {
+  const refreshAssignOptions = async () => {
+    try {
+      const response = await getAssignDropdown();
+      if (response.isSuccess && response.data) {
+        setAssignOptions(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to refresh assign options:", error);
+    }
+  };
+
+  // Only refresh if we have leads but no assignOptions yet
+  if (leads.length > 0 && assignOptions.length === 0) {
+    refreshAssignOptions();
+  }
+}, [leads.length, assignOptions.length]);
 
   useEffect(() => {
     fetchLeads();
