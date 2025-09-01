@@ -88,7 +88,7 @@ export default function TasksByStatusCard({ data }: TasksByStatusCardProps) {
     <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(2,6,23,0.06)] ring-1 ring-slate-100">
       <CardHeader>
         <CardTitle>Tasks by Status</CardTitle>
-        <CardDescription>{total.toLocaleString()} total tasks</CardDescription>
+        <CardDescription>{total?.toLocaleString()} total tasks</CardDescription>
       </CardHeader>
 
       <CardContent>

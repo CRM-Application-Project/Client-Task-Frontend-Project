@@ -144,7 +144,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
                                   y={viewBox.cy}
                                   className="fill-foreground text-3xl font-bold"
                                 >
-                                  {total.toLocaleString()}
+                                  {total?.toLocaleString()}
                                 </tspan>
                                 <tspan
                                   x={viewBox.cx}
@@ -211,7 +211,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
                           </div>
                           <div className="flex items-center gap-4">
                             <span className="font-semibold">
-                              {data[stage].toLocaleString()}
+                              {data[stage]?.toLocaleString()}
                             </span>
                             <span className="text-muted-foreground text-sm">
                               {Math.round((data[stage] / total) * 100)}%
