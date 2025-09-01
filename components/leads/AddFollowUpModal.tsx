@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -68,6 +68,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -199,6 +200,46 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  // Get minimum time for today (current time + 5 minutes)
+  const getMinTimeForToday = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 5); // Add 5 minutes
+    
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    
+    return `${hours}:${minutes}`;
+  };
+
+  // Handle datetime input change
+  const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
+    const selectedDateTime = e.target.value;
+    field.onChange(selectedDateTime);
+    
+    // Close the picker after selection
+    if (dateInputRef.current) {
+      dateInputRef.current.blur();
+    }
+  };
+
+  // Validate if selected time is at least 5 minutes from now for today's date
+  const validateDateTime = (value: string) => {
+    if (!value) return true;
+    
+    const selectedDate = new Date(value);
+    const now = new Date();
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60000); // Add 5 minutes
+    
+    // Check if selected date is today
+    const isToday = selectedDate.toDateString() === now.toDateString();
+    
+    if (isToday && selectedDate < fiveMinutesFromNow) {
+      return "Selected time must be at least 5 minutes from now";
+    }
+    
+    return true;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-xl max-h-[90vh]  bg-white overflow-y-auto p-4">
@@ -214,24 +255,37 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
               <FormField
                 control={form.control}
                 name="nextFollowupDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="block text-sm font-medium text-gray-700">
-                      Next Follow-up Date *
-                    </FormLabel>
-                    <div className="relative">
-                      <FormControl>
-                        <input
-                          type="datetime-local"
-                          {...field}
-                          className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                          min={getCurrentDateTime()}
-                        />
-                      </FormControl>
-                    </div>
-                    <FormMessage className="text-xs" />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const validationResult = validateDateTime(field.value);
+                  const isInvalid = typeof validationResult === "string";
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel className="block text-sm font-medium text-gray-700">
+                        Next Follow-up Date *
+                      </FormLabel>
+                      <div className="relative">
+                        <FormControl>
+                          <input
+                            ref={dateInputRef}
+                            type="datetime-local"
+                            value={field.value}
+                            onChange={(e) => handleDateTimeChange(e, field)}
+                            className={`w-full h-10 rounded-md border ${
+                              isInvalid ? "border-red-500" : "border-gray-300"
+                            } bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400`}
+                            min={getCurrentDateTime()}
+                          />
+                        </FormControl>
+                      </div>
+                      {isInvalid ? (
+                        <p className="text-xs text-red-500 mt-1">{validationResult}</p>
+                      ) : (
+                        <FormMessage className="text-xs" />
+                      )}
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -291,13 +345,13 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
               >
                 Cancel
               </Button>
-           <Button
-  type="submit"
-  className={`px-4 h-9 text-text-white text-sm bg-brand-primary hover:bg-brand-primary/90 ${
-    (isLoading || !isFormValid) ? "btn-disabled" : ""
-  }`}
-  disabled={isLoading || !isFormValid}
->
+              <Button
+                type="submit"
+                className={`px-4 h-9 text-text-white text-sm bg-brand-primary hover:bg-brand-primary/90 ${
+                  (isLoading || !isFormValid) ? "btn-disabled" : ""
+                }`}
+                disabled={isLoading || !isFormValid}
+              >
                 {isLoading ? (
                   <span className="flex items-center">
                     <svg

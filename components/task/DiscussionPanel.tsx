@@ -43,6 +43,7 @@ import { MentionPopup } from "./MentionPopup";
 import { Input } from "../ui/input";
 import { Mention, TaskDiscussionComment, TaskDiscussionFilterResponse, TaskDiscussionReactionRequest } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/app/http-common";
 
 // Helper function to get caret coordinates
 function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
@@ -326,7 +327,7 @@ export function DiscussionPanel({
 
   // Updated function to create a filter URL with parentId
   const getFilterUrlWithParentId = (taskId: number, parentId: string) => {
-    return `http://localhost:8070/api/v1/task/discussion/filter?taskId=${taskId}&parentId=${parentId}`;
+    return `${BASE_URL}/task/discussion/filter?taskId=${taskId}&parentId=${parentId}`;
   };
 
   // Fixed loadReplies function to properly fetch replies using parentId

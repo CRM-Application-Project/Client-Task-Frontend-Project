@@ -393,29 +393,34 @@ export default function LoginPage() {
     }
   };
 
-  // Add this useEffect at the top of your component (after the state declarations)
 useEffect(() => {
   const verifyUserAndSetTheme = async () => {
     try {
       // Extract subdomain from current URL
       const host = window.location.hostname;
       const subDomainName = getSubdomain(host);
-      
+
       // Call verifyUser endpoint
       const verifyResponse = await verifyUser(subDomainName, "web");
-      
-      // You can use the response data if needed
+
       console.log("Verify user response:", verifyResponse);
-      
-      // If you want to store the theme data, you can set it in state
+
+      // Store logoUrl in localStorage
+      const logoUrl = verifyResponse?.data?.logoUrl;
+      if (logoUrl) {
+        localStorage.setItem("logoUrl", logoUrl);
+      }
+
+      // Optionally store whiteLabelData in state
       // setThemeData(verifyResponse.data?.whiteLabelData || null);
     } catch (error) {
-      console.error('Failed to verify user:', error);
+      console.error("Failed to verify user:", error);
     }
   };
 
   verifyUserAndSetTheme();
 }, []);
+
 
 // Add the getSubdomain function inside your component (or outside if you prefer)
 const getSubdomain = (host: string): string => {
@@ -692,18 +697,28 @@ const getSubdomain = (host: string): string => {
       <div className="lg:w-1/2 flex items-center justify-center p-8 lg:p-12 animate-slide-in-right">
         <div className="w-full max-w-md space-y-8">
           {/* Logo and Branding */}
-          <div className="text-center space-y-4">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">
-                {forgotPasswordMode ? "Reset Password" : "Welcome Back"}
-              </h2>
-              <p className="text-muted-foreground">
-                {forgotPasswordMode
-                  ? "Follow the steps to reset your password"
-                  : "Please sign in to your account to continue"}
-              </p>
-            </div>
-          </div>
+       <div className="text-center space-y-4">
+  {/* Logo Section */}
+  <div>
+    <img
+      src={localStorage.getItem("logoUrl") || "/default-logo.png"} 
+      alt="Logo"
+      className="mx-auto h-16 w-auto"
+    />
+  </div>
+
+  <div className="space-y-2">
+    <h2 className="text-2xl font-bold text-foreground">
+      {forgotPasswordMode ? "Reset Password" : "Welcome Back"}
+    </h2>
+    <p className="text-muted-foreground">
+      {forgotPasswordMode
+        ? "Follow the steps to reset your password"
+        : "Please sign in to your account to continue"}
+    </p>
+  </div>
+</div>
+
 
           {/* Back button for forgot password flow */}
           {forgotPasswordMode && (
@@ -1073,21 +1088,7 @@ const getSubdomain = (host: string): string => {
                 </button>
               </p> */}
 
-              {/* Feature Pills */}
-              <div className="flex flex-wrap justify-center gap-2 pt-4">
-                <div className="flex items-center gap-2 px-3 py-1 bg-secondary rounded-full text-xs text-secondary-foreground">
-                  <Shield className="h-3 w-3" />
-                  Secure
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-secondary rounded-full text-xs text-secondary-foreground">
-                  <Users className="h-3 w-3" />
-                  Team Collaboration
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-secondary rounded-full text-xs text-secondary-foreground">
-                  <TrendingUp className="h-3 w-3" />
-                  Analytics
-                </div>
-              </div>
+           
             </div>
           )}
         </div>

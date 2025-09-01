@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,8 +29,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { LeadStatus } from "../../lib/leads";
-import { changeLeadStatus } from "@/app/services/data.service";
+import { changeLeadStatus, fetchLeadStages } from "@/app/services/data.service";
 import { useToast } from "@/hooks/use-toast";
+import { LeadStage } from "@/lib/data";
 
 const formSchema = z.object({
   status: z.string().min(1, "Please select a status"),
@@ -74,6 +75,9 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   onChangeStatus,
 }) => {
   const { toast } = useToast();
+  const [leadStages, setLeadStages] = useState<LeadStage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -87,6 +91,37 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
   // Check if a valid status is selected
   const isFormValid = status && status.length > 0;
+
+  // Fetch lead stages when component mounts
+  useEffect(() => {
+    const getLeadStages = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetchLeadStages();
+        if (response.isSuccess) {
+          setLeadStages(response.data);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch lead stages",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch lead stages",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      getLeadStages();
+    }
+  }, [isOpen, toast]);
 
   React.useEffect(() => {
     if (lead) {
@@ -138,59 +173,8 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
     onClose();
   };
 
-  const statusOptions = [
-    {
-      value: "NEW LEAD",
-      label: "New Lead",
-      description: "Newly created lead",
-      color: "text-gray-800",
-    },
-    {
-      value: "CONTACTED",
-      label: "Contacted",
-      description: "Initial contact made",
-      color: "text-gray-800",
-    },
-    {
-      value: "QUALIFIED",
-      label: "Qualified",
-      description: "Lead qualified as potential customer",
-      color: "text-gray-800",
-    },
-    {
-      value: "PROPOSAL SENT",
-      label: "Proposal Sente",
-      description: "Proposal sent to lead",
-      color: "text-gray-800",
-    },
-    {
-      value: "DEMO",
-      label: "Demo",
-      description: "Demo scheduled or completed",
-      color: "text-gray-800",
-    },
-    {
-      value: "NEGOTIATIONS",
-      label: "Negotiations",
-      description: "In negotiation phase",
-      color: "text-gray-800",
-    },
-    {
-      value: "CLOSED_WON",
-      label: "Closed Won",
-      description: "Successfully converted to customer",
-      color: "text-gray-800",
-    },
-    {
-      value: "CLOSED_LOST",
-      label: "Closed Lost",
-      description: "Lead did not convert",
-      color: "text-gray-800",
-    },
-  ];
-
   const getCurrentStatus = () => {
-    return statusOptions.find((option) => option.value === lead?.leadStatus);
+    return leadStages.find((stage) => stage.leadStageId === lead?.leadStatus);
   };
 
   return (
@@ -219,25 +203,31 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-base">Select New Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={isLoading}
+                  >
                     <FormControl>
                       <SelectTrigger className="h-12 w-full">
-                        <SelectValue placeholder="Choose a status" />
+                        <SelectValue 
+                          placeholder={isLoading ? "Loading stages..." : "Choose a status"} 
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="max-h-72">
-                      {statusOptions.map((option) => (
+                      {leadStages.map((stage) => (
                         <SelectItem
-                          key={option.value}
-                          value={option.value}
+                          key={stage.leadStageId}
+                          value={stage.leadStageName}
                           className="py-3"
                         >
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              {option.label}
+                              {stage.leadStageName}
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {option.description}
+                              {stage.leadStageDescription}
                             </div>
                           </div>
                         </SelectItem>
@@ -282,9 +272,9 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               <Button
                 type="submit"
                 className={`h-11 flex-1 bg-brand-primary text-text-white hover:bg-brand-primary/90 ${!isFormValid ? "btn-disabled" : ""}`}
-                disabled={!isFormValid}
+                disabled={!isFormValid || isLoading}
               >
-                Update Status
+                {isLoading ? "Loading..." : "Update Status"}
               </Button>
             </DialogFooter>
           </form>

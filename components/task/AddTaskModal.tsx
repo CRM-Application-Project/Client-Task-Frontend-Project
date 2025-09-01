@@ -84,7 +84,7 @@ interface UpdateTaskRequest {
   assignee?: string;
   acceptanceCriteria?: string;
   comment?: string;
-   graceHours?: number;
+  graceHours?: number;
   estimatedHours?: number;
 }
 
@@ -100,7 +100,7 @@ interface GetTaskByIdResponse {
     taskStageName: string;
     createdAt: string;
     updatedAt: string;
-     graceHours?: number;
+    graceHours?: number;
     estimatedHours?: number;
     assignee: {
       id: string;
@@ -109,8 +109,6 @@ interface GetTaskByIdResponse {
     acceptanceCriteria?: string;
   };
 }
-
-// Rich Text Editor Component
 
 // The rest of your AddTaskModal component with edit-comment logic
 export const AddTaskModal = ({
@@ -134,7 +132,7 @@ export const AddTaskModal = ({
     endDate: "",
     assignee: "",
     acceptanceCriteria: "",
-       graceHours: 0,
+    graceHours: 0,
     estimatedHours: 0,
   });
 
@@ -153,8 +151,6 @@ export const AddTaskModal = ({
     "HIGH",
     "URGENT",
   ];
-
-
 
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
@@ -218,65 +214,77 @@ export const AddTaskModal = ({
     return now;
   };
 
+  // Helper to format current datetime for the input (similar to AddFollowUpModal)
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    // Convert to local datetime string in the format YYYY-MM-DDTHH:MM
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   // Determine if stage changed (edit mode only)
   const stageChanged = useMemo(() => {
     if (!editingTask || !originalFormData) return false;
     return formData.taskStageId !== originalFormData.taskStageId;
   }, [editingTask, formData.taskStageId, originalFormData]);
 
- // In AddTaskModal component, update the useEffect that sets initial form data
+  // In AddTaskModal component, update the useEffect that sets initial form data
+  useEffect(() => {
+    if (!isOpen) {
+      setOriginalFormData(null);
+      setDirtyFields(new Set());
+      setComment("");
+      return;
+    }
 
- useEffect(() => {
-  if (!isOpen) {
-    setOriginalFormData(null);
-    setDirtyFields(new Set());
-    setComment("");
-    return;
-  }
+    if (editingTask) {
+      const initialData: CreateTaskRequest = {
+        subject: editingTask.subject || "",
+        description: editingTask.description || "",
+        priority: editingTask.priority || "LOW",
+        taskStageId: editingTask.taskStageId || 0,
+        startDate: editingTask.startDate || new Date().toISOString(),
+        endDate: editingTask.endDate || "",
+        assignee: editingTask.assignee?.id || "",
+        acceptanceCriteria: editingTask.acceptanceCriteria || "",
+        graceHours: editingTask.graceHours ?? 0,
+        estimatedHours: editingTask.estimatedHours ?? 0,
+      };
+      setFormData(initialData);
+      setOriginalFormData(initialData);
+      setDirtyFields(new Set());
+      setComment("");
+    } else {
+      const adjustedTime = getAdjustedCurrentTime();
+      
+      // Set first stage as default if available, otherwise use preSelectedStageId or 0
+      const defaultStageId = stages.length > 0 
+        ? stages[0].id 
+        : preSelectedStageId || 0;
 
-  if (editingTask) {
-    const initialData: CreateTaskRequest = {
-      subject: editingTask.subject || "",
-      description: editingTask.description || "",
-      priority: editingTask.priority || "LOW",
-      taskStageId: editingTask.taskStageId || 0,
-      startDate: editingTask.startDate || new Date().toISOString(),
-      endDate: editingTask.endDate || "",
-      assignee: editingTask.assignee?.id || "",
-      acceptanceCriteria: editingTask.acceptanceCriteria || "",
-     graceHours: editingTask.graceHours ?? 0,
-estimatedHours: editingTask.estimatedHours ?? 0,
-    };
-    setFormData(initialData);
-    setOriginalFormData(initialData);
-    setDirtyFields(new Set());
-    setComment("");
-  } else {
-    const adjustedTime = getAdjustedCurrentTime();
-    
-    // Set first stage as default if available, otherwise use preSelectedStageId or 0
-    const defaultStageId = stages.length > 0 
-      ? stages[0].id 
-      : preSelectedStageId || 0;
-
-    const newTaskData: CreateTaskRequest = {
-      subject: "",
-      description: "",
-      priority: "LOW",
-      taskStageId: defaultStageId,
-      startDate: getLocalISOString(adjustedTime),
-      endDate: "",
-      assignee: "",
-      acceptanceCriteria: "",
-         graceHours: 0, // Add this
-      estimatedHours: 0, // Add this
-    };
-    setFormData(newTaskData);
-    setOriginalFormData(null);
-    setDirtyFields(new Set());
-    setComment("");
-  }
-}, [isOpen, editingTask, preSelectedStageId, stages]); // Added stages to dependency array
+      const newTaskData: CreateTaskRequest = {
+        subject: "",
+        description: "",
+        priority: "LOW",
+        taskStageId: defaultStageId,
+        startDate: getLocalISOString(adjustedTime),
+        endDate: "",
+        assignee: "",
+        acceptanceCriteria: "",
+        graceHours: 0,
+        estimatedHours: 0,
+      };
+      setFormData(newTaskData);
+      setOriginalFormData(null);
+      setDirtyFields(new Set());
+      setComment("");
+    }
+  }, [isOpen, editingTask, preSelectedStageId, stages]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -400,77 +408,47 @@ estimatedHours: editingTask.estimatedHours ?? 0,
     }
   };
 
-  const handleDateChange = (value: string, field: "startDate" | "endDate") => {
+  // Updated handleDateChange to work with datetime-local input
+  const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
     try {
       if (!value) {
         updateFormField(field, "");
         return;
       }
-      if (field === "startDate") {
-        const selectedDate = new Date(value);
-        const today = new Date();
-        const isToday =
-          selectedDate.getDate() === today.getDate() &&
-          selectedDate.getMonth() === today.getMonth() &&
-          selectedDate.getFullYear() === today.getFullYear();
 
-        if (isToday) {
-          const adjustedTime = getAdjustedCurrentTime();
-          const finalDate = new Date(selectedDate);
-          finalDate.setHours(adjustedTime.getHours());
-          finalDate.setMinutes(adjustedTime.getMinutes());
-          finalDate.setSeconds(0);
-          finalDate.setMilliseconds(0);
-          const localISOTime = getLocalISOString(finalDate);
-          updateFormField(field, localISOTime);
-        } else {
-          selectedDate.setHours(9, 0, 0, 0);
-          const localISOTime = getLocalISOString(selectedDate);
-          updateFormField(field, localISOTime);
-        }
-      } else {
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-          console.error("Invalid date:", value);
-          return;
-        }
-        date.setHours(23, 59, 59, 0);
-        const localISOTime = getLocalISOString(date);
-        updateFormField(field, localISOTime);
+      // For datetime-local input, the value is already in YYYY-MM-DDTHH:MM format
+      const date = new Date(value);
+      
+      if (isNaN(date.getTime())) {
+        console.error("Invalid datetime:", value);
+        return;
       }
+
+      // Convert to ISO string for storage
+      const isoString = date.toISOString();
+      updateFormField(field, isoString);
     } catch (error) {
-      console.error("Error handling date change:", error);
+      console.error("Error handling datetime change:", error);
     }
   };
 
-  const formatDateForInput = (dateString: string) => {
+  // Updated formatDateForInput to work with datetime-local
+  const formatDateTimeForInput = (dateString: string) => {
     if (!dateString) return "";
     try {
-      let date: Date;
-      if (dateString.includes("T")) {
-        if (
-          !dateString.includes("Z") &&
-          !dateString.includes("+") &&
-          !dateString.includes("-", 10)
-        ) {
-          const [datePart, timePart] = dateString.split("T");
-          const [year, month, day] = datePart.split("-").map(Number);
-          const [hour, minute, second] = timePart.split(":").map(Number);
-          date = new Date(year, month - 1, day, hour, minute, second || 0);
-        } else {
-          date = new Date(dateString);
-        }
-      } else {
-        const [year, month, day] = dateString.split("-").map(Number);
-        date = new Date(year, month - 1, day);
-      }
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) return "";
+      
+      // Format for datetime-local input: YYYY-MM-DDTHH:MM
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
     } catch (error) {
-      console.error("Error formatting date:", error);
+      console.error("Error formatting datetime:", error);
       return "";
     }
   };
@@ -570,66 +548,66 @@ estimatedHours: editingTask.estimatedHours ?? 0,
               </Select>
             </div>
           
-<div className="space-y-2">
-  <Label className="text-sm font-medium text-foreground">
-    Stage <span className="text-red-500">*</span>
-    {dirtyFields.has("taskStageId") && (
-      <span className="text-blue-600 text-xs ml-1">• Modified</span>
-    )}
-  </Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Stage <span className="text-red-500">*</span>
+                {dirtyFields.has("taskStageId") && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
+              </Label>
 
-  {hasPreSelectedStage ? (
-    <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-      <span className="text-sm">
-        {stages.find((stage) => stage.id === preSelectedStageId)
-          ?.name || "Selected Stage"}
-      </span>
-      <input
-        type="hidden"
-        value={preSelectedStageId || ""}
-        onChange={(e) =>
-          updateFormField("taskStageId", parseInt(e.target.value))
-        }
-      />
-    </div>
-  ) : editingTask ? (
-    // For editing: allow stage change
-    <Select
-      value={formData.taskStageId?.toString() || ""}
-      onValueChange={(value) => {
-        const numValue = parseInt(value, 10);
-        if (!isNaN(numValue)) {
-          updateFormField("taskStageId", numValue);
-        }
-      }}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Select stage" />
-      </SelectTrigger>
-      <SelectContent>
-        {stages.map((stage) => (
-          <SelectItem key={stage.id} value={stage.id.toString()}>
-            {stage.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  ) : (
-    // For new tasks: show first stage as default and don't allow change
-    <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-      <span className="text-sm">
-        {stages.length > 0 ? stages[0].name : "No stages available"}
-      </span>
-      <input
-        type="hidden"
-        value={stages.length > 0 ? stages[0].id : ""}
-        onChange={(e) =>
-          updateFormField("taskStageId", parseInt(e.target.value))
-        }
-      />
-    </div>
-  )}
-</div>
+              {hasPreSelectedStage ? (
+                <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  <span className="text-sm">
+                    {stages.find((stage) => stage.id === preSelectedStageId)
+                      ?.name || "Selected Stage"}
+                  </span>
+                  <input
+                    type="hidden"
+                    value={preSelectedStageId || ""}
+                    onChange={(e) =>
+                      updateFormField("taskStageId", parseInt(e.target.value))
+                    }
+                  />
+                </div>
+              ) : editingTask ? (
+                // For editing: allow stage change
+                <Select
+                  value={formData.taskStageId?.toString() || ""}
+                  onValueChange={(value) => {
+                    const numValue = parseInt(value, 10);
+                    if (!isNaN(numValue)) {
+                      updateFormField("taskStageId", numValue);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id.toString()}>
+                        {stage.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                // For new tasks: show first stage as default and don't allow change
+                <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  <span className="text-sm">
+                    {stages.length > 0 ? stages[0].name : "No stages available"}
+                  </span>
+                  <input
+                    type="hidden"
+                    value={stages.length > 0 ? stages[0].id : ""}
+                    onChange={(e) =>
+                      updateFormField("taskStageId", parseInt(e.target.value))
+                    }
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Comment field - Only show in edit mode when stage is changed */}
@@ -659,79 +637,82 @@ estimatedHours: editingTask.estimatedHours ?? 0,
             </div>
           )}
 
-          {/* Dates */}
+          {/* Updated Dates with Time Picker */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
-                Start Date <span className="text-red-500">*</span>
+                Start Date & Time <span className="text-red-500">*</span>
                 {dirtyFields.has("startDate") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
               </Label>
-              <Input
-                type="date"
-                value={formatDateForInput(formData.startDate)}
-                onChange={(e) => handleDateChange(e.target.value, "startDate")}
-                className="w-full"
+              <input
+                type="datetime-local"
+                value={formatDateTimeForInput(formData.startDate)}
+                onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
+                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                min={getCurrentDateTime()}
                 required
               />
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
-                End Date (Optional):
+                End Date & Time (Optional):
                 {dirtyFields.has("endDate") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
               </Label>
+              <input
+                type="datetime-local"
+                value={formatDateTimeForInput(formData.endDate)}
+                onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
+                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                min={getCurrentDateTime()}
+              />
+            </div>
+          </div>
+
+          {/* Grace Hours and Estimated Hours */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Estimated Hours
+                <span className="text-xs text-red-600 ml-2">
+                  *
+                </span>
+                {dirtyFields.has("estimatedHours") && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
+              </Label>
               <Input
-                type="date"
-                value={formatDateForInput(formData.endDate)}
-                onChange={(e) => handleDateChange(e.target.value, "endDate")}
+                min="0"
+                step="0.5"
+                value={formData.estimatedHours || 0}
+                onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
+                placeholder="Enter estimated hours"
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Grace Hours (Optional)
+                {dirtyFields.has("graceHours") && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
+              </Label>
+              <Input
+                min="0"
+                step="0.5"
+                value={formData.graceHours || 0}
+                onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
+                placeholder="Enter grace hours"
                 className="w-full"
               />
             </div>
           </div>
 
-{/* Grace Hours and Estimated Hours */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div className="space-y-2">
- <Label className="text-sm font-medium text-foreground">
-      Estimated Hours
-      <span className="text-xs text-red-600 ml-2">
-        *
-      </span>
-      {dirtyFields.has("estimatedHours") && (
-        <span className="text-blue-600 text-xs ml-1">• Modified</span>
-      )}
-    </Label>
-      <Input
-      min="0"
-      step="0.5"
-      value={formData.estimatedHours || 0}
-      onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
-      placeholder="Enter estimated hours"
-      className="w-full"
-    />
-  </div>
-
-  <div className="space-y-2">
-    <Label className="text-sm font-medium text-foreground">
-      Grace Hours (Optional)
-      {dirtyFields.has("graceHours") && (
-        <span className="text-blue-600 text-xs ml-1">• Modified</span>
-      )}
-    </Label>
-   <Input
-      min="0"
-      step="0.5"
-      value={formData.graceHours || 0}
-      onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
-      placeholder="Enter grace hours"
-      className="w-full"
-    />
-  </div>
-</div>
           {/* Assignee */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
