@@ -107,7 +107,7 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
   const topSource = chartData.length > 0 ? chartData[0] : null;
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-200">
+    <div className="rounded-xl bg-white p-2 shadow-sm border border-slate-200">
       <CardHeader className="items-start pb-0">
         <CardTitle className="text-lg font-semibold text-slate-800">
           Lead Sources
@@ -221,7 +221,7 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
             </div>
 
             {/* Enhanced legend with performance metrics */}
-            <div className="flex-1">
+            <div className="flex-1 pr-2 lg:pr-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-slate-800 text-base">
                   Source Performance
@@ -232,9 +232,9 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
               </div>
 
               {/* Scroll container with better styling */}
-              <div className="relative">
+              <div className="relative px-1">
                 <div
-                  className={`space-y-3 pr-3 ${
+                  className={`space-y-3 pr-2 ${
                     activeSourcesCount > 4
                       ? "overflow-y-auto max-h-[280px]"
                       : ""
@@ -314,8 +314,8 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
                 {/* Gradient fade effect for scrollable content */}
                 {activeSourcesCount > 4 && (
                   <>
-                    <div className="pointer-events-none absolute top-0 left-0 right-3 h-4 bg-gradient-to-b from-white to-transparent" />
-                    <div className="pointer-events-none absolute bottom-0 left-0 right-3 h-4 bg-gradient-to-t from-white to-transparent" />
+                    <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-white to-transparent" />
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white to-transparent" />
                   </>
                 )}
               </div>
