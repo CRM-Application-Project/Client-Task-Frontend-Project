@@ -20,6 +20,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
+import Image from "next/image";
 
 interface NavItem {
   name: string;
@@ -80,8 +81,18 @@ export function DashboardSidebar({
   const reduxUser = useSelector((s: RootState) => s.user.currentUser);
   const [modules, setModules] = useState<UserModuleAccess[]>([]);
   const [ready, setReady] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  // get logo from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = localStorage.getItem("logoUrl");
+    if (url) {
+      setLogoUrl(url);
+    }
+  }, []);
 
   // get role from localStorage
   useEffect(() => {
@@ -230,7 +241,7 @@ export function DashboardSidebar({
       },
     }).then((r) => {
       if (!r.isConfirmed) return;
-      ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken"].forEach((k) =>
+      ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
         localStorage.removeItem(k)
       );
       router.push("/");
@@ -252,8 +263,18 @@ export function DashboardSidebar({
           )}
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
-              <BarChart3 className="h-5 w-5 text-brand-primary" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg  overflow-hidden">
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt="Company Logo"
+                  width={38}
+                  height={38}
+                  className="object-contain"
+                />
+              ) : (
+                <BarChart3 className="h-5 w-5 text-brand-primary" />
+              )}
             </div>
             {isExpandedView && <h1 className="text-xl font-bold text-white whitespace-nowrap">CRM Pro</h1>}
           </div>
@@ -450,6 +471,7 @@ export function DashboardSidebar({
     router,
     toggleGroup,
     handleLogout,
+    logoUrl,
   ]);
 
   return (
