@@ -110,7 +110,6 @@ interface GetTaskByIdResponse {
   };
 }
 
-// The rest of your AddTaskModal component with edit-comment logic
 export const AddTaskModal = ({
   isOpen,
   onClose,
@@ -122,6 +121,7 @@ export const AddTaskModal = ({
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
     subject: "",
@@ -136,14 +136,12 @@ export const AddTaskModal = ({
     estimatedHours: 0,
   });
 
-  // New: comment state (edit only)
-  const [comment, setComment] = useState<string>("");
-
   const [originalFormData, setOriginalFormData] =
     useState<CreateTaskRequest | null>(null);
   const [dirtyFields, setDirtyFields] = useState<Set<keyof CreateTaskRequest>>(
     new Set()
   );
+  const [comment, setComment] = useState<string>("");
 
   const priorities: Array<CreateTaskRequest["priority"]> = [
     "LOW",
@@ -155,6 +153,29 @@ export const AddTaskModal = ({
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
+
+  // Get minimum end date (start date + 1 day)
+  const getMinEndDate = useCallback(() => {
+    if (!formData.startDate) return getCurrentDateTime();
+    
+    try {
+      const startDate = new Date(formData.startDate);
+      const nextDay = new Date(startDate);
+      nextDay.setDate(startDate.getDate() + 1);
+      
+      // Format for datetime-local input: YYYY-MM-DDTHH:MM
+      const year = nextDay.getFullYear();
+      const month = String(nextDay.getMonth() + 1).padStart(2, "0");
+      const day = String(nextDay.getDate()).padStart(2, "0");
+      const hours = String(nextDay.getHours()).padStart(2, "0");
+      const minutes = String(nextDay.getMinutes()).padStart(2, "0");
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (error) {
+      console.error("Error calculating min end date:", error);
+      return getCurrentDateTime();
+    }
+  }, [formData.startDate]);
 
   const areValuesEqual = (original: any, current: any): boolean => {
     if (original === current) return true;
@@ -171,6 +192,15 @@ export const AddTaskModal = ({
 
   const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+    // Clear validation error when field is updated
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
 
     if (originalFormData && editingTask) {
       const originalValue = originalFormData[field];
@@ -214,31 +244,27 @@ export const AddTaskModal = ({
     return now;
   };
 
-  // Helper to format current datetime for the input (similar to AddFollowUpModal)
   const getCurrentDateTime = () => {
     const now = new Date();
-    // Convert to local datetime string in the format YYYY-MM-DDTHH:MM
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
-
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Determine if stage changed (edit mode only)
   const stageChanged = useMemo(() => {
     if (!editingTask || !originalFormData) return false;
     return formData.taskStageId !== originalFormData.taskStageId;
   }, [editingTask, formData.taskStageId, originalFormData]);
 
-  // In AddTaskModal component, update the useEffect that sets initial form data
   useEffect(() => {
     if (!isOpen) {
       setOriginalFormData(null);
       setDirtyFields(new Set());
       setComment("");
+      setValidationErrors({});
       return;
     }
 
@@ -262,7 +288,6 @@ export const AddTaskModal = ({
     } else {
       const adjustedTime = getAdjustedCurrentTime();
       
-      // Set first stage as default if available, otherwise use preSelectedStageId or 0
       const defaultStageId = stages.length > 0 
         ? stages[0].id 
         : preSelectedStageId || 0;
@@ -317,52 +342,66 @@ export const AddTaskModal = ({
     fetchData();
   }, [isOpen, toast]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
 
     if (!formData.subject?.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Subject is required",
-        variant: "destructive",
-      });
-      return;
+      errors.subject = "Subject is required";
     }
 
     if (!formData.description?.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Description is required",
-        variant: "destructive",
-      });
-      return;
+      errors.description = "Description is required";
     }
 
     if (!formData.taskStageId || formData.taskStageId === 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please select a stage",
-        variant: "destructive",
-      });
-      return;
+      errors.taskStageId = "Please select a stage";
     }
 
     if (!formData.assignee?.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please select an assignee",
-        variant: "destructive",
-      });
-      return;
+      errors.assignee = "Please select an assignee";
+    }
+
+    // Validate estimated hours - must be greater than 0
+    if (!formData.estimatedHours || formData.estimatedHours <= 0) {
+      errors.estimatedHours = "Estimated hours must be greater than 0";
+    }
+
+    // Validate end date is after start date if provided
+    if (formData.endDate && formData.startDate) {
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(formData.endDate);
+      
+      // Add 1 day to start date for comparison
+      const minEndDate = new Date(startDate);
+      minEndDate.setDate(startDate.getDate() + 1);
+      
+      if (endDate <= minEndDate) {
+        errors.endDate = "End date must be at least 1 day after start date";
+      }
     }
 
     // Comment required only if stage changed in edit mode
     if (editingTask && stageChanged && !comment.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Comment is required when changing the stage.",
-        variant: "destructive",
-      });
+      errors.comment = "Comment is required when changing the stage";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      // Show first error in toast
+      const firstError = Object.values(validationErrors)[0];
+      if (firstError) {
+        toast({
+          title: "Validation Error",
+          description: firstError,
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -387,7 +426,6 @@ export const AddTaskModal = ({
           }
         });
 
-        // include comment if provided (always include when stage changed)
         if (comment.trim()) {
           updatePayload.comment = comment.trim();
         }
@@ -408,7 +446,6 @@ export const AddTaskModal = ({
     }
   };
 
-  // Updated handleDateChange to work with datetime-local input
   const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
     try {
       if (!value) {
@@ -416,7 +453,6 @@ export const AddTaskModal = ({
         return;
       }
 
-      // For datetime-local input, the value is already in YYYY-MM-DDTHH:MM format
       const date = new Date(value);
       
       if (isNaN(date.getTime())) {
@@ -424,22 +460,39 @@ export const AddTaskModal = ({
         return;
       }
 
-      // Convert to ISO string for storage
       const isoString = date.toISOString();
       updateFormField(field, isoString);
+
+      // If start date is changed and end date exists, validate end date
+      if (field === "startDate" && formData.endDate) {
+        const endDate = new Date(formData.endDate);
+        const minEndDate = new Date(date);
+        minEndDate.setDate(date.getDate() + 1);
+        
+        if (endDate <= minEndDate) {
+          setValidationErrors(prev => ({
+            ...prev,
+            endDate: "End date must be at least 1 day after start date"
+          }));
+        } else if (validationErrors.endDate) {
+          setValidationErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.endDate;
+            return newErrors;
+          });
+        }
+      }
     } catch (error) {
       console.error("Error handling datetime change:", error);
     }
   };
 
-  // Updated formatDateForInput to work with datetime-local
   const formatDateTimeForInput = (dateString: string) => {
     if (!dateString) return "";
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "";
       
-      // Format for datetime-local input: YYYY-MM-DDTHH:MM
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
@@ -515,9 +568,11 @@ export const AddTaskModal = ({
               value={formData.subject}
               onChange={(e) => updateFormField("subject", e.target.value)}
               placeholder="Enter Subject"
-              required
-              className="w-full"
+              className={`w-full ${validationErrors.subject ? "border-red-500" : ""}`}
             />
+            {validationErrors.subject && (
+              <p className="text-red-500 text-xs">{validationErrors.subject}</p>
+            )}
           </div>
 
           {/* Row 1: Priority and Stage */}
@@ -535,7 +590,7 @@ export const AddTaskModal = ({
                   updateFormField("priority", value as typeof formData.priority)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className={validationErrors.priority ? "border-red-500" : ""}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -546,6 +601,9 @@ export const AddTaskModal = ({
                   ))}
                 </SelectContent>
               </Select>
+              {validationErrors.priority && (
+                <p className="text-red-500 text-xs">{validationErrors.priority}</p>
+              )}
             </div>
           
             <div className="space-y-2">
@@ -557,7 +615,7 @@ export const AddTaskModal = ({
               </Label>
 
               {hasPreSelectedStage ? (
-                <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
                   <span className="text-sm">
                     {stages.find((stage) => stage.id === preSelectedStageId)
                       ?.name || "Selected Stage"}
@@ -571,7 +629,6 @@ export const AddTaskModal = ({
                   />
                 </div>
               ) : editingTask ? (
-                // For editing: allow stage change
                 <Select
                   value={formData.taskStageId?.toString() || ""}
                   onValueChange={(value) => {
@@ -581,7 +638,7 @@ export const AddTaskModal = ({
                     }
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={validationErrors.taskStageId ? "border-red-500" : ""}>
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
@@ -593,8 +650,7 @@ export const AddTaskModal = ({
                   </SelectContent>
                 </Select>
               ) : (
-                // For new tasks: show first stage as default and don't allow change
-                <div className="flex items-center gap-2 p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
                   <span className="text-sm">
                     {stages.length > 0 ? stages[0].name : "No stages available"}
                   </span>
@@ -607,12 +663,15 @@ export const AddTaskModal = ({
                   />
                 </div>
               )}
+              {validationErrors.taskStageId && (
+                <p className="text-red-500 text-xs">{validationErrors.taskStageId}</p>
+              )}
             </div>
           </div>
 
-          {/* Comment field - Only show in edit mode when stage is changed */}
+          {/* Comment field */}
           {editingTask && stageChanged && (
-            <div className="space-y-2 ">
+            <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Comment <span className="text-red-500">*</span>
                 <span className="text-xs text-gray-600 ml-2">
@@ -624,20 +683,15 @@ export const AddTaskModal = ({
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Explain the reason for changing the stage..."
                 rows={3}
-                className={`resize-none ${
-                  !comment.trim() ? "border-red-300 focus:border-red-400" : ""
-                }`}
-                required
+                className={`resize-none ${validationErrors.comment ? "border-red-500" : ""}`}
               />
-              {!comment.trim() && (
-                <p className="text-xs text-gray-600">
-                  Comment is required when changing the stage.
-                </p>
+              {validationErrors.comment && (
+                <p className="text-red-500 text-xs">{validationErrors.comment}</p>
               )}
             </div>
           )}
 
-          {/* Updated Dates with Time Picker */}
+          {/* Dates with Time Picker */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
@@ -650,10 +704,12 @@ export const AddTaskModal = ({
                 type="datetime-local"
                 value={formatDateTimeForInput(formData.startDate)}
                 onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
-                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-300"}`}
                 min={getCurrentDateTime()}
-                required
               />
+              {validationErrors.startDate && (
+                <p className="text-red-500 text-xs">{validationErrors.startDate}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -667,9 +723,12 @@ export const AddTaskModal = ({
                 type="datetime-local"
                 value={formatDateTimeForInput(formData.endDate)}
                 onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
-                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                min={getCurrentDateTime()}
+                className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-300"}`}
+                min={getMinEndDate()}
               />
+              {validationErrors.endDate && (
+                <p className="text-red-500 text-xs">{validationErrors.endDate}</p>
+              )}
             </div>
           </div>
 
@@ -678,21 +737,23 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Estimated Hours
-                <span className="text-xs text-red-600 ml-2">
-                  *
-                </span>
+                <span className="text-red-500 ml-1">*</span>
                 {dirtyFields.has("estimatedHours") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
               </Label>
               <Input
-                min="0"
+                type="number"
+                min="0.5"
                 step="0.5"
                 value={formData.estimatedHours || 0}
                 onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
                 placeholder="Enter estimated hours"
-                className="w-full"
+                className={`w-full ${validationErrors.estimatedHours ? "border-red-500" : ""}`}
               />
+              {validationErrors.estimatedHours && (
+                <p className="text-red-500 text-xs">{validationErrors.estimatedHours}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -703,6 +764,7 @@ export const AddTaskModal = ({
                 )}
               </Label>
               <Input
+                type="number"
                 min="0"
                 step="0.5"
                 value={formData.graceHours || 0}
@@ -725,7 +787,7 @@ export const AddTaskModal = ({
               value={formData.assignee}
               onValueChange={(value) => updateFormField("assignee", value)}
             >
-              <SelectTrigger>
+              <SelectTrigger className={validationErrors.assignee ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select assignee" />
               </SelectTrigger>
               <SelectContent>
@@ -742,9 +804,12 @@ export const AddTaskModal = ({
                 )}
               </SelectContent>
             </Select>
+            {validationErrors.assignee && (
+              <p className="text-red-500 text-xs">{validationErrors.assignee}</p>
+            )}
           </div>
 
-          {/* Description - Now with Rich Text Editor with smaller height */}
+          {/* Description */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
               Description <span className="text-red-500">*</span>
@@ -757,11 +822,14 @@ export const AddTaskModal = ({
               onChange={(value) => updateFormField("description", value)}
               placeholder="Enter Description"
               minHeight="120px"
-              className=""
+              className={validationErrors.description ? "border-red-500" : ""}
             />
+            {validationErrors.description && (
+              <p className="text-red-500 text-xs">{validationErrors.description}</p>
+            )}
           </div>
 
-          {/* Acceptance Criteria - Keep original size */}
+          {/* Acceptance Criteria */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground text-blue-600">
               Acceptance Criteria
@@ -774,7 +842,6 @@ export const AddTaskModal = ({
               onChange={(value) => updateFormField("acceptanceCriteria", value)}
               placeholder="Start typing your acceptance criteria..."
               minHeight="200px"
-              className=""
             />
           </div>
 
