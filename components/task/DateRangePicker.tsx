@@ -9,6 +9,7 @@ import {
   subDays,
   subWeeks,
   subMonths,
+  isBefore,
 } from "date-fns";
 import { X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
@@ -118,17 +119,31 @@ export const DateRangePicker = ({
   };
 
   const handleFromDateChange = (date: Date | undefined) => {
-    setFromDate(date);
-    if (date) {
+    if (!date) return;
+    
+    // If the new from date is after the current to date, adjust both dates
+    if (toDate && isBefore(toDate, date)) {
+      setToDate(date);
+      setSelectedRange({ from: date, to: date });
+    } else {
       setSelectedRange((prev) => ({ ...prev, from: date }));
     }
+    
+    setFromDate(date);
   };
 
   const handleToDateChange = (date: Date | undefined) => {
-    setToDate(date);
-    if (date) {
+    if (!date) return;
+    
+    // If the new to date is before the current from date, adjust both dates
+    if (fromDate && isBefore(date, fromDate)) {
+      setFromDate(date);
+      setSelectedRange({ from: date, to: date });
+    } else {
       setSelectedRange((prev) => ({ ...prev, to: date }));
     }
+    
+    setToDate(date);
   };
 
   return (

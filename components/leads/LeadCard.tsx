@@ -37,6 +37,14 @@ interface LeadCardProps {
   onImportLead?: () => void;
   onLeadSorting?: () => void;
   onChangeStatus?: (lead: Lead) => void;
+  // Add stage prop to check if it's final stage
+  stage?: {
+    leadStageId: string;
+    leadStageName: string;
+    leadStageDescription?: string;
+    leadStagePriority: number;
+    finalStage: boolean;
+  };
 }
 
 export const LeadCard = ({
@@ -49,6 +57,7 @@ export const LeadCard = ({
   onImportLead,
   onLeadSorting,
   onChangeStatus,
+  stage, // Add stage prop
 }: LeadCardProps) => {
   const getInitials = (name?: string | null) => {
     if (!name || typeof name !== "string" || name.trim() === "") {
@@ -66,6 +75,9 @@ export const LeadCard = ({
   const { permissions, loading: permissionsLoading } = usePermissions("lead");
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
+
+  // Check if current stage is final stage
+  const isFinalStage = stage?.finalStage || false;
 
   // Fetch assignees when component mounts
   useEffect(() => {
@@ -145,7 +157,11 @@ export const LeadCard = ({
   return (
     <Card
       className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200"
-      onClick={() => (window.location.href = `/leads/${lead.leadId}`)}
+      onClick={() => {
+   
+          window.location.href = `/leads/${lead.leadId}`;
+
+      }}
     >
       <div className="space-y-3">
         {/* Lead name */}
@@ -181,75 +197,84 @@ export const LeadCard = ({
           )}
         </div>
 
-        {/* Action bar */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2">
-            {permissions.canView && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = `/leads/${lead.leadId}`;
-                }}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                title="View lead"
-              >
-                <Eye className="h-4 w-4 text-gray-600" />
-              </button>
-            )}
-            {permissions.canEdit && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit?.(lead);
-                }}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                title="Edit lead"
-              >
-                <Edit className="h-4 w-4 text-gray-600" />
-              </button>
-            )}
-          </div>
-
-          {/* 3-dots menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                onClick={(e) => e.stopPropagation()}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              >
-                <MoreVertical className="h-4 w-4 text-gray-600" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-48"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <DropdownMenuItem onClick={() => onAddFollowUp?.(lead)}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Add Follow-up
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onChangeAssign?.(lead)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Change Assignment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onChangeStatus?.(lead)}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Change Status
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {permissions.canDelete && (
-                <DropdownMenuItem
-                  onClick={() => onDelete?.(lead)}
-                  className="text-red-600 hover:text-red-700"
+        {/* Action bar - Only show if not final stage */}
+        {!isFinalStage && (
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2">
+              {permissions.canView && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/leads/${lead.leadId}`;
+                  }}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                  title="View lead"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Lead
-                </DropdownMenuItem>
+                  <Eye className="h-4 w-4 text-gray-600" />
+                </button>
               )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              {permissions.canEdit && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit?.(lead);
+                  }}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                  title="Edit lead"
+                >
+                  <Edit className="h-4 w-4 text-gray-600" />
+                </button>
+              )}
+            </div>
+
+            {/* 3-dots menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                >
+                  <MoreVertical className="h-4 w-4 text-gray-600" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-48"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenuItem onClick={() => onAddFollowUp?.(lead)}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Add Follow-up
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onChangeAssign?.(lead)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Change Assignment
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onChangeStatus?.(lead)}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Change Status
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {permissions.canDelete && (
+                  <DropdownMenuItem
+                    onClick={() => onDelete?.(lead)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Lead
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Show message if it's final stage */}
+        {isFinalStage && (
+          <div className="pt-2 text-xs text-gray-400 text-center">
+            Lead completed - actions disabled
+          </div>
+        )}
       </div>
     </Card>
   );

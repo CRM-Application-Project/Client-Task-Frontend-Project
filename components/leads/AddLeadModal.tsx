@@ -37,7 +37,7 @@ import { LeadStage } from "@/lib/data";
 // Enhanced validation schema with better phone validation
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
-  companyName: z.string().min(1, "Company name is required"),
+  companyName: z.string().optional().or(z.literal("")), // Made optional
   customerEmailAddress: z.string().email("Invalid email address"),
   customerMobileNumber: z
     .string()
@@ -216,7 +216,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
         )}${data.customerMobileNumber.trim()}`,
         companyEmailAddress: data.companyEmailAddress ?? "",
         customerName: data.customerName,
-        companyName: data.companyName,
+        companyName: data.companyName || "", 
         customerEmailAddress: data.customerEmailAddress,
         leadLabel: data.leadLabel ?? "",
         leadReference: data.leadReference ?? "",
@@ -325,9 +325,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                 name="companyName"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>
-                      Company Name <span className="text-red-500">*</span>
-                    </FormLabel>
+                    <FormLabel>Company Name (Optional)</FormLabel> {/* Removed asterisk */}
                     <FormControl>
                       <Input
                         placeholder="Enter company name"

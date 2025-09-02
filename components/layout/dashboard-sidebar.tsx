@@ -16,7 +16,7 @@ import {
   KeyRound,
   BarChart3,
 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -48,7 +48,7 @@ const NAVIGATION: NavItem[] = [
 
 const SETTINGS = [
   { name: "Profile", icon: User, href: "/profile" },
-  { name: "Change Password", icon: KeyRound, href: "/changepasswordtab" },
+  { name: "Change Password", icon: KeyRound, href: "/profile?tab=change-password" },
 ];
 
 interface UserModuleAccess {
@@ -75,6 +75,7 @@ export function DashboardSidebar({
   hovered = false,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [expanded, setExpanded] = useState<string[]>([]);
   const [manuallyCollapsed, setManuallyCollapsed] = useState<Set<string>>(new Set());
@@ -194,16 +195,19 @@ export function DashboardSidebar({
         }
       });
 
-      const isSettingsActive = SETTINGS.some(
-        (s) => cleanPath === s.href || cleanPath.startsWith(s.href + "/")
-      );
+      // Check if we're on the profile page with change-password tab
+      const isProfilePage = cleanPath === "/profile";
+      const isChangePasswordTab = searchParams?.get("tab") === "change-password";
+      const isSettingsActive = isProfilePage || 
+        SETTINGS.some(s => cleanPath === s.href.split("?")[0]);
+      
       if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
         openIfNeeded("Settings");
       }
 
       return Array.from(new Set(next));
     });
-  }, [pathname, filteredNav, getChildren, manuallyCollapsed]);
+  }, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -251,7 +255,11 @@ export function DashboardSidebar({
   const isExpandedView = !collapsed || hovered;
 
   const SidebarContent = useCallback(() => {
-    const isSettingsActive = SETTINGS.some((s) => pathname === s.href);
+    // Check if we're on the profile page with change-password tab
+    const isProfilePage = cleanPath === "/profile";
+    const isChangePasswordTab = searchParams?.get("tab") === "change-password";
+    const isSettingsActive = isProfilePage || 
+      SETTINGS.some(s => cleanPath === s.href.split("?")[0]);
 
     return (
       <div className="flex h-full flex-col bg-[#3b3b3b] relative">
@@ -406,18 +414,15 @@ export function DashboardSidebar({
               {isExpandedView && expanded.includes("Settings") && (
                 <div className="space-y-1 pl-6 pt-1 w-full">
                   {SETTINGS.map((it) => {
-                    const isChildActive = pathname === it.href;
+                    const isChildActive = 
+                      (it.name === "Change Password" && isChangePasswordTab) ||
+                      (it.name === "Profile" && isProfilePage && !isChangePasswordTab);
+                    
                     return (
                       <Button
                         key={it.href}
                         variant="ghost"
-                        onClick={() => {
-                          if (it.name === "Change Password") {
-                            router.push("/profile?tab=change-password");
-                          } else {
-                            router.push(it.href);
-                          }
-                        }}
+                        onClick={() => router.push(it.href)}
                         className={cn(
                           "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
                           isChildActive
@@ -472,6 +477,8 @@ export function DashboardSidebar({
     toggleGroup,
     handleLogout,
     logoUrl,
+    searchParams,
+    cleanPath,
   ]);
 
   return (

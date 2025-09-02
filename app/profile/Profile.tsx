@@ -15,6 +15,8 @@ export default function ProfileAccountPage() {
     const tab = searchParams.get('tab');
     if (tab === 'change-password') {
       setActiveTab('change-password');
+    } else {
+      setActiveTab('personal-info');
     }
   }, [searchParams]);
 
