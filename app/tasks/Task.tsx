@@ -963,109 +963,116 @@ const transformTasks = useCallback(
   // ========== FETCH FUNCTIONS ==========
 
 // In fetchTasksGrid and fetchTasksKanban functions, add type checking:
-const fetchTasksGrid = useCallback(
-  async (page: number = 1, showLoading = false) => {
-    if (isFilteringRef.current) return;
+  const fetchTasksGrid = useCallback(
+    async (page: number = 1, showLoading = false) => {
+      if (isFilteringRef.current) return;
 
-    isFilteringRef.current = true;
-    if (showLoading) setIsRefreshing(true);
+      isFilteringRef.current = true;
+      if (showLoading) setIsRefreshing(true);
 
-    try {
-     const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
-      const response = await filterTasks(apiParams);
+      try {
+        const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
+        const response = await filterTasks(apiParams);
 
-      // Add proper type checking
-      if (response.isSuccess && response.data && 'totalPages' in response.data) {
-        const apiResponse = response as unknown as ApiTaskResponse; // Safe type conversion
-        const transformedTasks = transformTasks(apiResponse);
-        
-        setTasks(transformedTasks);
-        setPaginationState({
-          currentPage: apiResponse.data.pageIndex + 1,
-          totalPages: apiResponse.data.totalPages,
-          totalElements: apiResponse.data.totalElements,
-          pageSize: apiResponse.data.pageSize,
-        });
-      } else {
-        console.error("Failed to fetch tasks:", response.message);
-        setTasks([]);
-      }
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      setTasks([]);
-    } finally {
-      isFilteringRef.current = false;
-      if (showLoading) setIsRefreshing(false);
-    }
-  },
-  [filters, searchQuery, paginationState.pageSize, convertFiltersToApiParams, transformTasks]
-);
-
-  // Fetch tasks for kanban view (with infinite scroll)
-  const fetchTasksKanban = useCallback(
-  async (page: number = 1, append: boolean = false, showLoading = false) => {
-    if (isFilteringRef.current) return;
-
-    isFilteringRef.current = true;
-    if (showLoading) setIsRefreshing(true);
-    if (!append && page > 1) setIsLoadingMore(true);
-
-    try {
-    const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
-      const response = await filterTasks(apiParams);
-
-      if (response.isSuccess && response.data) {
-        // Handle both response types safely
-        let transformedTasks: Task[] = [];
-        
-        if ('totalPages' in response.data) {
-          // ApiTaskResponse format
+        if (response.isSuccess && response.data && 'totalPages' in response.data) {
           const apiResponse = response as unknown as ApiTaskResponse;
-          transformedTasks = transformTasks(apiResponse);
+          const transformedTasks = transformTasks(apiResponse);
           
-          // Update pagination info
-          setHasMoreTasks(page < apiResponse.data.totalPages);
-          setKanbanPage(page);
-        } else if (Array.isArray(response.data)) {
-          // FilterTasksResponse format (flat array)
-          transformedTasks = transformTasks(response as FilterTasksResponse);
-          
-          // For flat array responses, we can't determine pagination
-          // So we assume no more pages if we get less than the limit
-          setHasMoreTasks(transformedTasks.length === 20);
-          setKanbanPage(page);
-        }
-        
-        if (append && page > 1) {
-          // Append new tasks for infinite scroll
-          setAllTasksForInfiniteScroll(prev => {
-            const existingIds = new Set(prev.map(task => task.id));
-            const newTasks = transformedTasks.filter(task => !existingIds.has(task.id));
-            return [...prev, ...newTasks];
+          setTasks(transformedTasks);
+          setPaginationState({
+            currentPage: apiResponse.data.pageIndex + 1,
+            totalPages: apiResponse.data.totalPages,
+            totalElements: apiResponse.data.totalElements,
+            pageSize: apiResponse.data.pageSize,
           });
         } else {
-          // Replace tasks for initial load or filter change
-          setAllTasksForInfiniteScroll(transformedTasks);
+          toast({
+            title: "Error",
+            description: response.message || "Failed to fetch tasks",
+            variant: "destructive",
+          });
+          setTasks([]);
         }
-      } else {
-        console.error("Failed to fetch tasks:", response.message);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch tasks. Please try again.",
+          variant: "destructive",
+        });
+        setTasks([]);
+      } finally {
+        isFilteringRef.current = false;
+        if (showLoading) setIsRefreshing(false);
+      }
+    },
+    [filters, searchQuery, paginationState.pageSize, convertFiltersToApiParams, transformTasks, toast]
+  );
+
+  const fetchTasksKanban = useCallback(
+    async (page: number = 1, append: boolean = false, showLoading = false) => {
+      if (isFilteringRef.current) return;
+
+      isFilteringRef.current = true;
+      if (showLoading) setIsRefreshing(true);
+      if (!append && page > 1) setIsLoadingMore(true);
+
+      try {
+        const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
+        const response = await filterTasks(apiParams);
+
+        if (response.isSuccess && response.data) {
+          let transformedTasks: Task[] = [];
+          
+          if ('totalPages' in response.data) {
+            const apiResponse = response as unknown as ApiTaskResponse;
+            transformedTasks = transformTasks(apiResponse);
+            
+            setHasMoreTasks(page < apiResponse.data.totalPages);
+            setKanbanPage(page);
+          } else if (Array.isArray(response.data)) {
+            transformedTasks = transformTasks(response as FilterTasksResponse);
+            setHasMoreTasks(transformedTasks.length === 20);
+            setKanbanPage(page);
+          }
+          
+          if (append && page > 1) {
+            setAllTasksForInfiniteScroll(prev => {
+              const existingIds = new Set(prev.map(task => task.id));
+              const newTasks = transformedTasks.filter(task => !existingIds.has(task.id));
+              return [...prev, ...newTasks];
+            });
+          } else {
+            setAllTasksForInfiniteScroll(transformedTasks);
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: response.message || "Failed to fetch tasks",
+            variant: "destructive",
+          });
+          if (!append) {
+            setAllTasksForInfiniteScroll([]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch tasks. Please try again.",
+          variant: "destructive",
+        });
         if (!append) {
           setAllTasksForInfiniteScroll([]);
         }
+      } finally {
+        isFilteringRef.current = false;
+        setIsLoadingMore(false);
+        if (showLoading) setIsRefreshing(false);
       }
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      if (!append) {
-        setAllTasksForInfiniteScroll([]);
-      }
-    } finally {
-      isFilteringRef.current = false;
-      setIsLoadingMore(false);
-      if (showLoading) setIsRefreshing(false);
-    }
-  },
-  [filters, searchQuery, convertFiltersToApiParams, transformTasks]
-);
+    },
+    [filters, searchQuery, convertFiltersToApiParams, transformTasks, toast]
+  );
 
   // Load more tasks for infinite scroll
   const loadMoreTasks = useCallback(() => {
@@ -1084,11 +1091,50 @@ const fetchTasksGrid = useCallback(
       const stagesRes = await getTaskStagesDropdown();
       if (stagesRes.isSuccess) {
         setStages(stagesRes.data);
+      } else {
+        toast({
+          title: "Error",
+          description: stagesRes.message || "Failed to fetch stages",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error fetching stages:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch stages. Please try again.",
+        variant: "destructive",
+      });
     }
-  }, []);
+  }, [toast]);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const usersRes = await getUsers();
+      if (usersRes.isSuccess) {
+        setUsers(
+          usersRes.data.map((user) => ({
+            ...user,
+            contactNumber: user.contactNumber || "",
+            userRole: user.userRole || "User",
+          }))
+        );
+      } else {
+        toast({
+          title: "Error",
+          description: usersRes.message || "Failed to fetch users",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   // ========== INITIAL DATA FETCH ==========
   useEffect(() => {
@@ -1096,26 +1142,13 @@ const fetchTasksGrid = useCallback(
 
     const fetchInitialData = async () => {
       isInitialLoadingRef.current = true;
+      setIsLoading(true);
 
       try {
-        const [stagesRes, usersRes] = await Promise.all([
-          getTaskStagesDropdown(),
-          getUsers(),
+        await Promise.all([
+          fetchStages(),
+          fetchUsers(),
         ]);
-
-        if (stagesRes.isSuccess) {
-          setStages(stagesRes.data);
-        }
-
-        if (usersRes.isSuccess) {
-          setUsers(
-            usersRes.data.map((user) => ({
-              ...user,
-              contactNumber: user.contactNumber || "",
-              userRole: user.userRole || "User",
-            }))
-          );
-        }
 
         // Initial fetch based on view mode
         if (viewMode === "grid") {
@@ -1123,15 +1156,26 @@ const fetchTasksGrid = useCallback(
         } else {
           await fetchTasksKanban(1, false, false);
         }
+        
+        toast({
+          title: "Success",
+          description: "Tasks and stages loaded successfully",
+          variant: "default",
+        });
       } catch (error) {
-        console.error("Error fetching initial data:", error);
+        console.error("Error loading initial data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load initial data. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchInitialData();
-  }, [viewMode]); // Add viewMode as dependency
+  }, [viewMode, fetchStages, fetchUsers, fetchTasksGrid, fetchTasksKanban, toast]); // Add viewMode as dependency
 
   // ========== SEARCH DEBOUNCING ==========
  useEffect(() => {
@@ -1225,52 +1269,58 @@ const handleCloseModal = useCallback(() => {
 }, []);
   // ========== TASK OPERATIONS ==========
  const handleAddTask = useCallback(
-  async (
-    taskData: CreateTaskRequest | Partial<UpdateTaskRequest>,
-    isEdit: boolean
-  ) => {
-    try {
-      let response;
+    async (
+      taskData: CreateTaskRequest | Partial<UpdateTaskRequest>,
+      isEdit: boolean
+    ) => {
+      try {
+        let response;
 
-      if (isEdit && editingTask) {
-        response = await updateTask(
-          editingTask.id,
-          taskData as Partial<UpdateTaskRequest>
-        );
-      } else {
-        response = await createTask(taskData as CreateTaskRequest);
-      }
-
-      if (response.isSuccess) {
-        // Refresh based on current view mode
-        if (viewMode === "grid") {
-          await fetchTasksGrid(paginationState.currentPage, true);
+        if (isEdit && editingTask) {
+          response = await updateTask(
+            editingTask.id,
+            taskData as Partial<UpdateTaskRequest>
+          );
         } else {
-          setKanbanPage(1);
-          setHasMoreTasks(true);
-          await fetchTasksKanban(1, false, true);
+          response = await createTask(taskData as CreateTaskRequest);
         }
-        handleCloseModal();
-        
+
+        if (response.isSuccess) {
+          // Refresh based on current view mode
+          if (viewMode === "grid") {
+            await fetchTasksGrid(paginationState.currentPage, true);
+          } else {
+            setKanbanPage(1);
+            setHasMoreTasks(true);
+            await fetchTasksKanban(1, false, true);
+          }
+          handleCloseModal();
+          
+          toast({
+            title: isEdit ? "Task Updated" : "Task Created",
+            description: `Task has been ${isEdit ? "updated" : "created"} successfully.`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: response.message || `Failed to ${isEdit ? "update" : "create"} task`,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error saving task:", error);
         toast({
-          title: isEdit ? "Task Updated" : "Task Created",
-          description: `Task has been ${isEdit ? "updated" : "created"} successfully.`,
-          variant: "default",
+          title: "Error",
+          description: `Failed to ${isEdit ? "update" : "create"} task. Please try again.`,
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error("Error saving task:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save task. Please try again.",
-        variant: "destructive",
-      });
-    }
-  },
-  [editingTask, viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast, handleCloseModal] // Add handleCloseModal
-);
+    },
+    [editingTask, viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, handleCloseModal, toast]
+  );
 
-  const handleCreateStage = useCallback(
+   const handleCreateStage = useCallback(
     async (stageData: CreateStageRequest) => {
       try {
         const response = await createTaskStage(stageData);
@@ -1283,10 +1333,9 @@ const handleCloseModal = useCallback(() => {
             variant: "default",
           });
         } else {
-          console.error("Failed to create stage:", response.message);
           toast({
             title: "Error",
-            description: "Failed to create stage. Please try again.",
+            description: response.message || "Failed to create stage",
             variant: "destructive",
           });
         }
@@ -1394,6 +1443,12 @@ const handleCloseModal = useCallback(() => {
             description: "Task has been deleted successfully.",
             variant: "default",
           });
+        } else {
+          toast({
+            title: "Error",
+            description: response.message || "Failed to delete task",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Error deleting task:", error);
@@ -1418,7 +1473,7 @@ const handleCloseModal = useCallback(() => {
     setIsDeleteTaskModalOpen(true);
   }, []);
 
-  const handleDeleteStage = useCallback(
+   const handleDeleteStage = useCallback(
     async (stage: TaskStage) => {
       const currentTasks = viewMode === "grid" ? tasks : allTasksForInfiniteScroll;
       const stageTasks = currentTasks.filter((task) => task.taskStageId === stage.id);
@@ -1426,8 +1481,7 @@ const handleCloseModal = useCallback(() => {
       if (stageTasks.length > 0) {
         toast({
           title: "Cannot Delete Stage",
-          description:
-            "Please move or delete all tasks in this stage before deleting it.",
+          description: "Please move or delete all tasks in this stage before deleting it.",
           variant: "destructive",
         });
         return;
@@ -1439,7 +1493,8 @@ const handleCloseModal = useCallback(() => {
     [tasks, allTasksForInfiniteScroll, viewMode, toast]
   );
 
-  const confirmDeleteStage = useCallback(async () => {
+
+   const confirmDeleteStage = useCallback(async () => {
     if (!stageToDelete) return;
 
     setIsUpdatingStage(true);
