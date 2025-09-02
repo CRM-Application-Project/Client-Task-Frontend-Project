@@ -7,6 +7,7 @@ export const API_CONSTANTS = {
     GENERATE_OTP: "/generate-otp",
     VERIFY_OTP: "/verify-otp",
     RESET: "/reset",
+    LOGOUT: "/logout",
   },
   DEPARTMENT: {
     CREATE_DEPARTMENT: "/tenant/departments/",
