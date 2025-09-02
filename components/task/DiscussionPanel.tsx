@@ -842,22 +842,82 @@ const handlePost = async () => {
   };
 
   const toggleReaction = async (commentId: string, reactionType: string) => {
-    const comment = comments.find(c => c.id === commentId) || 
-                   Object.values(repliesData).flat().find(r => r.id === commentId);
-    if (!comment) return;
+  const comment = comments.find(c => c.id === commentId) || 
+                 Object.values(repliesData).flat().find(r => r.id === commentId);
+  if (!comment) return;
 
-    const existingReaction = comment.reactions?.find((r: any) => r.emoji === reactionType);
-    const hasReacted = existingReaction?.reacted;
+  // Check if user already has a reaction (any type)
+  const userHasExistingReaction = comment.reactions?.some((r: any) => r.reacted);
+  const existingReactionType = comment.reactions?.find((r: any) => r.reacted)?.emoji;
+  const isSameReaction = existingReactionType === reactionType;
 
-    // Optimistic update for main comments
-    setComments((prev: CommentItem[]) =>
-      prev.map((c: CommentItem) => {
-        if (c.id !== commentId) return c;
+  // Optimistic update for main comments
+  setComments((prev: CommentItem[]) =>
+    prev.map((c: CommentItem) => {
+      if (c.id !== commentId) return c;
+      
+      // If clicking the same reaction, remove it
+      if (isSameReaction) {
+        return {
+          ...c,
+          reactions: c.reactions!.filter((r: any) => r.emoji !== reactionType)
+        };
+      } 
+      // If user has a different reaction, replace it
+      else if (userHasExistingReaction) {
+        return {
+          ...c,
+          reactions: [
+            // Remove any existing user reaction
+            ...c.reactions!.filter((r: any) => !r.reacted),
+            // Add the new reaction
+            {
+              emoji: reactionType,
+              count: 1,
+              reacted: true
+            }
+          ]
+        };
+      } 
+      // If no existing reaction, add new one
+      else {
+        const newReaction = {
+          emoji: reactionType,
+          count: 1,
+          reacted: true
+        };
+        return {
+          ...c,
+          reactions: [...(c.reactions || []), newReaction]
+        };
+      }
+    })
+  );
+
+  // Optimistic update for replies
+  setRepliesData(prev => {
+    const updated = { ...prev };
+    Object.keys(updated).forEach(parentId => {
+      updated[parentId] = updated[parentId].map(reply => {
+        if (reply.id !== commentId) return reply;
         
-        if (hasReacted) {
+        // Same logic as above for replies
+        if (isSameReaction) {
           return {
-            ...c,
-            reactions: c.reactions!.filter((r: any) => r.emoji !== reactionType)
+            ...reply,
+            reactions: reply.reactions!.filter((r: any) => r.emoji !== reactionType)
+          };
+        } else if (userHasExistingReaction) {
+          return {
+            ...reply,
+            reactions: [
+              ...reply.reactions!.filter((r: any) => !r.reacted),
+              {
+                emoji: reactionType,
+                count: 1,
+                reacted: true
+              }
+            ]
           };
         } else {
           const newReaction = {
@@ -866,66 +926,42 @@ const handlePost = async () => {
             reacted: true
           };
           return {
-            ...c,
-            reactions: [...(c.reactions || []), newReaction]
+            ...reply,
+            reactions: [...(reply.reactions || []), newReaction]
           };
         }
-      })
-    );
-
-    // Optimistic update for replies
-    setRepliesData(prev => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach(parentId => {
-        updated[parentId] = updated[parentId].map(reply => {
-          if (reply.id !== commentId) return reply;
-          
-          if (hasReacted) {
-            return {
-              ...reply,
-              reactions: reply.reactions!.filter((r: any) => r.emoji !== reactionType)
-            };
-          } else {
-            const newReaction = {
-              emoji: reactionType,
-              count: 1,
-              reacted: true
-            };
-            return {
-              ...reply,
-              reactions: [...(reply.reactions || []), newReaction]
-            };
-          }
-        });
       });
-      return updated;
     });
+    return updated;
+  });
 
-    try {
-      if (hasReacted) {
-        await removeTaskDiscussionReaction(commentId);
-        toast({
-          title: "Success",
-          description: "Reaction removed",
-        });
-      } else {
-        const payload: TaskDiscussionReactionRequest = { reactionType };
-        await addTaskDiscussionReaction(commentId, payload);
-        toast({
-          title: "Success",
-          description: "Reaction added",
-        });
-      }
-    } catch (error) {
-      console.error("Error toggling reaction:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update reaction",
-      });
-      // Revert optimistic update on error would need similar logic
+  try {
+    // First remove any existing reaction if user has one
+    if (userHasExistingReaction) {
+      await removeTaskDiscussionReaction(commentId);
     }
-  };
+    
+    // Then add the new reaction if it's not the same as the existing one
+    if (!isSameReaction) {
+      const payload: TaskDiscussionReactionRequest = { reactionType };
+      await addTaskDiscussionReaction(commentId, payload);
+    }
+    
+    toast({
+      title: "Success",
+      description: isSameReaction ? "Reaction removed" : "Reaction added",
+    });
+  } catch (error) {
+    console.error("Error toggling reaction:", error);
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: "Failed to update reaction",
+    });
+    // Note: You might want to revert the optimistic update here
+    // by storing the previous state and restoring it on error
+  }
+};
 
   const onDelete = async (commentId: string) => {
     if (!confirm("Are you sure you want to delete this comment?")) return;
