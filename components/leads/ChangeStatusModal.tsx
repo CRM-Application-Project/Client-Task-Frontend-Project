@@ -226,9 +226,7 @@ const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
                             <div className="flex items-center gap-2">
                               {stage.leadStageName}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {stage.leadStageDescription}
-                            </div>
+                         
                           </div>
                         </SelectItem>
                       ))}
