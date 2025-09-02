@@ -118,8 +118,8 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
   const downloadSampleFormat = () => {
     // Create a temporary link element to trigger the download
     const link = document.createElement("a");
-    link.href = "/Leads.xlsx"; // Path to the file in public folder
-    link.download = "Leads.xlsx";
+    link.href = "/Leads-template.xlsx"; // Path to the file in public folder
+    link.download = "Leads-template.xlsx";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
