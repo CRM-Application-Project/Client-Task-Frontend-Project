@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
@@ -35,8 +35,9 @@ import {
 interface TaskStage {
   id: number;
   name: string;
-  isDeletable:boolean;
+  isDeletable: boolean;
 }
+
 interface TaskStageEdit {
   id: number;
   name: string;
@@ -71,6 +72,7 @@ interface TaskResponse {
   acceptanceInfo: {
     acceptanceCriteria: string;
   };
+  isEditable: boolean;
 }
 
 interface EditingTaskResponse {
@@ -85,8 +87,8 @@ interface EditingTaskResponse {
   createdAt: string;
   updatedAt: string;
   assignee: Assignee;
-  graceHours?: number; // Add this
-  estimatedHours?: number; // Add this
+  graceHours?: number;
+  estimatedHours?: number;
 }
 
 interface FilterTasksParams {
@@ -153,6 +155,156 @@ interface CreateStageRequest {
   description: string;
   orderNumber: number;
 }
+
+// Pagination state interface
+interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
+}
+
+// ========== PAGINATION COMPONENT ==========
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  isLoading?: boolean;
+}
+
+const Pagination = ({
+  currentPage,
+  totalPages,
+  totalElements,
+  pageSize,
+  onPageChange,
+  isLoading = false,
+}: PaginationProps) => {
+  const getVisiblePages = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is small
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+      
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      
+      for (let i = start; i <= end; i++) {
+        if (i !== 1 && i !== totalPages) {
+          pages.push(i);
+        }
+      }
+      
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+      
+      // Always show last page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
+
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalElements);
+
+  return (
+    <div className="flex items-center justify-between px-6 py-3 bg-white border-t border-gray-200">
+      <div className="flex items-center text-sm text-gray-700">
+        <span>
+          Showing {startItem} to {endItem} of {totalElements} results
+        </span>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        {/* Previous Button */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1 || isLoading}
+          className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Previous
+        </button>
+
+        {/* Page Numbers */}
+        <div className="flex space-x-1">
+          {getVisiblePages().map((page, index) => (
+            <button
+              key={index}
+              onClick={() => typeof page === 'number' ? onPageChange(page) : undefined}
+              disabled={isLoading || typeof page === 'string'}
+              className={`relative inline-flex items-center px-3 py-2 text-sm font-medium border rounded-md ${
+                page === currentPage
+                  ? 'bg-brand-primary text-white border-brand-primary'
+                  : typeof page === 'string'
+                  ? 'bg-white text-gray-500 border-gray-300 cursor-default'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+
+        {/* Next Button */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || isLoading}
+          className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+          <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ========== INFINITE SCROLL HOOK ==========
+const useInfiniteScroll = (callback: () => void, hasMore: boolean, isLoading: boolean) => {
+  const observer = useRef<IntersectionObserver>();
+  
+  const lastElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        callback();
+      }
+    }, {
+      rootMargin: '100px', // Load when element is 100px away from viewport
+    });
+    
+    if (node) observer.current.observe(node);
+  }, [callback, hasMore, isLoading]);
+  
+  return lastElementRef;
+};
+
+// ========== MODAL COMPONENTS (keeping existing ones) ==========
 interface DeleteStageModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -181,9 +333,7 @@ const DeleteStageModal = ({
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
-      {/* Modal Container */}
       <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
-        {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -212,7 +362,6 @@ const DeleteStageModal = ({
           </div>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6">
           <div className="space-y-4">
             <div className="text-center">
@@ -220,13 +369,12 @@ const DeleteStageModal = ({
                 {`Are you sure you want to delete ${stageName}?`}
               </h3>
               <p className="text-sm text-gray-500">
-                This action cannot be undone.The stage will be removed
+                This action cannot be undone. The stage will be removed
                 permanently.
               </p>
             </div>
           </div>
 
-          {/* Modal Footer */}
           <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
             <button
               type="button"
@@ -253,11 +401,12 @@ const DeleteStageModal = ({
     </div>
   );
 };
+
 interface EditStageModalProps {
   stage: TaskStageEdit;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (stageData: { name: string; description: string }) => void; // Remove orderNumber
+  onSave: (stageData: { name: string; description: string }) => void;
 }
 
 const EditStageModal = ({
@@ -269,7 +418,6 @@ const EditStageModal = ({
   const [name, setName] = useState(stage.name);
   const [description, setDescription] = useState(stage.description || "");
 
-  // Reset form when stage changes
   useEffect(() => {
     setName(stage.name);
     setDescription(stage.description || "");
@@ -299,9 +447,7 @@ const EditStageModal = ({
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
-      {/* Modal Container */}
       <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-200">
-        {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Edit Stage</h2>
@@ -327,11 +473,9 @@ const EditStageModal = ({
           </div>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6">
           <form onSubmit={handleSubmit}>
             <div className="space-y-5">
-              {/* Stage Name Field */}
               <div>
                 <label
                   htmlFor="stageName"
@@ -350,7 +494,6 @@ const EditStageModal = ({
                 />
               </div>
 
-              {/* Description Field */}
               <div>
                 <label
                   htmlFor="stageDescription"
@@ -369,7 +512,6 @@ const EditStageModal = ({
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
               <button
                 type="button"
@@ -391,6 +533,7 @@ const EditStageModal = ({
     </div>
   );
 };
+
 // ========== MAIN COMPONENT ==========
 const statuses: TaskStatus[] = [
   "BACKLOG",
@@ -399,6 +542,7 @@ const statuses: TaskStatus[] = [
   "IN_REVIEW",
   "DONE",
 ];
+
 interface DeleteTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -493,7 +637,6 @@ const DeleteTaskModal = ({
   );
 };
 
-// Stop Task Comment Modal Component
 interface StopTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -625,7 +768,9 @@ const StopTaskModal = ({
 };
 
 export default function TaskBoard() {
+  // ========== STATE MANAGEMENT ==========
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [allTasksForInfiniteScroll, setAllTasksForInfiniteScroll] = useState<Task[]>([]);
   const [filters, setFilters] = useState<{
     priority?: string;
     labels?: string[];
@@ -636,9 +781,7 @@ export default function TaskBoard() {
   }>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<
-    EditingTaskResponse | undefined
-  >();
+  const [editingTask, setEditingTask] = useState<EditingTaskResponse | undefined>();
   const [stages, setStages] = useState<TaskStage[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -652,19 +795,33 @@ export default function TaskBoard() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [stageToDelete, setStageToDelete] = useState<TaskStage | null>(null);
   const [isUpdatingStage, setIsUpdatingStage] = useState(false);
-  // New state for pre-selected stage
-  const [preSelectedStageId, setPreSelectedStageId] = useState<number | null>(
-    null
-  );
-  // State for stop task comment modal
+  const [preSelectedStageId, setPreSelectedStageId] = useState<number | null>(null);
   const [isStopTaskModalOpen, setIsStopTaskModalOpen] = useState(false);
   const [stopTaskComment, setStopTaskComment] = useState("");
   const [taskToStop, setTaskToStop] = useState<number | null>(null);
   const [isStoppingTask, setIsStoppingTask] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [isDeleteTaskModalOpen, setIsDeleteTaskModalOpen] = useState(false);
+
+  // ========== PAGINATION STATE ==========
+  const [paginationState, setPaginationState] = useState<PaginationState>({
+    currentPage: 1,
+    totalPages: 1,
+    totalElements: 0,
+    pageSize: 10,
+  });
+
+  // ========== INFINITE SCROLL STATE ==========
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreTasks, setHasMoreTasks] = useState(true);
+  const [kanbanPage, setKanbanPage] = useState(1);
 
   const router = useRouter();
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
 
+  const { toast } = useToast();
+
+  // ========== HELPER FUNCTIONS ==========
   const handleTaskClick = useCallback(
     (taskId: number) => {
       setSelectedTaskId(taskId);
@@ -680,85 +837,89 @@ export default function TaskBoard() {
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Transform API response to flat array of tasks
-  const transformTasks = useCallback(
-    (apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
-      if (!apiResponse.isSuccess || !apiResponse.data) return [];
+ // Replace the transformTasks function with this:
+const transformTasks = useCallback(
+  (apiResponse: ApiTaskResponse | FilterTasksResponse): Task[] => {
+    if (!apiResponse.isSuccess || !apiResponse.data) return [];
 
-      if ("content" in apiResponse.data) {
-        interface StageContent {
-          stageId: number;
-          stageName: string;
-          stageOrder: number;
-          tasks: TaskResponse[];
-        }
-
-        return apiResponse.data.content.flatMap((stage: StageContent) =>
-          stage.tasks.map(
-            (task: TaskResponse): Task => ({
-              id: task.id,
-              subject: task.subject,
-              description: task.description,
-              status: task.taskStageName as TaskStatus,
-              priority: task.priority,
-              labels: [],
-              assignedTo: task.assignee?.label || "Unassigned",
-              createdBy: task.createdBy?.label || "Unknown",
-              startDate: new Date(task.startDate),
-              endDate: task.endDate ? new Date(task.endDate) : null,
-              createdAt: new Date(task.createdAt),
-              updatedAt: new Date(task.updatedAt),
-              taskStageId: task.taskStageId,
-              taskStageName: task.taskStageName,
-              assignee: task.assignee,
-              estimatedHours: task.estimatedHours,
-              graceHours: task.graceHours || 0,
-              actualHours: task.actualHours,
-              actionType: task.actionType,
-              comment: task.comment || "",
-              completedBy: task.completedBy,
-              completedAt: task.completedAt,
-              documents: task.documents || [],
-              acceptanceInfo: task.acceptanceInfo,
-              isEditable: (task as any).isEditable ?? true,
-            })
-          )
-        );
-      } else {
-        return (apiResponse.data as TaskResponse[]).map((task) => ({
-          id: task.id,
-          subject: task.subject,
-          description: task.description,
-          status: task.taskStageName as TaskStatus,
-          priority: task.priority,
-          labels: [],
-          assignedTo: task.assignee?.label || "Unassigned",
-          createdBy: task.createdBy?.label || "Unknown",
-          startDate: new Date(task.startDate),
-          endDate: task.endDate ? new Date(task.endDate) : null,
-          createdAt: new Date(task.createdAt),
-          updatedAt: new Date(task.updatedAt),
-          taskStageId: task.taskStageId,
-          taskStageName: task.taskStageName,
-          assignee: task.assignee,
-          estimatedHours: task.estimatedHours,
-          graceHours: task.graceHours || 0,
-          actualHours: task.actualHours,
-          actionType: task.actionType,
-          comment: task.comment || "",
-          completedBy: task.completedBy,
-          completedAt: task.completedAt,
-          documents: task.documents || [],
-          acceptanceInfo: task.acceptanceInfo,
-        }));
-      }
-    },
-    []
-  );
+    // Handle ApiTaskResponse (structured response with stages)
+    if ('totalPages' in apiResponse.data) {
+      const apiData = apiResponse.data as ApiTaskResponse['data'];
+      return apiData.content.flatMap((stage) =>
+        stage.tasks.map(
+          (task: TaskResponse): Task => ({
+            id: task.id,
+            subject: task.subject,
+            description: task.description,
+            status: task.taskStageName as TaskStatus,
+            priority: task.priority,
+            labels: [],
+            assignedTo: task.assignee?.label || "Unassigned",
+            createdBy: task.createdBy?.label || "Unknown",
+            startDate: new Date(task.startDate),
+            endDate: task.endDate ? new Date(task.endDate) : null,
+            createdAt: new Date(task.createdAt),
+            updatedAt: new Date(task.updatedAt),
+            taskStageId: task.taskStageId,
+            taskStageName: task.taskStageName,
+            assignee: task.assignee,
+            estimatedHours: task.estimatedHours,
+            graceHours: task.graceHours || 0,
+            actualHours: task.actualHours,
+            actionType: task.actionType,
+            comment: task.comment || "",
+            completedBy: task.completedBy,
+            completedAt: task.completedAt,
+            documents: task.documents || [],
+            acceptanceInfo: task.acceptanceInfo,
+            isEditable: task.isEditable ?? true,
+          })
+        )
+      );
+    } 
+    // Handle FilterTasksResponse (flat array response)
+    else if (Array.isArray(apiResponse.data)) {
+      return (apiResponse.data as TaskResponse[]).map((task) => ({
+        id: task.id,
+        subject: task.subject,
+        description: task.description,
+        status: task.taskStageName as TaskStatus,
+        priority: task.priority,
+        labels: [],
+        assignedTo: task.assignee?.label || "Unassigned",
+        createdBy: task.createdBy?.label || "Unknown",
+        startDate: new Date(task.startDate),
+        endDate: task.endDate ? new Date(task.endDate) : null,
+        createdAt: new Date(task.createdAt),
+        updatedAt: new Date(task.updatedAt),
+        taskStageId: task.taskStageId,
+        taskStageName: task.taskStageName,
+        assignee: task.assignee,
+        estimatedHours: task.estimatedHours,
+        graceHours: task.graceHours || 0,
+        actualHours: task.actualHours,
+        actionType: task.actionType,
+        comment: task.comment || "",
+        completedBy: task.completedBy,
+        completedAt: task.completedAt,
+        documents: task.documents || [],
+        acceptanceInfo: task.acceptanceInfo,
+        isEditable: task.isEditable ?? true,
+      }));
+    }
+    
+    return [];
+  },
+  []
+);
 
   // Convert filter object to API parameters
   const convertFiltersToApiParams = useCallback(
-    (uiFilters: typeof filters, searchQuery: string): FilterTasksParams => {
-      const apiParams: FilterTasksParams = {};
+    (uiFilters: typeof filters, searchQuery: string, page: number = 1, limit: number = 20): FilterTasksParams => {
+      const apiParams: FilterTasksParams = {
+        page: page - 1, // API expects 0-based indexing
+        limit,
+      };
 
       if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
       if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
@@ -770,14 +931,12 @@ export default function TaskBoard() {
           return date.toISOString().split("T")[0] + "T00:00:00";
         };
 
-        // Helper functions to check if dates are placeholder dates
         const isPlaceholderFromDate = (date: Date) =>
           date.getTime() <= new Date("1970-01-02").getTime();
 
         const isPlaceholderToDate = (date: Date) =>
           date.getTime() >= new Date("2099-12-30").getTime();
 
-        // Handle partial date ranges
         const hasRealFromDate =
           uiFilters.dateRange.from &&
           !isPlaceholderFromDate(uiFilters.dateRange.from);
@@ -789,7 +948,6 @@ export default function TaskBoard() {
           apiParams.startDateFrom = formatDateWithTime(
             uiFilters.dateRange.from
           );
-          // Also set endDateFrom if we want tasks that end after the from date
         }
 
         if (hasRealToDate) {
@@ -802,53 +960,137 @@ export default function TaskBoard() {
     []
   );
 
-  // Optimized task fetching function
-  const fetchTasks = useCallback(
-    async (filterParams?: FilterTasksParams, showLoading = false) => {
-      if (isFilteringRef.current) return;
+  // ========== FETCH FUNCTIONS ==========
 
-      isFilteringRef.current = true;
-      if (showLoading) setIsRefreshing(true);
+// In fetchTasksGrid and fetchTasksKanban functions, add type checking:
+const fetchTasksGrid = useCallback(
+  async (page: number = 1, showLoading = false) => {
+    if (isFilteringRef.current) return;
 
-      try {
-        const apiParams =
-          filterParams || convertFiltersToApiParams(filters, searchQuery);
-        const response = await filterTasks(apiParams);
+    isFilteringRef.current = true;
+    if (showLoading) setIsRefreshing(true);
 
-        if (response.isSuccess) {
-          const transformedTasks = transformTasks(
-            response as ApiTaskResponse | FilterTasksResponse
-          );
-          setTasks(transformedTasks);
-        } else {
-          console.error("Failed to fetch tasks:", response.message);
-          setTasks([]);
-        }
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
+    try {
+     const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
+      const response = await filterTasks(apiParams);
+
+      // Add proper type checking
+      if (response.isSuccess && response.data && 'totalPages' in response.data) {
+        const apiResponse = response as unknown as ApiTaskResponse; // Safe type conversion
+        const transformedTasks = transformTasks(apiResponse);
+        
+        setTasks(transformedTasks);
+        setPaginationState({
+          currentPage: apiResponse.data.pageIndex + 1,
+          totalPages: apiResponse.data.totalPages,
+          totalElements: apiResponse.data.totalElements,
+          pageSize: apiResponse.data.pageSize,
+        });
+      } else {
+        console.error("Failed to fetch tasks:", response.message);
         setTasks([]);
-      } finally {
-        isFilteringRef.current = false;
-        if (showLoading) setIsRefreshing(false);
       }
-    },
-    [filters, searchQuery, convertFiltersToApiParams, transformTasks]
-  );
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setTasks([]);
+    } finally {
+      isFilteringRef.current = false;
+      if (showLoading) setIsRefreshing(false);
+    }
+  },
+  [filters, searchQuery, paginationState.pageSize, convertFiltersToApiParams, transformTasks]
+);
 
-  // Fetch stages function
+  // Fetch tasks for kanban view (with infinite scroll)
+  const fetchTasksKanban = useCallback(
+  async (page: number = 1, append: boolean = false, showLoading = false) => {
+    if (isFilteringRef.current) return;
+
+    isFilteringRef.current = true;
+    if (showLoading) setIsRefreshing(true);
+    if (!append && page > 1) setIsLoadingMore(true);
+
+    try {
+    const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
+      const response = await filterTasks(apiParams);
+
+      if (response.isSuccess && response.data) {
+        // Handle both response types safely
+        let transformedTasks: Task[] = [];
+        
+        if ('totalPages' in response.data) {
+          // ApiTaskResponse format
+          const apiResponse = response as unknown as ApiTaskResponse;
+          transformedTasks = transformTasks(apiResponse);
+          
+          // Update pagination info
+          setHasMoreTasks(page < apiResponse.data.totalPages);
+          setKanbanPage(page);
+        } else if (Array.isArray(response.data)) {
+          // FilterTasksResponse format (flat array)
+          transformedTasks = transformTasks(response as FilterTasksResponse);
+          
+          // For flat array responses, we can't determine pagination
+          // So we assume no more pages if we get less than the limit
+          setHasMoreTasks(transformedTasks.length === 20);
+          setKanbanPage(page);
+        }
+        
+        if (append && page > 1) {
+          // Append new tasks for infinite scroll
+          setAllTasksForInfiniteScroll(prev => {
+            const existingIds = new Set(prev.map(task => task.id));
+            const newTasks = transformedTasks.filter(task => !existingIds.has(task.id));
+            return [...prev, ...newTasks];
+          });
+        } else {
+          // Replace tasks for initial load or filter change
+          setAllTasksForInfiniteScroll(transformedTasks);
+        }
+      } else {
+        console.error("Failed to fetch tasks:", response.message);
+        if (!append) {
+          setAllTasksForInfiniteScroll([]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      if (!append) {
+        setAllTasksForInfiniteScroll([]);
+      }
+    } finally {
+      isFilteringRef.current = false;
+      setIsLoadingMore(false);
+      if (showLoading) setIsRefreshing(false);
+    }
+  },
+  [filters, searchQuery, convertFiltersToApiParams, transformTasks]
+);
+
+  // Load more tasks for infinite scroll
+  const loadMoreTasks = useCallback(() => {
+    if (!hasMoreTasks || isLoadingMore || isFilteringRef.current) return;
+    
+    const nextPage = kanbanPage + 1;
+    fetchTasksKanban(nextPage, true, false);
+  }, [hasMoreTasks, isLoadingMore, kanbanPage, fetchTasksKanban]);
+
+  // Infinite scroll hook implementation
+  const lastTaskElementRef = useInfiniteScroll(loadMoreTasks, hasMoreTasks, isLoadingMore);
+
+  // ========== FETCH STAGES AND USERS ==========
   const fetchStages = useCallback(async () => {
     try {
       const stagesRes = await getTaskStagesDropdown();
       if (stagesRes.isSuccess) {
         setStages(stagesRes.data);
-        console.log("Fetched stages:", stagesRes.data);
       }
     } catch (error) {
       console.error("Error fetching stages:", error);
     }
   }, []);
 
-  // Fetch initial data only once
+  // ========== INITIAL DATA FETCH ==========
   useEffect(() => {
     if (isInitialLoadingRef.current) return;
 
@@ -863,7 +1105,6 @@ export default function TaskBoard() {
 
         if (stagesRes.isSuccess) {
           setStages(stagesRes.data);
-          console.log("Fetched stages:", stagesRes.data);
         }
 
         if (usersRes.isSuccess) {
@@ -876,7 +1117,12 @@ export default function TaskBoard() {
           );
         }
 
-        await fetchTasks({}, false);
+        // Initial fetch based on view mode
+        if (viewMode === "grid") {
+          await fetchTasksGrid(1, false);
+        } else {
+          await fetchTasksKanban(1, false, false);
+        }
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {
@@ -885,73 +1131,145 @@ export default function TaskBoard() {
     };
 
     fetchInitialData();
-  }, []);
+  }, [viewMode]); // Add viewMode as dependency
 
-  // Debounced search effect
-  useEffect(() => {
+  // ========== SEARCH DEBOUNCING ==========
+ useEffect(() => {
+  if (searchTimeoutRef.current) {
+    clearTimeout(searchTimeoutRef.current);
+  }
+
+  if (isInitialLoadingRef.current) return;
+
+  searchTimeoutRef.current = setTimeout(() => {
+    if (viewMode === "grid") {
+      fetchTasksGrid(1, true);
+    } else {
+      setKanbanPage(1);
+      setHasMoreTasks(true);
+      fetchTasksKanban(1, false, true);
+    }
+  }, 300);
+
+  return () => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+  };
+}, [searchQuery, viewMode, fetchTasksGrid, fetchTasksKanban]);
 
-    if (isInitialLoadingRef.current) return;
+  // ========== PAGINATION HANDLERS ==========
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (page < 1 || page > paginationState.totalPages || isRefreshing) return;
+      fetchTasksGrid(page, true);
+    },
+    [paginationState.totalPages, isRefreshing, fetchTasksGrid]
+  );
 
-    searchTimeoutRef.current = setTimeout(() => {
-      const apiParams = convertFiltersToApiParams(filters, searchQuery);
-      fetchTasks(apiParams, true);
-    }, 300);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchQuery]);
-
-  const handleApplyFilters = useCallback(async () => {
-    const apiParams = convertFiltersToApiParams(filters, searchQuery);
-    await fetchTasks(apiParams, true);
-  }, [filters, searchQuery, convertFiltersToApiParams, fetchTasks]);
-
+  // ========== FILTER HANDLERS ==========
   const handleFilterChange = useCallback(
     async (newFilters: typeof filters) => {
       setFilters(newFilters);
-      const apiParams = convertFiltersToApiParams(newFilters, searchQuery);
-      await fetchTasks(apiParams, true);
-    },
-    [searchQuery, convertFiltersToApiParams, fetchTasks]
-  );
-
-  const handleAddTask = useCallback(
-    async (
-      taskData: CreateTaskRequest | Partial<UpdateTaskRequest>,
-      isEdit: boolean
-    ) => {
-      try {
-        let response;
-
-        if (isEdit && editingTask) {
-          // For updates, taskData is Partial<UpdateTaskRequest> with only changed fields
-          console.log("Updating task with only changed fields:", taskData);
-          response = await updateTask(
-            editingTask.id,
-            taskData as Partial<UpdateTaskRequest>
-          );
-        } else {
-          // For new tasks, taskData is complete CreateTaskRequest
-          response = await createTask(taskData as CreateTaskRequest);
-        }
-
-        if (response.isSuccess) {
-          await fetchTasks(undefined, true);
-          handleCloseModal();
-        }
-      } catch (error) {
-        console.error("Error saving task:", error);
+      
+      if (viewMode === "grid") {
+        setPaginationState(prev => ({ ...prev, currentPage: 1 }));
+        await fetchTasksGrid(1, true);
+      } else {
+        setKanbanPage(1);
+        setHasMoreTasks(true);
+        await fetchTasksKanban(1, false, true);
       }
     },
-    [editingTask, fetchTasks]
+    [viewMode, fetchTasksGrid, fetchTasksKanban]
   );
-  const { toast } = useToast();
+
+  const handleApplyFilters = useCallback(async () => {
+    if (viewMode === "grid") {
+      await fetchTasksGrid(paginationState.currentPage, true);
+    } else {
+      setKanbanPage(1);
+      setHasMoreTasks(true);
+      await fetchTasksKanban(1, false, true);
+    }
+  }, [viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban]);
+
+  // ========== VIEW MODE CHANGE HANDLER ==========
+  const handleViewModeChange = useCallback(
+    (newViewMode: "kanban" | "grid") => {
+      if (newViewMode === viewMode) return;
+      
+      setViewMode(newViewMode);
+      
+      // Reset pagination/infinite scroll state
+      if (newViewMode === "grid") {
+        setPaginationState(prev => ({ ...prev, currentPage: 1 }));
+      } else {
+        setKanbanPage(1);
+        setHasMoreTasks(true);
+      }
+      
+      // Fetch data for new view mode
+      if (newViewMode === "grid") {
+        fetchTasksGrid(1, true);
+      } else {
+        fetchTasksKanban(1, false, true);
+      }
+    },
+    [viewMode, fetchTasksGrid, fetchTasksKanban]
+  );
+const handleCloseModal = useCallback(() => {
+  setIsAddModalOpen(false);
+  setEditingTask(undefined);
+  setPreSelectedStageId(null);
+}, []);
+  // ========== TASK OPERATIONS ==========
+ const handleAddTask = useCallback(
+  async (
+    taskData: CreateTaskRequest | Partial<UpdateTaskRequest>,
+    isEdit: boolean
+  ) => {
+    try {
+      let response;
+
+      if (isEdit && editingTask) {
+        response = await updateTask(
+          editingTask.id,
+          taskData as Partial<UpdateTaskRequest>
+        );
+      } else {
+        response = await createTask(taskData as CreateTaskRequest);
+      }
+
+      if (response.isSuccess) {
+        // Refresh based on current view mode
+        if (viewMode === "grid") {
+          await fetchTasksGrid(paginationState.currentPage, true);
+        } else {
+          setKanbanPage(1);
+          setHasMoreTasks(true);
+          await fetchTasksKanban(1, false, true);
+        }
+        handleCloseModal();
+        
+        toast({
+          title: isEdit ? "Task Updated" : "Task Created",
+          description: `Task has been ${isEdit ? "updated" : "created"} successfully.`,
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save task. Please try again.",
+        variant: "destructive",
+      });
+    }
+  },
+  [editingTask, viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast, handleCloseModal] // Add handleCloseModal
+);
+
   const handleCreateStage = useCallback(
     async (stageData: CreateStageRequest) => {
       try {
@@ -959,21 +1277,36 @@ export default function TaskBoard() {
         if (response.isSuccess) {
           await fetchStages();
           setIsCreateStageModalOpen(false);
+          toast({
+            title: "Stage Created",
+            description: "Stage has been created successfully.",
+            variant: "default",
+          });
         } else {
           console.error("Failed to create stage:", response.message);
+          toast({
+            title: "Error",
+            description: "Failed to create stage. Please try again.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Error creating stage:", error);
+        toast({
+          title: "Error",
+          description: "Failed to create stage. Please try again.",
+          variant: "destructive",
+        });
       }
     },
-    [fetchStages]
+    [fetchStages, toast]
   );
+
   const handleEditStage = useCallback((stage: TaskStageEdit) => {
     setEditingStage(stage);
     setIsEditStageModalOpen(true);
   }, []);
-  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
-  const [isDeleteTaskModalOpen, setIsDeleteTaskModalOpen] = useState(false);
+
   const handleSaveStage = useCallback(
     async (stageData: { name: string; description: string }) => {
       if (!editingStage) return;
@@ -981,7 +1314,6 @@ export default function TaskBoard() {
       setIsUpdatingStage(true);
 
       try {
-        // Create payload with only changed fields (excluding orderNumber)
         const updateData: UpdateStageRequest = {};
 
         if (stageData.name !== editingStage.name) {
@@ -992,9 +1324,6 @@ export default function TaskBoard() {
           updateData.description = stageData.description;
         }
 
-        // Completely remove orderNumber from payload
-
-        // Only send request if there are changes
         if (Object.keys(updateData).length > 0) {
           const response = await updateTaskStage(
             editingStage.id.toString(),
@@ -1008,14 +1337,20 @@ export default function TaskBoard() {
               variant: "default",
             });
 
-            // Refresh stages and tasks
             await fetchStages();
-            await fetchTasks(undefined, false);
+            
+            // Refresh based on current view mode
+            if (viewMode === "grid") {
+              await fetchTasksGrid(paginationState.currentPage, false);
+            } else {
+              setKanbanPage(1);
+              setHasMoreTasks(true);
+              await fetchTasksKanban(1, false, false);
+            }
           } else {
             throw new Error(response.message || "Failed to update stage");
           }
         } else {
-          // No changes were made
           toast({
             title: "No Changes",
             description: "No changes were made to the stage.",
@@ -1035,14 +1370,23 @@ export default function TaskBoard() {
         setEditingStage(null);
       }
     },
-    [editingStage, fetchStages, fetchTasks, toast]
+    [editingStage, fetchStages, viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast]
   );
+
   const handleDeleteTask = useCallback(
     async (taskId: number) => {
       try {
         const response = await deleteTask(taskId);
         if (response.isSuccess) {
-          await fetchTasks(undefined, true);
+          // Refresh based on current view mode
+          if (viewMode === "grid") {
+            await fetchTasksGrid(paginationState.currentPage, true);
+          } else {
+            setKanbanPage(1);
+            setHasMoreTasks(true);
+            await fetchTasksKanban(1, false, true);
+          }
+          
           setIsDeleteTaskModalOpen(false);
           setTaskToDelete(null);
           toast({
@@ -1060,23 +1404,25 @@ export default function TaskBoard() {
         });
       }
     },
-    [fetchTasks, toast]
+    [viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast]
   );
+
   const confirmDeleteTask = useCallback(() => {
     if (taskToDelete) {
       handleDeleteTask(taskToDelete.id);
     }
   }, [taskToDelete, handleDeleteTask]);
 
-  // Add this function to open delete confirmation
   const openDeleteConfirmation = useCallback((task: Task) => {
     setTaskToDelete(task);
     setIsDeleteTaskModalOpen(true);
   }, []);
+
   const handleDeleteStage = useCallback(
     async (stage: TaskStage) => {
-      // Check if stage has tasks
-      const stageTasks = tasks.filter((task) => task.taskStageId === stage.id);
+      const currentTasks = viewMode === "grid" ? tasks : allTasksForInfiniteScroll;
+      const stageTasks = currentTasks.filter((task) => task.taskStageId === stage.id);
+      
       if (stageTasks.length > 0) {
         toast({
           title: "Cannot Delete Stage",
@@ -1087,14 +1433,12 @@ export default function TaskBoard() {
         return;
       }
 
-      // Set the stage to delete and open confirmation modal
       setStageToDelete(stage);
       setIsDeleteModalOpen(true);
     },
-    [tasks, toast]
+    [tasks, allTasksForInfiniteScroll, viewMode, toast]
   );
 
-  // Add a new function to handle the actual deletion
   const confirmDeleteStage = useCallback(async () => {
     if (!stageToDelete) return;
 
@@ -1110,11 +1454,17 @@ export default function TaskBoard() {
           variant: "default",
         });
 
-        // Refresh stages and tasks
         await fetchStages();
-        await fetchTasks(undefined, false);
+        
+        // Refresh based on current view mode
+        if (viewMode === "grid") {
+          await fetchTasksGrid(paginationState.currentPage, false);
+        } else {
+          setKanbanPage(1);
+          setHasMoreTasks(true);
+          await fetchTasksKanban(1, false, false);
+        }
 
-        // Close the modal
         setIsDeleteModalOpen(false);
         setStageToDelete(null);
       } else {
@@ -1130,15 +1480,14 @@ export default function TaskBoard() {
     } finally {
       setIsUpdatingStage(false);
     }
-  }, [stageToDelete, fetchStages, fetchTasks, toast]);
+  }, [stageToDelete, fetchStages, viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast]);
 
-  // Add a function to cancel deletion
   const cancelDeleteStage = useCallback(() => {
     setIsDeleteModalOpen(false);
     setStageToDelete(null);
   }, []);
 
-  // Stop task modal handlers
+  // ========== TASK ACTION HANDLERS ==========
   const handleStopTaskConfirm = useCallback(
     async (comment: string) => {
       if (!taskToStop) return;
@@ -1154,10 +1503,15 @@ export default function TaskBoard() {
           variant: "default",
         });
 
-        // Refresh tasks after stopping
-        await fetchTasks(undefined, true);
+        // Refresh based on current view mode
+        if (viewMode === "grid") {
+          await fetchTasksGrid(paginationState.currentPage, true);
+        } else {
+          setKanbanPage(1);
+          setHasMoreTasks(true);
+          await fetchTasksKanban(1, false, true);
+        }
 
-        // Close modal and reset state
         setIsStopTaskModalOpen(false);
         setTaskToStop(null);
         setStopTaskComment("");
@@ -1172,47 +1526,13 @@ export default function TaskBoard() {
         setIsStoppingTask(false);
       }
     },
-    [taskToStop, toast, fetchTasks]
+    [taskToStop, viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast]
   );
 
   const handleStopTaskCancel = useCallback(() => {
     setIsStopTaskModalOpen(false);
     setTaskToStop(null);
     setStopTaskComment("");
-  }, []);
-  const handleEditTask = useCallback((task: Task) => {
-    const editingTaskData: EditingTaskResponse = {
-      id: task.id,
-      subject: task.subject,
-      description: task.description,
-      priority: task.priority,
-      startDate: task.startDate.toISOString(),
-      endDate: task.endDate ? task.endDate.toISOString() : null,
-      taskStageId: task.taskStageId,
-      taskStageName: task.taskStageName,
-      createdAt: task.createdAt.toISOString(),
-      updatedAt: task.updatedAt.toISOString(),
-      assignee: task.assignee,
-      graceHours: task.graceHours,
-      estimatedHours: task.estimatedHours ?? undefined, // Convert null to undefined
-    };
-
-    setEditingTask(editingTaskData);
-    setPreSelectedStageId(null); // Clear pre-selected stage when editing
-    setIsAddModalOpen(true);
-  }, []);
-
-  // New function to handle add task for specific stage
-  const handleAddTaskForStage = useCallback((stageId: number) => {
-    setPreSelectedStageId(stageId);
-    setEditingTask(undefined); // Clear editing task
-    setIsAddModalOpen(true);
-  }, []);
-
-  const handleCloseModal = useCallback(() => {
-    setIsAddModalOpen(false);
-    setEditingTask(undefined);
-    setPreSelectedStageId(null); // Clear pre-selected stage
   }, []);
 
   const handleActionClick = useCallback(
@@ -1233,8 +1553,14 @@ export default function TaskBoard() {
             variant: "default",
           });
 
-          // Refresh tasks after action
-          await fetchTasks(undefined, true);
+          // Refresh based on current view mode
+          if (viewMode === "grid") {
+            await fetchTasksGrid(paginationState.currentPage, true);
+          } else {
+            setKanbanPage(1);
+            setHasMoreTasks(true);
+            await fetchTasksKanban(1, false, true);
+          }
         } catch (error) {
           console.error("Error starting task:", error);
           toast({
@@ -1244,14 +1570,44 @@ export default function TaskBoard() {
           });
         }
       } else if (actionType === "STOP") {
-        // Show comment modal for stop action
         setTaskToStop(taskId);
         setStopTaskComment("");
         setIsStopTaskModalOpen(true);
       }
     },
-    [toast, fetchTasks]
+    [viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, toast]
   );
+
+  // ========== EDIT TASK HANDLERS ==========
+  const handleEditTask = useCallback((task: Task) => {
+    const editingTaskData: EditingTaskResponse = {
+      id: task.id,
+      subject: task.subject,
+      description: task.description,
+      priority: task.priority,
+      startDate: task.startDate.toISOString(),
+      endDate: task.endDate ? task.endDate.toISOString() : null,
+      taskStageId: task.taskStageId,
+      taskStageName: task.taskStageName,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+      assignee: task.assignee,
+      graceHours: task.graceHours,
+      estimatedHours: task.estimatedHours ?? undefined,
+    };
+
+    setEditingTask(editingTaskData);
+    setPreSelectedStageId(null);
+    setIsAddModalOpen(true);
+  }, []);
+
+  const handleAddTaskForStage = useCallback((stageId: number) => {
+    setPreSelectedStageId(stageId);
+    setEditingTask(undefined);
+    setIsAddModalOpen(true);
+  }, []);
+
+ 
 
   const handleCloseTaskDetails = useCallback(() => {
     setIsDetailsModalOpen(false);
@@ -1260,87 +1616,89 @@ export default function TaskBoard() {
 
   const handleEditTaskFromDetails = useCallback(() => {
     if (selectedTaskId) {
-      const taskToEdit = tasks.find((task) => task.id === selectedTaskId);
+      const currentTasks = viewMode === "grid" ? tasks : allTasksForInfiniteScroll;
+      const taskToEdit = currentTasks.find((task) => task.id === selectedTaskId);
       if (taskToEdit) {
         handleEditTask(taskToEdit);
         setIsDetailsModalOpen(false);
         setSelectedTaskId(null);
       }
     }
-  }, [selectedTaskId, tasks, handleEditTask]);
+  }, [selectedTaskId, tasks, allTasksForInfiniteScroll, viewMode, handleEditTask]);
 
   const handleClearAllFilters = useCallback(async () => {
     setFilters({});
     setSearchQuery("");
-    await fetchTasks({}, true);
-  }, [fetchTasks]);
+    
+    if (viewMode === "grid") {
+      setPaginationState(prev => ({ ...prev, currentPage: 1 }));
+      await fetchTasksGrid(1, true);
+    } else {
+      setKanbanPage(1);
+      setHasMoreTasks(true);
+      await fetchTasksKanban(1, false, true);
+    }
+  }, [viewMode, fetchTasksGrid, fetchTasksKanban]);
 
   // Client-side filtering for immediate UI response
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredTasks = useMemo(() => {
+    const currentTasks = viewMode === "grid" ? tasks : allTasksForInfiniteScroll;
+    
+    return currentTasks.filter((task) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        task.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesPriority =
-      !filters.priority || task.priority === filters.priority;
-    const matchesStage =
-      !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
-    const matchesAssignee =
-      !filters.assignedTo || task.assignee?.id === filters.assignedTo;
+      const matchesPriority =
+        !filters.priority || task.priority === filters.priority;
+      const matchesStage =
+        !filters.stageIds || task.taskStageId?.toString() === filters.stageIds;
+      const matchesAssignee =
+        !filters.assignedTo || task.assignee?.id === filters.assignedTo;
 
-    // Enhanced date range matching
-    const matchesDateRange = (() => {
-      if (!filters.dateRange) return true;
+      const matchesDateRange = (() => {
+        if (!filters.dateRange) return true;
 
-      const { from, to } = filters.dateRange;
-      const taskStartDate = task.startDate;
-      const taskEndDate = task.endDate;
+        const { from, to } = filters.dateRange;
+        const taskStartDate = task.startDate;
+        const taskEndDate = task.endDate;
 
-      // Helper functions to check if dates are placeholder dates
-      const isPlaceholderFromDate = (date: Date) =>
-        date.getTime() <= new Date("1970-01-02").getTime();
+        const isPlaceholderFromDate = (date: Date) =>
+          date.getTime() <= new Date("1970-01-02").getTime();
 
-      const isPlaceholderToDate = (date: Date) =>
-        date.getTime() >= new Date("2099-12-30").getTime();
+        const isPlaceholderToDate = (date: Date) =>
+          date.getTime() >= new Date("2099-12-30").getTime();
 
-      // Check if we have real dates (not placeholders)
-      const hasRealFromDate = from && !isPlaceholderFromDate(from);
-      const hasRealToDate = to && !isPlaceholderToDate(to);
+        const hasRealFromDate = from && !isPlaceholderFromDate(from);
+        const hasRealToDate = to && !isPlaceholderToDate(to);
 
-      if (hasRealFromDate && hasRealToDate) {
-        // Both dates specified - show tasks that overlap with the date range
-        // A task overlaps if:
-        // 1. Task starts within the range, OR
-        // 2. Task ends within the range, OR
-        // 3. Task spans the entire range (starts before and ends after)
-        const taskStartsInRange = taskStartDate >= from && taskStartDate <= to;
-        const taskEndsInRange =
-          taskEndDate && taskEndDate >= from && taskEndDate <= to;
-        const taskSpansRange =
-          taskStartDate <= from && taskEndDate && taskEndDate >= to;
+        if (hasRealFromDate && hasRealToDate) {
+          const taskStartsInRange = taskStartDate >= from && taskStartDate <= to;
+          const taskEndsInRange =
+            taskEndDate && taskEndDate >= from && taskEndDate <= to;
+          const taskSpansRange =
+            taskStartDate <= from && taskEndDate && taskEndDate >= to;
 
-        return taskStartsInRange || taskEndsInRange || taskSpansRange;
-      } else if (hasRealFromDate) {
-        // Only from date specified - show tasks that start on or after this date
-        // OR tasks that are still ongoing (end date is after the from date)
-        return taskStartDate >= from || (taskEndDate && taskEndDate >= from);
-      } else if (hasRealToDate) {
-        // Only to date specified - show tasks that start on or before this date
-        return taskStartDate <= to;
-      }
+          return taskStartsInRange || taskEndsInRange || taskSpansRange;
+        } else if (hasRealFromDate) {
+          return taskStartDate >= from || (taskEndDate && taskEndDate >= from);
+        } else if (hasRealToDate) {
+          return taskStartDate <= to;
+        }
 
-      return true;
-    })();
+        return true;
+      })();
 
-    return (
-      matchesSearch &&
-      matchesPriority &&
-      matchesStage &&
-      matchesAssignee &&
-      matchesDateRange
-    );
-  });
+      return (
+        matchesSearch &&
+        matchesPriority &&
+        matchesStage &&
+        matchesAssignee &&
+        matchesDateRange
+      );
+    });
+  }, [tasks, allTasksForInfiniteScroll, viewMode, searchQuery, filters]);
 
   // Smooth scroll navigation functions
   const scrollLeft = () => {
@@ -1361,6 +1719,7 @@ export default function TaskBoard() {
     }
   };
 
+  // ========== LOADING STATE ==========
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1369,165 +1728,171 @@ export default function TaskBoard() {
     );
   }
 
+  // ========== RENDER ==========
   return (
     <div className="min-h-screen">
-      <>
-        {/* Loading indicator for refreshing */}
-        {isRefreshing && (
-          <div className="mb-4 flex items-center justify-center">
-            <div className="text-sm text-muted-foreground">
-              Updating tasks...
-            </div>
+      {/* Loading indicator for refreshing */}
+      {isRefreshing && (
+        <div className="mb-4 flex items-center justify-center">
+          <div className="text-sm text-muted-foreground">
+            Updating tasks...
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Filters */}
-        <TaskFilters
-          filters={filters}
-          onFiltersChange={handleFilterChange}
-          onAddTask={() => setIsAddModalOpen(true)}
-          onAddStage={() => setIsCreateStageModalOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onClearAllFilters={handleClearAllFilters}
-          onApplyFilters={handleApplyFilters}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          stages={stages}
-          users={users}
-        />
+      {/* Filters */}
+      <TaskFilters
+        filters={filters}
+        onFiltersChange={handleFilterChange}
+        onAddTask={() => setIsAddModalOpen(true)}
+        onAddStage={() => setIsCreateStageModalOpen(true)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onClearAllFilters={handleClearAllFilters}
+        onApplyFilters={handleApplyFilters}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        stages={stages}
+        users={users}
+      />
 
-        {/* No Stages Message with Create Stage Button */}
-        {stages.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg border border-gray-200 mb-6">
-            <div className="text-center mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No Stages Found
-              </h3>
-              <p className="text-gray-500 mb-4">
-                You need to create at least one stage to start managing tasks.
-              </p>
-              <button
-                onClick={() => setIsCreateStageModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-brand-primary text-text-white text-sm font-medium rounded-md hover:bg-brand-primary/90 focus:outline-none"
+      {/* No Stages Message with Create Stage Button */}
+      {stages.length === 0 && !isLoading && (
+        <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg border border-gray-200 mb-6">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Stages Found
+            </h3>
+            <p className="text-gray-500 mb-4">
+              You need to create at least one stage to start managing tasks.
+            </p>
+            <button
+              onClick={() => setIsCreateStageModalOpen(true)}
+              className="inline-flex items-center px-4 py-2 bg-brand-primary text-text-white text-sm font-medium rounded-md hover:bg-brand-primary/90 focus:outline-none"
+            >
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-                Create Stage
-              </button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Create Stage
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Task Board - Only show if stages exist */}
-        {stages.length > 0 && (
-          <>
-            {viewMode === "kanban" && (
-              <div className="relative">
-                {/* Scroll Navigation Buttons - Only show if there are more than 3 stages */}
-                {stages.length > 3 && (
-                  <>
-                    {/* Left scroll button */}
-                    <button
-                      onClick={scrollLeft}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
-                      style={{ marginLeft: "-12px" }}
+      {/* Task Board - Only show if stages exist */}
+      {stages.length > 0 && (
+        <>
+          {viewMode === "kanban" && (
+            <div className="relative">
+              {/* Scroll Navigation Buttons - Only show if there are more than 3 stages */}
+              {stages.length > 3 && (
+                <>
+                  <button
+                    onClick={scrollLeft}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
+                    style={{ marginLeft: "-12px" }}
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-5 h-5 text-gray-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 19l-7-7 7-7"
-                        />
-                      </svg>
-                    </button>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                  </button>
 
-                    {/* Right scroll button */}
-                    <button
-                      onClick={scrollRight}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
-                      style={{ marginRight: "-12px" }}
+                  <button
+                    onClick={scrollRight}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 border border-gray-200 transition-all duration-200 hover:scale-110"
+                    style={{ marginRight: "-12px" }}
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-5 h-5 text-gray-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
-                  </>
-                )}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </button>
+                </>
+              )}
 
-                {/* Kanban Board Container with Enhanced Smooth Scrolling */}
-                <div
-                  ref={kanbanScrollRef}
-                  className="kanban-board-container flex gap-4 overflow-x-auto pb-6 px-1" // Added class name here
-                  style={{
-                    scrollBehavior: "smooth",
-                    scrollbarWidth: "thin",
-                    scrollbarColor: "#cbd5e1 #f1f5f9",
-                    WebkitOverflowScrolling: "touch",
-                  }}
-                >
-                  {/* Custom scrollbar styles */}
-                  <style jsx>{`
-                    .kanban-board-container::-webkit-scrollbar {
-                      height: 8px;
-                    }
-                    .kanban-board-container::-webkit-scrollbar-track {
-                      background: #f1f5f9;
-                      border-radius: 4px;
-                    }
-                    .kanban-board-container::-webkit-scrollbar-thumb {
-                      background: #cbd5e1;
-                      border-radius: 4px;
-                      transition: background 0.2s ease;
-                    }
-                    .kanban-board-container::-webkit-scrollbar-thumb:hover {
-                      background: #94a3b8;
-                    }
-                  `}</style>
+              {/* Kanban Board Container with Enhanced Smooth Scrolling */}
+              <div
+                ref={kanbanScrollRef}
+                className="kanban-board-container flex gap-4 overflow-x-auto pb-6 px-1"
+                style={{
+                  scrollBehavior: "smooth",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#cbd5e1 #f1f5f9",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                <style jsx>{`
+                  .kanban-board-container::-webkit-scrollbar {
+                    height: 8px;
+                  }
+                  .kanban-board-container::-webkit-scrollbar-track {
+                    background: #f1f5f9;
+                    border-radius: 4px;
+                  }
+                  .kanban-board-container::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 4px;
+                    transition: background 0.2s ease;
+                  }
+                  .kanban-board-container::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8;
+                  }
+                `}</style>
 
-                  {stages.map((stage, index) => (
+                {stages.map((stage, index) => {
+                  const stageTasks = filteredTasks.filter(
+                    (task) => task.taskStageId === stage.id
+                  );
+                  
+                  return (
                     <TaskColumn
                       key={stage.id}
                       stage={stage}
-                      tasks={filteredTasks.filter(
-                        (task) => task.taskStageId === stage.id
-                      )}
+                      tasks={stageTasks}
                       onEditTask={handleEditTask}
                       onDeleteTask={handleDeleteTask}
                       onTaskClick={handleTaskClick}
                       onAddTaskForStage={handleAddTaskForStage}
                       stageIndex={index}
-                      onTaskUpdate={() => fetchTasks(undefined, true)}
+                      onTaskUpdate={() => {
+                        setKanbanPage(1);
+                        setHasMoreTasks(true);
+                        fetchTasksKanban(1, false, true);
+                      }}
                       onStageUpdate={() => {
                         fetchStages();
-                        fetchTasks(undefined, true);
+                        setKanbanPage(1);
+                        setHasMoreTasks(true);
+                        fetchTasksKanban(1, false, true);
                       }}
                       allStages={stages}
                       onStageReorder={(reorderedStages) => {
@@ -1537,189 +1902,231 @@ export default function TaskBoard() {
                       onDeleteStage={handleDeleteStage}
                       onActionClick={handleActionClick}
                     />
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            )}
 
-            {viewMode === "grid" && (
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Task
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stage
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Priority
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Assigned To
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Start Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          End Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredTasks.map((task) => (
-                        <tr key={task.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                                {task.subject?.charAt(0)?.toUpperCase()}
-                              </div>
-                              <div className="ml-3">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {task.subject}
-                                </div>
-                                <div className="text-sm text-gray-500 max-w-xs truncate">
-                                  {task.description}
-                                </div>
-                              </div>
+              {/* Infinite Scroll Loading Indicator */}
+              {isLoadingMore && (
+                <div className="flex justify-center py-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                    Loading more tasks...
+                  </div>
+                </div>
+              )}
+
+              {/* Infinite Scroll Trigger Element */}
+              {hasMoreTasks && !isLoadingMore && (
+                <div 
+                  ref={lastTaskElementRef}
+                  className="h-4 flex justify-center items-center"
+                >
+                  <div className="text-xs text-gray-400">Scroll for more tasks</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {viewMode === "grid" && (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Task
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Stage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Priority
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Assigned To
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Start Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        End Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredTasks.map((task) => (
+                      <tr key={task.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                              {task.subject?.charAt(0)?.toUpperCase()}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                              {task.taskStageName}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                task.priority === "LOW"
-                                  ? "bg-gray-100 text-gray-800"
-                                  : task.priority === "MEDIUM"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : task.priority === "HIGH"
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">
+                                {task.subject}
+                              </div>
+                              <div
+                                className="text-sm text-gray-500 max-w-xs truncate"
+                                dangerouslySetInnerHTML={{ __html: task.description }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                            {task.taskStageName}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              task.priority === "LOW"
+                                ? "bg-gray-100 text-gray-800"
+                                : task.priority === "MEDIUM"
+                                ? "bg-blue-100 text-blue-800"
+                                : task.priority === "HIGH"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {task.priority}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {task.assignedTo}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {task.startDate.toLocaleDateString("en-US", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {task.endDate
+                            ? task.endDate.toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "No due date"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleTaskClick(task.id)}
+                              className="text-blue-600 hover:text-blue-900"
                             >
-                              {task.priority}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {task.assignedTo}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {task.startDate.toLocaleDateString("en-US", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {task.endDate
-                              ? task.endDate.toLocaleDateString("en-US", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })
-                              : "No due date"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => {
-                                  handleTaskClick(task.id);
-                                }}
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                View
-                              </button>
+                              View
+                            </button>
+                            {task.isEditable && (
                               <button
                                 onClick={() => handleEditTask(task)}
                                 className="text-indigo-600 hover:text-indigo-900"
                               >
                                 Edit
                               </button>
-                              <button
-                                onClick={() => openDeleteConfirmation(task)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {filteredTasks.length === 0 && (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">
-                      No tasks found matching your filters.
-                    </p>
-                  </div>
-                )}
+                            )}
+                            <button
+                              onClick={() => openDeleteConfirmation(task)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </>
-        )}
 
-        {/* Add Task Modal */}
-        <AddTaskModal
-          isOpen={isAddModalOpen}
-          onClose={handleCloseModal}
-          onSubmit={handleAddTask}
-          editingTask={editingTask}
-          preSelectedStageId={preSelectedStageId} // THIS LINE WAS MISSING!
-          users={users}
-        />
+              {filteredTasks.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">
+                    No tasks found matching your filters.
+                  </p>
+                </div>
+              )}
 
-        {/* Create Stage Modal */}
-        <CreateStageModal
-          isOpen={isCreateStageModalOpen}
-          onClose={() => setIsCreateStageModalOpen(false)}
-          onSubmit={handleCreateStage}
-          existingStagesCount={stages.length}
-        />
-        <EditStageModal
-          stage={editingStage || { id: 0, name: "", description: "" }} // Remove orderNumber
-          isOpen={isEditStageModalOpen}
-          onClose={() => {
-            setIsEditStageModalOpen(false);
-            setEditingStage(null);
-          }}
-          onSave={handleSaveStage}
-        />
-        <DeleteStageModal
-          isOpen={isDeleteModalOpen}
-          onClose={cancelDeleteStage}
-          onConfirm={confirmDeleteStage}
-          stageName={stageToDelete?.name || ""}
-          isLoading={isUpdatingStage}
-        />
-        <DeleteTaskModal
-          isOpen={isDeleteTaskModalOpen}
-          onClose={() => {
-            setIsDeleteTaskModalOpen(false);
-            setTaskToDelete(null);
-          }}
-          onConfirm={confirmDeleteTask}
-          taskName={taskToDelete?.subject || ""}
-          isLoading={isUpdatingStage} // You might want to create a separate loading state for task deletion
-        />
-        <StopTaskModal
-          isOpen={isStopTaskModalOpen}
-          onClose={handleStopTaskCancel}
-          onConfirm={handleStopTaskConfirm}
-          taskId={taskToStop}
-          isLoading={isStoppingTask}
-        />
-      </>
+              {/* Pagination Component for Grid View */}
+              {filteredTasks.length > 0 && (
+                <Pagination
+                  currentPage={paginationState.currentPage}
+                  totalPages={paginationState.totalPages}
+                  totalElements={paginationState.totalElements}
+                  pageSize={paginationState.pageSize}
+                  onPageChange={handlePageChange}
+                  isLoading={isRefreshing}
+                />
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Add Task Modal */}
+      <AddTaskModal
+        isOpen={isAddModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleAddTask}
+        editingTask={editingTask}
+        preSelectedStageId={preSelectedStageId}
+        users={users}
+      />
+
+      {/* Create Stage Modal */}
+      <CreateStageModal
+        isOpen={isCreateStageModalOpen}
+        onClose={() => setIsCreateStageModalOpen(false)}
+        onSubmit={handleCreateStage}
+        existingStagesCount={stages.length}
+      />
+
+      {/* Edit Stage Modal */}
+      <EditStageModal
+        stage={editingStage || { id: 0, name: "", description: "" }}
+        isOpen={isEditStageModalOpen}
+        onClose={() => {
+          setIsEditStageModalOpen(false);
+          setEditingStage(null);
+        }}
+        onSave={handleSaveStage}
+      />
+
+      {/* Delete Stage Modal */}
+      <DeleteStageModal
+        isOpen={isDeleteModalOpen}
+        onClose={cancelDeleteStage}
+        onConfirm={confirmDeleteStage}
+        stageName={stageToDelete?.name || ""}
+        isLoading={isUpdatingStage}
+      />
+
+      {/* Delete Task Modal */}
+      <DeleteTaskModal
+        isOpen={isDeleteTaskModalOpen}
+        onClose={() => {
+          setIsDeleteTaskModalOpen(false);
+          setTaskToDelete(null);
+        }}
+        onConfirm={confirmDeleteTask}
+        taskName={taskToDelete?.subject || ""}
+        isLoading={isUpdatingStage}
+      />
+
+      {/* Stop Task Modal */}
+      <StopTaskModal
+        isOpen={isStopTaskModalOpen}
+        onClose={handleStopTaskCancel}
+        onConfirm={handleStopTaskConfirm}
+        taskId={taskToStop}
+        isLoading={isStoppingTask}
+      />
     </div>
   );
 }
