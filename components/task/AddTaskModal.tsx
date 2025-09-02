@@ -122,6 +122,8 @@ export const AddTaskModal = ({
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+  const descriptionRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
     subject: "",
@@ -190,17 +192,73 @@ export const AddTaskModal = ({
     return normalizeEmpty(original) === normalizeEmpty(current);
   };
 
+  // Validate individual field
+  const validateField = (field: keyof CreateTaskRequest, value: any): string => {
+    // For edit mode, only validate if the field is dirty or being modified
+    if (editingTask && !dirtyFields.has(field) && field !== "description") {
+      return ""; // Skip validation for unchanged fields in edit mode
+    }
+
+    switch (field) {
+      case "subject":
+        if (!value?.trim()) return "Subject is required";
+        break;
+      case "description":
+        if (!value?.trim()) return "Description is required";
+        break;
+      case "taskStageId":
+        if (!value || value === 0) return "Please select a stage";
+        break;
+      case "assignee":
+        if (!value?.trim()) return "Please select an assignee";
+        break;
+      case "estimatedHours":
+        if (!value || value <= 0) return "Estimated hours must be greater than 0";
+        break;
+      case "startDate":
+        if (!value) return "Start date is required";
+        break;
+      case "endDate":
+        if (value && formData.startDate) {
+          const startDate = new Date(formData.startDate);
+          const endDate = new Date(value);
+          
+          // Add 1 day to start date for comparison
+          const minEndDate = new Date(startDate);
+          minEndDate.setDate(startDate.getDate() + 1);
+          
+          if (endDate <= minEndDate) {
+            return "End date must be at least 1 day after start date";
+          }
+        }
+        break;
+      default:
+        return "";
+    }
+    return "";
+  };
+
+  // Validate comment field
+  const validateComment = (): string => {
+    if (editingTask && stageChanged && !comment.trim()) {
+      return "Comment is required when changing the stage";
+    }
+    return "";
+  };
+
+  // Update form field with validation
   const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Clear validation error when field is updated
-    if (validationErrors[field]) {
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
+    // Mark field as touched
+    setTouchedFields(prev => new Set(prev).add(field));
+
+    // Validate the field immediately
+    const error = validateField(field, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [field]: error
+    }));
 
     if (originalFormData && editingTask) {
       const originalValue = originalFormData[field];
@@ -212,6 +270,25 @@ export const AddTaskModal = ({
         newDirtyFields.add(field);
       }
       setDirtyFields(newDirtyFields);
+    }
+  };
+
+  // Handle description change with validation
+  const handleDescriptionChange = (value: string) => {
+    updateFormField("description", value);
+  };
+
+  // Handle comment change with validation
+  const handleCommentChange = (value: string) => {
+    setComment(value);
+    
+    // Validate comment if stage changed
+    if (stageChanged) {
+      const error = validateComment();
+      setValidationErrors(prev => ({
+        ...prev,
+        comment: error
+      }));
     }
   };
 
@@ -289,6 +366,7 @@ export const AddTaskModal = ({
       setDirtyFields(new Set());
       setComment("");
       setValidationErrors({});
+      setTouchedFields(new Set());
       return;
     }
 
@@ -309,6 +387,7 @@ export const AddTaskModal = ({
       setOriginalFormData(initialData);
       setDirtyFields(new Set());
       setComment("");
+      setTouchedFields(new Set());
     } else {
       const adjustedTime = getAdjustedCurrentTime();
       
@@ -332,6 +411,7 @@ export const AddTaskModal = ({
       setOriginalFormData(null);
       setDirtyFields(new Set());
       setComment("");
+      setTouchedFields(new Set());
     }
   }, [isOpen, editingTask, preSelectedStageId, stages]);
 
@@ -366,47 +446,39 @@ export const AddTaskModal = ({
     fetchData();
   }, [isOpen, toast]);
 
+  // Validate all fields before submission
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.subject?.trim()) {
-      errors.subject = "Subject is required";
+    // For edit mode, only validate dirty fields
+    if (editingTask) {
+      dirtyFields.forEach(field => {
+        const error = validateField(field, formData[field]);
+        if (error) {
+          errors[field] = error;
+        }
+      });
+    } else {
+      // For add mode, validate all required fields
+      Object.keys(formData).forEach(field => {
+  if (field === "graceHours" || field === "acceptanceCriteria") {
+    return; // ✅ Skips to next iteration inside forEach
+  }
+
+  const error = validateField(field as keyof CreateTaskRequest, formData[field as keyof CreateTaskRequest]);
+  if (error) {
+    errors[field] = error;
+  }
+});
+
     }
 
-    if (!formData.description?.trim()) {
-      errors.description = "Description is required";
-    }
-
-    if (!formData.taskStageId || formData.taskStageId === 0) {
-      errors.taskStageId = "Please select a stage";
-    }
-
-    if (!formData.assignee?.trim()) {
-      errors.assignee = "Please select an assignee";
-    }
-
-    // Validate estimated hours - must be greater than 0
-    if (!formData.estimatedHours || formData.estimatedHours <= 0) {
-      errors.estimatedHours = "Estimated hours must be greater than 0";
-    }
-
-    // Validate end date is after start date if provided
-    if (formData.endDate && formData.startDate) {
-      const startDate = new Date(formData.startDate);
-      const endDate = new Date(formData.endDate);
-      
-      // Add 1 day to start date for comparison
-      const minEndDate = new Date(startDate);
-      minEndDate.setDate(startDate.getDate() + 1);
-      
-      if (endDate <= minEndDate) {
-        errors.endDate = "End date must be at least 1 day after start date";
+    // Validate comment if stage changed
+    if (editingTask && stageChanged) {
+      const commentError = validateComment();
+      if (commentError) {
+        errors.comment = commentError;
       }
-    }
-
-    // Comment required only if stage changed in edit mode
-    if (editingTask && stageChanged && !comment.trim()) {
-      errors.comment = "Comment is required when changing the stage";
     }
 
     setValidationErrors(errors);
@@ -486,26 +558,6 @@ export const AddTaskModal = ({
 
       const isoString = date.toISOString();
       updateFormField(field, isoString);
-
-      // If start date is changed and end date exists, validate end date
-      if (field === "startDate" && formData.endDate) {
-        const endDate = new Date(formData.endDate);
-        const minEndDate = new Date(date);
-        minEndDate.setDate(date.getDate() + 1);
-        
-        if (endDate <= minEndDate) {
-          setValidationErrors(prev => ({
-            ...prev,
-            endDate: "End date must be at least 1 day after start date"
-          }));
-        } else if (validationErrors.endDate) {
-          setValidationErrors(prev => {
-            const newErrors = { ...prev };
-            delete newErrors.endDate;
-            return newErrors;
-          });
-        }
-      }
     } catch (error) {
       console.error("Error handling datetime change:", error);
     }
@@ -582,7 +634,7 @@ export const AddTaskModal = ({
               htmlFor="subject"
               className="text-sm font-medium text-foreground"
             >
-              Subject <span className="text-red-500">*</span>
+              Subject {!editingTask && <span className="text-red-500">*</span>}
               {dirtyFields.has("subject") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
@@ -591,6 +643,7 @@ export const AddTaskModal = ({
               id="subject"
               value={formData.subject}
               onChange={(e) => updateFormField("subject", e.target.value)}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add("subject"))}
               placeholder="Enter Subject"
               className={`w-full ${validationErrors.subject ? "border-red-500" : ""}`}
             />
@@ -603,7 +656,7 @@ export const AddTaskModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
-                Priority <span className="text-red-500">*</span>
+                Priority {!editingTask && <span className="text-red-500">*</span>}
                 {dirtyFields.has("priority") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
@@ -632,7 +685,7 @@ export const AddTaskModal = ({
           
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
-                Stage <span className="text-red-500">*</span>
+                Stage {!editingTask && <span className="text-red-500">*</span>}
                 {dirtyFields.has("taskStageId") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
@@ -716,7 +769,8 @@ export const AddTaskModal = ({
               </Label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={(e) => handleCommentChange(e.target.value)}
+                onBlur={() => setTouchedFields(prev => new Set(prev).add("comment"))}
                 placeholder="Explain the reason for changing the stage..."
                 rows={3}
                 className={`resize-none ${validationErrors.comment ? "border-red-500" : ""}`}
@@ -731,7 +785,7 @@ export const AddTaskModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
-                Start Date & Time <span className="text-red-500">*</span>
+                Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
                 {dirtyFields.has("startDate") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
@@ -740,6 +794,7 @@ export const AddTaskModal = ({
                 type="datetime-local"
                 value={formatDateTimeForInput(formData.startDate)}
                 onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
+                onBlur={() => setTouchedFields(prev => new Set(prev).add("startDate"))}
                 className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-300"}`}
                 min={getCurrentDateTime()}
               />
@@ -759,6 +814,7 @@ export const AddTaskModal = ({
                 type="datetime-local"
                 value={formatDateTimeForInput(formData.endDate)}
                 onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
+                onBlur={() => setTouchedFields(prev => new Set(prev).add("endDate"))}
                 className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-300"}`}
                 min={getMinEndDate()}
               />
@@ -773,7 +829,7 @@ export const AddTaskModal = ({
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Estimated Hours
-                <span className="text-red-500 ml-1">*</span>
+                {!editingTask && <span className="text-red-500 ml-1">*</span>}
                 {dirtyFields.has("estimatedHours") && (
                   <span className="text-blue-600 text-xs ml-1">• Modified</span>
                 )}
@@ -784,6 +840,7 @@ export const AddTaskModal = ({
                 step="0.5"
                 value={formData.estimatedHours || 0}
                 onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
+                onBlur={() => setTouchedFields(prev => new Set(prev).add("estimatedHours"))}
                 placeholder="Enter estimated hours"
                 className={`w-full ${validationErrors.estimatedHours ? "border-red-500" : ""}`}
               />
@@ -805,6 +862,7 @@ export const AddTaskModal = ({
                 step="0.5"
                 value={formData.graceHours || 0}
                 onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
+                onBlur={() => setTouchedFields(prev => new Set(prev).add("graceHours"))}
                 placeholder="Enter grace hours"
                 className="w-full"
               />
@@ -814,7 +872,7 @@ export const AddTaskModal = ({
           {/* Assignee */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
-              Assignee <span className="text-red-500">*</span>
+              Assignee {!editingTask && <span className="text-red-500">*</span>}
               {dirtyFields.has("assignee") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
@@ -848,18 +906,22 @@ export const AddTaskModal = ({
           {/* Description */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
-              Description <span className="text-red-500">*</span>
+              Description {!editingTask && <span className="text-red-500">*</span>}
               {dirtyFields.has("description") && (
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-            <RichTextEditor
-              value={formData.description}
-              onChange={(value) => updateFormField("description", value)}
-              placeholder="Enter Description"
-              minHeight="120px"
-              className={validationErrors.description ? "border-red-500" : ""}
-            />
+            <div 
+              className={`border rounded-md ${validationErrors.description ? "border-red-500" : "border-gray-300"}`}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add("description"))}
+            >
+              <RichTextEditor
+                value={formData.description}
+                onChange={handleDescriptionChange}
+                placeholder="Enter Description"
+                minHeight="120px"
+              />
+            </div>
             {validationErrors.description && (
               <p className="text-red-500 text-xs mt-1">{validationErrors.description}</p>
             )}
@@ -899,5 +961,3 @@ export const AddTaskModal = ({
     </Dialog>
   );
 };
-
-          
