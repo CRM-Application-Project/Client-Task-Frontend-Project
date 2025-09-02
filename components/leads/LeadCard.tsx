@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge"; // Add this import
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,7 @@ import {
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
 import Link from "next/link";
+import { LeadPriority } from "../../lib/leads"; // Import LeadPriority type
 
 interface LeadCardProps {
   lead: Lead;
@@ -76,10 +78,18 @@ export const LeadCard = ({
   const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
 
+  // Priority colors mapping
+  const priorityColors: Record<LeadPriority, string> = {
+    LOW: "bg-muted text-muted-foreground",
+    MEDIUM: "bg-status-todo/20 text-status-todo",
+    HIGH: "bg-status-progress/20 text-status-progress",
+    URGENT: "bg-destructive/20 text-destructive",
+  } as const;
+
   // Check if current stage is final stage
   const isFinalStage = stage?.finalStage || false;
   const isClosedStage = lead.leadStatus?.toLowerCase().includes('closed') || 
-                       lead.leadStatus?.toLowerCase().includes('clos') ;
+                       lead.leadStatus?.toLowerCase().includes('clos');
                        
   // Fetch assignees when component mounts
   useEffect(() => {
@@ -160,16 +170,40 @@ export const LeadCard = ({
     <Card
       className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200"
       onClick={() => {
-   
-          window.location.href = `/leads/${lead.leadId}`;
-
+        window.location.href = `/leads/${lead.leadId}`;
       }}
     >
       <div className="space-y-3">
-        {/* Lead name */}
-        <h3 className="font-bold text-gray-900 text-base leading-tight capitalize">
-          {lead.customerName || "Unnamed Lead"}
-        </h3>
+        {/* Title and Priority Row - Similar to TaskCard */}
+        <div className="flex items-start justify-between gap-3">
+          {/* Lead name with truncation */}
+          <div className="flex-1 min-w-0">
+            <h3 
+              className="font-bold text-gray-900 text-base leading-tight capitalize"
+              title={lead.customerName || "Unnamed Lead"}
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                wordBreak: "break-word",
+                lineHeight: "1.3",
+              }}
+            >
+              {lead.customerName || "Unnamed Lead"}
+            </h3>
+          </div>
+
+          {/* Priority Badge - Added to right corner */}
+          <Badge
+            variant="outline"
+            className={`${
+              priorityColors[lead.leadPriority || "MEDIUM"]
+            } whitespace-nowrap flex-shrink-0`}
+          >
+            {lead.leadPriority || "MEDIUM"}
+          </Badge>
+        </div>
 
         {/* Assigned user avatar */}
         <div className="flex items-center gap-2">
