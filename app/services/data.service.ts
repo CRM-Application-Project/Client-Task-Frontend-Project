@@ -1364,3 +1364,18 @@ export const getDiscussionFileDownloadLink = async (
     throw error;
   }
 };
+
+interface LogoutResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    statusCode: number;
+    message: string;
+  };
+}
+
+export const logoutUser = async (): Promise<LogoutResponse> => {
+  const res = await getRequest(API_CONSTANTS.USER.LOGOUT);
+  return res as LogoutResponse;
+};
+

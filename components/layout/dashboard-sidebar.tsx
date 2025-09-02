@@ -21,6 +21,7 @@ import Swal from "sweetalert2";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import Image from "next/image";
+import { logoutUser } from "@/app/services/data.service";
 
 interface NavItem {
   name: string;
@@ -223,34 +224,59 @@ export function DashboardSidebar({
     });
   }, []);
 
-  const handleLogout = useCallback(() => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You will be logged out from the system",
-      icon: "warning",
-      width: "400px",
-      showCancelButton: true,
-      confirmButtonColor: "var(--brand-primary)",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, logout!",
-      background: "#fff",
-      customClass: {
-        container: "bg-opacity-80",
-        popup: "rounded-lg shadow-xl",
-        title: "text-gray-800",
-        confirmButton:
-          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
-        cancelButton:
-          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
-      },
-    }).then((r) => {
-      if (!r.isConfirmed) return;
+const handleLogout = useCallback(async () => {
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "You will be logged out from the system",
+    icon: "warning",
+    width: "400px",
+    showCancelButton: true,
+    confirmButtonColor: "var(--brand-primary)",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, logout!",
+    background: "#fff",
+    customClass: {
+      container: "bg-opacity-80",
+      popup: "rounded-lg shadow-xl",
+      title: "text-gray-800",
+      confirmButton:
+        "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
+      cancelButton:
+        "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
+    },
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    // Call the logout API
+    const response = await logoutUser();
+    
+    if (response.isSuccess) {
+      // Clear local storage regardless of API response
+      ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
+        localStorage.removeItem(k)
+      );
+      
+      // Redirect to login page
+      router.push("/");
+    } else {
+      // If API call fails but user confirmed logout, still log them out locally
+      console.error("Logout API failed:", response.message);
       ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
         localStorage.removeItem(k)
       );
       router.push("/");
-    });
-  }, [router]);
+    }
+  } catch (error) {
+    // If there's an error with the API call, still log out locally
+    console.error("Error during logout:", error);
+    ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
+      localStorage.removeItem(k)
+    );
+    router.push("/");
+  }
+}, [router]);
 
   const isExpandedView = !collapsed || hovered;
 
