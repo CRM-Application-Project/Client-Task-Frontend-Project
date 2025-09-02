@@ -1583,9 +1583,11 @@ export default function TaskBoard() {
                                 <div className="text-sm font-medium text-gray-900">
                                   {task.subject}
                                 </div>
-                                <div className="text-sm text-gray-500 max-w-xs truncate">
-                                  {task.description}
-                                </div>
+                              <div
+  className="text-sm text-gray-500 max-w-xs truncate"
+  dangerouslySetInnerHTML={{ __html: task.description }}
+/>
+
                               </div>
                             </div>
                           </td>
