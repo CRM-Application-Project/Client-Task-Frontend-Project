@@ -27,6 +27,7 @@ interface CreateLeadRequest {
   customerEmailAddress: string;
   leadLabel?: string;
   leadReference?: string;
+  leadPriority?:string;
   leadAddress?: string;
   comment: string;
 }

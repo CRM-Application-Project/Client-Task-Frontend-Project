@@ -37,7 +37,7 @@ import { LeadStage } from "@/lib/data";
 // Enhanced validation schema with better phone validation
 const formSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
-  companyName: z.string().optional().or(z.literal("")), // Made optional
+  companyName: z.string().optional().or(z.literal("")),
   customerEmailAddress: z.string().email("Invalid email address"),
   customerMobileNumber: z
     .string()
@@ -55,6 +55,7 @@ const formSchema = z.object({
   leadLabel: z.string().optional().or(z.literal("")),
   leadReference: z.string().optional().or(z.literal("")),
   leadAddress: z.string().optional().or(z.literal("")),
+  leadPriority: z.string().min(1, "Lead priority is required"), // Add this line
   comment: z.string().optional(),
 });
 
@@ -128,23 +129,24 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const availableStages = getAvailableStages();
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    mode: "onChange",
-    defaultValues: {
-      customerName: "",
-      companyName: "",
-      customerEmailAddress: "",
-      customerMobileNumber: "",
-      companyEmailAddress: "",
-      leadStatus: defaultStageName,
-      leadSource: "",
-      leadAddedBy: "",
-      leadLabel: "",
-      leadReference: "",
-      leadAddress: "",
-      comment: "",
-    },
-  });
+  resolver: zodResolver(formSchema),
+  mode: "onChange",
+  defaultValues: {
+    customerName: "",
+    companyName: "",
+    customerEmailAddress: "",
+    customerMobileNumber: "",
+    companyEmailAddress: "",
+    leadStatus: defaultStageName,
+    leadSource: "",
+    leadAddedBy: "",
+    leadLabel: "",
+    leadReference: "",
+    leadAddress: "",
+    leadPriority: "MEDIUM", // Default to MEDIUM
+    comment: "",
+  },
+});
 
   // Watch all form fields to detect changes
   const formValues = form.watch();
@@ -203,26 +205,27 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   }, [isOpen, defaultStageName, form]);
 
   const onSubmit = async (data: FormData) => {
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      const leadData: CreateLeadRequest = {
-        leadStatus: data.leadStatus as LeadStatus,
-        leadSource: data.leadSource as LeadSource,
-        leadAddedBy: data.leadAddedBy,
-        customerMobileNumber: `${selectedCode.replace(
-          "+",
-          ""
-        )}${data.customerMobileNumber.trim()}`,
-        companyEmailAddress: data.companyEmailAddress ?? "",
-        customerName: data.customerName,
-        companyName: data.companyName || "", 
-        customerEmailAddress: data.customerEmailAddress,
-        leadLabel: data.leadLabel ?? "",
-        leadReference: data.leadReference ?? "",
-        leadAddress: data.leadAddress ?? "",
-        comment: data.comment || "",
-      };
+  try {
+    const leadData: CreateLeadRequest = {
+      leadStatus: data.leadStatus as LeadStatus,
+      leadSource: data.leadSource as LeadSource,
+      leadAddedBy: data.leadAddedBy,
+      customerMobileNumber: `${selectedCode.replace(
+        "+",
+        ""
+      )}${data.customerMobileNumber.trim()}`,
+      companyEmailAddress: data.companyEmailAddress ?? "",
+      customerName: data.customerName,
+      companyName: data.companyName || "", 
+      customerEmailAddress: data.customerEmailAddress,
+      leadLabel: data.leadLabel ?? "",
+      leadReference: data.leadReference ?? "",
+      leadAddress: data.leadAddress ?? "",
+      leadPriority: data.leadPriority as LeadPriority, // Add this line
+      comment: data.comment || "",
+    };
 
       console.log("Creating lead with data:", leadData);
       const response = await createLead(leadData);
@@ -493,7 +496,37 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                   </FormItem>
                 )}
               />
-
+<FormField
+  control={form.control}
+  name="leadPriority"
+  render={({ field, fieldState }) => (
+    <FormItem>
+      <FormLabel>
+        Priority <span className="text-red-500">*</span>
+      </FormLabel>
+      <Select
+        onValueChange={(value) => {
+          field.onChange(value);
+          form.trigger("leadPriority");
+        }}
+        defaultValue={field.value}
+      >
+        <FormControl>
+          <SelectTrigger>
+            <SelectValue placeholder="Select priority" />
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          <SelectItem value="LOW">Low</SelectItem>
+          <SelectItem value="MEDIUM">Medium</SelectItem>
+          <SelectItem value="HIGH">High</SelectItem>
+          <SelectItem value="URGENT">Urgent</SelectItem>
+        </SelectContent>
+      </Select>
+      {fieldState.error && <FormMessage />}
+    </FormItem>
+  )}
+/>
               <FormField
                 control={form.control}
                 name="leadAddedBy"
