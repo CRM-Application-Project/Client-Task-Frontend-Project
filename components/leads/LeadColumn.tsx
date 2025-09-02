@@ -698,6 +698,7 @@ export const LeadColumn = ({
                   <LeadCard
                     lead={lead}
                     onEdit={onEditLead}
+                      stage={stage}
                     onDelete={onDeleteLead}
                     onView={onViewLead}
                     onAddFollowUp={onAddFollowUp}

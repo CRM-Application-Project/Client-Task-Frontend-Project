@@ -909,32 +909,6 @@ export default function LoginPage() {
                     {renderValidationStatus("email")}
                   </div>
 
-                  {/* Company Name Field - Show dynamically for personal emails */}
-                  {showCompanyField && (
-                    <div className="space-y-2 animate-slide-down">
-                      <Label
-                        htmlFor="company"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Company Name
-                        <span className="text-red-500 ml-1">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="company"
-                          type="text"
-                          placeholder="Enter your company name"
-                          value={companyName}
-                          onChange={(e) => setCompanyName(e.target.value)}
-                          className="h-12 pl-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
-                        />
-                        <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Required for personal email addresses
-                      </p>
-                    </div>
-                  )}
 
                   <div className="space-y-2">
                     <Label

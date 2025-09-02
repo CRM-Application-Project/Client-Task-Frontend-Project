@@ -193,50 +193,57 @@ export const AddTaskModal = ({
   };
 
   // Validate individual field
-  const validateField = (field: keyof CreateTaskRequest, value: any): string => {
-    // For edit mode, only validate if the field is dirty or being modified
-    if (editingTask && !dirtyFields.has(field) && field !== "description") {
+const validateField = (field: keyof CreateTaskRequest, value: any): string => {
+  // For edit mode, validate if field is dirty OR if it's a required field that's now empty
+  const isRequiredField = ["subject", "description", "taskStageId", "assignee", "estimatedHours", "startDate"].includes(field);
+  const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
+  
+  if (editingTask && !dirtyFields.has(field) && field !== "description") {
+    // Only skip validation if it's not a required field or it's not empty
+    if (!isRequiredField || !isEmpty) {
       return ""; // Skip validation for unchanged fields in edit mode
     }
+  }
 
-    switch (field) {
-      case "subject":
-        if (!value?.trim()) return "Subject is required";
-        break;
-      case "description":
-        if (!value?.trim()) return "Description is required";
-        break;
-      case "taskStageId":
-        if (!value || value === 0) return "Please select a stage";
-        break;
-      case "assignee":
-        if (!value?.trim()) return "Please select an assignee";
-        break;
-      case "estimatedHours":
-        if (!value || value <= 0) return "Estimated hours must be greater than 0";
-        break;
-      case "startDate":
-        if (!value) return "Start date is required";
-        break;
-      case "endDate":
-        if (value && formData.startDate) {
-          const startDate = new Date(formData.startDate);
-          const endDate = new Date(value);
-          
-          // Add 1 day to start date for comparison
-          const minEndDate = new Date(startDate);
-          minEndDate.setDate(startDate.getDate() + 1);
-          
-          if (endDate <= minEndDate) {
-            return "End date must be at least 1 day after start date";
-          }
+  switch (field) {
+    case "subject":
+      if (!value?.trim()) return "Subject is required";
+      break;
+    case "description":
+      if (!value?.trim()) return "Description is required";
+      break;
+    case "taskStageId":
+      if (!value || value === 0) return "Please select a stage";
+      break;
+    case "assignee":
+      if (!value?.trim()) return "Please select an assignee";
+      break;
+    case "estimatedHours":
+      if (!value || value <= 0) return "Estimated hours must be greater than 0";
+      break;
+    case "startDate":
+      if (!value) return "Start date is required";
+      break;
+    case "endDate":
+      if (value && formData.startDate) {
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(value);
+        
+        // Add 1 day to start date for comparison
+        const minEndDate = new Date(startDate);
+        minEndDate.setDate(startDate.getDate() + 1);
+        
+        if (endDate <= minEndDate) {
+          return "End date must be at least 1 day after start date";
         }
-        break;
-      default:
-        return "";
-    }
-    return "";
-  };
+      }
+      break;
+    default:
+      return "";
+  }
+  return "";
+};
+
 
   // Validate comment field
   const validateComment = (): string => {
@@ -247,31 +254,32 @@ export const AddTaskModal = ({
   };
 
   // Update form field with validation
-  const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
+  setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Mark field as touched
-    setTouchedFields(prev => new Set(prev).add(field));
+  // Mark field as touched
+  setTouchedFields(prev => new Set(prev).add(field));
 
-    // Validate the field immediately
-    const error = validateField(field, value);
-    setValidationErrors(prev => ({
-      ...prev,
-      [field]: error
-    }));
+  // Always validate the field immediately, regardless of edit mode
+  const error = validateField(field, value);
+  setValidationErrors(prev => ({
+    ...prev,
+    [field]: error
+  }));
 
-    if (originalFormData && editingTask) {
-      const originalValue = originalFormData[field];
-      const newDirtyFields = new Set(dirtyFields);
+  if (originalFormData && editingTask) {
+    const originalValue = originalFormData[field];
+    const newDirtyFields = new Set(dirtyFields);
 
-      if (areValuesEqual(originalValue, value)) {
-        newDirtyFields.delete(field);
-      } else {
-        newDirtyFields.add(field);
-      }
-      setDirtyFields(newDirtyFields);
+    if (areValuesEqual(originalValue, value)) {
+      newDirtyFields.delete(field);
+    } else {
+      newDirtyFields.add(field);
     }
-  };
+    setDirtyFields(newDirtyFields);
+  }
+};
+
 
   // Handle description change with validation
   const handleDescriptionChange = (value: string) => {
@@ -447,43 +455,56 @@ export const AddTaskModal = ({
   }, [isOpen, toast]);
 
   // Validate all fields before submission
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
+const validateForm = (): boolean => {
+  const errors: Record<string, string> = {};
 
-    // For edit mode, only validate dirty fields
-    if (editingTask) {
-      dirtyFields.forEach(field => {
+  if (editingTask) {
+    // For edit mode, validate all required fields (not just dirty ones)
+    const requiredFields: (keyof CreateTaskRequest)[] = [
+      "subject", "description", "taskStageId", "assignee", "estimatedHours", "startDate"
+    ];
+    
+    requiredFields.forEach(field => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        errors[field] = error;
+      }
+    });
+    
+    // Also validate dirty fields that aren't required
+    dirtyFields.forEach(field => {
+      if (!requiredFields.includes(field)) {
         const error = validateField(field, formData[field]);
         if (error) {
           errors[field] = error;
         }
-      });
-    } else {
-      // For add mode, validate all required fields
-      Object.keys(formData).forEach(field => {
-  if (field === "graceHours" || field === "acceptanceCriteria") {
-    return; // ✅ Skips to next iteration inside forEach
-  }
-
-  const error = validateField(field as keyof CreateTaskRequest, formData[field as keyof CreateTaskRequest]);
-  if (error) {
-    errors[field] = error;
-  }
-});
-
-    }
-
-    // Validate comment if stage changed
-    if (editingTask && stageChanged) {
-      const commentError = validateComment();
-      if (commentError) {
-        errors.comment = commentError;
       }
-    }
+    });
+  } else {
+    // For add mode, validate all required fields
+    Object.keys(formData).forEach(field => {
+      if (field === "graceHours" || field === "acceptanceCriteria") {
+        return; // Skip optional fields
+      }
 
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+      const error = validateField(field as keyof CreateTaskRequest, formData[field as keyof CreateTaskRequest]);
+      if (error) {
+        errors[field] = error;
+      }
+    });
+  }
+
+  // Validate comment if stage changed
+  if (editingTask && stageChanged) {
+    const commentError = validateComment();
+    if (commentError) {
+      errors.comment = commentError;
+    }
+  }
+
+  setValidationErrors(errors);
+  return Object.keys(errors).length === 0;
+};
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
