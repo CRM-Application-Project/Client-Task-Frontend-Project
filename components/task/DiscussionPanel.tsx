@@ -638,90 +638,136 @@ const handleFileDownload = async (fileId: string, fileName: string) => {
     return cleanText.trim();
   };
 
-  // Handle posting with mentions and files
-  const handlePost = async () => {
-    if (!canComment) return;
-    if (!editorValue?.trim() && pendingFiles.length === 0) return;
+const handlePost = async () => {
+  if (!canComment) return;
+  if (!editorValue?.trim() && pendingFiles.length === 0) return;
+  
+  setIsPosting(true);
+  try {
+    const mentionIds = mentionedUsers.map(user => user.id);
     
-    setIsPosting(true);
-    try {
-      const mentionIds = mentionedUsers.map(user => user.id);
+    // Extract clean message without @mentions
+    const cleanMessage = extractCleanMessage(editorValue, mentionedUsers);
+    
+    // Create optimistic comment for UI
+    const newComment: CommentItem = {
+      id: `temp_${Date.now()}`,
+      parentId: null,
+      author: { id: "me", name: "You" },
+      content: editorValue || "",
+      createdAt: new Date().toISOString(),
+      isEdited: false,
+      updatedAt: new Date().toISOString(),
+      attachments: [],
+      reactions: [],
+      mentions: mentionedUsers.map(user => ({
+        id: user.id,
+        name: user.label,
+      })),
+      replyCount: 0,
+      isDeletable: true,
+    };
+
+    setComments((prev) => [newComment, ...prev]);
+
+    let commentResponse;
+
+    if (pendingFiles.length > 0) {
+      // If files are present, use the file upload API that also handles the comment
+      // Upload the first file (assuming your API handles one file per comment)
+      const file = pendingFiles[0];
       
-      // Extract clean message without @mentions
-      const cleanMessage = extractCleanMessage(editorValue, mentionedUsers);
-      
-      // Handle file uploads if there are any
-      const uploadedAttachments: CommentAttachment[] = [];
-      if (pendingFiles.length > 0) {
-        for (const file of pendingFiles) {
-          try {
-            const attachment = await uploadFile(file);
-            uploadedAttachments.push(attachment);
-          } catch (error) {
-            console.error(`Failed to upload file ${file.name}:`, error);
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: `Failed to upload file ${file.name}`,
-            });
-          }
+      try {
+        const uploadResponse = await uploadDiscussionFile(taskId, {
+          message: cleanMessage,
+          mentions: mentionIds,
+          fileName: file.name,
+          fileType: file.type
+        });
+
+        if (!uploadResponse.isSuccess) {
+          throw new Error(uploadResponse.message);
         }
+
+        await uploadFileToS3(
+          uploadResponse.data.url,
+          file,
+          file.type
+        );
+
+        const verifyResponse = await verifyDiscussionFile(uploadResponse.data.docId);
+        if (!verifyResponse.isSuccess) {
+          throw new Error("File verification failed");
+        }
+
+        // The comment is created through the file upload process
+        commentResponse = uploadResponse;
+        
+        // Update optimistic comment with uploaded file
+        setComments((prev) => 
+          prev.map(c => 
+            c.id === newComment.id 
+              ? {
+                  ...c,
+                  attachments: [
+                    {
+                      id: uploadResponse.data.docId.toString(),
+                      fileName: file.name,
+                      fileSize: file.size,
+                      url: uploadResponse.data.url.split('?')[0]
+                    }
+                  ]
+                }
+              : c
+          )
+        );
+
+      } catch (error) {
+        console.error(`Failed to upload file ${file.name}:`, error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to upload file ${file.name}`,
+        });
+        // Re-throw to trigger the catch block below
+        throw error;
       }
 
-      // Create optimistic comment for UI (show full text with mentions for display)
-      const newComment: CommentItem = {
-        id: `temp_${Date.now()}`,
-        parentId: null,
-        author: { id: "me", name: "You" },
-        content: editorValue || "",
-        createdAt: new Date().toISOString(),
-        isEdited: false,
-        updatedAt: new Date().toISOString(),
-        attachments: uploadedAttachments,
-        reactions: [],
-        mentions: mentionedUsers.map(user => ({
-          id: user.id,
-          name: user.label,
-        })),
-        replyCount: 0,
-        isDeletable: true,
-      };
-
-      setComments((prev) => [newComment, ...prev]);
-
-      // Send clean message to API (without @mentions)
-      const commentResponse = await addTaskDiscussionComment(taskId, {
+    } else {
+      // If no files, use the regular comment API
+      commentResponse = await addTaskDiscussionComment(taskId, {
         message: cleanMessage,
         mentions: mentionIds,
       });
-
-      if (!commentResponse.isSuccess) {
-        throw new Error(commentResponse.message || "Failed to post comment");
-      }
-
-      setEditorValue("");
-      setPendingFiles([]);
-      setMentionedUsers([]);
-
-      toast({
-        title: "Success",
-        description: "Comment posted successfully",
-      });
-      
-      await load(searchTerm, 0, paginationMeta.pageSize);
-
-    } catch (e: any) {
-      console.error("Error posting comment", e);
-      setComments((prev) => prev.filter(c => !c.id.startsWith('temp_')));
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: e.message || "Failed to post comment",
-      });
-    } finally {
-      setIsPosting(false);
     }
-  };
+
+    if (!commentResponse.isSuccess) {
+      throw new Error(commentResponse.message || "Failed to post comment");
+    }
+
+    setEditorValue("");
+    setPendingFiles([]);
+    setMentionedUsers([]);
+
+    toast({
+      title: "Success",
+      description: "Comment posted successfully",
+    });
+    
+    await load(searchTerm, 0, paginationMeta.pageSize);
+
+  } catch (e: any) {
+    console.error("Error posting comment", e);
+    setComments((prev) => prev.filter(c => !c.id.startsWith('temp_')));
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: e.message || "Failed to post comment",
+    });
+  } finally {
+    setIsPosting(false);
+  }
+};
 
   // Handle reply functionality
   const handleReply = (commentId: string, authorName: string) => {
@@ -1245,7 +1291,7 @@ const renderAttachment = (attachment: CommentAttachment) => {
       <div className="border rounded-md p-3 mb-4 bg-gray-50/60">
         {!canComment && (
           <div className="text-xs text-red-600 mb-2">
-            You don't have permission to comment on this task.
+            {`You don't have permission to comment on this task.`}
           </div>
         )}
         <Textarea
