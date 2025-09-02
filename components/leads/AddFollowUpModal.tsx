@@ -69,6 +69,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -144,6 +145,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
   const handleClose = () => {
     form.reset();
     setAttachments([]);
+    setIsDatePickerOpen(false);
     onClose();
   };
 
@@ -200,26 +202,10 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Get minimum time for today (current time + 5 minutes)
-  const getMinTimeForToday = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 5); // Add 5 minutes
-    
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    
-    return `${hours}:${minutes}`;
-  };
-
   // Handle datetime input change
   const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
     const selectedDateTime = e.target.value;
     field.onChange(selectedDateTime);
-    
-    // Close the picker after selection
-    if (dateInputRef.current) {
-      dateInputRef.current.blur();
-    }
   };
 
   // Validate if selected time is at least 5 minutes from now for today's date
@@ -240,9 +226,19 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
     return true;
   };
 
+  // Handle input focus to track when the picker is open
+  const handleInputFocus = () => {
+    setIsDatePickerOpen(true);
+  };
+
+  // Handle input blur to track when the picker is closed
+  const handleInputBlur = () => {
+    setIsDatePickerOpen(false);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-xl max-h-[90vh]  bg-white overflow-y-auto p-4">
+      <DialogContent className="max-w-xl max-h-[90vh] bg-white overflow-y-auto p-4">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg font-semibold text-gray-900">
             Schedule New Follow-up
@@ -271,6 +267,8 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                             type="datetime-local"
                             value={field.value}
                             onChange={(e) => handleDateTimeChange(e, field)}
+                            onFocus={handleInputFocus}
+                            onBlur={handleInputBlur}
                             className={`w-full h-10 rounded-md border ${
                               isInvalid ? "border-red-500" : "border-gray-300"
                             } bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400`}
@@ -350,7 +348,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                 className={`px-4 h-9 text-text-white text-sm bg-brand-primary hover:bg-brand-primary/90 ${
                   (isLoading || !isFormValid) ? "btn-disabled" : ""
                 }`}
-                disabled={isLoading || !isFormValid}
+                disabled={isLoading || !isFormValid || isDatePickerOpen}
               >
                 {isLoading ? (
                   <span className="flex items-center">

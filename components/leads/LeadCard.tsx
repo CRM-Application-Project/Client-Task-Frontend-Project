@@ -78,7 +78,9 @@ export const LeadCard = ({
 
   // Check if current stage is final stage
   const isFinalStage = stage?.finalStage || false;
-
+  const isClosedStage = lead.leadStatus?.toLowerCase().includes('closed') || 
+                       lead.leadStatus?.toLowerCase().includes('clos') ;
+                       
   // Fetch assignees when component mounts
   useEffect(() => {
     const fetchAssignees = async () => {
@@ -213,7 +215,7 @@ export const LeadCard = ({
                   <Eye className="h-4 w-4 text-gray-600" />
                 </button>
               )}
-              {permissions.canEdit && (
+              {permissions.canEdit && !isClosedStage &&(
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
