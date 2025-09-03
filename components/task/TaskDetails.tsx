@@ -16,6 +16,7 @@ import {
   Timer,
   ThumbsUp,
   ThumbsDown,
+  BarChart3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,7 @@ interface AssignDropdown {
 }
 
 import { useToast } from "@/hooks/use-toast";
+import ProgressAnalytics from "./ProgressAnalytics";
 
 // -------------------- Task Review Section --------------------
 function TaskReviewSection({
@@ -284,6 +286,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const [isEditingAssignee, setIsEditingAssignee] = useState(false);
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [isEditingEndDate, setIsEditingEndDate] = useState(false);
+  const [activeAnalyticsView, setActiveAnalyticsView] = useState<'graph' | 'report' | null>(null);
   const [isEditingAcceptanceCriteria, setIsEditingAcceptanceCriteria] =
     useState(false);
   const [users, setUsers] = useState<AssignDropdown[]>([]);
@@ -672,86 +675,130 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         </div>
 
         {/* Hours Progress */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs text-gray-500 flex items-center gap-2">
-              <Timer className="h-3 w-3" /> Hours Progress
-            </h4>
-            <span className="text-xs text-gray-600">
-              {task.actualHours?.toFixed(1)}h / {task.estimatedHours}h
-              {task.graceHours > 0 && ` (+${task.graceHours}h grace)`}
-            </span>
-          </div>
+      {/* Hours Progress */}
+<div className="mb-3">
+  <div className="flex items-center justify-between mb-2">
+    <h4 className="text-xs text-gray-500 flex items-center gap-2">
+      <Timer className="h-3 w-3" /> Hours Progress
+    </h4>
+    <span className="text-xs text-gray-600">
+      {task.actualHours?.toFixed(1)}h / {task.estimatedHours}h
+      {task.graceHours > 0 && ` (+${task.graceHours}h grace)`}
+    </span>
+  </div>
 
-          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-            {/* Main progress bar */}
-            <div
-              className={`h-full transition-all duration-300 ${getProgressColor()}`}
-              style={{ width: `${Math.min(100, getProgressPercentage())}%` }}
-            />
+  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
+    {/* Main progress bar */}
+    <div
+      className={`h-full transition-all duration-300 ${getProgressColor()}`}
+      style={{ width: `${Math.min(100, getProgressPercentage())}%` }}
+    />
 
-            {/* Grace period indicator */}
-            {task.graceHours > 0 && (
-              <div
-                className="absolute top-0 h-full bg-gray-300 opacity-30"
-                style={{
-                  left: `${
-                    (task.estimatedHours /
-                      (task.estimatedHours + task.graceHours)) *
-                    100
-                  }%`,
-                  width: `${
-                    (task.graceHours /
-                      (task.estimatedHours + task.graceHours)) *
-                    100
-                  }%`,
-                }}
-              />
-            )}
-          </div>
+    {/* Grace period indicator */}
+    {task.graceHours > 0 && (
+      <div
+        className="absolute top-0 h-full bg-gray-300 opacity-30"
+        style={{
+          left: `${
+            (task.estimatedHours /
+              (task.estimatedHours + task.graceHours)) *
+            100
+          }%`,
+          width: `${
+            (task.graceHours /
+              (task.estimatedHours + task.graceHours)) *
+            100
+          }%`,
+        }}
+      />
+    )}
+  </div>
 
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0h</span>
-            <span className="text-gray-400">|</span>
-            <span>{task.estimatedHours}h</span>
-            {task.graceHours > 0 && (
-              <>
-                <span className="text-gray-400">|</span>
-                <span>{task.estimatedHours + task.graceHours}h</span>
-              </>
-            )}
-          </div>
+  {/* Existing progress details */}
+  <div className="flex justify-between text-xs text-gray-500 mt-1">
+    <span>0h</span>
+    <span className="text-gray-400">|</span>
+    <span>{task.estimatedHours}h</span>
+    {task.graceHours > 0 && (
+      <>
+        <span className="text-gray-400">|</span>
+        <span>{task.estimatedHours + task.graceHours}h</span>
+      </>
+    )}
+  </div>
 
-          {/* Status indicators */}
-          <div className="flex items-center gap-4 mt-2 text-xs">
-            {task.actualHours > task.estimatedHours + task.graceHours && (
-              <span className="text-red-600 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                Exceeded Estimate by{" "}
-                {(
-                  task.actualHours -
-                  task.estimatedHours -
-                  task.graceHours
-                ).toFixed(1)}
-                h
-              </span>
-            )}
-            {task.actualHours > task.estimatedHours &&
-              task.actualHours <= task.estimatedHours + task.graceHours && (
-                <span className="text-amber-600 flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  In grace period (
-                  {(task.actualHours - task.estimatedHours).toFixed(1)}h over)
-                </span>
-              )}
-            {task.actualHours <= task.estimatedHours && (
-              <span className="text-green-600 flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
-                Within estimated hours
-              </span>
-            )}
-          </div>
-        </div>
+  {/* Status indicators */}
+  <div className="flex items-center gap-4 mt-2 text-xs">
+    {task.actualHours > task.estimatedHours + task.graceHours && (
+      <span className="text-red-600 flex items-center gap-1">
+        <AlertCircle className="h-3 w-3" />
+        Exceeded Estimate by{" "}
+        {(
+          task.actualHours -
+          task.estimatedHours -
+          task.graceHours
+        ).toFixed(1)}
+        h
+      </span>
+    )}
+    {task.actualHours > task.estimatedHours &&
+      task.actualHours <= task.estimatedHours + task.graceHours && (
+        <span className="text-amber-600 flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          In grace period (
+          {(task.actualHours - task.estimatedHours).toFixed(1)}h over)
+        </span>
+      )}
+    {task.actualHours <= task.estimatedHours && (
+      <span className="text-green-600 flex items-center gap-1">
+        <CheckCircle className="h-3 w-3" />
+        Within estimated hours
+      </span>
+    )}
+  </div>
+
+  {/* Analytics Options */}
+  {!activeAnalyticsView && (
+    <div className="flex gap-2 mt-3">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setActiveAnalyticsView('graph')}
+        className="flex items-center gap-2 text-xs"
+      >
+        <BarChart3 className="h-3 w-3" />
+        Graph View Analysis
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setActiveAnalyticsView('report')}
+        className="flex items-center gap-2 text-xs"
+      >
+        <FileText className="h-3 w-3" />
+        Report View Analysis
+      </Button>
+    </div>
+  )}
+</div>
+
+{/* Analytics Views - This should be right after the hours progress section */}
+{activeAnalyticsView && (
+  <ProgressAnalytics 
+    task={{
+      estimatedHours: task.estimatedHours || 0,
+      actualHours: task.actualHours || 0,
+      graceHours: task.graceHours || 0,
+      startDate: task.startDate,
+      endDate: task.endDate || '',
+      status: task.taskStageName || 'Unknown',
+      priority: task.priority,
+      subject: task.subject
+    }}
+    onClose={() => setActiveAnalyticsView(null)}
+    viewType={activeAnalyticsView}
+  />
+)}
 
         {/* Description */}
         <div className="mb-3 mt-7">
@@ -1174,6 +1221,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           </div>
         </div>
       )}
+{/* Analytics Views */}
 
       {/* Meta Info footer */}
       <div className="bg-white shadow-sm rounded-lg border p-3 text-xs text-gray-500 flex justify-between">
