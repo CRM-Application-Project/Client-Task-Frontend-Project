@@ -526,7 +526,7 @@ export function TaskHistory({
                 >
                   {/* Timeline dot */}
                   <div className="flex-shrink-0 relative">
-                    <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs font-medium">
+                    <div className="w-8 h-8 rounded-full bg-brand-primary hover:bg-brand-primary/80 text-white flex items-center justify-center text-xs font-medium">
                       {record.doneByName
                         ?.split(" ")
                         .map((n) => n[0])

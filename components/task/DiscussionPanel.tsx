@@ -1240,6 +1240,7 @@ const renderAttachment = (attachment: CommentAttachment) => {
                   </Button>
                   <Button
                     size="sm"
+                    className="bg-brand-primary hover:bg-brand-primary/80"
                     onClick={() => handleReplyPost(comment.id)}
                     disabled={!replyContent.trim() || isReplying}
                   >
@@ -1386,6 +1387,7 @@ const renderAttachment = (attachment: CommentAttachment) => {
             <Button
               size="sm"
               onClick={handlePost}
+              className="bg-brand-primary hover:bg-brand-primary/80"
               disabled={
                 !canComment ||
                 isPosting ||
