@@ -93,7 +93,7 @@ export const LeadFilters = ({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [localFilters, setLocalFilters] = useState<ExtendedLeadFilters>(filters);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
   
   const { permissions: leadPermissions, loading: permissionsLoading } = usePermissions("lead");
@@ -104,48 +104,40 @@ export const LeadFilters = ({
     return [...leadStages].sort((a, b) => a.leadStagePriority - b.leadStagePriority);
   }, [leadStages]);
 
-  // Sync local filters with props filters
- // Update the useEffect to properly sync filters
-useEffect(() => {
-  setLocalFilters(filters);
-}, [filters]);
-const logFilterState = (filters: ExtendedLeadFilters) => {
-  console.log("Current filters:", {
-    status: filters.status,
-    priority: filters.priority,
-    source: filters.source,
-    assignedTo: filters.assignedTo,
-    label: filters.label,
-    dateRange: filters.dateRange,
-    
-  });
-};
-// Update the handleApply function
-const handleApply = async () => {
-  if (isApplying) return;
-  
-  setIsApplying(true);
-  try {
-    // Apply the local filters to parent
-     logFilterState(localFilters); 
-    onFiltersChange(localFilters);
-    
-    // Let parent handle the API call
-    await onApplyFilters();
-  } catch (error) {
-    console.error("Error applying filters:", error);
-  } finally {
-    setTimeout(() => setIsApplying(false), 1000);
-  }
-};
+  // Only sync local filters with props filters on initial mount
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, []); // Remove filters dependency to prevent sync loops
 
-// Update the handleClear function
-const handleClear = () => {
-  const emptyFilters = {};
-  setLocalFilters(emptyFilters);
-  onFiltersChange(emptyFilters);
-  onClearAllFilters();
-};
+  // Handle applying filters
+  const handleApply = async () => {
+    if (isApplying) return;
+    
+    setIsApplying(true);
+    try {
+      // Validate and clean filters before applying
+      const cleanedFilters = validateFilters(localFilters);
+      console.log("Applying filters:", cleanedFilters);
+      
+      // Apply the cleaned filters to parent
+      onFiltersChange(cleanedFilters);
+      
+      // Let parent handle the API call
+      await onApplyFilters();
+    } catch (error) {
+      console.error("Error applying filters:", error);
+    } finally {
+      setTimeout(() => setIsApplying(false), 500);
+    }
+  };
+
+  // Handle clearing filters
+  const handleClear = () => {
+    const emptyFilters = {};
+    setLocalFilters(emptyFilters);
+    onFiltersChange(emptyFilters);
+    onClearAllFilters();
+  };
 
   // Fetch assignees with better error handling and loading states
   const fetchAssignees = useCallback(async () => {
@@ -172,26 +164,15 @@ const handleClear = () => {
     fetchAssignees();
   }, []);
 
-  // Debounced apply filters to prevent too many API calls
-  const debouncedApplyFilters = useCallback(
-    debounce(() => {
-      if (!isApplying) {
-        setIsApplying(true);
-        onFiltersChange(localFilters);
-        onApplyFilters();
-        setTimeout(() => setIsApplying(false), 1000);
-      }
-    }, 300),
-    [localFilters, onFiltersChange, onApplyFilters, isApplying]
-  );
-
   const clearDateRange = () => {
     const { dateRange, ...rest } = localFilters;
-    setLocalFilters(rest);
+    const newFilters = rest;
+    setLocalFilters(newFilters);
   };
 
   const handleDateRangeSelect = (range: DateRange) => {
-    setLocalFilters({ ...localFilters, dateRange: range });
+    const newFilters = { ...localFilters, dateRange: range };
+    setLocalFilters(newFilters);
     setIsDatePickerOpen(false);
   };
 
@@ -234,7 +215,7 @@ const handleClear = () => {
     }
   };
 
-  // Handle filter changes with validation
+  // Handle filter changes - only update local state, apply on button click
   const handleFilterChange = (key: keyof ExtendedLeadFilters, value: any) => {
     const newFilters = {
       ...localFilters,

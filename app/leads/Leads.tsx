@@ -825,16 +825,9 @@ const fetchFilteredLeads = async (page = 0, append = false) => {
     setAllKanbanLeads([]);
     setHasMoreData(true);
     
-    if (viewMode === "kanban") {
-      fetchKanbanLeads(true);
-    } else {
-      const hasActiveFilters = Object.keys(filters).length > 0;
-      if (hasActiveFilters && !searchQuery) {
-        fetchFilteredLeads(0);
-      } else {
-        fetchLeads(0);
-      }
-    }
+    // Use fetchFilteredLeads for consistency across all data fetching
+    console.log("View mode changed, fetching with filters:", filters);
+    fetchFilteredLeads(0);
   }, [viewMode]);
 
   // Handle filters change
@@ -847,26 +840,10 @@ const fetchFilteredLeads = async (page = 0, append = false) => {
   setAllKanbanLeads([]);
   setHasMoreData(true);
   
-  // Use a flag to track if we have active filters
-  const hasActiveFilters = Object.keys(filters).some(key => {
-    const value = filters[key as keyof LeadFiltersType];
-    return value !== undefined && value !== null && value !== '' && 
-           !(key === 'dateRange' && !value);
-  });
-
-  if (viewMode === "kanban") {
-    if (hasActiveFilters || searchQuery) {
-      fetchFilteredLeads(0);
-    } else {
-      fetchLeads(0);
-    }
-  } else {
-    if (hasActiveFilters || searchQuery) {
-      fetchFilteredLeads(0);
-    } else {
-      fetchLeads(0);
-    }
-  }
+  // Always use fetchFilteredLeads - it handles empty filters gracefully
+  // This ensures consistent behavior and prevents the initial fetchAllLeads call
+  console.log("Filters changed, calling fetchFilteredLeads with:", filters);
+  fetchFilteredLeads(0);
 }, [filters, searchQuery, viewMode, assignOptions.length]);
 
   // Enhanced useEffect for assignOptions
@@ -909,11 +886,9 @@ const fetchFilteredLeads = async (page = 0, append = false) => {
   // Initial data load
   useEffect(() => {
     if (assignOptions.length > 0) {
-      if (viewMode === "kanban") {
-        fetchKanbanLeads(true);
-      } else {
-        fetchLeads(0);
-      }
+      // Use fetchFilteredLeads for all initial loads to ensure consistency
+      console.log("Initial data load with filters:", filters);
+      fetchFilteredLeads(0);
     }
   }, [assignOptions.length]);
 
@@ -1461,15 +1436,9 @@ const handleClearAllFilters = () => {
           }}
           onImportLead={() => setIsImportModalOpen(true)}
           onApplyFilters={() => {
-            setCurrentPage(0);
-            setKanbanPage(0);
-            setAllKanbanLeads([]);
-            setHasMoreData(true);
-            if (viewMode === "grid") {
-              fetchFilteredLeads(0);
-            } else {
-              fetchFilteredLeads(0);
-            }
+            // The useEffect already handles filter changes, 
+            // so we don't need to call fetchFilteredLeads here again
+            console.log("Apply filters called - filters will be handled by useEffect");
           }}
           onSortLeads={() => setIsSortingModalOpen(true)}
           leadStages={leadStages}
