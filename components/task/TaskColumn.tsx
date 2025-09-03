@@ -554,8 +554,20 @@ export const TaskColumn = ({
       scrollIntervalRef.current = null;
     }
   };
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (isStageMenuOpen) {
+      setIsStageMenuOpen(false);
+    }
+  };
 
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [isStageMenuOpen]);
   const handleStageMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsStageMenuOpen(!isStageMenuOpen);
   };
 
@@ -730,7 +742,9 @@ export const TaskColumn = ({
 
                     {/* Menu */}
 
-                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {stagePermissions.canEdit && (
                         <button
                           onClick={(e) => {

@@ -229,7 +229,7 @@ export const DateRangePicker = ({
                     )}
                     classNames={{
                       day: "h-8 w-8 text-xs rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors",
-                      day_selected: "bg-primary text-white rounded-full",
+                      day_selected: "bg-brand-primary hover:bg-brand-primary text-white rounded-full",
                       day_today:
                         "border border-primary text-primary font-semibold",
                       caption: "flex justify-center pt-1 relative items-center",
@@ -250,7 +250,7 @@ export const DateRangePicker = ({
                     )}
                     classNames={{
                       day: "h-8 w-8 text-xs rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors",
-                      day_selected: "bg-primary text-white rounded-full",
+                      day_selected: "bg-brand-primary hover:bg-brand-primary text-white rounded-full",
                       day_today:
                         "border border-primary text-primary font-semibold",
                       caption: "flex justify-center pt-1 relative items-center",

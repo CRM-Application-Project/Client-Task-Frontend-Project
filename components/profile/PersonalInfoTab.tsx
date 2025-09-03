@@ -37,13 +37,13 @@ export function PersonalInfoTab() {
   const { toast } = useToast();
 
   // Get initial user data from localStorage
-  const getStoredUserData = (): StoredUserData | null => {
-    if (typeof window !== 'undefined') {
-      const userData = localStorage.getItem('user');
-      return userData ? JSON.parse(userData) : null;
-    }
-    return null;
-  };
+    const getStoredUserData = (): StoredUserData | null => {
+      if (typeof window !== 'undefined') {
+        const userData = localStorage.getItem('user');
+        return userData ? JSON.parse(userData) : null;
+      }
+      return null;
+    };
 
   const storedUser = getStoredUserData();
 

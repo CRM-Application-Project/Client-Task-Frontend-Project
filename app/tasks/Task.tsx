@@ -1098,11 +1098,11 @@ const transformTasks = useCallback(
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching stages:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch stages. Please try again.",
+        description: error.message || "Failed to fetch stages. Please try again.",
         variant: "destructive",
       });
     }
@@ -1126,11 +1126,11 @@ const transformTasks = useCallback(
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching users:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch users. Please try again.",
+        description: error.message || "Failed to fetch users. Please try again.",
         variant: "destructive",
       });
     }
@@ -1156,17 +1156,13 @@ const transformTasks = useCallback(
         } else {
           await fetchTasksKanban(1, false, false);
         }
-        
-        toast({
-          title: "Success",
-          description: "Tasks and stages loaded successfully",
-          variant: "default",
-        });
-      } catch (error) {
+
+
+      } catch (error: any) {
         console.error("Error loading initial data:", error);
         toast({
           title: "Error",
-          description: "Failed to load initial data. Please try again.",
+          description: error.message || "Failed to load initial data. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -2129,6 +2125,7 @@ const handleCloseModal = useCallback(() => {
         isOpen={isAddModalOpen}
         onClose={handleCloseModal}
         onSubmit={handleAddTask}
+        //@ts-ignore
         editingTask={editingTask}
         preSelectedStageId={preSelectedStageId}
         users={users}

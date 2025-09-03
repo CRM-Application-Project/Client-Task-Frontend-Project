@@ -26,7 +26,6 @@ async function verifyUser(
       },
     });
 
-    console.log("Verify user response:", res);
 
     if (!res.ok) {
       throw new Error("Failed to verify user");
