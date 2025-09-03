@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PersonalInfoTab } from '@/components/profile/PersonalInfoTab';
@@ -8,6 +8,7 @@ import { ChangePasswordTab } from '@/components/profile/ChangePasswordTab';
 
 export default function ProfileAccountPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('personal-info');
 
   useEffect(() => {
@@ -19,6 +20,16 @@ export default function ProfileAccountPage() {
       setActiveTab('personal-info');
     }
   }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Update URL with tab parameter
+    if (tab === 'change-password') {
+      router.push('/profile?tab=change-password');
+    } else {
+      router.push('/profile');
+    }
+  };
 
   return (
     <div>
@@ -33,7 +44,7 @@ export default function ProfileAccountPage() {
             
             {/* Tab Navigation */}
             <div className="mb-8">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg h-auto">
                   <TabsTrigger 
                     value="personal-info" 

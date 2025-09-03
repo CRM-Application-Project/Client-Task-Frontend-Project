@@ -44,7 +44,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           "min-h-screen transition-all duration-300 ease-in-out",
-          sidebarCollapsed && !sidebarHovered ? "lg:ml-16" : "lg:ml-52"
+          sidebarCollapsed && !sidebarHovered ? "lg:ml-16" : "lg:ml-56"
         )}
       >
         {/* Navbar */}

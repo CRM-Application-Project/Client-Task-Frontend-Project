@@ -175,40 +175,38 @@ export function DashboardSidebar({
   );
 
   const cleanPath = pathname.split("?")[0].split("#")[0];
+useEffect(() => {
+  setExpanded((prev) => {
+    let next = [...prev];
+    const openIfNeeded = (key: string) => {
+      if (!next.includes(key)) next.push(key);
+    };
 
-  useEffect(() => {
-    setExpanded((prev) => {
-      let next = [...prev];
-      const openIfNeeded = (key: string) => {
-        if (!next.includes(key)) next.push(key);
-      };
-
-      filteredNav.forEach((item) => {
-        const children = getChildren(item);
-        const hasActiveChild = children.some(
-          (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
-        );
-        if (
-          (cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
-          !manuallyCollapsed.has(item.name)
-        ) {
-          openIfNeeded(item.name);
-        }
-      });
-
-      // Check if we're on the profile page with change-password tab
-      const isProfilePage = cleanPath === "/profile";
-      const isChangePasswordTab = searchParams?.get("tab") === "change-password";
-      const isSettingsActive = isProfilePage || 
-        SETTINGS.some(s => cleanPath === s.href.split("?")[0]);
-      
-      if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
-        openIfNeeded("Settings");
+    filteredNav.forEach((item) => {
+      const children = getChildren(item);
+      const hasActiveChild = children.some(
+        (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
+      );
+      if (
+        (cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
+        !manuallyCollapsed.has(item.name)
+      ) {
+        openIfNeeded(item.name);
       }
-
-      return Array.from(new Set(next));
     });
-  }, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams]);
+
+    // Check if we're on the profile page or change password
+    const isProfilePage = cleanPath === "/profile";
+    const isChangePasswordTab = searchParams?.get("tab") === "change-password";
+    const isSettingsActive = isProfilePage || isChangePasswordTab;
+    
+    if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
+      openIfNeeded("Settings");
+    }
+
+    return Array.from(new Set(next));
+  });
+}, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -281,11 +279,9 @@ const handleLogout = useCallback(async () => {
   const isExpandedView = !collapsed || hovered;
 
   const SidebarContent = useCallback(() => {
-    // Check if we're on the profile page with change-password tab
-    const isProfilePage = cleanPath === "/profile";
-    const isChangePasswordTab = searchParams?.get("tab") === "change-password";
-    const isSettingsActive = isProfilePage || 
-      SETTINGS.some(s => cleanPath === s.href.split("?")[0]);
+  const isProfilePage = cleanPath === "/profile";
+  const isChangePasswordTab = searchParams?.get("tab") === "change-password";
+  const isSettingsActive = isProfilePage || isChangePasswordTab;
 
     return (
       <div className="flex h-full flex-col bg-[#3b3b3b] relative">
@@ -406,70 +402,66 @@ const handleLogout = useCallback(async () => {
             </div>
 
             {/* Settings */}
-            <div
+           <div className={cn("mt-8 pt-4 border-t border-sidebar-border transition-all duration-300", collapsed && !hovered && "mt-4")}>
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+            isSettingsActive
+              ? "bg-white text-brand-primary shadow-sm"
+              : "text-white hover:bg-white hover:text-brand-primary",
+            collapsed && !hovered && "justify-center px-2"
+          )}
+          onClick={() => toggleGroup("Settings")}
+        >
+          <div className="flex items-center gap-3">
+            <Settings className="h-5 w-5 flex-shrink-0" />
+            {isExpandedView && <span className="whitespace-nowrap">Settings</span>}
+          </div>
+          {isExpandedView && (
+            <ChevronRight
               className={cn(
-                "mt-8 pt-4 border-t border-sidebar-border transition-all duration-300",
-                collapsed && !hovered && "mt-4"
+                "h-4 w-4 flex-shrink-0 transition-transform duration-200",
+                expanded.includes("Settings") && "rotate-45"
               )}
-            >
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                  isSettingsActive
-                    ? "bg-white text-brand-primary shadow-sm"
-                    : "text-white hover:bg-white hover:text-brand-primary",
-                  collapsed && !hovered && "justify-center px-2"
-                )}
-                onClick={() => toggleGroup("Settings")}
-              >
-                <div className="flex items-center gap-3">
-                  <Settings className="h-5 w-5 flex-shrink-0" />
-                  {isExpandedView && <span className="whitespace-nowrap">Settings</span>}
-                </div>
-                {isExpandedView && (
-                  <ChevronRight
-                    className={cn(
-                      "h-4 w-4 flex-shrink-0 transition-transform duration-200",
-                      expanded.includes("Settings") && "rotate-45"
-                    )}
-                  />
-                )}
-              </Button>
+            />
+          )}
+        </Button>
 
-              {isExpandedView && expanded.includes("Settings") && (
-                <div className="space-y-1 pl-6 pt-1 w-full">
-                  {SETTINGS.map((it) => {
-                    const isChildActive = 
-                      (it.name === "Change Password" && isChangePasswordTab) ||
-                      (it.name === "Profile" && isProfilePage && !isChangePasswordTab);
-                    
-                    return (
-                      <Button
-                        key={it.href}
-                        variant="ghost"
-                        onClick={() => router.push(it.href)}
-                        className={cn(
-                          "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
-                          isChildActive
-                            ? "text-white"
-                            : "text-gray-300 hover:text-white hover:bg-transparent"
-                        )}
-                      >
-                        <it.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                        <span className="whitespace-nowrap">{it.name}</span>
-                        <span
-                          className={cn(
-                            "absolute left-0 bottom-0 h-[2px] bg-white transition-all duration-300",
-                            isChildActive ? "w-full" : "w-0 group-hover:w-full"
-                          )}
-                        />
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+        {isExpandedView && expanded.includes("Settings") && (
+          <div className="space-y-1 pl-6 pt-1 w-full">
+            {SETTINGS.map((it) => {
+              // Determine if this setting item is active
+              const isProfileItem = it.name === "Profile";
+              const isPasswordItem = it.name === "Change Password";
+              
+              const isChildActive = 
+                (isProfileItem && isProfilePage && !isChangePasswordTab) ||
+                (isPasswordItem && isChangePasswordTab);
+              
+              return (
+                <Button
+                  key={it.href}
+                  variant="ghost"
+                  onClick={() => router.push(it.href)}
+                  className={cn(
+                    "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
+                    isChildActive
+                      ? "bg-white/10 text-white"
+                      : "text-gray-300 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <it.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{it.name}</span>
+                  {isChildActive && (
+                    <span className="absolute left-0 bottom-0 h-[2px] bg-white w-full transition-all duration-300" />
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+      </div>
           </ScrollArea>
         </nav>
 
@@ -490,38 +482,38 @@ const handleLogout = useCallback(async () => {
       </div>
     );
   }, [
-    isExpandedView,
-    collapsed,
-    hovered,
-    ready,
-    filteredNav,
-    getChildren,
-    expanded,
-    pathname,
-    can,
-    router,
-    toggleGroup,
-    handleLogout,
-    logoUrl,
-    searchParams,
-    cleanPath,
+ isExpandedView,
+  collapsed,
+  hovered,
+  ready,
+  filteredNav,
+  getChildren,
+  expanded,
+  pathname,
+  can,
+  router,
+  toggleGroup,
+  handleLogout,
+  logoUrl,
+  searchParams,
+  cleanPath,
   ]);
 
   return (
     <>
-      {/* Desktop */}
-      <div
-        className={cn(
-          "hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300 ease-in-out",
-          collapsed && !hovered ? "lg:w-16" : "lg:w-52"
-        )}
-      >
-        <SidebarContent />
-      </div>
+        <div
+      className={cn(
+        "hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300 ease-in-out",
+        collapsed && !hovered ? "lg:w-16" : "lg:w-56"
+      )}
+      key={searchParams?.toString()} // Force re-render when search params change
+    >
+      <SidebarContent />
+    </div>
 
       {/* Mobile */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="left" className="p-0 w-52">
+        <SheetContent side="left" className="p-0 w-56">
           <SidebarContent />
         </SheetContent>
       </Sheet>
