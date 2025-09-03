@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { RRule, RRuleSet, rrulestr, Frequency } from 'rrule';
 import {
   X,
   Calendar,
@@ -26,7 +25,6 @@ import {
   Palette,
   Type,
   MoreHorizontal,
-  Repeat,
 } from "lucide-react";
 import {
   Dialog,
@@ -45,8 +43,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
 
 import { useToast } from "@/hooks/use-toast";
 import { getTaskStagesDropdown, User } from "@/app/services/data.service";
@@ -73,12 +69,9 @@ interface CreateTaskRequest {
   startDate: string;
   endDate: string;
   assignee: string;
-    reviewer: string; // Add this field
-
   acceptanceCriteria?: string;
   graceHours?: number;
   estimatedHours?: number;
-  recurrence?: RecurrenceRule;
 }
 
 interface UpdateTaskRequest {
@@ -90,12 +83,9 @@ interface UpdateTaskRequest {
   endDate?: string | null;
   assignee?: string;
   acceptanceCriteria?: string;
-    reviewer?: string; // Add this field
-
   comment?: string;
   graceHours?: number;
   estimatedHours?: number;
-  recurrence?: RecurrenceRule;
 }
 
 interface GetTaskByIdResponse {
@@ -116,36 +106,10 @@ interface GetTaskByIdResponse {
       id: string;
       label: string;
     };
-    reviewer: {
-      id: string;
-      label: string;
-    };
     acceptanceCriteria?: string;
-    recurrence?: RecurrenceRule;
   };
 }
 
-// Recurrence types
-interface RecurrenceRule {
-  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
-  interval: number;
-  endType: "NEVER" | "AFTER" | "ON_DATE";
-  endAfter?: number;
-  endOnDate?: string;
-  byWeekDay?: number[];
-  byMonthDay?: number[];
-  byMonth?: number[];
-  excludeWeekends?: boolean;
-  rruleString?: string; // Add this field to store the RRule string
-}
-
-export interface StoredUserData {
-  id: string;
-  firstName: string;
-  lastName: string;
-  emailAddress: string;
-  phoneNumber: string | null;
-}
 export const AddTaskModal = ({
   isOpen,
   onClose,
@@ -160,7 +124,6 @@ export const AddTaskModal = ({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
   const descriptionRef = useRef<HTMLDivElement>(null);
-  const [showRecurrence, setShowRecurrence] = useState(false);
 
   const [formData, setFormData] = useState<CreateTaskRequest>({
     subject: "",
@@ -170,27 +133,10 @@ export const AddTaskModal = ({
     startDate: new Date().toISOString(),
     endDate: "",
     assignee: "",
-     reviewer: "",
     acceptanceCriteria: "",
     graceHours: 0,
     estimatedHours: 0,
-    recurrence: undefined,
   });
-
-  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>({
-    frequency: "WEEKLY",
-    interval: 1,
-    endType: "NEVER",
-    excludeWeekends: true,
-    byWeekDay: [1, 2, 3, 4, 5], // Default to weekdays (Mon-Fri)
-  });
-  const getStoredUserData = (): StoredUserData | null => {
-  if (typeof window !== 'undefined') {
-    const userData = localStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
-  }
-  return null;
-};
 
   const [originalFormData, setOriginalFormData] =
     useState<CreateTaskRequest | null>(null);
@@ -205,130 +151,6 @@ export const AddTaskModal = ({
     "HIGH",
     "URGENT",
   ];
-
-  const frequencies = [
-    { value: "DAILY", label: "Daily" },
-    { value: "WEEKLY", label: "Weekly" },
-    { value: "MONTHLY", label: "Monthly" },
-    { value: "YEARLY", label: "Yearly" },
-  ];
-
-const weekDays = [
-  { value: 0, label: "Sunday", short: "SU", rrule: RRule.SU },
-  { value: 1, label: "Monday", short: "MO", rrule: RRule.MO },
-  { value: 2, label: "Tuesday", short: "TU", rrule: RRule.TU },
-  { value: 3, label: "Wednesday", short: "WE", rrule: RRule.WE },
-  { value: 4, label: "Thursday", short: "TH", rrule: RRule.TH },
-  { value: 5, label: "Friday", short: "FR", rrule: RRule.FR },
-  { value: 6, label: "Saturday", short: "SA", rrule: RRule.SA },
-];
-
-  // Frequency mapping function
-  const getFrequencyConstant = (frequency: string): Frequency => {
-    switch (frequency) {
-      case "DAILY":
-        return RRule.DAILY;
-      case "WEEKLY":
-        return RRule.WEEKLY;
-      case "MONTHLY":
-        return RRule.MONTHLY;
-      case "YEARLY":
-        return RRule.YEARLY;
-      default:
-        return RRule.WEEKLY;
-    }
-  };
-
-  const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string => {
-    //@ts-ignore
-    const options: Partial<RRule.Options> = {
-      freq: getFrequencyConstant(rule.frequency),
-      interval: rule.interval,
-    };
-
-    // Set byweekday if provided
-    if (rule.byWeekDay && rule.byWeekDay.length > 0) {
-      options.byweekday = rule.byWeekDay.map(day => weekDays[day].rrule);
-    }
-
-    // Set end condition
-    if (rule.endType === "AFTER" && rule.endAfter) {
-      options.count = rule.endAfter;
-    } else if (rule.endType === "ON_DATE" && rule.endOnDate) {
-      options.until = new Date(rule.endOnDate);
-    }
-
-    // Handle exclude weekends
-    if (rule.excludeWeekends) {
-      // For RRule, we need to use a ruleset with exdate for weekends
-      const rrule = new RRule(options);
-      const ruleSet = new RRuleSet();
-      ruleSet.rrule(rrule);
-      
-      // Add exrule for weekends (Saturday and Sunday)
-      const exrule = new RRule({
-        freq: RRule.WEEKLY,
-        byweekday: [RRule.SA, RRule.SU],
-      });
-      ruleSet.exrule(exrule);
-      
-      return ruleSet.toString();
-    }
-
-    const rrule = new RRule(options);
-    return rrule.toString();
-  };
-
-  // Add this function to parse RRule string back to your format
-  const parseRRuleString = (rruleString: string): Partial<RecurrenceRule> => {
-    try {
-      const rule = rrulestr(rruleString);
-      const options = rule.options;
-      
-      const result: Partial<RecurrenceRule> = {
-        frequency: getFrequencyName(options.freq),
-        interval: options.interval || 1,
-      };
-
-      if (options.byweekday) {
-        result.byWeekDay = options.byweekday.map((day: any) => {
-          if (typeof day === 'number') return day;
-          return day.weekday;
-        });
-      }
-
-      if (options.count) {
-        result.endType = "AFTER";
-        result.endAfter = options.count;
-      } else if (options.until) {
-        result.endType = "ON_DATE";
-        result.endOnDate = options.until.toISOString();
-      } else {
-        result.endType = "NEVER";
-      }
-
-      return result;
-    } catch (error) {
-      console.error("Error parsing RRule string:", error);
-      return {};
-    }
-  };
-
-  // Helper function to get frequency name from RRule constant
-  const getFrequencyName = (freq: Frequency): RecurrenceRule['frequency'] => {
-    switch (freq) {
-      case RRule.DAILY:
-        return "DAILY";
-      case RRule.WEEKLY:
-        return "WEEKLY";
-      case RRule.MONTHLY:
-        return "MONTHLY";
-      case RRule.YEARLY:
-        return "YEARLY";
-      default:
-        return "WEEKLY";
-    }
-  };
 
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
@@ -371,66 +193,58 @@ const weekDays = [
   };
 
   // Validate individual field
-  const validateField = (field: keyof CreateTaskRequest, value: any): string => {
-    // For edit mode, validate if field is dirty OR if it's a required field that's now empty
-    const isRequiredField = ["subject", "description", "taskStageId", "assignee", "estimatedHours", "startDate"].includes(field);
-    const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
-    
-    if (editingTask && !dirtyFields.has(field) && field !== "description") {
-      // Only skip validation if it's not a required field or it's not empty
-      if (!isRequiredField || !isEmpty) {
-        return ""; // Skip validation for unchanged fields in edit mode
-      }
-    }
-
-    switch (field) {
-      case "subject":
-        if (!value?.trim()) return "Subject is required";
-        break;
-      case "description":
-        if (!value?.trim()) return "Description is required";
-        break;
-      case "taskStageId":
-        if (!value || value === 0) return "Please select a stage";
-        break;
-      case "assignee":
-        if (!value?.trim()) return "Please select an assignee";
-        break;
-      case "estimatedHours":
-        if (!value || value <= 0) return "Estimated hours must be greater than 0";
-        break;
-      case "startDate":
-        if (!value) return "Start date is required";
-        break;
-      case "endDate":
-        if (value && formData.startDate) {
-          const startDate = new Date(formData.startDate);
-          const endDate = new Date(value);
-          
-          // Add 1 day to start date for comparison
-          const minEndDate = new Date(startDate);
-          minEndDate.setDate(startDate.getDate() + 1);
-          
-          if (endDate <= minEndDate) {
-            return "End date must be at least 1 day after start date";
-          }
-        }
-        break;
-      default:
-        return "";
-    }
-    return "";
-  };
-const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
-  if (!reviewerId || !users || users.length === 0) {
-    // Get current user from localStorage as default
-    const currentUser = getStoredUserData();
-    return currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Select reviewer";
-  }
+const validateField = (field: keyof CreateTaskRequest, value: any): string => {
+  // For edit mode, validate if field is dirty OR if it's a required field that's now empty
+  const isRequiredField = ["subject", "description", "taskStageId", "assignee", "estimatedHours", "startDate"].includes(field);
+  const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
   
-  const reviewer = users.find(user => user.userId === reviewerId);
-  return reviewer ? `${reviewer.firstName} ${reviewer.lastName}` : "Select reviewer";
+  if (editingTask && !dirtyFields.has(field) && field !== "description") {
+    // Only skip validation if it's not a required field or it's not empty
+    if (!isRequiredField || !isEmpty) {
+      return ""; // Skip validation for unchanged fields in edit mode
+    }
+  }
+
+  switch (field) {
+    case "subject":
+      if (!value?.trim()) return "Subject is required";
+      break;
+    case "description":
+      if (!value?.trim()) return "Description is required";
+      break;
+    case "taskStageId":
+      if (!value || value === 0) return "Please select a stage";
+      break;
+    case "assignee":
+      if (!value?.trim()) return "Please select an assignee";
+      break;
+    case "estimatedHours":
+      if (!value || value <= 0) return "Estimated hours must be greater than 0";
+      break;
+    case "startDate":
+      if (!value) return "Start date is required";
+      break;
+    case "endDate":
+      if (value && formData.startDate) {
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(value);
+        
+        // Add 1 day to start date for comparison
+        const minEndDate = new Date(startDate);
+        minEndDate.setDate(startDate.getDate() + 1);
+        
+        if (endDate <= minEndDate) {
+          return "End date must be at least 1 day after start date";
+        }
+      }
+      break;
+    default:
+      return "";
+  }
+  return "";
 };
+
+
   // Validate comment field
   const validateComment = (): string => {
     if (editingTask && stageChanged && !comment.trim()) {
@@ -440,31 +254,32 @@ const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
   };
 
   // Update form field with validation
-  const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
+  setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Mark field as touched
-    setTouchedFields(prev => new Set(prev).add(field));
+  // Mark field as touched
+  setTouchedFields(prev => new Set(prev).add(field));
 
-    // Always validate the field immediately, regardless of edit mode
-    const error = validateField(field, value);
-    setValidationErrors(prev => ({
-      ...prev,
-      [field]: error
-    }));
+  // Always validate the field immediately, regardless of edit mode
+  const error = validateField(field, value);
+  setValidationErrors(prev => ({
+    ...prev,
+    [field]: error
+  }));
 
-    if (originalFormData && editingTask) {
-      const originalValue = originalFormData[field];
-      const newDirtyFields = new Set(dirtyFields);
+  if (originalFormData && editingTask) {
+    const originalValue = originalFormData[field];
+    const newDirtyFields = new Set(dirtyFields);
 
-      if (areValuesEqual(originalValue, value)) {
-        newDirtyFields.delete(field);
-      } else {
-        newDirtyFields.add(field);
-      }
-      setDirtyFields(newDirtyFields);
+    if (areValuesEqual(originalValue, value)) {
+      newDirtyFields.delete(field);
+    } else {
+      newDirtyFields.add(field);
     }
-  };
+    setDirtyFields(newDirtyFields);
+  }
+};
+
 
   // Handle description change with validation
   const handleDescriptionChange = (value: string) => {
@@ -537,7 +352,6 @@ const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
       formData.subject.trim() !== "" &&
       formData.description.trim() !== "" &&
       formData.taskStageId > 0 &&
-      formData.reviewer.trim() !== "" && // Add this line
       formData.assignee.trim() !== "" &&
       (formData.estimatedHours ?? 0) > 0
     );
@@ -561,7 +375,6 @@ const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
       setComment("");
       setValidationErrors({});
       setTouchedFields(new Set());
-      setShowRecurrence(false);
       return;
     }
 
@@ -573,41 +386,22 @@ const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
         taskStageId: editingTask.taskStageId || 0,
         startDate: editingTask.startDate || new Date().toISOString(),
         endDate: editingTask.endDate || "",
-        reviewer: editingTask.reviewer.label || "",
         assignee: editingTask.assignee?.id || "",
         acceptanceCriteria: editingTask.acceptanceCriteria || "",
         graceHours: editingTask.graceHours ?? 0,
         estimatedHours: editingTask.estimatedHours ?? 0,
-        recurrence: editingTask.recurrence,
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
       setDirtyFields(new Set());
       setComment("");
       setTouchedFields(new Set());
-      
-        if (editingTask.recurrence) {
-      // If we have an RRule string, parse it
-      if (editingTask.recurrence.rruleString) {
-        const parsedRule = parseRRuleString(editingTask.recurrence.rruleString);
-        setRecurrenceRule({
-          ...editingTask.recurrence,
-          ...parsedRule,
-        });
-      } else {
-        setRecurrenceRule(editingTask.recurrence);
-      }
-      setShowRecurrence(true);
-    }
     } else {
       const adjustedTime = getAdjustedCurrentTime();
       
       const defaultStageId = stages.length > 0 
         ? stages[0].id 
         : preSelectedStageId || 0;
-           // Get current user from localStorage
-    const currentUser = getStoredUserData();
-const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim();
 
       const newTaskData: CreateTaskRequest = {
         subject: "",
@@ -617,19 +411,15 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
         startDate: getLocalISOString(adjustedTime),
         endDate: "",
         assignee: "",
-        reviewer: defaultReviewer, 
-
         acceptanceCriteria: "",
         graceHours: 0,
         estimatedHours: 0,
-        recurrence: undefined,
       };
       setFormData(newTaskData);
       setOriginalFormData(null);
       setDirtyFields(new Set());
       setComment("");
       setTouchedFields(new Set());
-      setShowRecurrence(false);
     }
   }, [isOpen, editingTask, preSelectedStageId, stages]);
 
@@ -665,65 +455,56 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
   }, [isOpen, toast]);
 
   // Validate all fields before submission
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
+const validateForm = (): boolean => {
+  const errors: Record<string, string> = {};
 
-    if (editingTask) {
-      // For edit mode, validate all required fields (not just dirty ones)
-      const requiredFields: (keyof CreateTaskRequest)[] = [
-        "subject", "description", "taskStageId", "assignee", "reviewer", "estimatedHours", "startDate"
-      ];
-      
-      requiredFields.forEach(field => {
+  if (editingTask) {
+    // For edit mode, validate all required fields (not just dirty ones)
+    const requiredFields: (keyof CreateTaskRequest)[] = [
+      "subject", "description", "taskStageId", "assignee", "estimatedHours", "startDate"
+    ];
+    
+    requiredFields.forEach(field => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        errors[field] = error;
+      }
+    });
+    
+    // Also validate dirty fields that aren't required
+    dirtyFields.forEach(field => {
+      if (!requiredFields.includes(field)) {
         const error = validateField(field, formData[field]);
         if (error) {
           errors[field] = error;
         }
-      });
-      
-      // Also validate dirty fields that aren't required
-      dirtyFields.forEach(field => {
-        if (!requiredFields.includes(field)) {
-          const error = validateField(field, formData[field]);
-          if (error) {
-            errors[field] = error;
-          }
-        }
-      });
-    } else {
-      // For add mode, validate all required fields
-      Object.keys(formData).forEach(field => {
-        if (field === "graceHours" || field === "acceptanceCriteria" || field === "recurrence") {
-          return; // Skip optional fields
-        }
-
-        const error = validateField(field as keyof CreateTaskRequest, formData[field as keyof CreateTaskRequest]);
-        if (error) {
-          errors[field] = error;
-        }
-      });
-    }
-
-    // Validate recurrence if enabled
-    if (showRecurrence) {
-      if (recurrenceRule.endType === "AFTER" && (!recurrenceRule.endAfter || recurrenceRule.endAfter < 1)) {
-        errors.recurrence = "Please enter a valid number of occurrences";
-      } else if (recurrenceRule.endType === "ON_DATE" && (!recurrenceRule.endOnDate || new Date(recurrenceRule.endOnDate) <= new Date(formData.startDate))) {
-        errors.recurrence = "End date must be after the start date";
       }
-    }
-
-    // Validate comment if stage changed
-    if (editingTask && stageChanged) {
-      const commentError = validateComment();
-      if (commentError) {
-        errors.comment = commentError;
+    });
+  } else {
+    // For add mode, validate all required fields
+    Object.keys(formData).forEach(field => {
+      if (field === "graceHours" || field === "acceptanceCriteria") {
+        return; // Skip optional fields
       }
-    }
 
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+      const error = validateField(field as keyof CreateTaskRequest, formData[field as keyof CreateTaskRequest]);
+      if (error) {
+        errors[field] = error;
+      }
+    });
+  }
+
+  // Validate comment if stage changed
+  if (editingTask && stageChanged) {
+    const commentError = validateComment();
+    if (commentError) {
+      errors.comment = commentError;
+    }
+  }
+
+  setValidationErrors(errors);
+  return Object.keys(errors).length === 0;
+};
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -742,22 +523,6 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
     }
 
     try {
-      const taskData = { ...formData };
-      
-    if (showRecurrence) {
-      // Generate RRule string
-      const rruleString = convertToRRuleString(recurrenceRule, formData.startDate);
-      taskData.recurrence = {
-        ...recurrenceRule,
-        rruleString, // Add the RRule string to the recurrence object
-      };
-      
-      // STORE RECURRENCE RULE IN CONSOLE.LOG
-      console.log("RRule String:", rruleString);
-    } else {
-      taskData.recurrence = undefined;
-    }
-
       if (editingTask) {
         if (dirtyFields.size === 0 && !(stageChanged && comment.trim())) {
           toast({
@@ -778,25 +543,13 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
           }
         });
 
-        // Add recurrence if changed
-        if (showRecurrence) {
-          updatePayload.recurrence = recurrenceRule;
-          
-          // STORE RECURRENCE RULE IN CONSOLE.LOG
-          console.log("Recurrence Rule to be sent to backend:", recurrenceRule);
-        } else {
-          updatePayload.recurrence = undefined;
-        }
-
         if (comment.trim()) {
           updatePayload.comment = comment.trim();
         }
 
         onSubmit(updatePayload, true);
       } else {
-        // STORE COMPLETE TASK DATA IN CONSOLE.LOG
-        console.log("Complete task data to be sent to backend:", taskData);
-        onSubmit(taskData, false);
+        onSubmit(formData, false);
       }
 
       onClose();
@@ -858,43 +611,6 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
       return selectedStage?.name;
     }
     return null;
-  };
-
-  const handleRecurrenceChange = (field: keyof RecurrenceRule, value: any) => {
-    setRecurrenceRule(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const toggleWeekDay = (dayValue: number) => {
-    const currentDays = recurrenceRule.byWeekDay || [];
-    let newDays;
-    
-    if (currentDays.includes(dayValue)) {
-      newDays = currentDays.filter(d => d !== dayValue);
-    } else {
-      newDays = [...currentDays, dayValue];
-    }
-    
-    // Sort days to maintain order (Mon, Tue, Wed, etc.)
-    newDays.sort((a, b) => a - b);
-    
-    handleRecurrenceChange("byWeekDay", newDays);
-  };
-
-  const toggleRecurrence = (checked: boolean) => {
-    setShowRecurrence(checked);
-    if (!checked) {
-      // Reset recurrence rule when turning off
-      setRecurrenceRule({
-        frequency: "WEEKLY",
-        interval: 1,
-        endType: "NEVER",
-        excludeWeekends: true,
-        byWeekDay: [1, 2, 3, 4, 5],
-      });
-    }
   };
 
   if (!isOpen) return null;
@@ -1063,146 +779,6 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
             </div>
           </div>
 
-          {/* Recurrence Section */}
-          <div className="space-y-4 border rounded-md p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Repeat size={18} />
-                <Label className="text-sm font-medium text-foreground">
-                  Recurrence
-                </Label>
-              </div>
-               <Switch
-    checked={showRecurrence}
-    onCheckedChange={toggleRecurrence}
-    className="data-[state=checked]:bg-brand-primary"
-  />
-            </div>
-
-            {showRecurrence && (
-              <div className="space-y-4 mt-4 pl-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Repeat every
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={recurrenceRule.interval}
-                        onChange={(e) => handleRecurrenceChange("interval", parseInt(e.target.value) || 1)}
-                        className="w-20"
-                      />
-                      <Select
-                        value={recurrenceRule.frequency}
-                        onValueChange={(value) => handleRecurrenceChange("frequency", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {frequencies.map((freq) => (
-                            <SelectItem key={freq.value} value={freq.value}>
-                              {freq.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Ends
-                    </Label>
-                    <Select
-                      value={recurrenceRule.endType}
-                      onValueChange={(value) => handleRecurrenceChange("endType", value as any)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NEVER">Never</SelectItem>
-                        <SelectItem value="AFTER">After</SelectItem>
-                        <SelectItem value="ON_DATE">On date</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {recurrenceRule.endType === "AFTER" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Number of occurrences
-                    </Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={recurrenceRule.endAfter || 1}
-                      onChange={(e) => handleRecurrenceChange("endAfter", parseInt(e.target.value) || 1)}
-                      className="w-32"
-                    />
-                  </div>
-                )}
-
-                {recurrenceRule.endType === "ON_DATE" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      End date
-                    </Label>
-                    <input
-                      type="date"
-                      value={recurrenceRule.endOnDate ? new Date(recurrenceRule.endOnDate).toISOString().split('T')[0] : ""}
-                      onChange={(e) => handleRecurrenceChange("endOnDate", e.target.value)}
-                      min={new Date(formData.startDate).toISOString().split('T')[0]}
-                      className="w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 border-gray-300"
-                    />
-                  </div>
-                )}
-
-                {recurrenceRule.frequency === "WEEKLY" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Repeat on
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {weekDays.map((day) => (
-                        <Button
-                          key={day.value}
-                          type="button"
-                          variant={recurrenceRule.byWeekDay?.includes(day.value) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => toggleWeekDay(day.value)}
-                          className="h-8 px-2"
-                        >
-                          {day.short}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="exclude-weekends"
-                    checked={recurrenceRule.excludeWeekends}
-                    onCheckedChange={(checked) => handleRecurrenceChange("excludeWeekends", checked)}
-                    className="data-[state=checked]:bg-brand-primary"
-                  />
-                  <Label htmlFor="exclude-weekends" className="text-sm">
-                    Exclude weekends
-                  </Label>
-                </div>
-
-                {validationErrors.recurrence && (
-                  <p className="text-red-500 text-xs mt-1">{validationErrors.recurrence}</p>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Comment field */}
           {editingTask && stageChanged && (
             <div className="space-y-2">
@@ -1314,78 +890,39 @@ const defaultReviewer = `${currentUser?.firstName ?? ""} ${currentUser?.lastName
             </div>
           </div>
 
-   {/* Assignee and Reviewer */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div className="space-y-2">
-    <Label className="text-sm font-medium text-foreground">
-      Assignee {!editingTask && <span className="text-red-500">*</span>}
-      {dirtyFields.has("assignee") && (
-        <span className="text-blue-600 text-xs ml-1">• Modified</span>
-      )}
-    </Label>
-    <Select
-      value={formData.assignee}
-      onValueChange={(value) => updateFormField("assignee", value)}
-    >
-      <SelectTrigger className={validationErrors.assignee ? "border-red-500" : ""}>
-        <SelectValue 
-          placeholder="Select Assignee"
-        />
-      </SelectTrigger>
-      <SelectContent>
-        {users && users.length > 0 ? (
-          users.map((user) => (
-            <SelectItem key={user.userId} value={user.userId}>
-              {user.firstName} {user.lastName}
-            </SelectItem>
-          ))
-        ) : (
-          <SelectItem value="" disabled>
-            No users available
-          </SelectItem>
-        )}
-      </SelectContent>
-    </Select>
-    {validationErrors.assignee && (
-      <p className="text-red-500 text-xs mt-1">{validationErrors.assignee}</p>
-    )}
-  </div>
-
-  <div className="space-y-2">
-    <Label className="text-sm font-medium text-foreground">
-      Reviewer {!editingTask && <span className="text-red-500">*</span>}
-      {dirtyFields.has("reviewer") && (
-        <span className="text-blue-600 text-xs ml-1">• Modified</span>
-      )}
-    </Label>
-    <Select
-      value={formData.reviewer}
-      onValueChange={(value) => updateFormField("reviewer", value)}
-    >
-      <SelectTrigger className={validationErrors.reviewer ? "border-red-500" : ""}>
-        <SelectValue 
-          placeholder={getReviewerDisplayName(formData.reviewer, users)} 
-        />
-      </SelectTrigger>
-      <SelectContent>
-        {users && users.length > 0 ? (
-          users.map((user) => (
-            <SelectItem key={user.userId} value={user.userId}>
-              {user.firstName} {user.lastName}
-            </SelectItem>
-          ))
-        ) : (
-          <SelectItem value="" disabled>
-            No users available
-          </SelectItem>
-        )}
-      </SelectContent>
-    </Select>
-    {validationErrors.reviewer && (
-      <p className="text-red-500 text-xs mt-1">{validationErrors.reviewer}</p>
-    )}
-  </div>
-</div>
+          {/* Assignee */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">
+              Assignee {!editingTask && <span className="text-red-500">*</span>}
+              {dirtyFields.has("assignee") && (
+                <span className="text-blue-600 text-xs ml-1">• Modified</span>
+              )}
+            </Label>
+            <Select
+              value={formData.assignee}
+              onValueChange={(value) => updateFormField("assignee", value)}
+            >
+              <SelectTrigger className={validationErrors.assignee ? "border-red-500" : ""}>
+                <SelectValue placeholder="Select assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                {users && users.length > 0 ? (
+                  users.map((user) => (
+                    <SelectItem key={user.userId} value={user.userId}>
+                      {user.firstName} {user.lastName}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="" disabled>
+                    No users available
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {validationErrors.assignee && (
+              <p className="text-red-500 text-xs mt-1">{validationErrors.assignee}</p>
+            )}
+          </div>
 
           {/* Description */}
           <div className="space-y-2">
