@@ -1,13 +1,7 @@
-type LeadStatus =
-  | "NEW"
-  | "CONTACTED"
-  | "QUALIFIED"
-  | "PROPOSAL"
-  | "DEMO"
-  | "NEGOTIATIONS"
-  | "CLOSED_WON"
-  | "CLOSED_LOST";
+type LeadStatus = string;
+
 type LeadPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
 type LeadSource =
   | "WEBSITE"
   | "REFERRAL"
@@ -16,6 +10,7 @@ type LeadSource =
   | "PHONE"
   | "EVENT"
   | "OTHER";
+
 interface CreateLeadRequest {
   leadStatus: LeadStatus;
   leadSource: LeadSource;
@@ -27,7 +22,7 @@ interface CreateLeadRequest {
   customerEmailAddress: string;
   leadLabel?: string;
   leadReference?: string;
-  leadPriority?:string;
+  leadPriority?: LeadPriority;
   leadAddress?: string;
   comment: string;
 }
@@ -46,26 +41,35 @@ interface Lead {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
-  leadAssignedTo: string;
-  customerMobileNumber: string;
+  leadAssignedTo: string | null;
+  companyName: string | null;
   companyEmailAddress: string;
-  customerName: string;
+  customerMobileNumber: string;
   customerEmailAddress: string;
-  leadAddress: string;
-  comment?: string;
-  leadLabel?: string;
-  leadReference?: string;
+  customerName: string;
   leadPriority: LeadPriority;
-  company?: string;
+  leadLabel: string;
+  leadReference: string;
+  leadAddress: string;
+  comment: string;
+  leadFollowUp: string;
+  nextFollowUpDate: string | null;
   createdAt: string;
   updatedAt: string;
   assignedToName?: string;
 }
 
-interface GetAllLeadsResponse {
+interface PaginatedLeadsResponse {
   isSuccess: boolean;
   message: string;
-  data: Lead[];
+  data: {
+    items: Lead[];
+    currentPage: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+    lastPage: boolean;
+  };
 }
 
 interface GetLeadByIdResponse {
@@ -87,6 +91,7 @@ interface UpdateLeadRequest {
   leadReference: string;
   leadAddress: string;
   comment: string;
+  leadPriority: LeadPriority;
 }
 
 interface UpdateLeadResponse {

@@ -1,12 +1,4 @@
-export type LeadStatus =
-  | "NEW"
-  | "CONTACTED"
-  | "QUALIFIED"
-  | "PROPOSAL"
-  | "DEMO"
-  | "NEGOTIATIONS"
-  | "CLOSED_WON"
-  | "CLOSED_LOST";
+export type LeadStatus = string;
 export type LeadPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type LeadSource =
   | "WEBSITE"

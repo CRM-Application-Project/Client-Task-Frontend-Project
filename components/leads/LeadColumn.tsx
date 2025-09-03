@@ -571,7 +571,7 @@ export const LeadColumn = ({
                 variant="secondary"
                 className="bg-white/20 text-white border-white/30 flex-shrink-0"
               >
-                {leads.length}
+                {leads?.length}
               </Badge>
 
               {/* Container with fixed width to maintain consistent spacing */}
@@ -681,7 +681,7 @@ export const LeadColumn = ({
 
           {/* Leads cards */}
           <div className="space-y-3">
-            {leads.map((lead, index) => (
+            {leads?.map((lead, index) => (
               <div
                 key={lead.leadId}
                 className="transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
@@ -741,7 +741,7 @@ export const LeadColumn = ({
           )}
 
           {/* Empty state */}
-          {leads.length === 0 && !isLoading && (
+          {leads?.length === 0 && !isLoading && (
             <div className="text-center py-2">
               <div className="rounded-xl p-8 transition-all duration-200">
                 <p className="text-sm text-gray-500 mb-2">

@@ -35,20 +35,24 @@ interface Lead {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
-  customerMobileNumber: string;
+  leadAssignedTo: string | null;
+  companyName: string | null;
   companyEmailAddress: string;
-  customerName: string;
+  customerMobileNumber: string;
   customerEmailAddress: string;
+  customerName: string;
+  leadPriority: LeadPriority;
+  leadLabel: string;
+  leadReference: string;
   leadAddress: string;
-  comment?: string;
-  leadLabel?: string;
-  leadReference?: string;
-  leadPriority: string;
-  company?: string;
-  companyName?: string;
+  comment: string;
+  leadFollowUp: string;
+  nextFollowUpDate: string | null;
   createdAt: string;
   updatedAt: string;
+  assignedToName?: string;
 }
+
 
 interface ViewLeadModalProps {
   isOpen: boolean;
@@ -213,8 +217,8 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
               <h2 className="text-xl font-semibold text-gray-900">
                 {lead.customerName}
               </h2>
-              {shouldDisplay(lead.company) && (
-                <p className="text-sm text-gray-600">{lead.company}</p>
+              {shouldDisplay(lead.companyName) && (
+                <p className="text-sm text-gray-600">{lead.companyName}</p>
               )}
               <div className="flex gap-2 pt-1 flex-wrap">
                 <Badge className={`${getStatusColor(lead.leadStatus)} border`}>

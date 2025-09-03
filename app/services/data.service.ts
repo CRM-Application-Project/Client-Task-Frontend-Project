@@ -53,6 +53,7 @@ import {
 import axios from "axios";
 import { BASE_URL } from "../http-common";
 
+
 export const registerUser = async (
   registerData: RegisterRequestData,
   logoFile?: File // add an optional File parameter
@@ -497,11 +498,21 @@ export const createLead = async (
   return res as CreateLeadResponse;
 };
 
-export const getAllLeads = async (): Promise<GetAllLeadsResponse> => {
-  const res = await getRequest(API_CONSTANTS.LEAD.GET_ALL);
-  return res as GetAllLeadsResponse;
-};
+interface GetLeadsParams {
+  page: number;
+  size: number;
+}
 
+export const getAllLeads = async (params: GetLeadsParams): Promise<PaginatedLeadsResponse> => {
+  const queryParams = new URLSearchParams({
+    page: params.page.toString(),
+    size: params.size.toString()
+  });
+  
+  const url = `${API_CONSTANTS.LEAD.GET_ALL}?${queryParams.toString()}`;
+  const res = await getRequest(url);
+  return res as PaginatedLeadsResponse;
+};
 export const updateLead = async (
   payload: UpdateLeadRequest
 ): Promise<UpdateLeadResponse> => {
