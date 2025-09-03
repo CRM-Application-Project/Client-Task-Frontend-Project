@@ -725,7 +725,6 @@ export default function RegisterPage() {
             response.data?.message ||
             "Your account has been created successfully!",
         });
-        router.push("/login");
       } else {
         toast({
           title: "Registration Failed",
