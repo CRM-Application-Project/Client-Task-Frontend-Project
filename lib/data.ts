@@ -20,6 +20,7 @@ export interface FilterLeadsParams {
   leadSource?: string | null;
   assignedTo?: string | null;
   sortBy?: string | null;
+  
   direction?: "asc" | "desc" | null;
   
 }
@@ -27,7 +28,14 @@ export interface FilterLeadsParams {
 export interface FilterLeadsResponse {
   isSuccess: boolean;
   message: string;
-  data: Lead[];
+  data: {
+    items: Lead[];
+    currentPage: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+    lastPage: boolean;
+  };
 }
 
 

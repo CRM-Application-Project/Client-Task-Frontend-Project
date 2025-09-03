@@ -40,22 +40,24 @@ interface Lead {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
-  leadAssignedTo: string;
-  customerMobileNumber: string;
+  leadAssignedTo: string | null;
+  companyName: string | null;
   companyEmailAddress: string;
-  customerName: string;
+  customerMobileNumber: string;
   customerEmailAddress: string;
+  customerName: string;
+  leadPriority: LeadPriority;
+  leadLabel: string;
+  leadReference: string;
   leadAddress: string;
-  comment?: string;
-  leadLabel?: string;
-  leadReference?: string;
-  leadPriority?: LeadPriority;
-  company?: string;
+  comment: string;
+  leadFollowUp: string;
+  nextFollowUpDate: string | null;
   createdAt: string;
   updatedAt: string;
-  // Additional properties for display
   assignedToName?: string;
 }
+
 
 const formSchema = z.object({
   customerName: z

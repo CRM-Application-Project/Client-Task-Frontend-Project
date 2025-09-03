@@ -219,10 +219,10 @@ export const LeadCard = ({
 
         {/* Details */}
         <div className="space-y-1 text-sm text-gray-500">
-          {lead.company && (
+          {lead.companyName && (
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-gray-400" />
-              <span className="truncate">{lead.company}</span>
+              <span className="truncate">{lead.companyName}</span>
             </div>
           )}
           {lead.customerEmailAddress && (

@@ -44,22 +44,24 @@ interface Lead {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
-  leadAssignedTo: string;
-  customerMobileNumber: string;
+  leadAssignedTo: string | null;
+  companyName: string | null;
   companyEmailAddress: string;
-  customerName: string;
+  customerMobileNumber: string;
   customerEmailAddress: string;
-  leadAddress: string;
-  comment?: string;
-  leadLabel?: string;
-  leadReference?: string;
+  customerName: string;
   leadPriority: LeadPriority;
-  company?: string;
+  leadLabel: string;
+  leadReference: string;
+  leadAddress: string;
+  comment: string;
+  leadFollowUp: string;
+  nextFollowUpDate: string | null;
   createdAt: string;
   updatedAt: string;
-  // Additional properties for display
-  assignedToName?: string; // For display purposes
+  assignedToName?: string;
 }
+
 
 interface ChangeStatusModalProps {
   isOpen: boolean;
