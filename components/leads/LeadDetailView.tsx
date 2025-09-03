@@ -56,7 +56,7 @@ interface Lead {
 interface LeadDetailViewProps {
   lead: Lead;
   leadTracks: LeadTrack[];
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }
 
 const LeadDetailView: React.FC<LeadDetailViewProps> = ({
@@ -64,6 +64,16 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
   leadTracks,
   onRefresh,
 }) => {
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -451,16 +461,17 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
           </h3>
           
           <button
-            onClick={onRefresh}
-            className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh activity"
           >
-            <RotateCcw className="h-4 w-4 text-blue-600" />
+            <RotateCcw className={`h-4 w-4 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {leadTracks.length > 0 ? (
-          <div className="space-y-4">
+          <div className={`space-y-4 ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}>
             {leadTracks.map((track, index) => (
               <div key={index} className="flex gap-4 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                 <div className="flex-shrink-0 mt-1">
@@ -496,10 +507,18 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
           </div>
         ) : (
           <div className="text-center py-8">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <History className="h-6 w-6 text-gray-400" />
-            </div>
-            <p className="text-gray-500 text-sm">No activity recorded yet</p>
+            {isRefreshing ? (
+              <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <RotateCcw className="h-6 w-6 text-blue-600 animate-spin" />
+              </div>
+            ) : (
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <History className="h-6 w-6 text-gray-400" />
+              </div>
+            )}
+            <p className="text-gray-500 text-sm">
+              {isRefreshing ? "Refreshing activity..." : "No activity recorded yet"}
+            </p>
           </div>
         )}
       </div>

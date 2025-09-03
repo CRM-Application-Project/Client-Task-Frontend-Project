@@ -83,6 +83,26 @@ const LeadDetailPage = () => {
     }
   };
 
+  const refreshActivityHistory = async () => {
+    try {
+      // Only fetch lead tracking data without affecting the loading state
+      const trackResponse: FetchLeadTrackResponse = await fetchLeadTrackById(leadId);
+      if (trackResponse.isSuccess) {
+        setLeadTracks(trackResponse.data);
+      
+      } else {
+       
+      }
+    } catch (error) {
+      console.error("Error refreshing activity history:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh activity history",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -102,7 +122,7 @@ const LeadDetailPage = () => {
   return (
     <DashboardLayout>
       <div>
-        <LeadDetailView lead={lead} leadTracks={leadTracks} onRefresh={fetchLeadData} />
+        <LeadDetailView lead={lead} leadTracks={leadTracks} onRefresh={refreshActivityHistory} />
       </div>
     </DashboardLayout>
   );

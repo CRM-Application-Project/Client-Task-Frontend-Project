@@ -1,14 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { BarChart3, FileText, TrendingUp, Clock, AlertTriangle, CheckCircle, Target, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// Define the view type
-type ViewType = 'graph' | 'report' | null;
-
 // Props interface
 interface ProgressAnalyticsProps {
-  task?: {
+  task: {
     estimatedHours: number;
     actualHours: number;
     graceHours: number;
@@ -18,24 +15,15 @@ interface ProgressAnalyticsProps {
     priority: string;
     subject: string;
   };
-  onClose?: () => void;
+  onClose: () => void;
+  viewType?: 'graph' | 'report'; // Determine which view to show
 }
 
-// Sample task data - replace with your actual task prop
-const sampleTask = {
-  estimatedHours: 40,
-  actualHours: 45,
-  graceHours: 8,
-  startDate: "2024-01-15T09:00:00",
-  endDate: "2024-01-25T17:00:00",
-  status: "COMPLETED",
-  priority: "HIGH",
-  subject: "Implement user authentication system"
-};
-
-const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ task = sampleTask, onClose }) => {
-  const [activeView, setActiveView] = useState<ViewType>(null);
-
+const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ 
+  task, 
+  onClose,
+  viewType = 'graph'
+}) => {
   // Calculate analytics data
   const totalAllowedHours = task.estimatedHours + task.graceHours;
   const efficiency = (task.estimatedHours / task.actualHours) * 100;
@@ -70,7 +58,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ task = sampleTask
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => onClose ? onClose() : setActiveView(null)}
+          onClick={onClose}
         >
           Close
         </Button>
@@ -176,7 +164,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ task = sampleTask
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => onClose ? onClose() : setActiveView(null)}
+          onClick={onClose}
         >
           Close
         </Button>
@@ -191,7 +179,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ task = sampleTask
           </h5>
           <div className="space-y-3 text-sm">
             <p className="text-gray-700">
-              Task <strong>"{task.subject}"</strong> has been completed with the following performance metrics:
+              Task <strong>{task.subject}</strong> has been completed with the following performance metrics:
             </p>
             <ul className="space-y-2 text-gray-600">
               <li className="flex items-start gap-2">
@@ -320,57 +308,15 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ task = sampleTask
     </div>
   );
 
-  return (
-    <div className="space-y-4">
-      {/* Hours Progress Section (your existing code would go here) */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs text-gray-500 flex items-center gap-2">
-            <Clock className="h-3 w-3" /> Hours Progress
-          </h4>
-          <span className="text-xs text-gray-600">
-            {task.actualHours?.toFixed(1)}h / {task.estimatedHours}h
-            {task.graceHours > 0 && ` (+${task.graceHours}h grace)`}
-          </span>
-        </div>
+  // Only render the requested view type
+  if (viewType === 'graph') {
+    return <GraphView />;
+  } else if (viewType === 'report') {
+    return <ReportView />;
+  }
 
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-          <div
-            className="h-full transition-all duration-300 bg-blue-500"
-            style={{ width: `${Math.min(100, (task.actualHours / task.estimatedHours) * 100)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Analysis Options */}
-      {!activeView && (
-        <div className="flex gap-2 mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveView('graph')}
-            className="flex items-center gap-2 text-xs"
-          >
-            <BarChart3 className="h-3 w-3" />
-            Graph View Analysis
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveView('report')}
-            className="flex items-center gap-2 text-xs"
-          >
-            <FileText className="h-3 w-3" />
-            Report View Analysis
-          </Button>
-        </div>
-      )}
-
-      {/* Render Active View */}
-      {activeView === 'graph' && <GraphView />}
-      {activeView === 'report' && <ReportView />}
-    </div>
-  );
+  // Fallback
+  return <GraphView />;
 };
 
 export default ProgressAnalytics;
