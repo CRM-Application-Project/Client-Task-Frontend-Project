@@ -535,34 +535,55 @@ const Leads = () => {
   };
 
   // Updated fetch functions with pagination
-  const fetchFilteredLeads = async (page = 0, append = false) => {
-    try {
-      setIsLoading(!append);
+const fetchFilteredLeads = async (page = 0, append = false) => {
+  try {
+    setIsLoading(!append);
 
-      const filterParams: FilterLeadsParams = {
-        startDate: filters.dateRange?.from
-          ? format(filters.dateRange.from, "yyyy-MM-dd")
-          : null,
-        endDate: filters.dateRange?.to
-          ? format(filters.dateRange.to, "yyyy-MM-dd")
-          : null,
-        leadStatus: filters.status || null,
-        leadPriority: filters.priority || null,
-        leadLabel: filters.label || null,
-        leadSource: filters.source || null,
-        assignedTo: getAssignedToLabel(filters.assignedTo) || null,
-        sortBy: filters.sortBy || null,
-        direction: filters.sortOrder || null,
-        
-      };
+    // Build filter params correctly
+    const filterParams: any = {
+      page,
+      size: viewMode === "kanban" ? 50 : pageSize, // Different page sizes for different views
+    };
 
-      const cleanedParams = Object.fromEntries(
-        Object.entries(filterParams).filter(
-          ([_, value]) => value !== null && value !== undefined
-        )
-      );
+    // Add filters only if they exist
+    if (filters.dateRange?.from) {
+      filterParams.startDate = format(filters.dateRange.from, "yyyy-MM-dd");
+    }
+    if (filters.dateRange?.to) {
+      filterParams.endDate = format(filters.dateRange.to, "yyyy-MM-dd");
+    }
+    if (filters.status) {
+      filterParams.leadStatus = filters.status;
+    }
+    if (filters.priority) {
+      filterParams.leadPriority = filters.priority;
+    }
+    if (filters.label) {
+      filterParams.leadLabel = filters.label;
+    }
+    if (filters.source) {
+      filterParams.leadSource = filters.source;
+    }
+    if (filters.assignedTo && filters.assignedTo !== "all") {
+      // Get the actual label from assignOptions
+      const assignee = assignOptions.find(opt => opt.id === filters.assignedTo);
+      filterParams.assignedTo = assignee?.label || null;
+    }
+    if (filters.sortBy) {
+      filterParams.sortBy = filters.sortBy;
+    }
+    if (filters.sortOrder) {
+      filterParams.direction = filters.sortOrder;
+    }
 
-      const response = await filterLeads(cleanedParams);
+    // Remove null/undefined values
+    const cleanedParams = Object.fromEntries(
+      Object.entries(filterParams).filter(([_, value]) => 
+        value !== null && value !== undefined && value !== ""
+      )
+    );
+
+    const response = await filterLeads(cleanedParams);
 
       if (response.isSuccess && response.data) {
         const enhancedLeads = response.data.items.map((lead: Lead) =>
@@ -817,30 +838,36 @@ const Leads = () => {
   }, [viewMode]);
 
   // Handle filters change
-  useEffect(() => {
-    if (assignOptions.length === 0) return;
-    
-    setCurrentPage(0);
-    setKanbanPage(0);
-    setAllKanbanLeads([]);
-    setHasMoreData(true);
-    
-    const hasActiveFilters = Object.keys(filters).length > 0;
+ useEffect(() => {
+  if (assignOptions.length === 0) return;
+  
+  // Reset pagination and data when filters change
+  setCurrentPage(0);
+  setKanbanPage(0);
+  setAllKanbanLeads([]);
+  setHasMoreData(true);
+  
+  // Use a flag to track if we have active filters
+  const hasActiveFilters = Object.keys(filters).some(key => {
+    const value = filters[key as keyof LeadFiltersType];
+    return value !== undefined && value !== null && value !== '' && 
+           !(key === 'dateRange' && !value);
+  });
 
-    if (viewMode === "kanban") {
-      if (hasActiveFilters && !searchQuery) {
-        fetchFilteredLeads(0);
-      } else if (!hasActiveFilters && !searchQuery) {
-        fetchLeads(0);
-      }
+  if (viewMode === "kanban") {
+    if (hasActiveFilters || searchQuery) {
+      fetchFilteredLeads(0);
     } else {
-      if (hasActiveFilters && !searchQuery) {
-        fetchFilteredLeads(0);
-      } else if (!hasActiveFilters && !searchQuery) {
-        fetchLeads(0);
-      }
+      fetchLeads(0);
     }
-  }, [filters, assignOptions.length]);
+  } else {
+    if (hasActiveFilters || searchQuery) {
+      fetchFilteredLeads(0);
+    } else {
+      fetchLeads(0);
+    }
+  }
+}, [filters, searchQuery, viewMode, assignOptions.length]);
 
   // Enhanced useEffect for assignOptions
   useEffect(() => {
@@ -954,7 +981,22 @@ const Leads = () => {
     setStatusChangeMessage("");
     setIsStatusChangeConfirmOpen(true);
   };
-
+const handleClearAllFilters = () => {
+  setFilters({});
+  setSearchQuery("");
+  setSortConfig(undefined);
+  setCurrentPage(0);
+  setKanbanPage(0);
+  setAllKanbanLeads([]);
+  setHasMoreData(true);
+  
+  // Fetch fresh data without filters
+  if (viewMode === "kanban") {
+    fetchKanbanLeads(true);
+  } else {
+    fetchLeads(0);
+  }
+};
   const handleConfirmStatusChange = async () => {
     if (!draggedLead || !targetStatus) return;
 

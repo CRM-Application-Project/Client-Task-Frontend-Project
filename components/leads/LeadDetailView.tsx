@@ -35,23 +35,22 @@ interface Lead {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
-  leadAssignedTo: string;
-  customerMobileNumber: string;
+  leadAssignedTo: string | null;
+  companyName: string | null;
   companyEmailAddress: string;
-  customerName: string;
+  customerMobileNumber: string;
   customerEmailAddress: string;
-  leadAddress: string;
-  comment?: string;
-  leadLabel?: string;
-  leadReference?: string;
+  customerName: string;
   leadPriority: LeadPriority;
-  companyName?: string;
-  company?: string;
+  leadLabel: string;
+  leadReference: string;
+  leadAddress: string;
+  comment: string;
+  leadFollowUp: string;
+  nextFollowUpDate: string | null;
   createdAt: string;
   updatedAt: string;
   assignedToName?: string;
-  leadFollowUp?: string;
-  nextFollowUpDate?: string;
 }
 
 interface LeadDetailViewProps {
@@ -240,10 +239,10 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
                 </Badge>
               </div>
               
-              {shouldDisplay(lead.company) && (
+              {shouldDisplay(lead.companyName) && (
                 <div className="flex items-center gap-2 text-gray-600 text-sm">
                   <Building className="h-4 w-4" />
-                  <span>{lead.company}</span>
+                  <span>{lead.companyName}</span>
                 </div>
               )}
               
@@ -396,7 +395,7 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
                 <div>
                   <p className="text-gray-500 text-sm">Next Follow-up</p>
                   <p className="text-gray-900 font-medium">
-                    {formatDate(lead.nextFollowUpDate)}
+                    {formatDate(lead.nextFollowUpDate!)}
                   </p>
                 </div>
               </div>

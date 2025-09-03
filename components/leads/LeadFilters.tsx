@@ -105,9 +105,47 @@ export const LeadFilters = ({
   }, [leadStages]);
 
   // Sync local filters with props filters
-  useEffect(() => {
-    setLocalFilters(filters);
-  }, [filters]);
+ // Update the useEffect to properly sync filters
+useEffect(() => {
+  setLocalFilters(filters);
+}, [filters]);
+const logFilterState = (filters: ExtendedLeadFilters) => {
+  console.log("Current filters:", {
+    status: filters.status,
+    priority: filters.priority,
+    source: filters.source,
+    assignedTo: filters.assignedTo,
+    label: filters.label,
+    dateRange: filters.dateRange,
+    
+  });
+};
+// Update the handleApply function
+const handleApply = async () => {
+  if (isApplying) return;
+  
+  setIsApplying(true);
+  try {
+    // Apply the local filters to parent
+     logFilterState(localFilters); 
+    onFiltersChange(localFilters);
+    
+    // Let parent handle the API call
+    await onApplyFilters();
+  } catch (error) {
+    console.error("Error applying filters:", error);
+  } finally {
+    setTimeout(() => setIsApplying(false), 1000);
+  }
+};
+
+// Update the handleClear function
+const handleClear = () => {
+  const emptyFilters = {};
+  setLocalFilters(emptyFilters);
+  onFiltersChange(emptyFilters);
+  onClearAllFilters();
+};
 
   // Fetch assignees with better error handling and loading states
   const fetchAssignees = useCallback(async () => {
@@ -157,28 +195,8 @@ export const LeadFilters = ({
     setIsDatePickerOpen(false);
   };
 
-  const handleApply = async () => {
-    if (isApplying) return;
-    
-    setIsApplying(true);
-    try {
-      // Validate filters before applying
-      const validatedFilters = validateFilters(localFilters);
-      onFiltersChange(validatedFilters);
-      await onApplyFilters();
-    } catch (error) {
-      console.error("Error applying filters:", error);
-    } finally {
-      setTimeout(() => setIsApplying(false), 1000);
-    }
-  };
+  
 
-  const handleClear = () => {
-    const emptyFilters = {};
-    setLocalFilters(emptyFilters);
-    onFiltersChange(emptyFilters);
-    onClearAllFilters();
-  };
 
   // Validate and clean filters
   const validateFilters = (filters: ExtendedLeadFilters): ExtendedLeadFilters => {
@@ -380,22 +398,23 @@ export const LeadFilters = ({
             </Select>
 
             {/* Status - Fixed to properly handle stage selection */}
-            <Select
-              value={localFilters.status || "all"}
-              onValueChange={(value) => handleFilterChange("status", value)}
-            >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                {sortedLeadStages.map((stage) => (
-                  <SelectItem key={stage.leadStageId} value={stage.leadStageName}>
-                    {stage.leadStageName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            
+<Select
+  value={localFilters.status || "all"}
+  onValueChange={(value) => handleFilterChange("status", value)}
+>
+  <SelectTrigger className="w-full rounded-lg border-gray-300">
+    <SelectValue placeholder="Status" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Status</SelectItem>
+    {sortedLeadStages.map((stage) => (
+      <SelectItem key={stage.leadStageId} value={stage.leadStageName}>
+        {stage.leadStageName}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 
             {/* Labels */}
             <Select
