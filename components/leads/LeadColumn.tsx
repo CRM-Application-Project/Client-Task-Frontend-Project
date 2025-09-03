@@ -484,7 +484,7 @@ export const LeadColumn = ({
       onDragOver(e, currentStage.leadStageName);
     }
   };
-
+  const { permissions: leadPermissions, loading: leadPermissionsLoading } = usePermissions("lead");
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsColumnDraggedOver(false);
@@ -534,7 +534,7 @@ export const LeadColumn = ({
 
   return (
     <>
-      <div
+       <div
         ref={columnRef}
         className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
           isColumnDraggedOver
@@ -542,10 +542,10 @@ export const LeadColumn = ({
             : "bg-gray-50 border-gray-200"
         } ${isColumnDragging ? "opacity-50 scale-95" : ""} ${
           isDragOver ? "bg-gray-50 border-2 border-gray-300 border-dashed" : ""
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleStageDragLeave}
-        onDrop={handleDrop}
+        } ${!leadPermissions.canEdit ? "opacity-80 cursor-not-allowed" : ""}`} // Added disabled styling
+        onDragOver={leadPermissions.canEdit ? handleDragOver : undefined} // Only enable if can edit
+        onDragLeave={leadPermissions.canEdit ? handleStageDragLeave : undefined} // Only enable if can edit
+        onDrop={leadPermissions.canEdit ? handleDrop : undefined} // Only enable if can edit
         style={{
           willChange: "transform, box-shadow",
           transform: "translateZ(0)",
@@ -681,35 +681,42 @@ export const LeadColumn = ({
 
           {/* Leads cards */}
           <div className="space-y-3">
-            {leads?.map((lead, index) => (
-              <div
-                key={lead.leadId}
-                className="transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
-                style={{
-                  animationDelay: `${index * 50}ms`,
-                  willChange: "transform, opacity",
-                }}
-              >
-                <div
-                  draggable
-                  onDragStart={(e) => onDragStart(e, lead)}
-                  className="cursor-move"
-                >
-                  <LeadCard
-                    lead={lead}
-                    onEdit={onEditLead}
-                      stage={stage}
-                    onDelete={onDeleteLead}
-                    onView={onViewLead}
-                    onAddFollowUp={onAddFollowUp}
-                    onChangeAssign={onChangeAssign}
-                    onImportLead={onImportLead}
-                    onLeadSorting={onLeadSorting}
-                    onChangeStatus={onChangeStatus}
-                  />
-                </div>
-              </div>
-            ))}
+          {leads?.map((lead, index) => {
+  // Check if lead editing is disabled for this specific lead
+  const isClosedStage = lead.leadStatus?.toLowerCase().includes('closed') || 
+                       lead.leadStatus?.toLowerCase().includes('clos');
+  const canEditLead = leadPermissions.canEdit && !isClosedStage;
+  
+  return (
+    <div
+      key={lead.leadId}
+      className="transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
+      style={{
+        animationDelay: `${index * 50}ms`,
+        willChange: "transform, opacity",
+      }}
+    >
+      <div
+        draggable={canEditLead} // Use the same condition as edit icon
+        onDragStart={canEditLead ? (e) => onDragStart(e, lead) : undefined}
+        className={canEditLead ? "cursor-move" : "cursor-not-allowed"}
+      >
+        <LeadCard
+          lead={lead}
+          onEdit={onEditLead}
+          stage={stage}
+          onDelete={onDeleteLead}
+          onView={onViewLead}
+          onAddFollowUp={onAddFollowUp}
+          onChangeAssign={onChangeAssign}
+          onImportLead={onImportLead}
+          onLeadSorting={onLeadSorting}
+          onChangeStatus={onChangeStatus}
+        />
+      </div>
+    </div>
+  );
+})}
           </div>
 
           {/* Add Lead Button - Only show for first column (stageIndex === 0) */}
