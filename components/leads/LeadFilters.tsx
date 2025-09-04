@@ -27,7 +27,7 @@ import {
   LeadStatus,
   LeadSource,
 } from "../../lib/leads";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { DateRangePicker } from "../task/DateRangePicker";
 import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -49,6 +49,7 @@ interface ExtendedLeadFilters extends LeadFiltersType {
 interface LeadFiltersProps {
   filters: ExtendedLeadFilters;
   onFiltersChange: (filters: ExtendedLeadFilters) => void;
+  assignees: AssignDropdown[]; 
   onAddLead: () => void;
   onAddStage: () => void;
   searchQuery: string;
@@ -66,6 +67,7 @@ export const LeadFilters = ({
   filters,
   onFiltersChange,
   onAddLead,
+  assignees,
   onAddStage,
   searchQuery,
   onSearchChange,
@@ -89,12 +91,15 @@ export const LeadFilters = ({
   ];
   const labels = ["Important", "Cold", "Hot", "Warm"];
   
-  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
+  
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [localFilters, setLocalFilters] = useState<ExtendedLeadFilters>(filters);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
+  
+  // Use a ref to track if assignees have been fetched
+  const assigneesFetchedRef = useRef(false);
   
   const { permissions: leadPermissions, loading: permissionsLoading } = usePermissions("lead");
   const { permissions: stagepermissions, loading: stagepermissionsLoading } = usePermissions("lead_stage");
@@ -108,6 +113,9 @@ export const LeadFilters = ({
   useEffect(() => {
     setLocalFilters(filters);
   }, []); // Remove filters dependency to prevent sync loops
+
+  // Fetch assignees only once
+  // No dependencies to prevent re-fetching
 
   // Handle applying filters
   const handleApply = async () => {
@@ -132,52 +140,33 @@ export const LeadFilters = ({
   };
 
   // Handle clearing filters
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     const emptyFilters = {};
     setLocalFilters(emptyFilters);
     onFiltersChange(emptyFilters);
     onClearAllFilters();
-  };
+  }, [onFiltersChange, onClearAllFilters]);
 
-  // Fetch assignees with better error handling and loading states
-  const fetchAssignees = useCallback(async () => {
-    if (loadingAssignees) return;
-    
-    setLoadingAssignees(true);
-    try {
-      const response = await getAssignDropdown();
-      if (response?.isSuccess && response?.data) {
-        setAssignees(response.data);
-      } else {
-        console.error("Failed to fetch assignees:", response?.message);
-        setAssignees([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch assignees:", error);
-      setAssignees([]);
-    } finally {
-      setLoadingAssignees(false);
-    }
-  }, [loadingAssignees]);
-
-  useEffect(() => {
-    fetchAssignees();
-  }, []);
-
-  const clearDateRange = () => {
-    const { dateRange, ...rest } = localFilters;
-    const newFilters = rest;
+  // Handle filter changes - only update local state, apply on button click
+  const handleFilterChange = useCallback((key: keyof ExtendedLeadFilters, value: any) => {
+    const newFilters = {
+      ...localFilters,
+      [key]: value === "all" || value === "" ? undefined : value,
+    };
     setLocalFilters(newFilters);
-  };
+  }, [localFilters]);
 
-  const handleDateRangeSelect = (range: DateRange) => {
+  // Handle date range changes
+  const handleDateRangeSelect = useCallback((range: DateRange) => {
     const newFilters = { ...localFilters, dateRange: range };
     setLocalFilters(newFilters);
     setIsDatePickerOpen(false);
-  };
+  }, [localFilters]);
 
-  
-
+  const clearDateRange = useCallback(() => {
+    const { dateRange, ...rest } = localFilters;
+    setLocalFilters(rest);
+  }, [localFilters]);
 
   // Validate and clean filters
   const validateFilters = (filters: ExtendedLeadFilters): ExtendedLeadFilters => {
@@ -213,15 +202,6 @@ export const LeadFilters = ({
       console.error("Error formatting date range:", error);
       return "Invalid Date Range";
     }
-  };
-
-  // Handle filter changes - only update local state, apply on button click
-  const handleFilterChange = (key: keyof ExtendedLeadFilters, value: any) => {
-    const newFilters = {
-      ...localFilters,
-      [key]: value === "all" || value === "" ? undefined : value,
-    };
-    setLocalFilters(newFilters);
   };
 
   return (
@@ -335,12 +315,12 @@ export const LeadFilters = ({
                     : "border-gray-300"
                 }`}
               >
-             <span className="flex items-center gap-2 text-gray-600">
-  <Calendar className="h-4 w-4 text-gray-600" />
-  {localFilters.dateRange
-    ? formatDateRange(localFilters.dateRange)
-    : "Date Range"}
-</span>
+                <span className="flex items-center gap-2 text-gray-600">
+                  <Calendar className="h-4 w-4 text-gray-600" />
+                  {localFilters.dateRange
+                    ? formatDateRange(localFilters.dateRange)
+                    : "Date Range"}
+                </span>
 
                 {localFilters.dateRange && (
                   <X
@@ -379,24 +359,23 @@ export const LeadFilters = ({
               </SelectContent>
             </Select>
 
-            {/* Status - Fixed to properly handle stage selection */}
-            
-<Select
-  value={localFilters.status || "all"}
-  onValueChange={(value) => handleFilterChange("status", value)}
->
-  <SelectTrigger className="w-full rounded-lg border-gray-300">
-    <SelectValue placeholder="Status" />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="all">All Status</SelectItem>
-    {sortedLeadStages.map((stage) => (
-      <SelectItem key={stage.leadStageId} value={stage.leadStageName}>
-        {stage.leadStageName}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+            {/* Status */}
+            <Select
+              value={localFilters.status || "all"}
+              onValueChange={(value) => handleFilterChange("status", value)}
+            >
+              <SelectTrigger className="w-full rounded-lg border-gray-300">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                {sortedLeadStages.map((stage) => (
+                  <SelectItem key={stage.leadStageId} value={stage.leadStageName}>
+                    {stage.leadStageName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Labels */}
             <Select
@@ -474,6 +453,7 @@ export const LeadFilters = ({
           </div>
         </div>
       </div>
+      
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="absolute -bottom-6 left-1/2 -translate-x-1/2 
@@ -488,15 +468,3 @@ export const LeadFilters = ({
     </div>
   );
 };
-
-// Debounce utility function
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}

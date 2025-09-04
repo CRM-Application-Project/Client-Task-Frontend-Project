@@ -88,8 +88,13 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
+type CountryCode = {
+  name: string;
+  code: string;
+};
 interface EditLeadModalProps {
+  countryCodes: CountryCode[];
+  loadingCountryCodes: boolean;
   isOpen: boolean;
   onClose: () => void;
   onUpdateLead: (lead: Lead) => void;
@@ -98,6 +103,8 @@ interface EditLeadModalProps {
 }
 
 const EditLeadModal: React.FC<EditLeadModalProps> = ({
+  countryCodes,
+  loadingCountryCodes,
   isOpen,
   onClose,
   onUpdateLead,
@@ -108,8 +115,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedCode, setSelectedCode] = useState("+91");
-  const { codes: countryCodes, loading: loadingCountryCodes } =
-    useCountryCodes();
+
   const [stages, setStages] = useState<LeadStage[]>([]);
   const [loadingStages, setLoadingStages] = useState(false);
 

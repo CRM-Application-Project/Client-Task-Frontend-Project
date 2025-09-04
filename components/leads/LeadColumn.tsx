@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
-import { deleteLeadStage } from "@/app/services/data.service";
+import { AssignDropdown, deleteLeadStage } from "@/app/services/data.service";
 import { LeadCard } from "./LeadCard";
 import { LeadStage } from "@/lib/data";
 import { Pencil, MoreVertical, Trash2 } from "lucide-react";
@@ -22,6 +22,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 interface LeadColumnProps {
   stage: LeadStage;
   leads: Lead[];
+  assignees: AssignDropdown[]; 
   onEditLead?: (lead: Lead) => void;
   onDeleteLead?: (lead: Lead) => void;
   onViewLead?: (lead: Lead) => void;
@@ -237,6 +238,7 @@ export const LeadColumn = ({
   leads,
   onEditLead,
   onDeleteLead,
+  assignees,
   onViewLead,
   onAddFollowUp,
   onChangeAssign,
@@ -312,6 +314,7 @@ export const LeadColumn = ({
       }, 16);
     }
   }, []);
+
 
   // Stage drag and drop handlers
   const handleStageDragStart = (e: React.DragEvent) => {
@@ -703,6 +706,7 @@ export const LeadColumn = ({
       >
         <LeadCard
           lead={lead}
+          assignees={assignees}
           onEdit={onEditLead}
           stage={stage}
           onDelete={onDeleteLead}

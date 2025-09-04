@@ -38,6 +38,8 @@ import {
 import { CreateLeadStageModal } from "@/components/leads/LeadStageModal";
 import { ChangeStatusConfirmModal } from "@/components/leads/ChangeStatusDragConfirmModal";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useCountryCodes } from "@/hooks/useCountryCodes";
 
 // Updated Lead interface
 interface Lead {
@@ -142,10 +144,184 @@ const Leads = () => {
   const [targetStatus, setTargetStatus] = useState<string>("");
   const [statusChangeMessage, setStatusChangeMessage] = useState("");
 
+  // Optimized state management
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const lastFetchParamsRef = useRef<string>("");
+  const fetchingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const initializingRef = useRef(false);
+
+  // Debounce filters and search query with longer delay to reduce API calls
+  const debouncedFilters = useDebounce(filters, 500);
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
   const { toast } = useToast();
 
+  // Consolidated fetch function to prevent duplicate API calls
+  const fetchData = useCallback(async (
+    page = 0, 
+    append = false, 
+    forceRefresh = false
+  ) => {
+    // Prevent multiple simultaneous calls
+    if (fetchingRef.current && !forceRefresh) {
+      console.log('Fetch already in progress, skipping...');
+      return;
+    }
+
+    // Create parameters signature to prevent duplicate calls
+    const hasActiveFilters = Object.keys(debouncedFilters).length > 0 || debouncedSearchQuery;
+    const paramsSignature = JSON.stringify({
+      page,
+      viewMode,
+      filters: debouncedFilters,
+      search: debouncedSearchQuery,
+      pageSize: viewMode === "kanban" ? 50 : pageSize
+    });
+
+    // Skip if same parameters (unless force refresh or appending)
+    if (!forceRefresh && !append && lastFetchParamsRef.current === paramsSignature) {
+      console.log('Same parameters, skipping fetch');
+      return;
+    }
+
+    fetchingRef.current = true;
+
+    try {
+      // Cancel previous request if it exists
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+
+      setIsFetching(true);
+      if (!append) setIsLoading(true);
+
+      const effectivePageSize = viewMode === "kanban" ? 50 : pageSize;
+      let response;
+
+      if (hasActiveFilters) {
+        // Build filter params
+        const filterParams: any = {
+          page,
+          size: effectivePageSize,
+        };
+
+        // Add filters only if they exist
+        if (debouncedFilters.dateRange?.from) {
+          filterParams.startDate = format(debouncedFilters.dateRange.from, "yyyy-MM-dd");
+        }
+        if (debouncedFilters.dateRange?.to) {
+          filterParams.endDate = format(debouncedFilters.dateRange.to, "yyyy-MM-dd");
+        }
+        if (debouncedFilters.status) {
+          filterParams.leadStatus = debouncedFilters.status;
+        }
+        if (debouncedFilters.priority) {
+          filterParams.leadPriority = debouncedFilters.priority;
+        }
+        if (debouncedFilters.label) {
+          filterParams.leadLabel = debouncedFilters.label;
+        }
+        if (debouncedFilters.source) {
+          filterParams.leadSource = debouncedFilters.source;
+        }
+        if (debouncedFilters.assignedTo && debouncedFilters.assignedTo !== "all") {
+          const assignee = assignOptions.find(opt => opt.id === debouncedFilters.assignedTo);
+          filterParams.assignedTo = assignee?.label || null;
+        }
+        if (debouncedFilters.sortBy) {
+          filterParams.sortBy = debouncedFilters.sortBy;
+        }
+        if (debouncedFilters.sortOrder) {
+          filterParams.direction = debouncedFilters.sortOrder;
+        }
+
+        // Add search query to filters if exists
+        if (debouncedSearchQuery) {
+          filterParams.searchQuery = debouncedSearchQuery;
+        }
+
+        // Remove null/undefined values
+        const cleanedParams = Object.fromEntries(
+          Object.entries(filterParams).filter(([_, value]) => 
+            value !== null && value !== undefined && value !== ""
+          )
+        );
+
+        response = await filterLeads(cleanedParams);
+      } else {
+        // No filters, use getAllLeads
+        const params = {
+          page,
+          size: effectivePageSize
+        };
+        response = await getAllLeads(params);
+      }
+
+      // Check if request was aborted
+      if (abortControllerRef.current.signal.aborted) {
+        return;
+      }
+
+      if (response.isSuccess && response.data) {
+        const enhancedLeads = response.data.items.map((lead: Lead) =>
+          enhanceLeadWithAssigneeName(lead, assignOptions)
+        );
+        
+        if (viewMode === "grid") {
+          setLeads(enhancedLeads);
+          setCurrentPage(response.data.currentPage);
+          setPaginationData({
+            currentPage: response.data.currentPage,
+            pageSize: response.data.pageSize,
+            totalElements: response.data.totalElements,
+            totalPages: response.data.totalPages,
+            lastPage: response.data.lastPage
+          });
+        } else {
+          if (append) {
+            setAllKanbanLeads(prev => [...prev, ...enhancedLeads]);
+            setKanbanPage(page);
+          } else {
+            setAllKanbanLeads(enhancedLeads);
+            setKanbanPage(0);
+          }
+          setHasMoreData(!response.data.lastPage);
+        }
+
+        // Update last fetch params
+        lastFetchParamsRef.current = paramsSignature;
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error("Failed to fetch leads:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fetch leads",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      setIsFetching(false);
+      fetchingRef.current = false;
+    }
+  }, [
+    debouncedFilters, 
+    debouncedSearchQuery, 
+    viewMode, 
+    pageSize, 
+    assignOptions, 
+    toast
+  ]);
+
   // Fetch lead stages from API
-  const fetchLeadStagesData = async () => {
+  const fetchLeadStagesData = useCallback(async () => {
     try {
       const response = await fetchLeadStages();
       if (response.isSuccess && response.data) {
@@ -162,29 +338,200 @@ const Leads = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   const sortedLeadStages = useMemo(
-    () =>
-      [...leadStages].sort((a, b) => a.leadStagePriority - b.leadStagePriority),
+    () => [...leadStages].sort((a, b) => a.leadStagePriority - b.leadStagePriority),
     [leadStages]
   );
 
   const [isReorderingStages, setIsReorderingStages] = useState(false);
   const reorderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Initialize data only once
+  useEffect(() => {
+    const initializeData = async () => {
+      if (isInitialized || initializingRef.current) return;
+      
+      initializingRef.current = true;
+      setIsLoading(true);
+
+      try {
+        console.log('Initializing component data...');
+        
+        // Fetch both assign options and lead stages in parallel
+        const [assignResponse] = await Promise.all([
+          getAssignDropdown(),
+          fetchLeadStagesData()
+        ]);
+
+        if (assignResponse.isSuccess && assignResponse.data) {
+          setAssignOptions(assignResponse.data);
+        }
+
+        setIsInitialized(true);
+        console.log('Component data initialized successfully');
+      } catch (error) {
+        console.error("Failed to initialize data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load initial data",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+        initializingRef.current = false;
+      }
+    };
+
+    initializeData();
+  }, []); // No dependencies to prevent re-initialization
+
+  // Single effect to handle all data fetching
+  useEffect(() => {
+    // Wait for initialization and assign options
+    if (!isInitialized || assignOptions.length === 0 || isFetching) {
+      return;
+    }
+
+    console.log('Fetching data due to filter/search/view changes...');
+    
+    // Reset pagination when filters/search/view changes
+    setKanbanPage(0);
+    setCurrentPage(0);
+    setHasMoreData(true);
+    
+    // Clear kanban data for fresh load
+    if (viewMode === "kanban") {
+      setAllKanbanLeads([]);
+    }
+    
+    // Fetch data
+    fetchData(0, false, true);
+  }, [
+    isInitialized, 
+    assignOptions.length, 
+    debouncedFilters, 
+    debouncedSearchQuery, 
+    viewMode,
+    fetchData
+  ]);
+
+  // Optimized infinite scroll for kanban
+  const loadMoreKanbanData = useCallback(async () => {
+    if (isLoadingMore || !hasMoreData || fetchingRef.current || viewMode !== "kanban") {
+      return;
+    }
+    
+    console.log('Loading more kanban data...');
+    setIsLoadingMore(true);
+    const nextPage = kanbanPage + 1;
+    
+    await fetchData(nextPage, true);
+  }, [kanbanPage, hasMoreData, isLoadingMore, viewMode, fetchData]);
+
+  // Optimized pagination for grid
+  const handlePageChange = useCallback((newPage: number) => {
+    if (
+      newPage >= 0 && 
+      newPage < paginationData.totalPages && 
+      !fetchingRef.current &&
+      newPage !== currentPage
+    ) {
+      console.log(`Changing to page ${newPage}`);
+      setCurrentPage(newPage);
+      fetchData(newPage);
+    }
+  }, [paginationData.totalPages, currentPage, fetchData]);
+
+  // Cleanup function
   useEffect(() => {
     return () => {
       if (reorderTimeoutRef.current) {
         clearTimeout(reorderTimeoutRef.current);
       }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, []);
 
-  const handleStageUpdate = (updatedStage: LeadStage, skipRefresh = false) => {
-    if (isReorderingStages) {
-      return;
+  // Infinite scroll hook for kanban view
+  useEffect(() => {
+    if (viewMode !== "kanban") return;
+
+    const handleScroll = () => {
+      const threshold = 1000;
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      
+      if (scrollTop + clientHeight >= scrollHeight - threshold) {
+        loadMoreKanbanData();
+      }
+    };
+
+    const throttledScroll = throttle(handleScroll, 200);
+    window.addEventListener('scroll', throttledScroll);
+    
+    return () => window.removeEventListener('scroll', throttledScroll);
+  }, [loadMoreKanbanData, viewMode]);
+
+  // Utility function to enhance lead with assignee name
+  const enhanceLeadWithAssigneeName = (lead: Lead, assignOptions: AssignDropdown[]): Lead => {
+    const assignee = assignOptions.find((opt) => opt.id === lead.leadAddedBy);
+    return {
+      ...lead,
+      assignedToName: assignee ? assignee.label : lead.leadAddedBy,
+      companyName: lead.companyName || lead.companyEmailAddress,
+    };
+  };
+
+  // Optimized filter change handler
+  const handleFiltersChange = useCallback((newFilters: LeadFiltersType) => {
+    console.log('Filters changed:', newFilters);
+    setFilters(newFilters);
+  }, []);
+
+  // Optimized search change handler
+  const handleSearchChange = useCallback((query: string) => {
+    console.log('Search query changed:', query);
+    setSearchQuery(query);
+  }, []);
+
+  // Optimized view mode change
+  const handleViewModeChange = useCallback((mode: "kanban" | "grid") => {
+    if (mode !== viewMode) {
+      console.log('View mode changed to:', mode);
+      setViewMode(mode);
     }
+  }, [viewMode]);
+
+  // Optimized clear filters
+  const handleClearAllFilters = useCallback(() => {
+    console.log('Clearing all filters');
+    setFilters({});
+    setSearchQuery("");
+    setSortConfig(undefined);
+  }, []);
+
+  // Search functionality - moved to useMemo for better performance
+  const filteredLeads = useMemo(() => {
+    const sourceLeads = viewMode === "grid" ? leads : allKanbanLeads;
+    
+    if (!debouncedSearchQuery) {
+      return sourceLeads;
+    }
+
+    const searchLower = debouncedSearchQuery.toLowerCase();
+    return sourceLeads.filter((lead) => 
+      lead.customerName?.toLowerCase().includes(searchLower) ||
+      lead.companyEmailAddress?.toLowerCase().includes(searchLower) ||
+      lead.customerEmailAddress?.toLowerCase().includes(searchLower)
+    );
+  }, [debouncedSearchQuery, leads, allKanbanLeads, viewMode]);
+
+  // Stage handlers remain the same but with better error handling
+  const handleStageUpdate = (updatedStage: LeadStage, skipRefresh = false) => {
+    if (isReorderingStages) return;
 
     setLeadStages((prevStages) =>
       prevStages.map((s) =>
@@ -446,41 +793,12 @@ const Leads = () => {
     }
   };
 
-  const getAssignedToLabel = (id: string | undefined): string | null => {
-    if (!id) return null;
-    const option = assignOptions.find((opt) => opt.id === id);
-    return option ? option.label : null;
-  };
-
-  const enhanceLeadWithAssigneeName = (
-    lead: Lead,
-    assignOptions: AssignDropdown[]
-  ): Lead => {
-    const assignee = assignOptions.find((opt) => opt.id === lead.leadAddedBy);
-    return {
-      ...lead,
-      assignedToName: assignee ? assignee.label : lead.leadAddedBy,
-      companyName: lead.companyName || lead.companyEmailAddress,
-    };
-  };
-
   const handleAddNewLead = (apiLeadData: any) => {
     if (!apiLeadData) return;
 
     const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
     setLeads((prevLeads) => [newLead, ...prevLeads]);
     setAllKanbanLeads((prevLeads) => [newLead, ...prevLeads]);
-    
-    if (viewMode === "grid") {
-      setCurrentPage(0);
-      fetchLeads();
-    }
-    
-    if (viewMode === "kanban") {
-      setKanbanPage(0);
-      setAllKanbanLeads([]);
-      fetchKanbanLeads(true);
-    }
   };
 
   const [restrictToFirstStage, setRestrictToFirstStage] = useState(false);
@@ -534,183 +852,6 @@ const Leads = () => {
     setAllKanbanLeads((prevLeads) => [newLead, ...prevLeads]);
   };
 
-  // Updated fetch functions with pagination
-const fetchFilteredLeads = async (page = 0, append = false) => {
-  try {
-    setIsLoading(!append);
-
-    // Build filter params correctly
-    const filterParams: any = {
-      page,
-      size: viewMode === "kanban" ? 50 : pageSize, // Different page sizes for different views
-    };
-
-    // Add filters only if they exist
-    if (filters.dateRange?.from) {
-      filterParams.startDate = format(filters.dateRange.from, "yyyy-MM-dd");
-    }
-    if (filters.dateRange?.to) {
-      filterParams.endDate = format(filters.dateRange.to, "yyyy-MM-dd");
-    }
-    if (filters.status) {
-      filterParams.leadStatus = filters.status;
-    }
-    if (filters.priority) {
-      filterParams.leadPriority = filters.priority;
-    }
-    if (filters.label) {
-      filterParams.leadLabel = filters.label;
-    }
-    if (filters.source) {
-      filterParams.leadSource = filters.source;
-    }
-    if (filters.assignedTo && filters.assignedTo !== "all") {
-      // Get the actual label from assignOptions
-      const assignee = assignOptions.find(opt => opt.id === filters.assignedTo);
-      filterParams.assignedTo = assignee?.label || null;
-    }
-    if (filters.sortBy) {
-      filterParams.sortBy = filters.sortBy;
-    }
-    if (filters.sortOrder) {
-      filterParams.direction = filters.sortOrder;
-    }
-
-    // Remove null/undefined values
-    const cleanedParams = Object.fromEntries(
-      Object.entries(filterParams).filter(([_, value]) => 
-        value !== null && value !== undefined && value !== ""
-      )
-    );
-
-    const response = await filterLeads(cleanedParams);
-
-      if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.items.map((lead: Lead) =>
-          enhanceLeadWithAssigneeName(lead, assignOptions)
-        );
-        
-        if (viewMode === "grid") {
-          setLeads(enhancedLeads);
-          setPaginationData({
-            currentPage: response.data.currentPage,
-            pageSize: response.data.pageSize,
-            totalElements: response.data.totalElements,
-            totalPages: response.data.totalPages,
-            lastPage: response.data.lastPage
-          });
-        } else {
-          if (append) {
-            setAllKanbanLeads(prev => [...prev, ...enhancedLeads]);
-          } else {
-            setAllKanbanLeads(enhancedLeads);
-          }
-          setHasMoreData(!response.data.lastPage);
-        }
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to filter leads",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  };
-
-  const fetchLeads = async (page = 0, append = false) => {
-    try {
-      if (!append) setIsLoading(true);
-
-      const params = {
-        page,
-        size: pageSize
-      };
-
-      const response = await getAllLeads(params);
-      
-      if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.items.map((lead: Lead) =>
-          enhanceLeadWithAssigneeName(lead, assignOptions)
-        );
-        
-        if (viewMode === "grid") {
-          setLeads(enhancedLeads);
-          setPaginationData({
-            currentPage: response.data.currentPage,
-            pageSize: response.data.pageSize,
-            totalElements: response.data.totalElements,
-            totalPages: response.data.totalPages,
-            lastPage: response.data.lastPage
-          });
-        } else {
-          if (append) {
-            setAllKanbanLeads(prev => [...prev, ...enhancedLeads]);
-          } else {
-            setAllKanbanLeads(enhancedLeads);
-          }
-          setHasMoreData(!response.data.lastPage);
-        }
-      }
-    } catch (error: any) {
-      console.error("Failed to fetch leads:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch leads",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  };
-
-  const fetchKanbanLeads = async (reset = false) => {
-    const page = reset ? 0 : kanbanPage;
-    const hasActiveFilters = Object.keys(filters).length > 0;
-    
-    if (hasActiveFilters && !searchQuery) {
-      await fetchFilteredLeads(page, !reset);
-    } else {
-      await fetchLeads(page, !reset);
-    }
-    
-    if (reset) {
-      setKanbanPage(0);
-    }
-  };
-
-  const loadMoreKanbanData = useCallback(async () => {
-    if (isLoadingMore || !hasMoreData) return;
-    
-    setIsLoadingMore(true);
-    const nextPage = kanbanPage + 1;
-    setKanbanPage(nextPage);
-    
-    const hasActiveFilters = Object.keys(filters).length > 0;
-    
-    if (hasActiveFilters && !searchQuery) {
-      await fetchFilteredLeads(nextPage, true);
-    } else {
-      await fetchLeads(nextPage, true);
-    }
-  }, [kanbanPage, hasMoreData, isLoadingMore, filters, searchQuery, pageSize]);
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 0 && newPage < paginationData.totalPages) {
-      setCurrentPage(newPage);
-      const hasActiveFilters = Object.keys(filters).length > 0;
-      
-      if (hasActiveFilters && !searchQuery) {
-        fetchFilteredLeads(newPage);
-      } else {
-        fetchLeads(newPage);
-      }
-    }
-  };
-
   // Pagination component for grid view
   const PaginationComponent = () => {
     if (paginationData.totalPages === 0) return null;
@@ -743,188 +884,74 @@ const fetchFilteredLeads = async (page = 0, append = false) => {
       return pages;
     };
 
-  return (
-  <div className="flex items-center justify-between px-6 py-3 bg-white border-t border-gray-200">
-    {/* Showing results info */}
-    <div className="flex items-center text-sm text-gray-700">
-      <span>
-        Showing {paginationData.currentPage * paginationData.pageSize + 1} to{" "}
-        {Math.min(
-          (paginationData.currentPage + 1) * paginationData.pageSize,
-          paginationData.totalElements
-        )}{" "}
-        of {paginationData.totalElements} results
-      </span>
-    </div>
+    return (
+      <div className="flex items-center justify-between px-6 py-3 bg-white border-t border-gray-200">
+        <div className="flex items-center text-sm text-gray-700">
+          <span>
+            Showing {paginationData.currentPage * paginationData.pageSize + 1} to{" "}
+            {Math.min(
+              (paginationData.currentPage + 1) * paginationData.pageSize,
+              paginationData.totalElements
+            )}{" "}
+            of {paginationData.totalElements} results
+          </span>
+        </div>
 
-    {/* Pagination controls */}
-    <div className="flex items-center space-x-2">
-      {/* Previous Button */}
-      <button
-        onClick={() => handlePageChange(paginationData.currentPage - 1)}
-        disabled={paginationData.currentPage === 0}
-        className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Previous
-      </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handlePageChange(paginationData.currentPage - 1)}
+            disabled={paginationData.currentPage === 0}
+            className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Previous
+          </button>
 
-      {/* Page Numbers */}
-      <div className="flex space-x-1">
-        {generatePageNumbers().map((pageNum, index) => {
-          if (pageNum === -1 || pageNum === -2) {
-            return (
-              <span
-                key={`ellipsis-${index}`}
-                className="relative inline-flex items-center px-3 py-2 text-sm font-medium bg-white text-gray-500 border border-gray-300 cursor-default"
-              >
-                ...
-              </span>
-            );
-          }
+          <div className="flex space-x-1">
+            {generatePageNumbers().map((pageNum, index) => {
+              if (pageNum === -1 || pageNum === -2) {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="relative inline-flex items-center px-3 py-2 text-sm font-medium bg-white text-gray-500 border border-gray-300 cursor-default"
+                  >
+                    ...
+                  </span>
+                );
+              }
 
-          return (
-            <button
-              key={pageNum}
-              onClick={() => handlePageChange(pageNum)}
-              className={`relative inline-flex items-center px-3 py-2 text-sm font-medium border rounded-md ${
-                paginationData.currentPage === pageNum
-                  ? "bg-brand-primary text-white border-brand-primary"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {pageNum + 1}
-            </button>
-          );
-        })}
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`relative inline-flex items-center px-3 py-2 text-sm font-medium border rounded-md ${
+                    paginationData.currentPage === pageNum
+                      ? "bg-brand-primary text-white border-brand-primary"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {pageNum + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => handlePageChange(paginationData.currentPage + 1)}
+            disabled={paginationData.lastPage}
+            className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-
-      {/* Next Button */}
-      <button
-        onClick={() => handlePageChange(paginationData.currentPage + 1)}
-        disabled={paginationData.lastPage}
-        className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Next
-        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-    </div>
-  </div>
-);
-
+    );
   };
-
-  // Reset pagination when view mode changes
-  useEffect(() => {
-    setCurrentPage(0);
-    setKanbanPage(0);
-    setAllKanbanLeads([]);
-    setHasMoreData(true);
-    
-    // Use fetchFilteredLeads for consistency across all data fetching
-    console.log("View mode changed, fetching with filters:", filters);
-    fetchFilteredLeads(0);
-  }, [viewMode]);
-
-  // Handle filters change
- useEffect(() => {
-  if (assignOptions.length === 0) return;
-  
-  // Reset pagination and data when filters change
-  setCurrentPage(0);
-  setKanbanPage(0);
-  setAllKanbanLeads([]);
-  setHasMoreData(true);
-  
-  // Always use fetchFilteredLeads - it handles empty filters gracefully
-  // This ensures consistent behavior and prevents the initial fetchAllLeads call
-  console.log("Filters changed, calling fetchFilteredLeads with:", filters);
-  fetchFilteredLeads(0);
-}, [filters, searchQuery, viewMode, assignOptions.length]);
-
-  // Enhanced useEffect for assignOptions
-  useEffect(() => {
-    const fetchAssignOptions = async () => {
-      try {
-        const response = await getAssignDropdown();
-        if (response.isSuccess && response.data) {
-          setAssignOptions(response.data);
-          
-          if (viewMode === "grid") {
-            setLeads(prevLeads => {
-              if (prevLeads?.length > 0) {
-                return prevLeads.map((lead) => 
-                  enhanceLeadWithAssigneeName(lead, response.data!)
-                );
-              }
-              return prevLeads;
-            });
-          } else {
-            setAllKanbanLeads(prevLeads => {
-              if (prevLeads?.length > 0) {
-                return prevLeads.map((lead) => 
-                  enhanceLeadWithAssigneeName(lead, response.data!)
-                );
-              }
-              return prevLeads;
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch assign options:", error);
-      }
-    };
-
-    fetchAssignOptions();
-    fetchLeadStagesData();
-  }, []);
-
-  // Initial data load
-  useEffect(() => {
-    if (assignOptions.length > 0) {
-      // Use fetchFilteredLeads for all initial loads to ensure consistency
-      console.log("Initial data load with filters:", filters);
-      fetchFilteredLeads(0);
-    }
-  }, [assignOptions.length]);
-
-  // Infinite scroll hook for kanban view
-  useEffect(() => {
-    if (viewMode !== "kanban") return;
-
-    const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop >=
-        document.documentElement.offsetHeight - 1000
-      ) {
-        loadMoreKanbanData();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [loadMoreKanbanData, viewMode]);
-
-  // Search functionality
-  const filteredLeads = searchQuery
-    ? (viewMode === "grid" ? leads : allKanbanLeads).filter((lead) => {
-        return (
-          lead.customerName
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          lead.companyEmailAddress
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          lead.customerEmailAddress
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase())
-        );
-      })
-    : viewMode === "grid" ? leads : allKanbanLeads;
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, lead: Lead) => {
@@ -933,19 +960,13 @@ const fetchFilteredLeads = async (page = 0, append = false) => {
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (
-    e: React.DragEvent<HTMLDivElement>,
-    stageName: string
-  ) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, stageName: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverStage(stageName);
   };
 
-  const handleDrop = async (
-    e: React.DragEvent<HTMLDivElement>,
-    newStatus: string
-  ) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, newStatus: string) => {
     e.preventDefault();
     setDragOverStage(null);
 
@@ -956,22 +977,7 @@ const fetchFilteredLeads = async (page = 0, append = false) => {
     setStatusChangeMessage("");
     setIsStatusChangeConfirmOpen(true);
   };
-const handleClearAllFilters = () => {
-  setFilters({});
-  setSearchQuery("");
-  setSortConfig(undefined);
-  setCurrentPage(0);
-  setKanbanPage(0);
-  setAllKanbanLeads([]);
-  setHasMoreData(true);
-  
-  // Fetch fresh data without filters
-  if (viewMode === "kanban") {
-    fetchKanbanLeads(true);
-  } else {
-    fetchLeads(0);
-  }
-};
+
   const handleConfirmStatusChange = async () => {
     if (!draggedLead || !targetStatus) return;
 
@@ -1090,7 +1096,7 @@ const handleClearAllFilters = () => {
     }
   };
 
-  // Other handler functions
+  // Other handler functions remain the same...
   const handleUpdateLead = (updatedLead: Lead) => {
     const updateFunction = (prevLeads: Lead[]) =>
       prevLeads.map((lead) =>
@@ -1230,15 +1236,6 @@ const handleClearAllFilters = () => {
         setAllKanbanLeads(updateFunction);
       }
 
-      // Refresh data based on current view mode
-      if (viewMode === "grid") {
-        await fetchLeads(currentPage);
-      } else {
-        setKanbanPage(0);
-        setAllKanbanLeads([]);
-        await fetchKanbanLeads(true);
-      }
-
       toast({
         title: "Assignment updated",
         description: "Lead has been reassigned successfully.",
@@ -1247,8 +1244,7 @@ const handleClearAllFilters = () => {
       console.error("Failed to refresh leads after assignment:", error);
       toast({
         title: "Assignment updated",
-        description:
-          "Lead has been reassigned (refresh may be needed for full sync).",
+        description: "Lead has been reassigned (refresh may be needed for full sync).",
       });
     }
   };
@@ -1258,19 +1254,8 @@ const handleClearAllFilters = () => {
   };
 
   const handleImportLeads = (importedLeads: any[]) => {
-    if (
-      !importedLeads ||
-      !Array.isArray(importedLeads) ||
-      importedLeads.length === 0
-    ) {
+    if (!importedLeads || !Array.isArray(importedLeads) || importedLeads.length === 0) {
       console.warn("No leads to import or invalid data");
-      if (viewMode === "grid") {
-        fetchLeads(currentPage);
-      } else {
-        setKanbanPage(0);
-        setAllKanbanLeads([]);
-        fetchKanbanLeads(true);
-      }
       return;
     }
 
@@ -1303,71 +1288,32 @@ const handleClearAllFilters = () => {
         description: error.message || "Failed to process imported leads",
         variant: "destructive",
       });
-      
-      if (viewMode === "grid") {
-        fetchLeads(currentPage);
-      } else {
-        setKanbanPage(0);
-        setAllKanbanLeads([]);
-        fetchKanbanLeads(true);
-      }
     }
   };
-
+ const { codes: countryCodes, loading: loadingCountryCodes } = useCountryCodes();
   const handleLeadSorting = () => {
     setIsSortingModalOpen(true);
   };
 
   const handleApplySort = async (sortBy: string, sortOrder: "asc" | "desc") => {
     try {
-      setIsLoading(true);
+      console.log('Applying sort:', { sortBy, sortOrder });
       
-      const params = {
+      const newFilters = {
         ...filters,
         sortBy,
-        direction: sortOrder,
-        page: 0,
-        size: pageSize
+        sortOrder,
       };
       
-      const response = await filterLeads(params);
-
-      if (response.isSuccess && response.data) {
-        const enhancedLeads = response.data.items.map((lead: Lead) =>
-          enhanceLeadWithAssigneeName(lead, assignOptions)
-        );
-        
-        if (viewMode === "grid") {
-          setLeads(enhancedLeads);
-          setPaginationData({
-            currentPage: response.data.currentPage,
-            pageSize: response.data.pageSize,
-            totalElements: response.data.totalElements,
-            totalPages: response.data.totalPages,
-            lastPage: response.data.lastPage
-          });
-          setCurrentPage(0);
-        } else {
-          setAllKanbanLeads(enhancedLeads);
-          setKanbanPage(0);
-          setHasMoreData(!response.data.lastPage);
-        }
-        
-        setSortConfig({ sortBy, sortOrder });
-        setFilters((prev) => ({
-          ...prev,
-          sortBy,
-          sortOrder,
-        }));
-      }
+      setSortConfig({ sortBy, sortOrder });
+      setFilters(newFilters);
+      
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to sort leads",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -1376,11 +1322,7 @@ const handleClearAllFilters = () => {
     setIsChangeStatusModalOpen(true);
   };
 
-  const handleUpdateStatus = (
-    leadId: string,
-    status: LeadStatus,
-    notes?: string
-  ) => {
+  const handleUpdateStatus = (leadId: string, status: LeadStatus, notes?: string) => {
     const updateFunction = (prevLeads: Lead[]) =>
       prevLeads.map((lead) =>
         lead.leadId === leadId
@@ -1405,7 +1347,8 @@ const handleClearAllFilters = () => {
     });
   };
 
-  if (isLoading && (viewMode === "grid" ? leads.length === 0 : allKanbanLeads.length === 0)) {
+  // Loading state
+  if (!isInitialized || (isLoading && (viewMode === "grid" ? leads.length === 0 : allKanbanLeads.length === 0))) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
@@ -1418,27 +1361,18 @@ const handleClearAllFilters = () => {
       <div>
         <LeadFilters
           filters={filters}
-          onFiltersChange={setFilters}
+          onFiltersChange={handleFiltersChange}
+           assignees={assignOptions}
           onAddLead={handleAddLead}
           onAddStage={handleAddStage}
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={handleSearchChange}
           viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onClearAllFilters={() => {
-            setFilters({});
-            setSearchQuery("");
-            setSortConfig(undefined);
-            setCurrentPage(0);
-            setKanbanPage(0);
-            setAllKanbanLeads([]);
-            setHasMoreData(true);
-          }}
+          onViewModeChange={handleViewModeChange}
+          onClearAllFilters={handleClearAllFilters}
           onImportLead={() => setIsImportModalOpen(true)}
           onApplyFilters={() => {
-            // The useEffect already handles filter changes, 
-            // so we don't need to call fetchFilteredLeads here again
-            console.log("Apply filters called - filters will be handled by useEffect");
+            // No need to trigger here - handled by useEffect
           }}
           onSortLeads={() => setIsSortingModalOpen(true)}
           leadStages={leadStages}
@@ -1452,6 +1386,7 @@ const handleClearAllFilters = () => {
                 <LeadColumn
                   key={stage.leadStageId}
                   stage={stage}
+                   assignees={assignOptions}
                   stageIndex={index}
                   leads={filteredLeads?.filter(
                     (lead) => lead.leadStatus === stage.leadStageName
@@ -1647,6 +1582,8 @@ const handleClearAllFilters = () => {
 
         {/* All Modals */}
         <AddLeadModal
+           codes={countryCodes}
+        loading={loadingCountryCodes}
           isOpen={isAddModalOpen}
           onClose={() => {
             setIsAddModalOpen(false);
@@ -1695,6 +1632,8 @@ const handleClearAllFilters = () => {
           lead={selectedLead}
         />
         <EditLeadModal
+           countryCodes={countryCodes}
+        loadingCountryCodes={loadingCountryCodes}
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           onUpdateLead={handleUpdateLead}
@@ -1734,5 +1673,32 @@ const handleClearAllFilters = () => {
     </div>
   );
 };
+
+// Throttle utility function
+function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: NodeJS.Timeout | null = null;
+  let lastExecTime = 0;
+  
+  return (...args: Parameters<T>) => {
+    const currentTime = Date.now();
+    
+    if (currentTime - lastExecTime > delay) {
+      func(...args);
+      lastExecTime = currentTime;
+    } else {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      timeoutId = setTimeout(() => {
+        func(...args);
+        lastExecTime = Date.now();
+      }, delay - (currentTime - lastExecTime));
+    }
+  };
+}
 
 export default Leads;
