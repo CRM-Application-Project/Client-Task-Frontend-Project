@@ -109,7 +109,7 @@ export const LeadCard = ({
     };
 
     fetchAssignees();
-  });
+  },[]);
 
   const getAssigneeName = () => {
     if (lead.assignedToName) {

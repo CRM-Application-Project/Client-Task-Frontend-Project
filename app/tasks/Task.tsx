@@ -808,7 +808,7 @@ export default function TaskBoard() {
     currentPage: 1,
     totalPages: 1,
     totalElements: 0,
-    pageSize: 10,
+    pageSize: 5,
   });
 
   // ========== INFINITE SCROLL STATE ==========

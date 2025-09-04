@@ -38,6 +38,7 @@ import {
   Mail,
   Minimize,
   Maximize,
+  PartyPopper,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -89,7 +90,7 @@ export default function RegisterPage() {
   const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
   // ---------- DATA ----------
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     firstName: "",
     lastName: "",
     emailAddress: "",
@@ -97,7 +98,9 @@ export default function RegisterPage() {
     companyName: "",
     companyContactNumber: "",
     gstNumber: "",
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
 
   // State for logo, colors, and themes
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
@@ -122,7 +125,7 @@ export default function RegisterPage() {
   }
   type FieldName = keyof ValidationErrors;
 
-  const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({
+  const initialFieldErrors: ValidationErrors = {
     firstName: "",
     lastName: "",
     emailAddress: "",
@@ -131,11 +134,9 @@ export default function RegisterPage() {
     companyContactNumber: "",
     gstNumber: "",
     companyLogo: "",
-  });
+  };
 
-  const [touchedFields, setTouchedFields] = useState<
-    Record<FieldName, boolean>
-  >({
+  const initialTouchedFields: Record<FieldName, boolean> = {
     firstName: false,
     lastName: false,
     emailAddress: false,
@@ -144,14 +145,67 @@ export default function RegisterPage() {
     companyContactNumber: false,
     gstNumber: false,
     companyLogo: false,
-  });
+  };
 
+  const [fieldErrors, setFieldErrors] = useState<ValidationErrors>(initialFieldErrors);
+  const [touchedFields, setTouchedFields] = useState<Record<FieldName, boolean>>(initialTouchedFields);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCompanyInfo, setShowCompanyInfo] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+
+  // ---------- RESET FORM FUNCTION ----------
+  const resetForm = () => {
+    setFormData(initialFormData);
+    setFieldErrors(initialFieldErrors);
+    setTouchedFields(initialTouchedFields);
+    setCompanyLogo(null);
+    setExtractedColors([]);
+    setGeneratedThemes([]);
+    setSelectedTheme(null);
+    setShowThemeSelection(false);
+    setOriginalFileName(undefined);
+    setShowPassword(false);
+    setShowCompanyInfo(true);
+    setIsFormValid(false);
+    
+    // Reset file input
+    const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  // ---------- SUCCESS MODAL COMPONENT ----------
+const SuccessModal = () => (
+  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 text-center shadow-2xl animate-scale-in relative">
+      {/* Close button */}
+      <button
+        onClick={() => setShowSuccessModal(false)}
+        className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-full transition-colors"
+        aria-label="Close"
+      >
+        <X className="h-5 w-5 text-gray-500" />
+      </button>
+      
+      <div className="mb-6 pt-4">
+        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle className="h-8 w-8 text-gray-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          Registration Successful!
+        </h2>
+        <p className="text-gray-600">
+          Your account has been created successfully.
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
   // ---------- THEME GENERATION FROM BACKEND ----------
   const fetchThemesFromBackend = async (colors: string[]) => {
@@ -688,7 +742,48 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      // Prepare the registration data with white label request
+      // Create FormData for multipart/form-data request
+      const formDataToSend = new FormData();
+      
+      // Add basic user data
+      formDataToSend.append('firstName', formData.firstName.trim());
+      formDataToSend.append('lastName', formData.lastName.trim());
+      formDataToSend.append('emailAddress', formData.emailAddress.trim());
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('companyName', formData.companyName.trim());
+      formDataToSend.append('companyContactNumber', formData.companyContactNumber);
+      formDataToSend.append('gstNumber', formData.gstNumber);
+
+      // Add white label request if theme is selected
+      if (selectedTheme) {
+        const whiteLabelRequest = {
+          description: selectedTheme.description,
+          brandSettings: selectedTheme.brandSettings,
+          topBanner: selectedTheme.topBanner,
+        };
+        formDataToSend.append('whiteLabelRequest', JSON.stringify(whiteLabelRequest));
+      }
+
+      // Add logo file if uploaded
+      if (companyLogo && originalFileName) {
+        try {
+          const response = await fetch(companyLogo);
+          const blob = await response.blob();
+          const logoFile = new File([blob], originalFileName, { type: blob.type });
+          formDataToSend.append('companyLogo', logoFile);
+        } catch (error) {
+          console.error('Error processing logo file:', error);
+          toast({
+            title: "Logo Upload Error",
+            description: "Failed to process the logo file. Please try again.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Alternative approach - use the original registerUser function with separate parameters
       const registerData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
@@ -716,32 +811,47 @@ export default function RegisterPage() {
         logoFile = new File([blob], originalFileName, { type: blob.type });
       }
 
+      console.log('Sending registration data:', {
+        ...registerData,
+        password: '[REDACTED]',
+        logoFile: logoFile ? `${logoFile.name} (${logoFile.size} bytes)` : 'No file'
+      });
+
       const response = await registerUser(registerData, logoFile);
 
-      if (response.isSuccess) {
-        toast({
-          title: "Registration Successful",
-          description:
-            response.data?.message ||
-            "Your account has been created successfully!",
-        });
+      if (response && response.isSuccess) {
+        // Show success modal instead of toast
+        setShowSuccessModal(true);
+        resetForm();
+        // Also show a toast for immediate feedback
+       
       } else {
+        const errorMessage = response?.message || "Registration failed. Please check your information and try again.";
         toast({
           title: "Registration Failed",
-          description:
-            response.message || "Please check your information and try again.",
+          description: errorMessage,
           variant: "destructive",
         });
+        console.error('Registration failed:', response);
       }
     } catch (error: any) {
+      console.error("Registration error details:", error);
+      
+      let errorMessage = "An unexpected error occurred. Please try again later.";
+      
+      if (error?.response?.status === 403) {
+        errorMessage = "Access forbidden. Please check your credentials and try again.";
+      } else if (error?.response?.status === 400) {
+        errorMessage = "Invalid data provided. Please check all fields and try again.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description:
-          error?.message ||
-          "An unexpected error occurred. Please try again later.",
+        description: errorMessage,
         variant: "destructive",
       });
-      console.error("Registration error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -775,6 +885,7 @@ export default function RegisterPage() {
     }
     return null;
   };
+  
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewTheme, setPreviewTheme] = useState<ThemePalette | null>(null);
   const [fullScreenPreview, setFullScreenPreview] = useState(false);
@@ -793,9 +904,6 @@ export default function RegisterPage() {
     });
   };
 
-  // Add the compact LoginPreview component for the small preview
-
-  // Update the ThemePreviewModal component with smooth scrolling
   // Update the ThemePreviewModal component
   const ThemePreviewModal = ({
     theme,
@@ -1074,26 +1182,6 @@ export default function RegisterPage() {
       </div>
     );
   };
-  // Add this CSS to your global styles or as a style tag for smooth scrolling
-  <style jsx>{`
-    .smooth-scroll {
-      scroll-behavior: smooth;
-      -webkit-overflow-scrolling: touch;
-    }
-    .smooth-scroll::-webkit-scrollbar {
-      width: 6px;
-    }
-    .smooth-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .smooth-scroll::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 3px;
-    }
-    .smooth-scroll::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-  `}</style>;
 
   return (
     <div className="h-screen bg-background flex flex-col lg:flex-row overflow-hidden">
@@ -1278,8 +1366,6 @@ export default function RegisterPage() {
 
                     {showCompanyInfo && (
                       <div className="space-y-4 animate-fade-in">
-                        {/* Logo Upload Section */}
-
                         <div className="space-y-2">
                           <Label
                             htmlFor="companyName"
@@ -1357,6 +1443,7 @@ export default function RegisterPage() {
                             {renderValidationStatus("gstNumber")}
                           </div>
                         </div>
+                        
                         <div className="space-y-4">
                           <Label className="text-sm font-medium text-foreground">
                             Company Logo (Optional)
@@ -1647,6 +1734,9 @@ export default function RegisterPage() {
         </div>
       </div>
 
+      {/* Success Modal */}
+      {showSuccessModal && <SuccessModal />}
+
       {/* CRM Preview Modal */}
       {previewModalOpen && previewTheme && (
         <ThemePreviewModal
@@ -1657,6 +1747,86 @@ export default function RegisterPage() {
           }}
         />
       )}
+
+      {/* Add CSS for smooth animations */}
+      <style jsx>{`
+        @keyframes scale-in {
+          from {
+            transform: scale(0.9);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slide-in-left {
+          from {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slide-in-right {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-scale-in {
+          animation: scale-in 0.3s ease-out;
+        }
+        
+        .animate-slide-in-left {
+          animation: slide-in-left 0.6s ease-out;
+        }
+        
+        .animate-slide-in-right {
+          animation: slide-in-right 0.6s ease-out;
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.4s ease-out;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: #f1f5f9;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 3px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
     </div>
   );
 }

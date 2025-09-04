@@ -1386,7 +1386,7 @@ interface LogoutResponse {
 }
 
 export const logoutUser = async (): Promise<LogoutResponse> => {
-  const res = await getRequest(API_CONSTANTS.USER.LOGOUT);
+  const res = await postRequest(API_CONSTANTS.USER.LOGOUT);
   return res as LogoutResponse;
 };
 
