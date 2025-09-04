@@ -60,8 +60,13 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
+type CountryCode = {
+  name: string;
+  code: string;
+};
 interface AddLeadModalProps {
+codes: CountryCode[];
+  loading: boolean;
   isOpen: boolean;
   onClose: () => void;
   onAddLead: (lead: any) => void;
@@ -80,6 +85,8 @@ interface UserData {
 }
 
 const AddLeadModal: React.FC<AddLeadModalProps> = ({
+ codes,
+  loading,
   isOpen,
   onClose,
   onAddLead,
@@ -89,7 +96,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   presetStageId,
 }) => {
   const { toast } = useToast();
-  const { codes, loading } = useCountryCodes();
+ 
   const [selectedCode, setSelectedCode] = useState("+91");
   const [user, setUser] = useState<UserData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

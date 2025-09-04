@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { FetchLeadTrackResponse } from "@/lib/data";
 import { fetchLeadTrackById, getLeadById } from "@/app/services/data.service";
@@ -30,6 +30,7 @@ interface Lead {
   updatedAt: string;
   assignedToName?: string;
 }
+
 const LeadDetailPage = () => {
   const params = useParams();
   const leadId = params.leadId as string;
@@ -37,15 +38,41 @@ const LeadDetailPage = () => {
   const [leadTracks, setLeadTracks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  
+  // Use refs to track if requests are in progress
+  const isInitialLoadingRef = useRef(false);
+  const isRefreshingRef = useRef(false);
 
-  useEffect(() => {
-    if (leadId) {
-      fetchLeadData();
-    }
-  }, [leadId]);
-
-  const fetchLeadData = async () => {
+  // Memoized function to fetch lead tracking data
+  const fetchLeadTracking = useCallback(async (id: string) => {
     try {
+      const trackResponse: FetchLeadTrackResponse = await fetchLeadTrackById(id);
+      if (trackResponse.isSuccess) {
+        setLeadTracks(trackResponse.data);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load lead activity history",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching lead tracking:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load lead activity history",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  // Memoized function to fetch initial lead data
+  const fetchLeadData = useCallback(async () => {
+    // Prevent multiple simultaneous initial loads
+    if (isInitialLoadingRef.current) return;
+    
+    try {
+      isInitialLoadingRef.current = true;
       setLoading(true);
       
       // Fetch lead details
@@ -54,16 +81,7 @@ const LeadDetailPage = () => {
         setLead(leadResponse.data);
         
         // Fetch lead tracking data
-        const trackResponse: FetchLeadTrackResponse = await fetchLeadTrackById(leadId);
-        if (trackResponse.isSuccess) {
-          setLeadTracks(trackResponse.data);
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to load lead activity history",
-            variant: "destructive",
-          });
-        }
+        await fetchLeadTracking(leadId);
       } else {
         toast({
           title: "Error",
@@ -80,19 +98,18 @@ const LeadDetailPage = () => {
       });
     } finally {
       setLoading(false);
+      isInitialLoadingRef.current = false;
     }
-  };
+  }, [leadId, toast, fetchLeadTracking]);
 
-  const refreshActivityHistory = async () => {
+  // Memoized refresh function
+  const refreshActivityHistory = useCallback(async () => {
+    // Prevent multiple simultaneous refreshes
+    if (isRefreshingRef.current) return;
+    
     try {
-      // Only fetch lead tracking data without affecting the loading state
-      const trackResponse: FetchLeadTrackResponse = await fetchLeadTrackById(leadId);
-      if (trackResponse.isSuccess) {
-        setLeadTracks(trackResponse.data);
-      
-      } else {
-       
-      }
+      isRefreshingRef.current = true;
+      await fetchLeadTracking(leadId);
     } catch (error) {
       console.error("Error refreshing activity history:", error);
       toast({
@@ -100,8 +117,17 @@ const LeadDetailPage = () => {
         description: "Failed to refresh activity history",
         variant: "destructive",
       });
+    } finally {
+      isRefreshingRef.current = false;
     }
-  };
+  }, [leadId, fetchLeadTracking, toast]);
+
+  useEffect(() => {
+    // Only fetch if leadId exists and we haven't already started loading
+    if (leadId && !isInitialLoadingRef.current) {
+      fetchLeadData();
+    }
+  }, [leadId, fetchLeadData]);
 
   if (loading) {
     return (
@@ -122,7 +148,11 @@ const LeadDetailPage = () => {
   return (
     <DashboardLayout>
       <div>
-        <LeadDetailView lead={lead} leadTracks={leadTracks} onRefresh={refreshActivityHistory} />
+        <LeadDetailView 
+          lead={lead} 
+          leadTracks={leadTracks} 
+          onRefresh={refreshActivityHistory} 
+        />
       </div>
     </DashboardLayout>
   );

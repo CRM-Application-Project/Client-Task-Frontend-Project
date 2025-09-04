@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   Edit,
   Trash2,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge"; // Add this import
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,13 +24,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AssignDropdown, getAssignDropdown } from "@/app/services/data.service";
+import { AssignDropdown } from "@/app/services/data.service";
 import { usePermissions } from "@/hooks/usePermissions";
 import Link from "next/link";
-import { LeadPriority } from "../../lib/leads"; // Import LeadPriority type
+import { LeadPriority } from "../../lib/leads";
 
 interface LeadCardProps {
   lead: Lead;
+  assignees: AssignDropdown[]; // Add assignees prop
   onEdit?: (lead: Lead) => void;
   onDelete?: (lead: Lead) => void;
   onView?: (lead: Lead) => void;
@@ -39,7 +40,6 @@ interface LeadCardProps {
   onImportLead?: () => void;
   onLeadSorting?: () => void;
   onChangeStatus?: (lead: Lead) => void;
-  // Add stage prop to check if it's final stage
   stage?: {
     leadStageId: string;
     leadStageName: string;
@@ -51,6 +51,7 @@ interface LeadCardProps {
 
 export const LeadCard = ({
   lead,
+  assignees, // Use assignees from props
   onEdit,
   onDelete,
   onView,
@@ -59,7 +60,7 @@ export const LeadCard = ({
   onImportLead,
   onLeadSorting,
   onChangeStatus,
-  stage, // Add stage prop
+  stage,
 }: LeadCardProps) => {
   const getInitials = (name?: string | null) => {
     if (!name || typeof name !== "string" || name.trim() === "") {
@@ -75,8 +76,6 @@ export const LeadCard = ({
   };
 
   const { permissions, loading: permissionsLoading } = usePermissions("lead");
-  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
-  const [loadingAssignees, setLoadingAssignees] = useState(false);
 
   // Priority colors mapping
   const priorityColors: Record<LeadPriority, string> = {
@@ -90,26 +89,6 @@ export const LeadCard = ({
   const isFinalStage = stage?.finalStage || false;
   const isClosedStage = lead.leadStatus?.toLowerCase().includes('closed') || 
                        lead.leadStatus?.toLowerCase().includes('clos');
-                       
-  // Fetch assignees when component mounts
-  useEffect(() => {
-    const fetchAssignees = async () => {
-      setLoadingAssignees(true);
-      try {
-        const response = await getAssignDropdown();
-        if (response.isSuccess && response.data) {
-          setAssignees(response.data);
-          console.log("Assignees fetched:", assignees);
-        }
-      } catch (error) {
-        console.error("Failed to fetch assignees:", error);
-      } finally {
-        setLoadingAssignees(false);
-      }
-    };
-
-    fetchAssignees();
-  },[]);
 
   const getAssigneeName = () => {
     if (lead.assignedToName) {
