@@ -270,8 +270,11 @@ export function ChangePasswordTab() {
             <div className="flex justify-end pt-2">
               <Button 
                 type="submit" 
-                className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-md px-8 py-2 h-10"
+                className={`bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-md px-8 py-2 h-10 
+                  ${(!form.formState.isValid || isSubmitting) ? "btn-disabled opacity-60 hover:bg-brand-primary" 
+        : "hover:bg-brand-primary/90 cursor-pointer"} `}
                 disabled={!form.formState.isValid || isSubmitting}
+                
               >
                 {isSubmitting ? "Updating..." : "Update Password"}
               </Button>
@@ -328,7 +331,7 @@ export function ChangePasswordTab() {
               </li>
               <li className="flex items-start">
                 <span className="mr-2">•</span>
-                <span>Don't use personal information</span>
+                <span>{`Don't use personal information`}</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2">•</span>

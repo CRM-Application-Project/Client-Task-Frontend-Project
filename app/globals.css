@@ -205,6 +205,18 @@
 .rs-picker-menu {
   z-index: 10002 !important;
 }
+button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+.btn-disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  pointer-events: auto !important; 
+}
+button:not(:disabled) {
+  cursor: pointer;
+}
 
 .rs-calendar {
   z-index: 10002 !important;

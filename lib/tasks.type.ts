@@ -28,6 +28,10 @@ interface CreateTaskResponse {
     createdAt: string;
     updatedAt: string;
     comment?: string;
+    approver: { // Changed from reviewer
+  id: string;
+  label: string;
+};
     assignee: {
       id: string;
       label: string;

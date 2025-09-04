@@ -671,7 +671,7 @@ useEffect(() => {
   return (
     <div
       ref={columnRef}
-      className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
+      className={`flex-shrink-0 w-[300px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
         isColumnDraggedOver
           ? "bg-gray-50 border-2 border-gray-300 border-dashed"
           : "bg-gray-50 border-gray-200"
@@ -687,7 +687,7 @@ useEffect(() => {
       }}
     >
       {/* Stage Header */}
-      <div
+       <div
         className="sticky top-0 z-10 bg-gray-50 rounded-t-xl border-b border-gray-200 cursor-move"
         draggable={true}
         onDragStart={handleStageDragStart}
@@ -825,7 +825,7 @@ useEffect(() => {
         }}
       >
         {/* Custom Scrollbar Styles */}
-        <style jsx>{`
+          <style jsx>{`
           div::-webkit-scrollbar {
             width: 6px;
           }
@@ -845,7 +845,7 @@ useEffect(() => {
 
         {/* Loading indicator */}
         {isUpdating && (
-          <div className="flex items-center justify-center py-6 mb-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-center py-6 mb-4 bg-gray-50 rounded-lg border border-gray-200 h-[120px]">
             <div className="flex items-center gap-3 text-gray-700">
               <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
               <span className="text-sm font-medium">
@@ -860,7 +860,7 @@ useEffect(() => {
           {tasks.map((task, index) => (
             <div
               key={task.id}
-              className="transition-all duration-200 ease-in-out transform hover:scale-[1.02]"
+              className="transition-all duration-200 ease-in-out transform hover:scale-[1.02] min-h-[180px]"
               style={{
                 animationDelay: `${index * 50}ms`,
                 willChange: "transform, opacity",
@@ -885,7 +885,7 @@ useEffect(() => {
           <div className="mt-4">
             <button
               onClick={() => onAddTaskForStage(stage.id)}
-              className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group"
+              className="w-full p-4 bordaer-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group h-[40px] flex items-center justify-center"
               type="button"
             >
               <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-gray-700">
@@ -909,8 +909,8 @@ useEffect(() => {
         )}
 
         {/* Empty state */}
-        {tasks.length === 0 && !isUpdating && (
-          <div className="text-center py-2">
+       {tasks.length === 0 && !isUpdating && (
+          <div className="text-center py-2 h-[120px] flex items-center justify-center">
             <div className="rounded-xl p-8 transition-all duration-200">
               <p className="text-sm text-gray-500 mb-2">
                 No tasks in this stage
@@ -925,8 +925,8 @@ useEffect(() => {
         )}
 
         {/* Drop indicator when dragging over non-empty column */}
-        {isDraggedOver && tasks.length > 0 && (
-          <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-300 border-dashed transition-all duration-200 animate-pulse">
+       {isDraggedOver && tasks.length > 0 && (
+          <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-300 border-dashed transition-all duration-200 animate-pulse h-[120px] flex items-center justify-center">
             <div className="flex items-center justify-center gap-2">
               <svg
                 className="w-5 h-5"
@@ -948,7 +948,7 @@ useEffect(() => {
       </div>
 
       {/* Edit Stage Modal */}
-      <EditStageModal
+       <EditStageModal
         stage={stage}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}

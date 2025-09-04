@@ -93,6 +93,10 @@ interface TaskDetailsResponse {
     label: string;
     avatar?: string;
   };
+  approver: { // Changed from reviewer
+  id: string;
+  label: string;
+};
   completedBy: {
     id: string;
     label: string;

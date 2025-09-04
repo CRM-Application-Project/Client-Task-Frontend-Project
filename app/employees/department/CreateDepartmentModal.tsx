@@ -27,6 +27,16 @@ export default function CreateDepartmentModal({
   const [errors, setErrors] = useState<{ name?: string }>({});
   const [touched, setTouched] = useState<{ name?: boolean }>({});
 
+  // ✅ Reset form when modal opens/closes
+  useEffect(() => {
+    if (open) {
+      // Reset form when modal opens
+      setName("");
+      setErrors({});
+      setTouched({});
+    }
+  }, [open]); // This effect runs whenever 'open' changes
+
   // ✅ validation rules
   const validateField = (value: string) => {
     if (!value.trim())

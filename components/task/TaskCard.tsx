@@ -413,7 +413,7 @@ export const TaskCard = ({
   return (
     <>
       <Card
-        className={`p-4 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-card to-card/80 border border-border/50 relative group ${
+        className={`p-4 transition-all duration-200 hover:shadow-md bg-gradient-to-br from-card to-card/80 border border-border/50 relative group min-h-[180px] ${
           permissions.canView ? "cursor-pointer" : "cursor-default"
         } ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${
           isDragging ? "opacity-50 scale-95" : "hover:scale-[1.02]"

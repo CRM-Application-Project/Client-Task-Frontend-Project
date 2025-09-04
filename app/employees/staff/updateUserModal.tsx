@@ -362,7 +362,7 @@ export const UpdateStaffModal = ({
 
                 {/* Contact */}
                 <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="contactNumber">Contact Number</Label>
+                  <Label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">Contact Number</Label>
                   <Input
                     type="tel"
                     id="contactNumber"

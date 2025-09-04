@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,16 +34,18 @@ export function PersonalInfoTab() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const initialFormValues = useRef<PersonalInfoData | null>(null);
   const { toast } = useToast();
 
   // Get initial user data from localStorage
-    const getStoredUserData = (): StoredUserData | null => {
-      if (typeof window !== 'undefined') {
-        const userData = localStorage.getItem('user');
-        return userData ? JSON.parse(userData) : null;
-      }
-      return null;
-    };
+  const getStoredUserData = (): StoredUserData | null => {
+    if (typeof window !== 'undefined') {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    }
+    return null;
+  };
 
   const storedUser = getStoredUserData();
 
@@ -57,6 +59,57 @@ export function PersonalInfoTab() {
       birthday: undefined,
     },
   });
+
+  // Store initial form values on mount
+  useEffect(() => {
+    if (form.formState.defaultValues && !initialFormValues.current) {
+      initialFormValues.current = { 
+        firstName: form.formState.defaultValues.firstName || '',
+        lastName: form.formState.defaultValues.lastName || '',
+        emailAddress: form.formState.defaultValues.emailAddress || '',
+        phoneNumber: form.formState.defaultValues.phoneNumber || '',
+        birthday: form.formState.defaultValues.birthday,
+      };
+    }
+  }, [form.formState.defaultValues]);
+
+  // Watch for form changes
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      if (!initialFormValues.current) return;
+      
+      // Get current form values with proper fallbacks
+      const currentValues: PersonalInfoData = {
+        firstName: values.firstName || '',
+        lastName: values.lastName || '',
+        emailAddress: values.emailAddress || '',
+        phoneNumber: values.phoneNumber || '',
+        birthday: values.birthday,
+      };
+      
+      // Check if any field has changed
+      const hasFormChanges = Object.keys(currentValues).some(key => {
+        if (key === 'birthday') return false; // Skip birthday field for now
+        
+        const formValue = currentValues[key as keyof PersonalInfoData];
+        const initialValue = initialFormValues.current![key as keyof PersonalInfoData];
+        
+        // Handle null/undefined comparisons
+        if (formValue === null || formValue === undefined) {
+          return initialValue !== null && initialValue !== undefined;
+        }
+        
+        return formValue !== initialValue;
+      });
+      
+      // Check if image has changed
+      const hasImageChanges = imagePreview !== null;
+      
+      setHasChanges(hasFormChanges || hasImageChanges);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form, imagePreview]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -103,12 +156,19 @@ export function PersonalInfoTab() {
             phoneNumber: data.phoneNumber,
           };
           localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          // Update initial values to new values after successful save
+          initialFormValues.current = { ...data };
         }
 
         if (imagePreview) {
           setProfileImage(imagePreview);
           setImagePreview(null);
         }
+        
+        // Reset changes flag
+        setHasChanges(false);
+        
         toast({
           title: "Profile Updated",
           description: "Your personal information has been saved successfully.",
@@ -263,15 +323,30 @@ export function PersonalInfoTab() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end pt-4">
-              <Button 
-                type="submit" 
-                className="bg-brand-primary hover:bg-brand-primary/90 text-text-white rounded-lg px-6 py-3 h-11 text-base font-medium"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
+<div className="flex justify-end pt-4">
+  <Button
+    type="submit"
+    disabled={isSubmitting || !hasChanges}
+    className={`
+      bg-brand-primary 
+      text-text-white 
+      rounded-lg 
+      px-6 
+      py-3 
+      h-11 
+      text-base 
+      font-medium
+      ${(isSubmitting || !hasChanges) 
+        ? "btn-disabled opacity-60 hover:bg-brand-primary" 
+        : "hover:bg-brand-primary/90 cursor-pointer"
+      }
+    `}
+  >
+    {isSubmitting ? "Saving..." : "Save Changes"}
+  </Button>
+</div>
+
+
           </form>
         </Form>
       </div>

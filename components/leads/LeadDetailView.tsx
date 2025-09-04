@@ -231,56 +231,55 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
 
       {/* Lead Summary Card */}
       <div className="bg-white rounded-lg shadow-sm border mb-6 p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <Avatar className="h-14 w-14 bg-blue-50">
-              <AvatarFallback className="bg-blue-50 text-blue-700 font-medium text-lg">
-                {getInitials(lead.customerName)}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {lead.customerName}
-                </h2>
-                <Badge className={`${getPriorityColor(lead.leadPriority)}`}>
-                  {lead.leadPriority}
-                </Badge>
-              </div>
-              
-              {shouldDisplay(lead.companyName) && (
-                <div className="flex items-center gap-2 text-gray-600 text-sm">
-                  <Building className="h-4 w-4" />
-                  <span>{lead.companyName}</span>
-                </div>
-              )}
-              
-              <div className="flex gap-2 flex-wrap">
-                <Badge className={`${getStatusColor(lead.leadStatus)}`}>
-                  {lead.leadStatus.replace("_", " ")}
-                </Badge>
-                
-                {shouldDisplay(lead.leadSource) && (
-                  <Badge variant="outline" className="text-gray-600 bg-gray-50">
-                    {lead.leadSource.replace("_", " ")}
-                  </Badge>
-                )}
-                
-                {shouldDisplay(lead.leadLabel) && (
-                  <Badge variant="outline" className="text-gray-600 bg-gray-50">
-                    {lead.leadLabel}
-                  </Badge>
-                )}
-              </div>
-            </div>
+  <div className="flex items-start justify-between">
+    
+    {/* Left section */}
+    <div className="flex items-start gap-4">
+      <Avatar className="h-14 w-14 bg-blue-50">
+        <AvatarFallback className="bg-blue-50 text-blue-700 font-medium text-lg">
+          {getInitials(lead.customerName)}
+        </AvatarFallback>
+      </Avatar>
+      
+      <div className="space-y-3">
+        <h2 className="text-xl font-semibold text-gray-900">
+          {lead.customerName}
+        </h2>
+
+        {shouldDisplay(lead.companyName) && (
+          <div className="flex items-center gap-2 text-gray-600 text-sm">
+            <Building className="h-4 w-4" />
+            <span>{lead.companyName}</span>
           </div>
-          
-          {/* <div className="text-right text-sm text-gray-500">
-            <div className="font-medium">Lead ID: {lead.leadId}</div>
-          </div> */}
+        )}
+
+        <div className="flex gap-2 flex-wrap">
+          <Badge className={`${getStatusColor(lead.leadStatus)}`}>
+            {lead.leadStatus.replace("_", " ")}
+          </Badge>
+
+          {shouldDisplay(lead.leadSource) && (
+            <Badge variant="outline" className="text-gray-600 bg-gray-50">
+              {lead.leadSource.replace("_", " ")}
+            </Badge>
+          )}
+
+          {shouldDisplay(lead.leadLabel) && (
+            <Badge variant="outline" className="text-gray-600 bg-gray-50">
+              {lead.leadLabel}
+            </Badge>
+          )}
         </div>
       </div>
+    </div>
+
+    {/* Right section → Lead Priority */}
+    <Badge className={`${getPriorityColor(lead.leadPriority)}`}>
+      {lead.leadPriority}
+    </Badge>
+  </div>
+</div>
+
 
       {/* Contact and Lead Information Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

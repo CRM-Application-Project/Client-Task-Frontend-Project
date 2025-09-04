@@ -35,6 +35,7 @@ const formatSourceName = (source: string): string => {
     .toLowerCase()
     .split(/[_\s]+/)
     .map((word) => {
+      // Handle special cases first
       if (word === "seo") return "SEO";
       if (word === "crm") return "CRM";
       if (word === "api") return "API";
@@ -44,10 +45,13 @@ const formatSourceName = (source: string): string => {
       if (word === "organic") return "Organic Search";
       if (word === "direct") return "Direct Traffic";
       if (word === "referral") return "Referral";
-
+      
+      // Default case - capitalize first letter
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
-    .join(" ");
+    .join(" ")
+    // Remove any duplicate "Media" that might have been added
+    .replace(/\bMedia Media\b/, "Media");
 };
 
 export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
