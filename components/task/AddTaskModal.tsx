@@ -119,11 +119,13 @@ interface GetTaskByIdResponse {
       id: string;
       label: string;
     };
-    approverId: { // Changed from reviewer
+    approver: { // Changed from reviewer
       id: string;
       label: string;
     };
-    acceptanceCriteria?: string;
+    acceptanceInfo: {
+      acceptanceCriteria: string;
+    };
     isRecurring?: boolean; // Added this field
     recurrenceRule?: string; // Changed to string
   };
@@ -300,7 +302,11 @@ const weekDays = [
 };
 
   // Add this function to parse RRule string back to your format
- 
+ useEffect(() => {
+  if (isOpen && editingTask) {
+    console.log("Edit Modal Opened - FormData:", formData);
+  }
+}, [isOpen, editingTask, formData]);
 
   // Helper function to get frequency name from RRule constant
  const getFrequencyName = (freq: Frequency): RecurrenceRule['frequency'] => {
@@ -648,59 +654,66 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
     }
   }, [editingTask, dirtyFields.size, stageChanged, comment, isMandatoryFieldsFilled]);
 
- useEffect(() => {
-    if (!isOpen) {
-      setOriginalFormData(null);
-      setDirtyFields(new Set());
-      setComment("");
-      setValidationErrors({});
-      setTouchedFields(new Set());
-      setShowRecurrence(false);
-      return;
-    }
+useEffect(() => {
+  if (!isOpen) {
+    setOriginalFormData(null);
+    setDirtyFields(new Set());
+    setComment("");
+    setValidationErrors({});
+    setTouchedFields(new Set());
+    setShowRecurrence(false);
+    return;
+  }
 
-    if (editingTask) {
-      const initialData: CreateTaskRequest = {
-        subject: editingTask.subject || "",
-        description: editingTask.description || "",
-        priority: editingTask.priority || "LOW",
-        taskStageId: editingTask.taskStageId || 0,
-        startDate: editingTask.startDate || new Date().toISOString(),
-        endDate: editingTask.endDate || "",
-        approverId: editingTask.approverId?.id || "",
-        assignee: editingTask.assignee?.id || "",
-        acceptanceCriteria: editingTask.acceptanceCriteria || "",
-        graceHours: editingTask.graceHours ?? 0,
-        estimatedHours: editingTask.estimatedHours ?? 0,
-        isRecurring: editingTask.isRecurring || false,
-        recurrenceRule: editingTask.recurrenceRule,
-      };
-      setFormData(initialData);
-      setOriginalFormData(initialData);
-      setDirtyFields(new Set());
-      setComment("");
-      setTouchedFields(new Set());
-      
-      // Validate all fields for edit mode
-      const initialErrors: Record<string, string> = {};
-      Object.keys(initialData).forEach(field => {
-        const error = validateField(field as keyof CreateTaskRequest, initialData[field as keyof CreateTaskRequest], true);
-        if (error) {
-          initialErrors[field] = error;
-        }
-      });
-      setValidationErrors(initialErrors);
-      
-      // Handle recurrence display
-      if (editingTask.isRecurring && editingTask.recurrenceRule) {
-        setShowRecurrence(true);
-        const parsedRule = parseRRuleString(editingTask.recurrenceRule);
-        setRecurrenceRule({
-          ...recurrenceRule,
-          ...parsedRule,
-        });
+  if (editingTask) {
+    // Add debugging logs
+    console.log("Editing task approver:", editingTask.approver);
+    console.log("Available users:", users);
+    
+    const initialData: CreateTaskRequest = {
+      subject: editingTask.subject || "",
+      description: editingTask.description || "",
+      priority: editingTask.priority || "LOW",
+      taskStageId: editingTask.taskStageId || 0,
+      startDate: editingTask.startDate || new Date().toISOString(),
+      endDate: editingTask.endDate || "",
+      approverId: editingTask.approver?.id || "", // This should match user.userId in users array
+      assignee: editingTask.assignee?.id || "",
+      acceptanceCriteria: editingTask.acceptanceInfo?.acceptanceCriteria || "", // Fixed: was acceptanceCriteria
+      graceHours: editingTask.graceHours ?? 0,
+      estimatedHours: editingTask.estimatedHours ?? 0,
+      isRecurring: editingTask.isRecurring || false,
+      recurrenceRule: editingTask.recurrenceRule,
+    };
+    
+    console.log("Setting approverId to:", initialData.approverId);
+    
+    setFormData(initialData);
+    setOriginalFormData(initialData);
+    setDirtyFields(new Set());
+    setComment("");
+    setTouchedFields(new Set());
+    
+    // Validate all fields for edit mode
+    const initialErrors: Record<string, string> = {};
+    Object.keys(initialData).forEach(field => {
+      const error = validateField(field as keyof CreateTaskRequest, initialData[field as keyof CreateTaskRequest], true);
+      if (error) {
+        initialErrors[field] = error;
       }
-    } else {
+    });
+    setValidationErrors(initialErrors);
+    
+    // Handle recurrence display
+    if (editingTask.isRecurring && editingTask.recurrenceRule) {
+      setShowRecurrence(true);
+      const parsedRule = parseRRuleString(editingTask.recurrenceRule);
+      setRecurrenceRule({
+        ...recurrenceRule,
+        ...parsedRule,
+      });
+    }
+  } else {
       const adjustedTime = getAdjustedCurrentTime();
       
       const defaultStageId = stages.length > 0 
@@ -1472,11 +1485,13 @@ const handleSubmit = (e: React.FormEvent) => {
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-           <Select
+       <Select
   value={formData.approverId}
-  onValueChange={(value) => updateFormField("approverId", value)}
+  onValueChange={(value) => {
+    console.log("Approver changed to:", value);
+    updateFormField("approverId", value);
+  }}
   onOpenChange={(open) => {
-    // Trigger validation when dropdown closes if a value was selected
     if (!open && formData.approverId) {
       handleFieldBlur("approverId");
     }
@@ -1486,15 +1501,25 @@ const handleSubmit = (e: React.FormEvent) => {
     className={validationErrors.approverId ? "border-red-500" : ""}
     onBlur={() => handleFieldBlur("approverId")}
   >
-    <SelectValue placeholder="Select Approver" />
+    <SelectValue placeholder="Select Approver">
+      {/* Add this to show the selected value clearly */}
+      {formData.approverId && users.length > 0 ? 
+        users.find(user => user.userId === formData.approverId)?.firstName + " " + 
+        users.find(user => user.userId === formData.approverId)?.lastName || "Unknown User"
+        : "Select Approver"
+      }
+    </SelectValue>
   </SelectTrigger>
   <SelectContent>
     {users && users.length > 0 ? (
-      users.map((user) => (
-        <SelectItem key={user.userId} value={user.userId}>
-          {user.firstName} {user.lastName}
-        </SelectItem>
-      ))
+      users.map((user) => {
+        console.log("User in dropdown:", user.userId, user.firstName, user.lastName);
+        return (
+          <SelectItem key={user.userId} value={user.userId}>
+            {user.firstName} {user.lastName}
+          </SelectItem>
+        );
+      })
     ) : (
       <SelectItem value="" disabled>
         No users available
@@ -1556,7 +1581,8 @@ const handleSubmit = (e: React.FormEvent) => {
             </Button>
             <Button
               type="submit"
-              className="bg-brand-primary text-text-white hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${(isLoading || !canSubmit) ? "btn-disabled opacity-60 hover:bg-brand-primary" 
+        : "hover:bg-brand-primary/90 cursor-pointer"} `}
               disabled={isLoading || !canSubmit}
             >
               {isLoading ? "Loading..." : editingTask ? "Update" : "Submit"}

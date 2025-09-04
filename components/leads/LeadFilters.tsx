@@ -335,12 +335,13 @@ export const LeadFilters = ({
                     : "border-gray-300"
                 }`}
               >
-                <span className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {localFilters.dateRange
-                    ? formatDateRange(localFilters.dateRange)
-                    : "Date Range"}
-                </span>
+             <span className="flex items-center gap-2 text-gray-600">
+  <Calendar className="h-4 w-4 text-gray-600" />
+  {localFilters.dateRange
+    ? formatDateRange(localFilters.dateRange)
+    : "Date Range"}
+</span>
+
                 {localFilters.dateRange && (
                   <X
                     className="h-4 w-4 hover:text-blue-900"

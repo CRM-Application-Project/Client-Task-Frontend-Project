@@ -28,6 +28,7 @@ import {
   TaskActionType,
   Task,
   Assignee,
+  TaskDocument,
 } from "@/lib/task";
 
 // ========== TYPE DEFINITIONS ==========
@@ -48,47 +49,76 @@ interface TaskStageEdit {
 type User = ServiceUser;
 
 interface TaskResponse {
-  id: number;
+id: number;
   subject: string;
   description: string;
-  priority: TaskPriority;
-  startDate: string;
-  endDate: string | null;
+  status: TaskStatus;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  labels: string[];
+  assignedTo: string;
+  createdBy:{
+    id: string;
+    label: string;
+  };
+  startDate: Date;
+  endDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  createdAt: string;
-  updatedAt: string;
-  assignee: Assignee;
+  assignee: {
+    id: string;
+    label: string;
+  };
+  approver: { // Changed from reviewer to approver
+    id: string;
+    label: string;
+  };
   estimatedHours: number | null;
   graceHours: number;
   actualHours: number | null;
   actionType: TaskActionType;
-  status: TaskStatus;
-  comment: string;
-  createdBy: Assignee;
-  completedBy: Assignee | null;
-  completedAt: string | null;
-  documents: any[];
-  acceptanceInfo: {
+  comment?: string;
+  completedBy?: {
+    id: string;
+    label: string;
+  } | null;
+  completedAt?: string | null;
+  documents?: TaskDocument[];
+  acceptanceInfo: { // Made required to match EditingTaskResponse
     acceptanceCriteria: string;
   };
-  isEditable: boolean;
+  isEditable?: boolean;
+  isRecurring?: boolean; // Added to match EditingTaskResponse
+  recurrenceRule?: string; 
 }
 
 interface EditingTaskResponse {
   id: number;
-  subject: string;
-  description: string;
-  priority: TaskPriority;
-  startDate: string;
-  endDate: string | null;
-  taskStageId: number;
-  taskStageName: string;
-  createdAt: string;
-  updatedAt: string;
-  assignee: Assignee;
-  graceHours?: number;
-  estimatedHours?: number;
+    subject: string;
+    description: string;
+    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+    startDate: string;
+    endDate: string | null;
+    taskStageId: number;
+    taskStageName: string;
+    createdAt: string;
+    updatedAt: string;
+    graceHours?: number;
+    estimatedHours?: number;
+    assignee: {
+      id: string;
+      label: string;
+    };
+    approver: { // Changed from reviewer
+      id: string;
+      label: string;
+    };
+    acceptanceInfo: {
+      acceptanceCriteria: string;
+    };
+    isRecurring?: boolean; // Added this field
+    recurrenceRule?: string;
 }
 
 interface FilterTasksParams {
@@ -863,6 +893,7 @@ const transformTasks = useCallback(
             taskStageId: task.taskStageId,
             taskStageName: task.taskStageName,
             assignee: task.assignee,
+            approver: task.approver || { id: "", label: "Unassigned" }, // Added approver field
             estimatedHours: task.estimatedHours,
             graceHours: task.graceHours || 0,
             actualHours: task.actualHours,
@@ -871,8 +902,10 @@ const transformTasks = useCallback(
             completedBy: task.completedBy,
             completedAt: task.completedAt,
             documents: task.documents || [],
-            acceptanceInfo: task.acceptanceInfo,
+            acceptanceInfo: task.acceptanceInfo || { acceptanceCriteria: "" }, // Ensure proper structure
             isEditable: task.isEditable ?? true,
+            isRecurring: task.isRecurring, // Added isRecurring
+            recurrenceRule: task.recurrenceRule, // Added recurrenceRule
           })
         )
       );
@@ -895,6 +928,7 @@ const transformTasks = useCallback(
         taskStageId: task.taskStageId,
         taskStageName: task.taskStageName,
         assignee: task.assignee,
+        approver: task.approver || { id: "", label: "Unassigned" }, // Added approver field
         estimatedHours: task.estimatedHours,
         graceHours: task.graceHours || 0,
         actualHours: task.actualHours,
@@ -903,8 +937,10 @@ const transformTasks = useCallback(
         completedBy: task.completedBy,
         completedAt: task.completedAt,
         documents: task.documents || [],
-        acceptanceInfo: task.acceptanceInfo,
+        acceptanceInfo: task.acceptanceInfo || { acceptanceCriteria: "" }, // Ensure proper structure
         isEditable: task.isEditable ?? true,
+        isRecurring: task.isRecurring, // Added isRecurring
+        recurrenceRule: task.recurrenceRule, // Added recurrenceRule
       }));
     }
     
@@ -1630,27 +1666,33 @@ const handleCloseModal = useCallback(() => {
   );
 
   // ========== EDIT TASK HANDLERS ==========
-  const handleEditTask = useCallback((task: Task) => {
-    const editingTaskData: EditingTaskResponse = {
-      id: task.id,
-      subject: task.subject,
-      description: task.description,
-      priority: task.priority,
-      startDate: task.startDate.toISOString(),
-      endDate: task.endDate ? task.endDate.toISOString() : null,
-      taskStageId: task.taskStageId,
-      taskStageName: task.taskStageName,
-      createdAt: task.createdAt.toISOString(),
-      updatedAt: task.updatedAt.toISOString(),
-      assignee: task.assignee,
-      graceHours: task.graceHours,
-      estimatedHours: task.estimatedHours ?? undefined,
-    };
+ const handleEditTask = useCallback((task: Task) => {
+  const editingTaskData: EditingTaskResponse = {
+    id: task.id,
+    subject: task.subject,
+    description: task.description,
+    priority: task.priority,
+    startDate: task.startDate.toISOString(),
+    endDate: task.endDate ? task.endDate.toISOString() : null,
+    taskStageId: task.taskStageId,
+    taskStageName: task.taskStageName,
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+    graceHours: task.graceHours,
+    estimatedHours: task.estimatedHours ?? undefined,
+    assignee: task.assignee,
+    approver: task.approver, // Changed from reviewer to approver
+    acceptanceInfo: {
+      acceptanceCriteria: task.acceptanceInfo?.acceptanceCriteria || "" // Assuming task has this property
+    },
+    isRecurring: task.isRecurring ?? undefined,
+    recurrenceRule: task.recurrenceRule ?? undefined
+  };
 
-    setEditingTask(editingTaskData);
-    setPreSelectedStageId(null);
-    setIsAddModalOpen(true);
-  }, []);
+  setEditingTask(editingTaskData);
+  setPreSelectedStageId(null);
+  setIsAddModalOpen(true);
+}, []);
 
   const handleAddTaskForStage = useCallback((stageId: number) => {
     setPreSelectedStageId(stageId);

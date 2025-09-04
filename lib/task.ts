@@ -19,7 +19,7 @@ export interface Task {
   subject: string;
   description: string;
   status: TaskStatus;
-  priority: TaskPriority;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   labels: string[];
   assignedTo: string;
   createdBy: string;
@@ -29,17 +29,31 @@ export interface Task {
   updatedAt: Date;
   taskStageId: number;
   taskStageName: string;
-  assignee: Assignee;
+  assignee: {
+    id: string;
+    label: string;
+  };
+  approver: { // Changed from reviewer to approver
+    id: string;
+    label: string;
+  };
   estimatedHours: number | null;
   graceHours: number;
   actualHours: number | null;
   actionType: TaskActionType;
   comment?: string;
-  completedBy?: Assignee | null;
+  completedBy?: {
+    id: string;
+    label: string;
+  } | null;
   completedAt?: string | null;
   documents?: TaskDocument[];
-  acceptanceInfo?: { acceptanceCriteria: string };
+  acceptanceInfo: { // Made required to match EditingTaskResponse
+    acceptanceCriteria: string;
+  };
   isEditable?: boolean;
+  isRecurring?: boolean; // Added to match EditingTaskResponse
+  recurrenceRule?: string; // Added to match EditingTaskResponse
 }
 
 export interface TaskFilters {
