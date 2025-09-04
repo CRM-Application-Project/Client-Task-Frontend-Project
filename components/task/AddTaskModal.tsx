@@ -360,65 +360,75 @@ const weekDays = [
 
   // Validate individual field
  const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad: boolean = false): string => {
-    // Don't validate on initial load unless it's an edit with existing data
-    if (isInitialLoad && !editingTask) {
-      return "";
-    }
-
-    const isRequiredField = ["subject", "description", "taskStageId", "assignee", "approverId", "estimatedHours", "startDate", "endDate"].includes(field);
-    const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
-    
-    if (editingTask && !dirtyFields.has(field) && field !== "description") {
-      if (!isRequiredField || !isEmpty) {
-        return "";
-      }
-    }
-
-    switch (field) {
-      case "subject":
-        if (!value?.trim()) return "Subject is required";
-        break;
-      case "description":
-        if (!value?.trim()) return "Description is required";
-        break;
-      case "taskStageId":
-        if (!value || value === 0) return "Please select a stage";
-        break;
-      case "assignee":
-        if (!value?.trim()) return "Please select an assignee";
-        if (value && formData.approverId && value === formData.approverId) 
-          return "Assignee and approver cannot be the same person";
-        break;
-      case "approverId":
-        if (!value?.trim()) return "Please select an approver";
-        if (value && formData.assignee && value === formData.assignee) 
-          return "Approver and assignee cannot be the same person";
-        break;
-      case "estimatedHours":
-        if (!value || value <= 0) return "Estimated hours must be greater than 0";
-        break;
-      case "startDate":
-        if (!value) return "Start date is required";
-        break;
-      case "endDate":
-        if (!value) return "End date is required";
-        if (value && formData.startDate) {
-          const startDate = new Date(formData.startDate);
-          const endDate = new Date(value);
-          
-          const minEndDate = new Date(startDate);
-          minEndDate.setDate(startDate.getDate() + 1);
-          
-          if (endDate <= minEndDate) {
-            return "End date must be at least 1 day after start date";
-          }
-        }
-        break;
-      default:
-        return "";
-    }
+  // Don't validate on initial load unless it's an edit with existing data
+  if (isInitialLoad && !editingTask) {
     return "";
   }
+
+  const isRequiredField = ["subject", "description", "taskStageId", "assignee", "approverId", "estimatedHours", "startDate", "endDate"].includes(field);
+  const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
+  
+  // For edit mode, only validate if field is dirty OR if it's a required field that's empty
+  if (editingTask && !dirtyFields.has(field) && field !== "description") {
+    // Still validate required fields even if not dirty
+    if (isRequiredField && isEmpty) {
+      // Skip validation for non-dirty fields in edit mode unless they're empty required fields
+    } else {
+      return "";
+    }
+  }
+
+  switch (field) {
+    case "subject":
+      if (!value?.trim()) return "Subject is required";
+      break;
+    case "description":
+      if (!value?.trim()) return "Description is required";
+      break;
+    case "taskStageId":
+      if (!value || value === 0) return "Please select a stage";
+      break;
+    case "assignee":
+      if (!value?.trim()) return "Please select an assignee";
+      // Check if assignee and approver are the same - use current form values
+      const currentApproverId = formData.approverId;
+      if (value && currentApproverId && value === currentApproverId) {
+        return "Assignee and approver cannot be the same person";
+      }
+      break;
+    case "approverId":
+      if (!value?.trim()) return "Please select an approver";
+      // Check if approver and assignee are the same - use current form values
+      const currentAssigneeId = formData.assignee;
+      if (value && currentAssigneeId && value === currentAssigneeId) {
+        return "Approver and assignee cannot be the same person";
+      }
+      break;
+    case "estimatedHours":
+      if (!value || value <= 0) return "Estimated hours must be greater than 0";
+      break;
+    case "startDate":
+      if (!value) return "Start date is required";
+      break;
+    case "endDate":
+      if (!value) return "End date is required";
+      if (value && formData.startDate) {
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(value);
+        
+        const minEndDate = new Date(startDate);
+        minEndDate.setDate(startDate.getDate() + 1);
+        
+        if (endDate <= minEndDate) {
+          return "End date must be at least 1 day after start date";
+        }
+      }
+      break;
+    default:
+      return "";
+  }
+  return "";
+};
 const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string => {
   const options: Partial<RRuleOptions> = {
     freq: getFrequencyConstant(rule.frequency),
@@ -480,66 +490,70 @@ const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
 
   // Update form field with validation
  const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Only validate if the field has been touched or we're in edit mode
-    if (touchedFields.has(field) || editingTask) {
-      const error = validateField(field, value);
-      setValidationErrors(prev => ({
-        ...prev,
-        [field]: error
-      }));
-
-      // If assignee or approverId changes, validate the other field too
-      if (field === "assignee" || field === "approverId") {
-        const otherField = field === "assignee" ? "approverId" : "assignee";
-        // Only validate the other field if it's been touched or has a value
-        if (touchedFields.has(otherField) || formData[otherField]) {
-          const otherError = validateField(otherField, formData[otherField]);
-          setValidationErrors(prev => ({
-            ...prev,
-            [otherField]: otherError
-          }));
-        }
-      }
-    }
-
-    if (originalFormData && editingTask) {
-      const originalValue = originalFormData[field];
-      const newDirtyFields = new Set(dirtyFields);
-
-      if (areValuesEqual(originalValue, value)) {
-        newDirtyFields.delete(field);
-      } else {
-        newDirtyFields.add(field);
-      }
-      setDirtyFields(newDirtyFields);
-    }
-  };
-  // Handle description change with validation
-  const handleDescriptionChange = (value: string) => {
-    updateFormField("description", value);
-  };
- const handleFieldBlur = (field: keyof CreateTaskRequest) => {
-    setTouchedFields(prev => new Set(prev).add(field));
-    
-    // Validate the field when it loses focus
-    const error = validateField(field, formData[field]);
+  // Always validate the current field if it has been touched or we're in edit mode
+  if (touchedFields.has(field) || editingTask) {
+    const error = validateField(field, value);
     setValidationErrors(prev => ({
       ...prev,
       [field]: error
     }));
+  }
 
-    // If it's assignee or approver, validate the other field too
-    if (field === "assignee" || field === "approverId") {
-      const otherField = field === "assignee" ? "approverId" : "assignee";
-      const otherError = validateField(otherField, formData[otherField]);
-      setValidationErrors(prev => ({
-        ...prev,
-        [otherField]: otherError
-      }));
+  // Special handling for assignee/approver cross-validation
+  if (field === "assignee" || field === "approverId") {
+    const otherField = field === "assignee" ? "approverId" : "assignee";
+    const otherValue = field === "assignee" ? formData.approverId : formData.assignee;
+    
+    // Always validate both fields when either changes
+    const currentFieldError = validateField(field, value);
+    const otherFieldError = validateField(otherField, otherValue);
+    
+    setValidationErrors(prev => ({
+      ...prev,
+      [field]: currentFieldError,
+      [otherField]: otherFieldError
+    }));
+  }
+
+  // Handle dirty fields tracking for edit mode
+  if (originalFormData && editingTask) {
+    const originalValue = originalFormData[field];
+    const newDirtyFields = new Set(dirtyFields);
+
+    if (areValuesEqual(originalValue, value)) {
+      newDirtyFields.delete(field);
+    } else {
+      newDirtyFields.add(field);
     }
+    setDirtyFields(newDirtyFields);
+  }
+};
+  // Handle description change with validation
+  const handleDescriptionChange = (value: string) => {
+    updateFormField("description", value);
   };
+const handleFieldBlur = (field: keyof CreateTaskRequest) => {
+  setTouchedFields(prev => new Set(prev).add(field));
+  
+  // Always validate when field loses focus
+  const error = validateField(field, formData[field]);
+  setValidationErrors(prev => ({
+    ...prev,
+    [field]: error
+  }));
+
+  // For assignee/approver, also validate the other field
+  if (field === "assignee" || field === "approverId") {
+    const otherField = field === "assignee" ? "approverId" : "assignee";
+    const otherError = validateField(otherField, formData[otherField]);
+    setValidationErrors(prev => ({
+      ...prev,
+      [otherField]: otherError
+    }));
+  }
+};
   // Handle comment change with validation
   const handleCommentChange = (value: string) => {
     setComment(value);
@@ -1416,28 +1430,36 @@ const handleSubmit = (e: React.FormEvent) => {
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-            <Select
-              value={formData.assignee}
-              onValueChange={(value) => updateFormField("assignee", value)}
-              
-            >
-              <SelectTrigger className={validationErrors.assignee ? "border-red-500" : ""}>
-                <SelectValue placeholder="Select Assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                {users && users.length > 0 ? (
-                  users.map((user) => (
-                    <SelectItem key={user.userId} value={user.userId}>
-                      {user.firstName} {user.lastName}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="" disabled>
-                    No users available
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+           <Select
+  value={formData.assignee}
+  onValueChange={(value) => updateFormField("assignee", value)}
+  onOpenChange={(open) => {
+    // Trigger validation when dropdown closes if a value was selected
+    if (!open && formData.assignee) {
+      handleFieldBlur("assignee");
+    }
+  }}
+>
+  <SelectTrigger 
+    className={validationErrors.assignee ? "border-red-500" : ""}
+    onBlur={() => handleFieldBlur("assignee")}
+  >
+    <SelectValue placeholder="Select Assignee" />
+  </SelectTrigger>
+  <SelectContent>
+    {users && users.length > 0 ? (
+      users.map((user) => (
+        <SelectItem key={user.userId} value={user.userId}>
+          {user.firstName} {user.lastName}
+        </SelectItem>
+      ))
+    ) : (
+      <SelectItem value="" disabled>
+        No users available
+      </SelectItem>
+    )}
+  </SelectContent>
+</Select>
             {validationErrors.assignee && (
               <p className="text-red-500 text-xs mt-1">{validationErrors.assignee}</p>
             )}
@@ -1450,28 +1472,37 @@ const handleSubmit = (e: React.FormEvent) => {
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-            <Select
-              value={formData.approverId}
-              onValueChange={(value) => updateFormField("approverId", value)}
-              
-            >
-              <SelectTrigger className={validationErrors.approverId ? "border-red-500" : ""}>
-                <SelectValue placeholder={getApproverDisplayName(formData.approverId, users)} />
-              </SelectTrigger>
-              <SelectContent>
-                {users && users.length > 0 ? (
-                  users.map((user) => (
-                    <SelectItem key={user.userId} value={user.userId}>
-                      {user.firstName} {user.lastName}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="" disabled>
-                    No users available
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+           <Select
+  value={formData.approverId}
+  onValueChange={(value) => updateFormField("approverId", value)}
+  onOpenChange={(open) => {
+    // Trigger validation when dropdown closes if a value was selected
+    if (!open && formData.approverId) {
+      handleFieldBlur("approverId");
+    }
+  }}
+>
+  <SelectTrigger 
+    className={validationErrors.approverId ? "border-red-500" : ""}
+    onBlur={() => handleFieldBlur("approverId")}
+  >
+    <SelectValue placeholder="Select Approver" />
+  </SelectTrigger>
+  <SelectContent>
+    {users && users.length > 0 ? (
+      users.map((user) => (
+        <SelectItem key={user.userId} value={user.userId}>
+          {user.firstName} {user.lastName}
+        </SelectItem>
+      ))
+    ) : (
+      <SelectItem value="" disabled>
+        No users available
+      </SelectItem>
+    )}
+  </SelectContent>
+</Select>
+
             {validationErrors.approverId && (
               <p className="text-red-500 text-xs mt-1">{validationErrors.approverId}</p>
             )}
