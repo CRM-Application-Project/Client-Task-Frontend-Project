@@ -885,7 +885,7 @@ useEffect(() => {
           <div className="mt-4">
             <button
               onClick={() => onAddTaskForStage(stage.id)}
-              className="w-full p-4 bordaer-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group h-[40px] flex items-center justify-center"
+              className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group"
               type="button"
             >
               <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-gray-700">
