@@ -739,58 +739,61 @@ export function CreateStaffModal({
             </div>
 
             {/* Dates */}
-            <div className="space-y-2">
-              <Label>Date of Birth</Label>
-              <DatePicker
-                className={`w-full h-10 rounded-md border px-3 ${
-                  touchedFields.dateOfBirth && validationErrors.dateOfBirth
-                    ? "border-red-500"
-                    : ""
-                }`}
-                style={{ width: "100%" }}
-                value={dateOfBirth ? dayjs(dateOfBirth) : null}
-                onChange={(date) => handleDateChange("dateOfBirth", date)}
-                onFocus={() => handleDateFocus("dateOfBirth")}
-                onBlur={() => handleDateBlur("dateOfBirth")}
-                disabledDate={(current) => {
-                  if (current && current > dayjs().endOf("day")) return true;
-                  const fifteenYearsAgo = dayjs().subtract(15, "year");
-                  return current && current > fifteenYearsAgo;
-                }}
-                format="YYYY-MM-DD"
-                getPopupContainer={(trigger) => trigger.parentElement!}
-                defaultPickerValue={dayjs().subtract(15, "year")}
-              />
-              {touchedFields.dateOfBirth && validationErrors.dateOfBirth && (
-                <p className="text-red-500 text-xs">
-                  {validationErrors.dateOfBirth}
-                </p>
-              )}
-            </div>
+         {/* Date of Birth */}
+<div className="space-y-2">
+  <Label>Date of Birth</Label>
+  <DatePicker
+    className={`w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+      touchedFields.dateOfBirth && validationErrors.dateOfBirth
+        ? "border-red-500"
+        : ""
+    }`}
+    style={{ width: "100%" }}
+    value={dateOfBirth ? dayjs(dateOfBirth) : null}
+    onChange={(date) => handleDateChange("dateOfBirth", date)}
+    onFocus={() => handleDateFocus("dateOfBirth")}
+    onBlur={() => handleDateBlur("dateOfBirth")}
+    disabledDate={(current) => {
+      if (current && current > dayjs().endOf("day")) return true;
+      const fifteenYearsAgo = dayjs().subtract(15, "year");
+      return current && current > fifteenYearsAgo;
+    }}
+    format="YYYY-MM-DD"
+    getPopupContainer={(trigger) => trigger.parentElement!}
+    defaultPickerValue={dayjs().subtract(15, "year")}
+    placeholder="Select date of birth"
+  />
+  {touchedFields.dateOfBirth && validationErrors.dateOfBirth && (
+    <p className="text-red-500 text-xs">
+      {validationErrors.dateOfBirth}
+    </p>
+  )}
+</div>
 
-            {/* Date of Join */}
-            <div className="space-y-2">
-              <Label>Date of Join</Label>
-              <DatePicker
-                className={`w-full h-10 rounded-md border px-3 ${
-                  touchedFields.dateOfJoin && validationErrors.dateOfJoin
-                    ? "border-red-500"
-                    : ""
-                }`}
-                style={{ width: "100%" }}
-                value={dateOfJoin ? dayjs(dateOfJoin) : null}
-                onChange={(date) => handleDateChange("dateOfJoin", date)}
-                onFocus={() => handleDateFocus("dateOfJoin")}
-                onBlur={() => handleDateBlur("dateOfJoin")}
-                format="YYYY-MM-DD"
-                getPopupContainer={(trigger) => trigger.parentElement!}
-              />
-              {touchedFields.dateOfJoin && validationErrors.dateOfJoin && (
-                <p className="text-red-500 text-xs">
-                  {validationErrors.dateOfJoin}
-                </p>
-              )}
-            </div>
+{/* Date of Join */}
+<div className="space-y-2">
+  <Label>Date of Join</Label>
+  <DatePicker
+    className={`w-full h-10 rounded-md border border-input bg-background  px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+      touchedFields.dateOfJoin && validationErrors.dateOfJoin
+        ? "border-red-500"
+        : ""
+    }`}
+    style={{ width: "100%" }}
+    value={dateOfJoin ? dayjs(dateOfJoin) : null}
+    onChange={(date) => handleDateChange("dateOfJoin", date)}
+    onFocus={() => handleDateFocus("dateOfJoin")}
+    onBlur={() => handleDateBlur("dateOfJoin")}
+    format="YYYY-MM-DD"
+    getPopupContainer={(trigger) => trigger.parentElement!}
+    placeholder="Select date of join"
+  />
+  {touchedFields.dateOfJoin && validationErrors.dateOfJoin && (
+    <p className="text-red-500 text-xs">
+      {validationErrors.dateOfJoin}
+    </p>
+  )}
+</div>
 
             {/* Send Mail Checkbox (optional UI) */}
             {/* <div className="flex items-center space-x-2 pt-6">

@@ -329,27 +329,33 @@ const weekDays = [
   }, [editingTask, preSelectedStageId]);
 
   // Get minimum end date (start date + 1 day)
-  const getMinEndDate = useCallback(() => {
-    if (!formData.startDate) return getCurrentDateTime();
+ const getMinEndDate = useCallback(() => {
+  if (!formData.startDate) return getCurrentDateTime();
+  
+  try {
+    const startDate = new Date(formData.startDate);
+    const nextDay = new Date(startDate);
+    nextDay.setDate(startDate.getDate() + 1);
     
-    try {
-      const startDate = new Date(formData.startDate);
-      const nextDay = new Date(startDate);
-      nextDay.setDate(startDate.getDate() + 1);
-      
-      // Format for datetime-local input: YYYY-MM-DDTHH:MM
-      const year = nextDay.getFullYear();
-      const month = String(nextDay.getMonth() + 1).padStart(2, "0");
-      const day = String(nextDay.getDate()).padStart(2, "0");
-      const hours = String(nextDay.getHours()).padStart(2, "0");
-      const minutes = String(nextDay.getMinutes()).padStart(2, "0");
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch (error) {
-      console.error("Error calculating min end date:", error);
-      return getCurrentDateTime();
+    // For edit mode, if the start date hasn't changed, don't restrict the min date
+    // This allows editing other fields without changing the end date
+    if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
+      return undefined; // No minimum restriction for existing tasks
     }
-  }, [formData.startDate]);
+    
+    // Format for datetime-local input: YYYY-MM-DDTHH:MM
+    const year = nextDay.getFullYear();
+    const month = String(nextDay.getMonth() + 1).padStart(2, "0");
+    const day = String(nextDay.getDate()).padStart(2, "0");
+    const hours = String(nextDay.getHours()).padStart(2, "0");
+    const minutes = String(nextDay.getMinutes()).padStart(2, "0");
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (error) {
+    console.error("Error calculating min end date:", error);
+    return getCurrentDateTime();
+  }
+}, [formData.startDate, editingTask, dirtyFields]);
 
   const areValuesEqual = (original: any, current: any): boolean => {
     if (original === current) return true;
@@ -415,6 +421,16 @@ const weekDays = [
       break;
     case "startDate":
       if (!value) return "Start date is required";
+      
+      // Only validate against current time for NEW tasks or when start date is modified in edit mode
+      if (!editingTask || dirtyFields.has("startDate")) {
+        const startDate = new Date(value);
+        const now = new Date();
+        
+        if (startDate < now) {
+          return "Start date must be in the future";
+        }
+      }
       break;
     case "endDate":
       if (!value) return "End date is required";
@@ -1355,14 +1371,17 @@ const handleSubmit = (e: React.FormEvent) => {
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-            <input
-              type="datetime-local"
-              value={formatDateTimeForInput(formData.startDate)}
-              onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
-              onBlur={() => setTouchedFields(prev => new Set(prev).add("startDate"))}
-              className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-300"}`}
-              min={getCurrentDateTime()}
-            />
+           <input
+  type="datetime-local"
+  value={formatDateTimeForInput(formData.startDate)}
+  onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
+  onBlur={() => setTouchedFields(prev => new Set(prev).add("startDate"))}
+  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-300"}`}
+  // Only set min for new tasks, not when editing
+  min={editingTask ? undefined : getCurrentDateTime()}
+/>
+
+
             {validationErrors.startDate && (
               <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
             )}
@@ -1376,13 +1395,14 @@ const handleSubmit = (e: React.FormEvent) => {
               )}
             </Label>
             <input
-              type="datetime-local"
-              value={formatDateTimeForInput(formData.endDate)}
-              onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
-              onBlur={() => setTouchedFields(prev => new Set(prev).add("endDate"))}
-              className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-300"}`}
-              min={getMinEndDate()}
-            />
+  type="datetime-local"
+  value={formatDateTimeForInput(formData.endDate)}
+  onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
+  onBlur={() => setTouchedFields(prev => new Set(prev).add("endDate"))}
+  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-300"}`}
+  min={getMinEndDate()}
+/>
+
             {validationErrors.endDate && (
               <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
             )}
