@@ -154,7 +154,7 @@ export default function RegisterPage() {
   const [showCompanyInfo, setShowCompanyInfo] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   const router = useRouter();
 
 const resetForm = () => {
@@ -220,6 +220,7 @@ const SuccessModal = () => (
         toast({
           title: "Themes Generated",
           description: `Generated ${response.data.data.palettes.length} custom themes for your brand`,
+          duration: 5000,
         });
       } else {
         throw new Error(response.message || "Failed to generate themes");
@@ -230,6 +231,7 @@ const SuccessModal = () => (
         title: "Theme Generation Failed",
         description: "Could not generate themes from your logo colors",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsGeneratingThemes(false);
@@ -248,6 +250,7 @@ const SuccessModal = () => (
         title: "Invalid File",
         description: "Please upload an image file",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -257,6 +260,7 @@ const SuccessModal = () => (
         title: "File Too Large",
         description: "Please upload an image smaller than 2MB",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -276,6 +280,7 @@ const SuccessModal = () => (
         title: "Upload Error",
         description: "Failed to read the image file",
         variant: "destructive",
+        duration: 5000,
       });
       setIsUploading(false);
     };
@@ -307,6 +312,7 @@ const SuccessModal = () => (
         toast({
           title: "Logo Uploaded",
           description: `Extracted ${hexColors.length} colors. Generating themes...`,
+          duration: 5000,
         });
 
         // Call backend API to generate themes
@@ -317,6 +323,7 @@ const SuccessModal = () => (
           title: "Color Extraction Failed",
           description: "Could not extract colors from the image",
           variant: "destructive",
+          duration: 5000,
         });
       }
     };
@@ -326,6 +333,7 @@ const SuccessModal = () => (
         title: "Image Error",
         description: "Failed to load the image for color extraction",
         variant: "destructive",
+        duration: 5000,
       });
     };
   };
@@ -336,6 +344,7 @@ const SuccessModal = () => (
     toast({
       title: "Theme Selected",
       description: "Your theme has been selected successfully",
+      duration: 5000,
     });
   };
 
@@ -746,6 +755,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
       title: "Theme Required",
       description: "Please select a theme for your CRM before registering",
       variant: "destructive",
+      duration: 5000,
     });
     return;
   }
@@ -813,6 +823,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
           title: "Logo Upload Error",
           description: "Failed to process the logo file. Please try again.",
           variant: "destructive",
+          duration: 5000,
         });
         return;
       }
@@ -835,6 +846,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
       toast({
         title: "Registration Successful",
         description: "Your account has been created successfully!",
+        duration: 5000,
       });
     } else {
       // Handle API response failure
@@ -846,6 +858,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
         title: "Registration Failed",
         description: errorMessage,
         variant: "destructive",
+        duration: 5000,
       });
     }
     
@@ -894,6 +907,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
           title: "Registration Failed",
           description: "Please check the highlighted field and try again.",
           variant: "destructive",
+          duration: 5000,
         });
         
         // Scroll to the field with error (optional)
@@ -912,6 +926,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
           title: "Registration Failed",
           description: errorMessage,
           variant: "destructive",
+          duration: 5000,
         });
       }
     } else {
@@ -920,6 +935,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
         title: "Error",
         description: errorMessage,
         variant: "destructive",
+        duration: 5000,
       });
     }
     
@@ -994,6 +1010,7 @@ const clearServerError = (fieldName: FieldName) => {
     toast({
       title: "Logo Removed",
       description: "Company logo has been removed",
+      duration: 5000,
     });
   };
 
@@ -1030,6 +1047,7 @@ const clearServerError = (fieldName: FieldName) => {
                   toast({
                     title: "Theme Selected",
                     description: "Your theme has been saved successfully",
+                    duration: 5000,
                   });
                 }}
                 style={{
