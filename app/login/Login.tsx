@@ -149,7 +149,7 @@ export default function LoginPage() {
     password: "",
   });
 
-  const { toast } = useToast();
+  const { toast,dismiss } = useToast();
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -429,6 +429,7 @@ export default function LoginPage() {
       description:
         "Copying from password fields is not allowed for security reasons",
       variant: "destructive",
+      duration: 5000,
     });
   };
   const handlePastePrevention = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -438,6 +439,7 @@ export default function LoginPage() {
       description:
         "Pasting into password fields is not allowed for security reasons",
       variant: "destructive",
+      duration: 5000,
     });
   };
 
@@ -490,6 +492,7 @@ export default function LoginPage() {
         title: "Email required",
         description: "Please enter a valid email address first",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -498,6 +501,7 @@ export default function LoginPage() {
         title: "Company required",
         description: "Please enter your company name first",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -519,6 +523,7 @@ export default function LoginPage() {
           title: "OTP Sent",
           description: "Check your email for the verification code",
           variant: "default",
+          duration: 5000,
         });
         setForgotPasswordMode(true);
       } else {
@@ -526,6 +531,7 @@ export default function LoginPage() {
           title: "Failed to send OTP",
           description: otpResponse.message,
           variant: "destructive",
+          duration: 5000,
         });
       }
     } catch (error: any) {
@@ -534,6 +540,7 @@ export default function LoginPage() {
         description:
           error.message || "An error occurred while processing your request",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
@@ -546,6 +553,7 @@ export default function LoginPage() {
         title: "OTP required",
         description: "Please enter the OTP sent to your email",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -564,12 +572,14 @@ export default function LoginPage() {
           title: "OTP Verified",
           description: "You can now reset your password",
           variant: "default",
+          duration: 5000,
         });
       } else {
         toast({
           title: "Invalid OTP",
           description: verifyResponse.message,
           variant: "destructive",
+          duration: 5000,
         });
       }
     } catch (error: any) {
@@ -577,6 +587,7 @@ export default function LoginPage() {
         title: "Error",
         description: error.message || "An error occurred while verifying OTP",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
@@ -589,6 +600,7 @@ export default function LoginPage() {
         title: "All fields required",
         description: "Please fill in all fields",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -599,6 +611,7 @@ export default function LoginPage() {
         title: "Passwords don't match",
         description: "Please make sure both passwords match",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -617,6 +630,7 @@ export default function LoginPage() {
           title: "Password Reset",
           description: "Your password has been reset successfully",
           variant: "default",
+          duration: 5000,
         });
         setForgotPasswordMode(false);
         setOtpSent(false);
@@ -630,6 +644,7 @@ export default function LoginPage() {
           title: "Reset Failed",
           description: resetResponse.message,
           variant: "destructive",
+          duration: 5000,
         });
       }
     } catch (error: any) {
@@ -638,6 +653,7 @@ export default function LoginPage() {
         description:
           error.message || "An error occurred while resetting your password",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
@@ -773,6 +789,7 @@ export default function LoginPage() {
           title: "Login successful",
           description: `Welcome back, ${profileResponse.firstName}!`,
           variant: "default",
+          duration: 5000,
         });
 
         let redirectPath = "/not-found";
@@ -794,6 +811,7 @@ export default function LoginPage() {
           title: "Login failed",
           description: response.message,
           variant: "destructive",
+          duration: 5000,
         });
       }
     } catch (error) {
@@ -805,6 +823,7 @@ export default function LoginPage() {
             ? error.message
             : "An error occurred during login",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
