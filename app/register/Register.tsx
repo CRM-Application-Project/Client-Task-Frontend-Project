@@ -154,30 +154,30 @@ export default function RegisterPage() {
   const [showCompanyInfo, setShowCompanyInfo] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   const router = useRouter();
 
-  // ---------- RESET FORM FUNCTION ----------
-  const resetForm = () => {
-    setFormData(initialFormData);
-    setFieldErrors(initialFieldErrors);
-    setTouchedFields(initialTouchedFields);
-    setCompanyLogo(null);
-    setExtractedColors([]);
-    setGeneratedThemes([]);
-    setSelectedTheme(null);
-    setShowThemeSelection(false);
-    setOriginalFileName(undefined);
-    setShowPassword(false);
-    setShowCompanyInfo(true);
-    setIsFormValid(false);
-    
-    // Reset file input
-    const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
-  };
+const resetForm = () => {
+  setFormData(initialFormData);
+  setFieldErrors(initialFieldErrors);
+  setServerErrors(initialFieldErrors); // Add this line
+  setTouchedFields(initialTouchedFields);
+  setCompanyLogo(null);
+  setExtractedColors([]);
+  setGeneratedThemes([]);
+  setSelectedTheme(null);
+  setShowThemeSelection(false);
+  setOriginalFileName(undefined);
+  setShowPassword(false);
+  setShowCompanyInfo(true);
+  setIsFormValid(false);
+  
+  // Reset file input
+  const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
+  if (fileInput) {
+    fileInput.value = '';
+  }
+};
 
   // ---------- SUCCESS MODAL COMPONENT ----------
 const SuccessModal = () => (
@@ -220,6 +220,7 @@ const SuccessModal = () => (
         toast({
           title: "Themes Generated",
           description: `Generated ${response.data.data.palettes.length} custom themes for your brand`,
+          duration: 5000,
         });
       } else {
         throw new Error(response.message || "Failed to generate themes");
@@ -230,6 +231,7 @@ const SuccessModal = () => (
         title: "Theme Generation Failed",
         description: "Could not generate themes from your logo colors",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setIsGeneratingThemes(false);
@@ -248,6 +250,7 @@ const SuccessModal = () => (
         title: "Invalid File",
         description: "Please upload an image file",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -257,6 +260,7 @@ const SuccessModal = () => (
         title: "File Too Large",
         description: "Please upload an image smaller than 2MB",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
@@ -276,6 +280,7 @@ const SuccessModal = () => (
         title: "Upload Error",
         description: "Failed to read the image file",
         variant: "destructive",
+        duration: 5000,
       });
       setIsUploading(false);
     };
@@ -307,6 +312,7 @@ const SuccessModal = () => (
         toast({
           title: "Logo Uploaded",
           description: `Extracted ${hexColors.length} colors. Generating themes...`,
+          duration: 5000,
         });
 
         // Call backend API to generate themes
@@ -317,6 +323,7 @@ const SuccessModal = () => (
           title: "Color Extraction Failed",
           description: "Could not extract colors from the image",
           variant: "destructive",
+          duration: 5000,
         });
       }
     };
@@ -326,6 +333,7 @@ const SuccessModal = () => (
         title: "Image Error",
         description: "Failed to load the image for color extraction",
         variant: "destructive",
+        duration: 5000,
       });
     };
   };
@@ -336,6 +344,7 @@ const SuccessModal = () => (
     toast({
       title: "Theme Selected",
       description: "Your theme has been selected successfully",
+      duration: 5000,
     });
   };
 
@@ -665,29 +674,65 @@ const SuccessModal = () => (
     | "gstNumber";
 
   const handleInputChange = (field: FormFieldName, rawValue: string): void => {
-    let value = rawValue;
+  let value = rawValue;
 
-    if (field === "emailAddress") {
-      value = value.trimStart();
-    }
+  if (field === "emailAddress") {
+    value = value.trimStart();
+  }
 
-    if (field === "companyContactNumber") {
-      value = value.replace(/\D/g, "").slice(0, 10);
-    }
+  if (field === "companyContactNumber") {
+    value = value.replace(/\D/g, "").slice(0, 10);
+  }
 
-    if (field === "gstNumber") {
-      value = value.toUpperCase().slice(0, 15);
-    }
+  if (field === "gstNumber") {
+    value = value.toUpperCase().slice(0, 15);
+  }
 
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  setFormData((prev) => ({ ...prev, [field]: value }));
 
-    if (!touchedFields[field as FieldName]) {
-      setTouchedFields((prev) => ({ ...prev, [field]: true }));
-    }
+  // Clear server error when user starts typing
+  clearServerError(field as FieldName);
 
-    const err = validateField(field as FieldName, value);
-    setFieldErrors((prev) => ({ ...prev, [field]: err }));
-  };
+  if (!touchedFields[field as FieldName]) {
+    setTouchedFields((prev) => ({ ...prev, [field]: true }));
+  }
+
+  const err = validateField(field as FieldName, value);
+  setFieldErrors((prev) => ({ ...prev, [field]: err }));
+};
+
+// Update your validation status renderer to show server errors
+const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
+  // Show server error first if it exists
+  if (serverErrors[fieldName]) {
+    return (
+      <div className="flex items-center gap-1 mt-1 text-destructive text-xs">
+        <AlertCircle className="h-3 w-3" />
+        <span>{serverErrors[fieldName]}</span>
+      </div>
+    );
+  }
+
+  // Then show client-side validation
+  if (!touchedFields[fieldName]) return null;
+
+  if (fieldErrors[fieldName]) {
+    return (
+      <div className="flex items-center gap-1 mt-1 text-destructive text-xs">
+        <AlertCircle className="h-3 w-3" />
+        <span>{fieldErrors[fieldName]}</span>
+      </div>
+    );
+  } else if ((formData as any)[fieldName]) {
+    return (
+      <div className="flex items-center gap-1 mt-1 text-green-600 text-xs">
+        <CheckCircle className="h-3 w-3" />
+        <span>Valid</span>
+      </div>
+    );
+  }
+  return null;
+};
 
   const handleBlur = (fieldName: FieldName): void => {
     if (!touchedFields[fieldName]) {
@@ -698,193 +743,257 @@ const SuccessModal = () => (
   };
 
   // ---------- SUBMIT ----------
-  const handleRegister = async (
-    e: React.FormEvent<HTMLFormElement>
-  ): Promise<void> => {
-    e.preventDefault();
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  e.preventDefault();
 
-    // Check if theme is selected when logo is uploaded
-    if (extractedColors.length > 0 && !selectedTheme) {
-      toast({
-        title: "Theme Required",
-        description: "Please select a theme for your CRM before registering",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Clear any existing server errors at the start of submission
+  setServerErrors(initialFieldErrors);
 
-    // Force-validate all fields on submit
-    const allFields: FieldName[] = [
-      "firstName",
-      "lastName",
-      "emailAddress",
-      "password",
-      "companyName",
-      "companyContactNumber",
-      "gstNumber",
-      "companyLogo",
-    ];
-
-    setTouchedFields((prev) => {
-      const next = { ...prev };
-      allFields.forEach((f) => (next[f] = true));
-      return next;
+  // Check if theme is selected when logo is uploaded
+  if (extractedColors.length > 0 && !selectedTheme) {
+    toast({
+      title: "Theme Required",
+      description: "Please select a theme for your CRM before registering",
+      variant: "destructive",
+      duration: 5000,
     });
+    return;
+  }
 
-    validateMany(allFields);
+  // Force-validate all fields on submit
+  const allFields: FieldName[] = [
+    "firstName",
+    "lastName",
+    "emailAddress",
+    "password",
+    "companyName",
+    "companyContactNumber",
+    "gstNumber",
+    "companyLogo",
+  ];
 
-    const canSubmit =
-      allFields.every((f) => validateField(f, (formData as any)[f]) === "") &&
-      personalValid &&
-      companyValid;
+  setTouchedFields((prev) => {
+    const next = { ...prev };
+    allFields.forEach((f) => (next[f] = true));
+    return next;
+  });
 
-    if (!canSubmit) return;
+  validateMany(allFields);
 
-    setIsLoading(true);
-    try {
-      // Create FormData for multipart/form-data request
-      const formDataToSend = new FormData();
-      
-      // Add basic user data
-      formDataToSend.append('firstName', formData.firstName.trim());
-      formDataToSend.append('lastName', formData.lastName.trim());
-      formDataToSend.append('emailAddress', formData.emailAddress.trim());
-      formDataToSend.append('password', formData.password);
-      formDataToSend.append('companyName', formData.companyName.trim());
-      formDataToSend.append('companyContactNumber', formData.companyContactNumber);
-      formDataToSend.append('gstNumber', formData.gstNumber);
+  const canSubmit =
+    allFields.every((f) => validateField(f, (formData as any)[f]) === "") &&
+    personalValid &&
+    companyValid;
 
-      // Add white label request if theme is selected
-      if (selectedTheme) {
-        const whiteLabelRequest = {
-          description: selectedTheme.description,
-          brandSettings: selectedTheme.brandSettings,
-          topBanner: selectedTheme.topBanner,
-        };
-        formDataToSend.append('whiteLabelRequest', JSON.stringify(whiteLabelRequest));
-      }
+  if (!canSubmit) return;
 
-      // Add logo file if uploaded
-      if (companyLogo && originalFileName) {
-        try {
-          const response = await fetch(companyLogo);
-          const blob = await response.blob();
-          const logoFile = new File([blob], originalFileName, { type: blob.type });
-          formDataToSend.append('companyLogo', logoFile);
-        } catch (error) {
-          console.error('Error processing logo file:', error);
-          toast({
-            title: "Logo Upload Error",
-            description: "Failed to process the logo file. Please try again.",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-          return;
-        }
-      }
+  setIsLoading(true);
+  
+  try {
+    // Create the registration data object
+    const registerData = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      emailAddress: formData.emailAddress.trim(),
+      password: formData.password,
+      companyName: formData.companyName.trim(),
+      companyContactNumber: formData.companyContactNumber,
+      gstNumber: formData.gstNumber,
+      ...(selectedTheme
+        ? {
+            whiteLabelRequest: {
+              description: selectedTheme.description,
+              brandSettings: selectedTheme.brandSettings,
+              topBanner: selectedTheme.topBanner,
+            },
+          }
+        : {}),
+    };
 
-      // Alternative approach - use the original registerUser function with separate parameters
-      const registerData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        emailAddress: formData.emailAddress.trim(),
-        password: formData.password,
-        companyName: formData.companyName.trim(),
-        companyContactNumber: formData.companyContactNumber,
-        gstNumber: formData.gstNumber,
-        ...(selectedTheme
-          ? {
-              whiteLabelRequest: {
-                description: selectedTheme.description,
-                brandSettings: selectedTheme.brandSettings,
-                topBanner: selectedTheme.topBanner,
-              },
-            }
-          : {}),
-      };
-
-      // Get the logo file if uploaded
-      let logoFile: File | undefined;
-      if (companyLogo && originalFileName) {
+    // Get the logo file if uploaded
+    let logoFile: File | undefined;
+    if (companyLogo && originalFileName) {
+      try {
         const response = await fetch(companyLogo);
         const blob = await response.blob();
         logoFile = new File([blob], originalFileName, { type: blob.type });
+      } catch (error) {
+        console.error('Error processing logo file:', error);
+        toast({
+          title: "Logo Upload Error",
+          description: "Failed to process the logo file. Please try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+        return;
       }
+    }
 
-      console.log('Sending registration data:', {
-        ...registerData,
-        password: '[REDACTED]',
-        logoFile: logoFile ? `${logoFile.name} (${logoFile.size} bytes)` : 'No file'
+    console.log('Sending registration data:', {
+      ...registerData,
+      password: '[REDACTED]',
+      logoFile: logoFile ? `${logoFile.name} (${logoFile.size} bytes)` : 'No file'
+    });
+
+    // Call the registration API
+    const response = await registerUser(registerData, logoFile);
+
+    if (response && response.isSuccess) {
+      // Show success modal and reset form
+      setShowSuccessModal(true);
+      resetForm();
+      
+      toast({
+        title: "Registration Successful",
+        description: "Your account has been created successfully!",
+        duration: 5000,
       });
-
-      const response = await registerUser(registerData, logoFile);
-
-      if (response && response.isSuccess) {
-        // Show success modal instead of toast
-        setShowSuccessModal(true);
-        resetForm();
-        // Also show a toast for immediate feedback
-       
+    } else {
+      // Handle API response failure
+      const errorMessage = response?.message || "Registration failed. Please check your information and try again.";
+      
+      console.error('Registration failed:', response);
+      
+      toast({
+        title: "Registration Failed",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+    
+  } catch (error: any) {
+    console.error("Registration error details:", error);
+    
+    let errorMessage = "An unexpected error occurred. Please try again later.";
+    let serverErrorMessage = "";
+    
+    // Extract error message from different possible error structures
+    if (error?.response?.data?.errorMessage) {
+      serverErrorMessage = error.response.data.errorMessage;
+      errorMessage = serverErrorMessage;
+    } else if (error?.response?.data?.message) {
+      serverErrorMessage = error.response.data.message;
+      errorMessage = serverErrorMessage;
+    } else if (error?.response?.status === 409) {
+      // Handle conflict errors (like duplicate data)
+      serverErrorMessage = error.response.data?.errorMessage || "Data already exists";
+      errorMessage = serverErrorMessage;
+    } else if (error?.response?.status === 403) {
+      errorMessage = "Access forbidden. Please check your credentials and try again.";
+    } else if (error?.response?.status === 400) {
+      errorMessage = "Invalid data provided. Please check all fields and try again.";
+      if (error?.response?.data?.errorMessage) {
+        serverErrorMessage = error.response.data.errorMessage;
+        errorMessage = serverErrorMessage;
+      }
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+    
+    // Try to map server error to specific field if we have a server error message
+    if (serverErrorMessage) {
+      const fieldName = mapServerErrorToField(serverErrorMessage);
+      
+      if (fieldName) {
+        // Set the server error for the specific field
+        setServerErrors(prev => ({ 
+          ...prev, 
+          [fieldName]: serverErrorMessage 
+        }));
+        
+        // Show a more generic toast message when we have field-specific errors
+        toast({
+          title: "Registration Failed",
+          description: "Please check the highlighted field and try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+        
+        // Scroll to the field with error (optional)
+        const fieldElement = document.getElementById(fieldName);
+        if (fieldElement) {
+          fieldElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          fieldElement.focus();
+        }
+        
       } else {
-        const errorMessage = response?.message || "Registration failed. Please check your information and try again.";
+        // Show full error in toast if we can't map it to a specific field
         toast({
           title: "Registration Failed",
           description: errorMessage,
           variant: "destructive",
+          duration: 5000,
         });
-        console.error('Registration failed:', response);
       }
-    } catch (error: any) {
-      console.error("Registration error details:", error);
-      
-      let errorMessage = "An unexpected error occurred. Please try again later.";
-      
-      if (error?.response?.status === 403) {
-        errorMessage = "Access forbidden. Please check your credentials and try again.";
-      } else if (error?.response?.status === 400) {
-        errorMessage = "Invalid data provided. Please check all fields and try again.";
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      
+    } else {
+      // Show generic error when no server error message is available
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
+        duration: 5000,
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+    
+  } finally {
+    setIsLoading(false);
+  }
+};
+const [serverErrors, setServerErrors] = useState<ValidationErrors>(initialFieldErrors);
 
+// Add a function to map server error messages to specific fields
+const mapServerErrorToField = (errorMessage: string): FieldName | null => {
+  const message = errorMessage.toLowerCase();
+  
+  if (message.includes('gst number') || message.includes('gst')) {
+    return 'gstNumber';
+  }
+  if (message.includes('email') || message.includes('email address')) {
+    return 'emailAddress';
+  }
+  if (message.includes('phone') || message.includes('contact number')) {
+    return 'companyContactNumber';
+  }
+  if (message.includes('company name')) {
+    return 'companyName';
+  }
+  if (message.includes('first name')) {
+    return 'firstName';
+  }
+  if (message.includes('last name')) {
+    return 'lastName';
+  }
+  if (message.includes('password')) {
+    return 'password';
+  }
+  
+  return null;
+};
+const clearServerError = (fieldName: FieldName) => {
+  setServerErrors(prev => ({ ...prev, [fieldName]: '' }));
+};
   // ---------- UI HELPERS ----------
-  const borderClass = (field: FieldName) =>
-    touchedFields[field] && fieldErrors[field]
-      ? "border-destructive"
-      : touchedFields[field] && !fieldErrors[field] && (formData as any)[field]
-      ? "border-green-500"
-      : "";
+ const borderClass = (field: FieldName) => {
+  // Server error takes priority
+  if (serverErrors[field]) {
+    return "border-destructive";
+  }
+  
+  // Then client-side validation
+  if (touchedFields[field] && fieldErrors[field]) {
+    return "border-destructive";
+  } else if (touchedFields[field] && !fieldErrors[field] && (formData as any)[field]) {
+    return "border-green-500";
+  }
+  
+  return "";
+};
 
-  const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
-    if (!touchedFields[fieldName]) return null;
 
-    if (fieldErrors[fieldName]) {
-      return (
-        <div className="flex items-center gap-1 mt-1 text-destructive text-xs">
-          <AlertCircle className="h-3 w-3" />
-          <span>{fieldErrors[fieldName]}</span>
-        </div>
-      );
-    } else if ((formData as any)[fieldName]) {
-      return (
-        <div className="flex items-center gap-1 mt-1 text-green-600 text-xs">
-          <CheckCircle className="h-3 w-3" />
-          <span>Valid</span>
-        </div>
-      );
-    }
-    return null;
-  };
   
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewTheme, setPreviewTheme] = useState<ThemePalette | null>(null);
@@ -901,6 +1010,7 @@ const SuccessModal = () => (
     toast({
       title: "Logo Removed",
       description: "Company logo has been removed",
+      duration: 5000,
     });
   };
 
@@ -937,6 +1047,7 @@ const SuccessModal = () => (
                   toast({
                     title: "Theme Selected",
                     description: "Your theme has been saved successfully",
+                    duration: 5000,
                   });
                 }}
                 style={{
