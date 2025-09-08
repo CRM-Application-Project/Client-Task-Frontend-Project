@@ -296,7 +296,7 @@ export function DiscussionPanel({
               name: mention.mentioned.label,
             })) : [],
             replyCount: comment.replyCount || 0,
-            isDeletable: comment.isDeletable || false,
+            isDeletable: comment.isDeletable !== false, // Default to true unless explicitly false
           };
         });
 
@@ -385,7 +385,7 @@ export function DiscussionPanel({
             name: mention.mentioned.label,
           })) : [],
           replyCount: reply.replyCount || 0,
-          isDeletable: reply.isDeletable || false,
+          isDeletable: reply.isDeletable !== false, // Default to true unless explicitly false
         }));
 
         setRepliesData(prev => ({
@@ -1083,30 +1083,19 @@ export function DiscussionPanel({
 
             {/* Plain text content */}
             <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-              {comment.content.split(/(@[^@\s]+(?:\s+[^@\s]+)*)/g).map((part, i) => {
+              {comment.content.split(/(@\w+(?:\s+\w+)*)/g).map((part, i) => {
                 if (part.startsWith('@')) {
                   const usernameFromText = part.substring(1).trim();
 
                   // Find the actual mentioned user object from the mentions array
-                  // Try exact match first, then partial matches
                   const mentionedUser = comment.mentions?.find(m => {
                     const mentionName = m.name.toLowerCase().trim();
                     const textName = usernameFromText.toLowerCase().trim();
 
-                    // Exact match
-                    if (mentionName === textName) return true;
-
-                    // Check if the text matches the full name or parts of it
-                    const mentionParts = mentionName.split(/\s+/);
-                    const textParts = textName.split(/\s+/);
-
-                    // If text has multiple parts, try to match the full name
-                    if (textParts.length > 1) {
-                      return mentionName.includes(textName) || textName.includes(mentionName);
-                    }
-
-                    // If text has single part, check if it matches any part of the mention name
-                    return mentionParts.some(part => part.startsWith(textName) || textName.startsWith(part));
+                    // Try exact match first
+                    return mentionName === textName ||
+                      mentionName.includes(textName) ||
+                      textName.includes(mentionName);
                   });
 
                   if (mentionedUser) {
@@ -1149,8 +1138,8 @@ export function DiscussionPanel({
                     key={reactionType}
                     onClick={() => toggleReaction(comment.id, reactionType)}
                     className={`text-xs border rounded-full px-2 py-0.5 ${active
-                        ? "bg-blue-50 border-blue-200 text-blue-700"
-                        : "text-gray-600"
+                      ? "bg-blue-50 border-blue-200 text-blue-700"
+                      : "text-gray-600"
                       }`}
                     title={active ? "Remove reaction" : "Add reaction"}
                   >
