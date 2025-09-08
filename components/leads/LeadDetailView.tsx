@@ -230,53 +230,82 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
       </div>
 
       {/* Lead Summary Card */}
-      <div className="bg-white rounded-lg shadow-sm border mb-6 p-6">
-  <div className="flex items-start justify-between">
+    <div className="bg-white rounded-lg shadow-sm border mb-6 p-6">
+  <div className="flex items-center justify-between">
     
-    {/* Left section */}
-    <div className="flex items-start gap-4">
-      <Avatar className="h-14 w-14 bg-blue-50">
-        <AvatarFallback className="bg-blue-50 text-blue-700 font-medium text-lg">
-          {getInitials(lead.customerName)}
-        </AvatarFallback>
-      </Avatar>
+    {/* Left section - Avatar and Name */}
+    <div className="flex items-center space-x-4">
+      <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold">
+        {getInitials(lead.customerName)}
+      </div>
       
-      <div className="space-y-3">
-        <h2 className="text-xl font-semibold text-gray-900">
+      <div>
+        <h3 className="text-xl font-semibold text-gray-900">
           {lead.customerName}
-        </h2>
-
+        </h3>
         {shouldDisplay(lead.companyName) && (
-          <div className="flex items-center gap-2 text-gray-600 text-sm">
-            <Building className="h-4 w-4" />
-            <span>{lead.companyName}</span>
-          </div>
+          <p className="text-sm text-gray-600">
+            {lead.companyName}
+          </p>
         )}
-
-        <div className="flex gap-2 flex-wrap">
-          <Badge className={`${getStatusColor(lead.leadStatus)}`}>
-            {lead.leadStatus.replace("_", " ")}
-          </Badge>
-
-          {shouldDisplay(lead.leadSource) && (
-            <Badge variant="outline" className="text-gray-600 bg-gray-50">
-              {lead.leadSource.replace("_", " ")}
-            </Badge>
-          )}
-
-          {shouldDisplay(lead.leadLabel) && (
-            <Badge variant="outline" className="text-gray-600 bg-gray-50">
-              {lead.leadLabel}
-            </Badge>
-          )}
-        </div>
       </div>
     </div>
 
-    {/* Right section → Lead Priority */}
-    <Badge className={`${getPriorityColor(lead.leadPriority)}`}>
-      {lead.leadPriority}
-    </Badge>
+    {/* Right section - All details in horizontal layout */}
+    <div className="flex items-center space-x-6">
+      
+      {/* Lead Status */}
+      <div className="text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          Status
+        </span>
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          {lead.leadStatus.replace("_", " ")}
+        </span>
+      </div>
+
+      {/* Lead Source */}
+      {shouldDisplay(lead.leadSource) && (
+        <div className="text-center">
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+            Source
+          </span>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            {lead.leadSource.replace("_", " ")}
+          </span>
+        </div>
+      )}
+
+      {/* Lead Label */}
+      {shouldDisplay(lead.leadLabel) && (
+        <div className="text-center">
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+            Label
+          </span>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+            {lead.leadLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Lead Priority */}
+      <div className="text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          Priority
+        </span>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          lead.leadPriority.toLowerCase() === 'high' 
+            ? 'bg-red-100 text-red-800' 
+            : lead.leadPriority.toLowerCase() === 'medium'
+            ? 'bg-yellow-100 text-yellow-800'
+            : 'bg-gray-100 text-gray-800'
+        }`}>
+          {lead.leadPriority}
+        </span>
+      </div>
+
+    </div>
+    
   </div>
 </div>
 

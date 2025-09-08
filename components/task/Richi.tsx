@@ -131,9 +131,12 @@ export const RichTextEditor = ({
     }
   }, [value, isInitialized]);
 
-  useEffect(() => {
-    setIsInitialized(false);
-  }, []);
+ useEffect(() => {
+  if (editorRef.current && value !== editorRef.current.innerHTML) {
+    editorRef.current.innerHTML = value || "";
+  }
+}, [value]);
+
 
   const handleInput = () => {
     if (editorRef.current) {
@@ -167,7 +170,8 @@ export const RichTextEditor = ({
     }, 10);
   };
 
-  const insertAtCursor = (html: string) => {
+  // Fixed insertAtCursor function with proper cursor positioning
+   const insertAtCursor = (html: string) => {
     editorRef.current?.focus();
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
@@ -192,21 +196,38 @@ export const RichTextEditor = ({
     handleInput();
   };
 
+
   const insertEmoji = (emoji: string) => {
     insertAtCursor(emoji);
     setShowEmojiPicker(false);
   };
 
-  // Fixed list implementation using proper document.execCommand
+  // Fixed list implementation with proper numbering
   const insertNumberedList = () => {
-    editorRef.current?.focus();
-    executeFormat("insertOrderedList");
-  };
+  editorRef.current?.focus();
+  
+  // Use browser's native command
+  document.execCommand("insertOrderedList");
+  
+  // Force re-render to update active formats
+  setTimeout(() => {
+    handleInput();
+    checkActiveFormats();
+  }, 10);
+};
 
-  const insertBulletList = () => {
-    editorRef.current?.focus();
-    executeFormat("insertUnorderedList");
-  };
+const insertBulletList = () => {
+  editorRef.current?.focus();
+  document.execCommand("insertUnorderedList");
+  
+  // Force re-render to update active formats
+  setTimeout(() => {
+    handleInput();
+    checkActiveFormats();
+  }, 10);
+};
+
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -231,8 +252,9 @@ export const RichTextEditor = ({
             // Empty list item - exit list
             e.preventDefault();
             const listElement = listItem.parentElement;
-            const br = document.createElement('br');
-            listElement?.parentNode?.insertBefore(br, listElement.nextSibling);
+            const div = document.createElement('div');
+            div.innerHTML = '<br>';
+            listElement?.parentNode?.insertBefore(div, listElement.nextSibling);
             listItem.remove();
             
             // If list is now empty, remove it
@@ -240,10 +262,10 @@ export const RichTextEditor = ({
               listElement.remove();
             }
             
-            // Set cursor after the br
+            // Set cursor in the new div
             const range = document.createRange();
-            range.setStartAfter(br);
-            range.setEndAfter(br);
+            range.setStart(div, 0);
+            range.setEnd(div, 0);
             selection.removeAllRanges();
             selection.addRange(range);
             handleInput();
@@ -579,7 +601,7 @@ export const RichTextEditor = ({
         data-placeholder={placeholder}
       />
       
-      {/* Add CSS for list styling */}
+      {/* Enhanced CSS for proper list styling and cursor behavior */}
       <style>
         {`
           .rich-text-editor ul {
@@ -592,16 +614,37 @@ export const RichTextEditor = ({
             list-style-type: decimal;
             padding-left: 1.5rem;
             margin: 0.5rem 0;
+            counter-reset: list-counter;
+          }
+          
+          .rich-text-editor ol li {
+            margin: 0.25rem 0;
+            list-style: decimal;
+          }
+          
+          .rich-text-editor ul li {
+            margin: 0.25rem 0;
+            list-style: disc;
           }
           
           .rich-text-editor li {
-            margin: 0.25rem 0;
+            display: list-item;
           }
           
           .rich-text-editor [data-placeholder]:empty:before {
             content: attr(data-placeholder);
             color: #9ca3af;
             font-style: italic;
+            pointer-events: none;
+          }
+          
+          .rich-text-editor:focus {
+            outline: none;
+          }
+          
+          /* Ensure proper cursor positioning */
+          .rich-text-editor * {
+            position: relative;
           }
         `}
       </style>

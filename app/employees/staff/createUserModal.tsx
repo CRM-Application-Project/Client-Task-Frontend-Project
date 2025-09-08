@@ -248,8 +248,7 @@ export function CreateStaffModal({
       }
       case "dateOfJoin": {
         if (!value) return "Date of join is required";
-        // Allow future join dates if desired; uncomment to block future dates
-        // if (value > new Date()) return "Date of join cannot be in the future";
+        if (value > new Date()) return "Date of join cannot be in the future";
         break;
       }
       case "moduleAccess": {
@@ -449,11 +448,11 @@ export function CreateStaffModal({
     value: boolean
   ) => {
     setFormData((prev) => {
-      const updatedModuleAccess = prev.moduleAccess.map((module) => {
-        if (module.moduleId === moduleId) {
-          return { ...module, [field]: value };
+      const updatedModuleAccess = prev.moduleAccess.map((moduleItem) => {
+        if (moduleItem.moduleId === moduleId) {
+          return { ...moduleItem, [field]: value };
         }
-        return module;
+        return moduleItem;
       });
 
       return { ...prev, moduleAccess: updatedModuleAccess };
@@ -475,8 +474,8 @@ export function CreateStaffModal({
       return;
     }
 
-    const module = modules.find((m) => m.id === selectedModule);
-    if (!module) return;
+    const selectedModuleItem = modules.find((m) => m.id === selectedModule);
+    if (!selectedModuleItem) return;
 
     if (formData.moduleAccess.some((ma) => ma.moduleId === selectedModule)) {
       setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
@@ -492,8 +491,8 @@ export function CreateStaffModal({
       moduleAccess: [
         ...prev.moduleAccess,
         {
-          moduleId: module.id,
-          moduleName: module.name,
+          moduleId: selectedModuleItem.id,
+          moduleName: selectedModuleItem.name,
           canView: true,
           canEdit: false,
           canDelete: false,
@@ -523,7 +522,7 @@ export function CreateStaffModal({
 
   const getAvailableModules = () => {
     return modules.filter(
-      (module) => !formData.moduleAccess.some((ma) => ma.moduleId === module.id)
+      (moduleItem) => !formData.moduleAccess.some((ma) => ma.moduleId === moduleItem.id)
     );
   };
 
@@ -647,26 +646,7 @@ export function CreateStaffModal({
                   </p>
                 )}
             </div>
-            {/* Password is optional when sendMail = true */}
-            {/* <div className="space-y-2">
-              <Label htmlFor="password">
-                Password {!sendMail && <span className="text-red-500">*</span>}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter password"
-                value={formData.password}
-                onChange={(e) => setField("password", e.target.value)}
-                onBlur={() => handleBlur("password")}
-                autoComplete="new-password"
-                required={!sendMail}
-                className={touchedFields.password && validationErrors.password ? "border-red-500" : ""}
-              />
-              {touchedFields.password && validationErrors.password && (
-                <p className="text-red-500 text-xs">{validationErrors.password}</p>
-              )}
-            </div> */}
+            
             {/* Dropdowns */}
             <div className="space-y-2">
               <Label>User Role</Label>
@@ -739,67 +719,66 @@ export function CreateStaffModal({
             </div>
 
             {/* Dates */}
-         {/* Date of Birth */}
-<div className="space-y-2">
-  <Label>Date of Birth</Label>
-  <DatePicker
-    className={`w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-      touchedFields.dateOfBirth && validationErrors.dateOfBirth
-        ? "border-red-500"
-        : ""
-    }`}
-    style={{ width: "100%" }}
-    value={dateOfBirth ? dayjs(dateOfBirth) : null}
-    onChange={(date) => handleDateChange("dateOfBirth", date)}
-    onFocus={() => handleDateFocus("dateOfBirth")}
-    onBlur={() => handleDateBlur("dateOfBirth")}
-    disabledDate={(current) => {
-      if (current && current > dayjs().endOf("day")) return true;
-      const fifteenYearsAgo = dayjs().subtract(15, "year");
-      return current && current > fifteenYearsAgo;
-    }}
-    format="YYYY-MM-DD"
-    getPopupContainer={(trigger) => trigger.parentElement!}
-    defaultPickerValue={dayjs().subtract(15, "year")}
-    placeholder="Select date of birth"
-  />
-  {touchedFields.dateOfBirth && validationErrors.dateOfBirth && (
-    <p className="text-red-500 text-xs">
-      {validationErrors.dateOfBirth}
-    </p>
-  )}
-</div>
+            {/* Date of Birth */}
+            <div className="space-y-2">
+              <Label>Date of Birth</Label>
+              <DatePicker
+                className={`w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  touchedFields.dateOfBirth && validationErrors.dateOfBirth
+                    ? "border-red-500"
+                    : ""
+                }`}
+                style={{ width: "100%" }}
+                value={dateOfBirth ? dayjs(dateOfBirth) : null}
+                onChange={(date) => handleDateChange("dateOfBirth", date)}
+                onFocus={() => handleDateFocus("dateOfBirth")}
+                onBlur={() => handleDateBlur("dateOfBirth")}
+                disabledDate={(current) => {
+                  if (current && current > dayjs().endOf("day")) return true;
+                  const fifteenYearsAgo = dayjs().subtract(15, "year");
+                  return current && current > fifteenYearsAgo;
+                }}
+                format="YYYY-MM-DD"
+                getPopupContainer={(trigger) => trigger.parentElement!}
+                defaultPickerValue={dayjs().subtract(15, "year")}
+                placeholder="Select date of birth"
+              />
+              {touchedFields.dateOfBirth && validationErrors.dateOfBirth && (
+                <p className="text-red-500 text-xs">
+                  {validationErrors.dateOfBirth}
+                </p>
+              )}
+            </div>
 
-{/* Date of Join */}
-<div className="space-y-2">
-  <Label>Date of Join</Label>
-  <DatePicker
-    className={`w-full h-10 rounded-md border border-input bg-background  px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-      touchedFields.dateOfJoin && validationErrors.dateOfJoin
-        ? "border-red-500"
-        : ""
-    }`}
-    style={{ width: "100%" }}
-    value={dateOfJoin ? dayjs(dateOfJoin) : null}
-    onChange={(date) => handleDateChange("dateOfJoin", date)}
-    onFocus={() => handleDateFocus("dateOfJoin")}
-    onBlur={() => handleDateBlur("dateOfJoin")}
-    format="YYYY-MM-DD"
-    getPopupContainer={(trigger) => trigger.parentElement!}
-    placeholder="Select date of join"
-  />
-  {touchedFields.dateOfJoin && validationErrors.dateOfJoin && (
-    <p className="text-red-500 text-xs">
-      {validationErrors.dateOfJoin}
-    </p>
-  )}
-</div>
+            {/* Date of Join */}
+            <div className="space-y-2">
+              <Label>Date of Join</Label>
+              <DatePicker
+                className={`w-full h-10 rounded-md border border-input bg-background  px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  touchedFields.dateOfJoin && validationErrors.dateOfJoin
+                    ? "border-red-500"
+                    : ""
+                }`}
+                style={{ width: "100%" }}
+                value={dateOfJoin ? dayjs(dateOfJoin) : null}
+                onChange={(date) => handleDateChange("dateOfJoin", date)}
+                onFocus={() => handleDateFocus("dateOfJoin")}
+                onBlur={() => handleDateBlur("dateOfJoin")}
+                disabledDate={(current) => {
+                  // Disable future dates - only allow up to today
+                  return current && current > dayjs().endOf("day");
+                }}
+                format="YYYY-MM-DD"
+                getPopupContainer={(trigger) => trigger.parentElement!}
+                placeholder="Select date of join"
+              />
+              {touchedFields.dateOfJoin && validationErrors.dateOfJoin && (
+                <p className="text-red-500 text-xs">
+                  {validationErrors.dateOfJoin}
+                </p>
+              )}
+            </div>
 
-            {/* Send Mail Checkbox (optional UI) */}
-            {/* <div className="flex items-center space-x-2 pt-6">
-              <Checkbox id="sendMail" checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
-              <Label htmlFor="sendMail">Send email with credentials</Label>
-            </div> */}
             {/* Active Status */}
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -829,10 +808,10 @@ export function CreateStaffModal({
                     <SelectValue placeholder="Select a module" />
                   </SelectTrigger>
                   <SelectContent>
-                    {getAvailableModules().map((module) => (
-                      <SelectItem key={module.id} value={module.id.toString()}>
+                    {getAvailableModules().map((moduleItem) => (
+                      <SelectItem key={moduleItem.id} value={moduleItem.id.toString()}>
                         <span className="font-medium capitalize">
-                          {formatText(module.name)}
+                          {formatText(moduleItem.name)}
                         </span>
                       </SelectItem>
                     ))}
@@ -847,118 +826,118 @@ export function CreateStaffModal({
                 Add Module
               </Button>
             </div>
-
             {/* Added Modules */}
             {formData.moduleAccess.length > 0 && (
-              <div className="border rounded-md p-4">
-                <h3 className="font-medium mb-3">Added Modules</h3>
-                <div className="space-y-4">
-                  {formData.moduleAccess.map((moduleAccess) => {
-                    const module = modules.find(
-                      (m) => m.id === moduleAccess.moduleId
-                    );
-                    return (
-                      <div
-                        key={moduleAccess.moduleId}
-                        className="border rounded p-3 relative"
-                      >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute top-2 right-2 h-6 w-6 p-0"
-                          onClick={() => removeModule(moduleAccess.moduleId)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+  <div className="border rounded-md p-4">
+    <h3 className="font-medium mb-3">Added Modules</h3>
+    <div className="space-y-4">
+      {formData.moduleAccess.map((moduleAccess) => {
+        // Renamed 'module' to 'moduleData' to avoid conflict
+        const moduleData = modules.find(
+          (m) => m.id === moduleAccess.moduleId
+        );
+        return (
+          <div
+            key={moduleAccess.moduleId}
+            className="border rounded p-3 relative"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 h-6 w-6 p-0"
+              onClick={() => removeModule(moduleAccess.moduleId)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
 
-                        <div className="font-medium mb-2">
-                          {formatText(module?.name || moduleAccess.moduleName)}
-                        </div>
+            <div className="font-medium mb-2">
+              {formatText(moduleData?.name || moduleAccess.moduleName)}
+            </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          {/* View Permission */}
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${moduleAccess.moduleId}-canView`}
-                              checked={moduleAccess.canView}
-                              onCheckedChange={(checked) =>
-                                handleModuleAccessChange(
-                                  moduleAccess.moduleId,
-                                  "canView",
-                                  Boolean(checked)
-                                )
-                              }
-                            />
-                            <Label htmlFor={`${moduleAccess.moduleId}-canView`}>
-                              View
-                            </Label>
-                          </div>
-
-                          {/* Create Permission */}
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${moduleAccess.moduleId}-canCreate`}
-                              checked={moduleAccess.canCreate}
-                              onCheckedChange={(checked) =>
-                                handleModuleAccessChange(
-                                  moduleAccess.moduleId,
-                                  "canCreate",
-                                  Boolean(checked)
-                                )
-                              }
-                            />
-                            <Label
-                              htmlFor={`${moduleAccess.moduleId}-canCreate`}
-                            >
-                              Create
-                            </Label>
-                          </div>
-
-                          {/* Edit Permission */}
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${moduleAccess.moduleId}-canEdit`}
-                              checked={moduleAccess.canEdit}
-                              onCheckedChange={(checked) =>
-                                handleModuleAccessChange(
-                                  moduleAccess.moduleId,
-                                  "canEdit",
-                                  Boolean(checked)
-                                )
-                              }
-                            />
-                            <Label htmlFor={`${moduleAccess.moduleId}-canEdit`}>
-                              Edit
-                            </Label>
-                          </div>
-
-                          {/* Delete Permission */}
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${moduleAccess.moduleId}-canDelete`}
-                              checked={moduleAccess.canDelete}
-                              onCheckedChange={(checked) =>
-                                handleModuleAccessChange(
-                                  moduleAccess.moduleId,
-                                  "canDelete",
-                                  Boolean(checked)
-                                )
-                              }
-                            />
-                            <Label
-                              htmlFor={`${moduleAccess.moduleId}-canDelete`}
-                            >
-                              Delete
-                            </Label>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* View Permission */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`${moduleAccess.moduleId}-canView`}
+                  checked={moduleAccess.canView}
+                  onCheckedChange={(checked) =>
+                    handleModuleAccessChange(
+                      moduleAccess.moduleId,
+                      "canView",
+                      Boolean(checked)
+                    )
+                  }
+                />
+                <Label htmlFor={`${moduleAccess.moduleId}-canView`}>
+                  View
+                </Label>
               </div>
-            )}
+
+              {/* Create Permission */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`${moduleAccess.moduleId}-canCreate`}
+                  checked={moduleAccess.canCreate}
+                  onCheckedChange={(checked) =>
+                    handleModuleAccessChange(
+                      moduleAccess.moduleId,
+                      "canCreate",
+                      Boolean(checked)
+                    )
+                  }
+                />
+                <Label
+                  htmlFor={`${moduleAccess.moduleId}-canCreate`}
+                >
+                  Create
+                </Label>
+              </div>
+
+              {/* Edit Permission */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`${moduleAccess.moduleId}-canEdit`}
+                  checked={moduleAccess.canEdit}
+                  onCheckedChange={(checked) =>
+                    handleModuleAccessChange(
+                      moduleAccess.moduleId,
+                      "canEdit",
+                      Boolean(checked)
+                    )
+                  }
+                />
+                <Label htmlFor={`${moduleAccess.moduleId}-canEdit`}>
+                  Edit
+                </Label>
+              </div>
+
+              {/* Delete Permission */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`${moduleAccess.moduleId}-canDelete`}
+                  checked={moduleAccess.canDelete}
+                  onCheckedChange={(checked) =>
+                    handleModuleAccessChange(
+                      moduleAccess.moduleId,
+                      "canDelete",
+                      Boolean(checked)
+                    )
+                  }
+                />
+                <Label
+                  htmlFor={`${moduleAccess.moduleId}-canDelete`}
+                >
+                  Delete
+                </Label>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
             {touchedFields.moduleAccess && validationErrors.moduleAccess && (
               <p className="text-red-500 text-xs">
