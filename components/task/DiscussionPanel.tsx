@@ -1,22 +1,22 @@
-import { 
-  Edit, 
-  FileText, 
-  MessageSquare, 
-  Paperclip, 
-  Reply, 
-  Save, 
-  Smile, 
-  Trash2, 
-  User, 
-  X, 
+import {
+  Edit,
+  FileText,
+  MessageSquare,
+  Paperclip,
+  Reply,
+  Save,
+  Smile,
+  Trash2,
+  User,
+  X,
   Search,
-  Download 
+  Download
 } from "lucide-react";
 
-import { 
-  addTaskDiscussionComment, 
+import {
+  addTaskDiscussionComment,
   addTaskDiscussionReply,
-  AssignDropdown, 
+  AssignDropdown,
   getTaskDiscussionComments,
   uploadDiscussionFile,
   uploadFileToS3,
@@ -28,11 +28,11 @@ import {
   getDiscussionFileDownloadLink,
   GetDiscussionFileDownloadLinkResponse
 } from "@/app/services/data.service";
-import { 
-  CommentAttachment, 
-  CommentItem, 
-  formatFileSize, 
-  timeAgo 
+import {
+  CommentAttachment,
+  CommentItem,
+  formatFileSize,
+  timeAgo
 } from "@/hooks/Detail";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -49,7 +49,7 @@ import { BASE_URL } from "@/app/http-common";
 function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   const div = document.createElement('div');
   const style = getComputedStyle(element);
-  
+
   div.style.position = 'absolute';
   div.style.whiteSpace = 'pre-wrap';
   div.style.wordWrap = 'break-word';
@@ -62,25 +62,25 @@ function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
   div.style.border = style.border;
   div.style.font = style.font;
   div.style.lineHeight = style.lineHeight;
-  
+
   document.body.appendChild(div);
-  
+
   const text = element.value.substring(0, position);
   div.textContent = text;
-  
+
   if (text.endsWith('\n')) {
     div.appendChild(document.createElement('br'));
   }
-  
+
   const span = document.createElement('span');
   span.textContent = element.value.substring(position) || '.';
   div.appendChild(span);
-  
+
   const coordinates = {
     top: span.offsetTop + parseInt(style.borderTopWidth),
     left: span.offsetLeft + parseInt(style.borderLeftWidth),
   };
-  
+
   document.body.removeChild(div);
   return coordinates;
 }
@@ -95,25 +95,25 @@ function isImageFile(fileName: string): boolean {
 function findMentionBoundaries(text: string, cursorPosition: number) {
   const textBeforeCursor = text.substring(0, cursorPosition);
   const lastAtSymbolIndex = textBeforeCursor.lastIndexOf("@");
-  
+
   if (lastAtSymbolIndex === -1) return null;
-  
+
   // Check if @ is at start or preceded by whitespace
   const charBeforeAt = lastAtSymbolIndex > 0 ? textBeforeCursor[lastAtSymbolIndex - 1] : null;
   const isValidMentionStart = charBeforeAt === null || charBeforeAt === " " || charBeforeAt === "\n";
-  
+
   if (!isValidMentionStart) return null;
-  
+
   // Find the end of the mention (space, newline, or end of string)
   const textAfterAt = text.substring(lastAtSymbolIndex + 1);
   const endMatch = textAfterAt.match(/[\s\n]/);
   const mentionEnd = endMatch ? lastAtSymbolIndex + 1 + endMatch.index! : text.length;
-  
+
   // Only show popup if cursor is within the mention
   if (cursorPosition > mentionEnd) return null;
-  
+
   const query = text.substring(lastAtSymbolIndex + 1, cursorPosition);
-  
+
   return {
     start: lastAtSymbolIndex,
     end: mentionEnd,
@@ -143,7 +143,7 @@ export function DiscussionPanel({
   const [mentionedUsers, setMentionedUsers] = useState<AssignDropdown[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
+
   // Add state for reply functionality
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
@@ -151,13 +151,13 @@ export function DiscussionPanel({
   const [expandedReplies, setExpandedReplies] = useState<string[]>([]);
   const [repliesData, setRepliesData] = useState<Record<string, CommentItem[]>>({});
   const [loadingReplies, setLoadingReplies] = useState<string[]>([]);
-  
+
   const [replyMentionQuery, setReplyMentionQuery] = useState("");
   const [replyMentionedUsers, setReplyMentionedUsers] = useState<AssignDropdown[]>([]);
   const [showReplyMentionPopup, setShowReplyMentionPopup] = useState(false);
   const [replyMentionPosition, setReplyMentionPosition] = useState({ top: 0, left: 0 });
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   // Add search state
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -183,7 +183,7 @@ export function DiscussionPanel({
     "LAUGH": "😂",
     "CLAP": "👏"
   };
-  
+
   const filteredUsers = users.filter((user: AssignDropdown) =>
     user.label.toLowerCase().includes(mentionQuery.toLowerCase())
   );
@@ -233,7 +233,7 @@ export function DiscussionPanel({
 
       setReplyContent(newValue);
       setReplyMentionedUsers((prev) => [...prev, user]);
-      
+
       setTimeout(() => {
         if (replyTextareaRef.current) {
           const newCursorPos = mentionBoundaries.start + user.label.length + 2; // +2 for @ and space
@@ -254,7 +254,7 @@ export function DiscussionPanel({
     } else {
       setIsLoadingMore(true);
     }
-    
+
     try {
       const response: TaskDiscussionFilterResponse = await getTaskDiscussionComments(
         taskId,
@@ -262,12 +262,12 @@ export function DiscussionPanel({
         page,
         limit
       );
-      
+
       if (response.isSuccess && response.data) {
         const formattedComments: CommentItem[] = response.data.content.map((comment: any) => {
           // Debug logging
           console.log('Raw comment from API:', comment);
-          
+
           return {
             id: comment.id.toString(),
             parentId: comment.parentId || null,
@@ -299,13 +299,13 @@ export function DiscussionPanel({
             isDeletable: comment.isDeletable || false,
           };
         });
-        
+
         if (append) {
           setComments(prev => [...prev, ...formattedComments]);
         } else {
           setComments(formattedComments);
         }
-        
+
         setPaginationMeta({
           totalPages: response.data.totalPages || 1,
           totalElements: response.data.totalElements || formattedComments.length,
@@ -313,7 +313,7 @@ export function DiscussionPanel({
           pageIndex: response.data.pageIndex || page,
           numberOfElementsInThePage: response.data.numberOfElementsInThePage || formattedComments.length,
         });
-        
+
         setHasMore(page < (response.data.totalPages || 1) - 1);
       }
     } catch (e) {
@@ -338,7 +338,7 @@ export function DiscussionPanel({
   // Fixed loadReplies function to properly fetch replies using parentId
   const loadReplies = useCallback(async (commentId: string) => {
     setLoadingReplies(prev => [...prev, commentId]);
-    
+
     try {
       // Make a direct fetch call to the filter endpoint with parentId
       const response = await fetch(getFilterUrlWithParentId(taskId, commentId), {
@@ -355,7 +355,7 @@ export function DiscussionPanel({
       }
 
       const data: TaskDiscussionFilterResponse = await response.json();
-      
+
       if (data.isSuccess && data.data) {
         const formattedReplies: CommentItem[] = data.data.content.map((reply: any) => ({
           id: reply.id.toString(),
@@ -387,7 +387,7 @@ export function DiscussionPanel({
           replyCount: reply.replyCount || 0,
           isDeletable: reply.isDeletable || false,
         }));
-        
+
         setRepliesData(prev => ({
           ...prev,
           [commentId]: formattedReplies
@@ -435,12 +435,12 @@ export function DiscussionPanel({
   // Handle infinite scroll
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current || isLoading || isLoadingMore || !hasMore) return;
-    
+
     const container = scrollContainerRef.current;
     const scrollTop = container.scrollTop;
     const scrollHeight = container.scrollHeight;
     const clientHeight = container.clientHeight;
-    
+
     if (scrollTop + clientHeight >= scrollHeight * 0.8) {
       const nextPage = paginationMeta.pageIndex + 1;
       load(searchTerm, nextPage, paginationMeta.pageSize, true);
@@ -497,7 +497,7 @@ export function DiscussionPanel({
 
       setEditorValue(newValue);
       setMentionedUsers((prev) => [...prev, user]);
-      
+
       setTimeout(() => {
         if (textareaRef.current) {
           const newCursorPos = mentionBoundaries.start + user.label.length + 2; // +2 for @ and space
@@ -551,10 +551,10 @@ export function DiscussionPanel({
   // Handle file download
   const handleFileDownload = async (fileId: string, fileName: string) => {
     setDownloadingFiles(prev => [...prev, fileId]);
-    
+
     try {
       const response: GetDiscussionFileDownloadLinkResponse = await getDiscussionFileDownloadLink(fileId);
-      
+
       if (response.isSuccess && response.data) {
         // For images and other files, force download instead of opening in new tab
         try {
@@ -565,30 +565,30 @@ export function DiscussionPanel({
               'Accept': '*/*',
             },
           });
-          
+
           if (!fileResponse.ok) {
             throw new Error('Failed to fetch file');
           }
-          
+
           const blob = await fileResponse.blob();
-          
+
           // Create blob URL and trigger download
           const blobUrl = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = blobUrl;
           link.download = fileName;
           link.style.display = 'none';
-          
+
           // Add to DOM, click, and remove
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          
+
           // Clean up blob URL after a short delay
           setTimeout(() => {
             window.URL.revokeObjectURL(blobUrl);
           }, 100);
-          
+
           toast({
             title: "Success",
             description: `${fileName} downloaded successfully`,
@@ -602,11 +602,11 @@ export function DiscussionPanel({
           link.target = '_blank';
           link.rel = 'noopener noreferrer';
           link.style.display = 'none';
-          
+
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          
+
           toast({
             title: "Download Started",
             description: `${fileName} download initiated`,
@@ -631,17 +631,17 @@ export function DiscussionPanel({
   const handlePost = async () => {
     if (!canComment) return;
     if (!editorValue?.trim() && pendingFiles.length === 0) return;
-    
+
     setIsPosting(true);
     try {
       const mentionIds = mentionedUsers.map(user => user.id);
       const messageToSend = editorValue; // Send original message with @mentions
-      
+
       // Debug logs
       console.log('Posting message:', messageToSend);
       console.log('Posting mentions:', mentionIds);
       console.log('Mentioned users:', mentionedUsers);
-      
+
       // Create optimistic comment for UI
       const newComment: CommentItem = {
         id: `temp_${Date.now()}`,
@@ -668,7 +668,7 @@ export function DiscussionPanel({
       if (pendingFiles.length > 0) {
         // If files are present, use the file upload API that also handles the comment
         const file = pendingFiles[0];
-        
+
         try {
           const uploadResponse = await uploadDiscussionFile(taskId, {
             message: messageToSend,
@@ -694,22 +694,22 @@ export function DiscussionPanel({
 
           // The comment is created through the file upload process
           commentResponse = uploadResponse;
-          
+
           // Update optimistic comment with uploaded file
-          setComments((prev) => 
-            prev.map(c => 
-              c.id === newComment.id 
+          setComments((prev) =>
+            prev.map(c =>
+              c.id === newComment.id
                 ? {
-                    ...c,
-                    attachments: [
-                      {
-                        id: uploadResponse.data.docId.toString(),
-                        fileName: file.name,
-                        fileSize: file.size,
-                        url: uploadResponse.data.url.split('?')[0]
-                      }
-                    ]
-                  }
+                  ...c,
+                  attachments: [
+                    {
+                      id: uploadResponse.data.docId.toString(),
+                      fileName: file.name,
+                      fileSize: file.size,
+                      url: uploadResponse.data.url.split('?')[0]
+                    }
+                  ]
+                }
                 : c
             )
           );
@@ -744,7 +744,7 @@ export function DiscussionPanel({
         title: "Success",
         description: "Comment posted successfully",
       });
-      
+
       await load(searchTerm, 0, paginationMeta.pageSize);
 
     } catch (e: any) {
@@ -775,44 +775,44 @@ export function DiscussionPanel({
   // Fixed reply post handler - send original message
   const handleReplyPost = async (commentId: string) => {
     if (!replyContent.trim()) return;
-    
+
     setIsReplying(true);
     try {
       const messageToSend = replyContent; // Send original message with @mentions
-      
+
       // Debug logs
       console.log('Posting reply message:', messageToSend);
       console.log('Posting reply mentions:', replyMentionedUsers.map(user => user.id));
-      
+
       const payload = {
         message: messageToSend,
         mentions: replyMentionedUsers.map(user => user.id),
       };
-      
+
       await addTaskDiscussionReply(commentId, payload);
 
       toast({
         title: "Success",
         description: "Reply posted successfully",
       });
-      
+
       // Reset reply state
       setReplyingTo(null);
       setReplyContent("");
       setReplyMentionedUsers([]);
-      
+
       // Reload replies for this comment
       await loadReplies(commentId);
-      
+
       // Update the parent comment's reply count
-      setComments((prev: CommentItem[]) => 
-        prev.map((c: CommentItem) => 
-          c.id === commentId 
+      setComments((prev: CommentItem[]) =>
+        prev.map((c: CommentItem) =>
+          c.id === commentId
             ? { ...c, replyCount: (c.replyCount || 0) + 1 }
             : c
         )
       );
-      
+
     } catch (e) {
       console.error("Error posting reply", e);
       toast({
@@ -835,76 +835,35 @@ export function DiscussionPanel({
   };
 
   const toggleReaction = async (commentId: string, reactionType: string) => {
-  const comment = comments.find(c => c.id === commentId) || 
-                 Object.values(repliesData).flat().find(r => r.id === commentId);
-  if (!comment) return;
+    const comment = comments.find(c => c.id === commentId) ||
+      Object.values(repliesData).flat().find(r => r.id === commentId);
+    if (!comment) return;
 
-  // Check if user already has a reaction (any type)
-  const userHasExistingReaction = comment.reactions?.some((r: any) => r.reacted);
-  const existingReactionType = comment.reactions?.find((r: any) => r.reacted)?.emoji;
-  const isSameReaction = existingReactionType === reactionType;
+    // Check if user already has a reaction (any type)
+    const userHasExistingReaction = comment.reactions?.some((r: any) => r.reacted);
+    const existingReactionType = comment.reactions?.find((r: any) => r.reacted)?.emoji;
+    const isSameReaction = existingReactionType === reactionType;
 
-  // Optimistic update for main comments
-  setComments((prev: CommentItem[]) =>
-    prev.map((c: CommentItem) => {
-      if (c.id !== commentId) return c;
-      
-      // If clicking the same reaction, remove it
-      if (isSameReaction) {
-        return {
-          ...c,
-          reactions: c.reactions!.filter((r: any) => r.emoji !== reactionType)
-        };
-      } 
-      // If user has a different reaction, replace it
-      else if (userHasExistingReaction) {
-        return {
-          ...c,
-          reactions: [
-            // Remove any existing user reaction
-            ...c.reactions!.filter((r: any) => !r.reacted),
-            // Add the new reaction
-            {
-              emoji: reactionType,
-              count: 1,
-              reacted: true
-            }
-          ]
-        };
-      } 
-      // If no existing reaction, add new one
-      else {
-        const newReaction = {
-          emoji: reactionType,
-          count: 1,
-          reacted: true
-        };
-        return {
-          ...c,
-          reactions: [...(c.reactions || []), newReaction]
-        };
-      }
-    })
-  );
+    // Optimistic update for main comments
+    setComments((prev: CommentItem[]) =>
+      prev.map((c: CommentItem) => {
+        if (c.id !== commentId) return c;
 
-  // Optimistic update for replies
-  setRepliesData(prev => {
-    const updated = { ...prev };
-    Object.keys(updated).forEach(parentId => {
-      updated[parentId] = updated[parentId].map(reply => {
-        if (reply.id !== commentId) return reply;
-        
-        // Same logic as above for replies
+        // If clicking the same reaction, remove it
         if (isSameReaction) {
           return {
-            ...reply,
-            reactions: reply.reactions!.filter((r: any) => r.emoji !== reactionType)
+            ...c,
+            reactions: c.reactions!.filter((r: any) => r.emoji !== reactionType)
           };
-        } else if (userHasExistingReaction) {
+        }
+        // If user has a different reaction, replace it
+        else if (userHasExistingReaction) {
           return {
-            ...reply,
+            ...c,
             reactions: [
-              ...reply.reactions!.filter((r: any) => !r.reacted),
+              // Remove any existing user reaction
+              ...c.reactions!.filter((r: any) => !r.reacted),
+              // Add the new reaction
               {
                 emoji: reactionType,
                 count: 1,
@@ -912,59 +871,100 @@ export function DiscussionPanel({
               }
             ]
           };
-        } else {
+        }
+        // If no existing reaction, add new one
+        else {
           const newReaction = {
             emoji: reactionType,
             count: 1,
             reacted: true
           };
           return {
-            ...reply,
-            reactions: [...(reply.reactions || []), newReaction]
+            ...c,
+            reactions: [...(c.reactions || []), newReaction]
           };
         }
-      });
-    });
-    return updated;
-  });
+      })
+    );
 
-  try {
-    // First remove any existing reaction if user has one
-    if (userHasExistingReaction) {
-      await removeTaskDiscussionReaction(commentId);
-    }
-    
-    // Then add the new reaction if it's not the same as the existing one
-    if (!isSameReaction) {
-      const payload: TaskDiscussionReactionRequest = { reactionType };
-      await addTaskDiscussionReaction(commentId, payload);
-    }
-    
-    toast({
-      title: "Success",
-      description: isSameReaction ? "Reaction removed" : "Reaction added",
+    // Optimistic update for replies
+    setRepliesData(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(parentId => {
+        updated[parentId] = updated[parentId].map(reply => {
+          if (reply.id !== commentId) return reply;
+
+          // Same logic as above for replies
+          if (isSameReaction) {
+            return {
+              ...reply,
+              reactions: reply.reactions!.filter((r: any) => r.emoji !== reactionType)
+            };
+          } else if (userHasExistingReaction) {
+            return {
+              ...reply,
+              reactions: [
+                ...reply.reactions!.filter((r: any) => !r.reacted),
+                {
+                  emoji: reactionType,
+                  count: 1,
+                  reacted: true
+                }
+              ]
+            };
+          } else {
+            const newReaction = {
+              emoji: reactionType,
+              count: 1,
+              reacted: true
+            };
+            return {
+              ...reply,
+              reactions: [...(reply.reactions || []), newReaction]
+            };
+          }
+        });
+      });
+      return updated;
     });
-  } catch (error) {
-    console.error("Error toggling reaction:", error);
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: "Failed to update reaction",
-    });
-    // Note: You might want to revert the optimistic update here
-    // by storing the previous state and restoring it on error
-  }
-};
+
+    try {
+      // First remove any existing reaction if user has one
+      if (userHasExistingReaction) {
+        await removeTaskDiscussionReaction(commentId);
+      }
+
+      // Then add the new reaction if it's not the same as the existing one
+      if (!isSameReaction) {
+        const payload: TaskDiscussionReactionRequest = { reactionType };
+        await addTaskDiscussionReaction(commentId, payload);
+      }
+
+      toast({
+        title: "Success",
+        description: isSameReaction ? "Reaction removed" : "Reaction added",
+      });
+    } catch (error) {
+      console.error("Error toggling reaction:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update reaction",
+      });
+      // Note: You might want to revert the optimistic update here
+      // by storing the previous state and restoring it on error
+    }
+  };
 
   const onDelete = async (commentId: string) => {
     if (!confirm("Are you sure you want to delete this comment?")) return;
-    
+
     const oldComments = [...comments];
     const oldRepliesData = { ...repliesData };
-    
+
     // Optimistic update - remove from main comments
     setComments((prev: CommentItem[]) => prev.filter((c: CommentItem) => c.id !== commentId));
-    
+
     // Optimistic update - remove from replies
     setRepliesData(prev => {
       const updated = { ...prev };
@@ -973,10 +973,10 @@ export function DiscussionPanel({
       });
       return updated;
     });
-    
+
     try {
       const response = await deleteDiscussion(commentId);
-      
+
       if (response.isSuccess) {
         toast({
           title: "Success",
@@ -987,11 +987,11 @@ export function DiscussionPanel({
       }
     } catch (e: any) {
       console.error("Error deleting comment:", e);
-      
+
       // Revert optimistic update on error
       setComments(oldComments);
       setRepliesData(oldRepliesData);
-      
+
       toast({
         variant: "destructive",
         title: "Error",
@@ -1000,61 +1000,61 @@ export function DiscussionPanel({
     }
   };
 
-const renderAttachment = (attachment: CommentAttachment) => {
-  const isImage = isImageFile(attachment.fileName);
-  const isDownloading = downloadingFiles.includes(attachment.id);
-  
-  return (
-    <div
-      key={attachment.id}
-      className="inline-flex items-center gap-2 text-xs border rounded-lg px-3 py-2 bg-white hover:bg-gray-50 transition-colors shadow-sm"
-    >
-      <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
-      <div className="flex flex-col min-w-0">
-        <span
-          className="truncate max-w-[140px] font-medium text-gray-700"
-          title={attachment.fileName}
-        >
-          {attachment.fileName}
-        </span>
-        {!isImage && (
-          <span className="text-gray-400 text-xs">
-            {formatFileSize(attachment.fileSize)}
-          </span>
-        )}
-      </div>
-      <button
-        onClick={() => handleFileDownload(attachment.id, attachment.fileName)}
-        disabled={isDownloading}
-        className="text-gray-500 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded hover:bg-gray-100 transition-colors"
-        title={`Download ${attachment.fileName}`}
+  const renderAttachment = (attachment: CommentAttachment) => {
+    const isImage = isImageFile(attachment.fileName);
+    const isDownloading = downloadingFiles.includes(attachment.id);
+
+    return (
+      <div
+        key={attachment.id}
+        className="inline-flex items-center gap-2 text-xs border rounded-lg px-3 py-2 bg-white hover:bg-gray-50 transition-colors shadow-sm"
       >
-        {isDownloading ? (
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-        ) : (
-          <svg 
-            className="h-4 w-4" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+        <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
+        <div className="flex flex-col min-w-0">
+          <span
+            className="truncate max-w-[140px] font-medium text-gray-700"
+            title={attachment.fileName}
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-            />
-          </svg>
-        )}
-      </button>
-    </div>
-  );
-};
+            {attachment.fileName}
+          </span>
+          {!isImage && (
+            <span className="text-gray-400 text-xs">
+              {formatFileSize(attachment.fileSize)}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => handleFileDownload(attachment.id, attachment.fileName)}
+          disabled={isDownloading}
+          className="text-gray-500 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded hover:bg-gray-100 transition-colors"
+          title={`Download ${attachment.fileName}`}
+        >
+          {isDownloading ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+          ) : (
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  };
 
   // Render comment component (reusable for both main comments and replies)
   const renderComment = (comment: CommentItem, isReply = false, depth = 0) => {
     const canReplyToThis = !isReply || depth < 2; // Allow replies to replies but limit depth
-    
+
     return (
       <div key={comment.id} className={isReply ? "ml-4" : ""}>
         <div className="flex items-start gap-3">
@@ -1082,35 +1082,52 @@ const renderAttachment = (attachment: CommentAttachment) => {
             </div>
 
             {/* Plain text content */}
-   <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-  {comment.content.split(/(@[^\s]+)/g).map((part, i) => {
-    if (part.startsWith('@')) {
-      const usernameFromText = part.substring(1);
-      
-      // Find the actual mentioned user object from the mentions array
-      const mentionedUser = comment.mentions?.find(m => 
-        m.name.toLowerCase().trim() === usernameFromText.toLowerCase().trim()
-      );
-      
-      if (mentionedUser) {
-        // Use the actual user's name from the mention object
-        return (
-          <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-            @{mentionedUser.name}
-          </span>
-        );
-      }
-      
-      // Fallback: if mention exists in text but not in mentions array
-      return (
-        <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-          {part}
-        </span>
-      );
-    }
-    return part;
-  })}
-</div>
+            <div className="text-gray-700 mt-1 whitespace-pre-wrap">
+              {comment.content.split(/(@[^@\s]+(?:\s+[^@\s]+)*)/g).map((part, i) => {
+                if (part.startsWith('@')) {
+                  const usernameFromText = part.substring(1).trim();
+
+                  // Find the actual mentioned user object from the mentions array
+                  // Try exact match first, then partial matches
+                  const mentionedUser = comment.mentions?.find(m => {
+                    const mentionName = m.name.toLowerCase().trim();
+                    const textName = usernameFromText.toLowerCase().trim();
+
+                    // Exact match
+                    if (mentionName === textName) return true;
+
+                    // Check if the text matches the full name or parts of it
+                    const mentionParts = mentionName.split(/\s+/);
+                    const textParts = textName.split(/\s+/);
+
+                    // If text has multiple parts, try to match the full name
+                    if (textParts.length > 1) {
+                      return mentionName.includes(textName) || textName.includes(mentionName);
+                    }
+
+                    // If text has single part, check if it matches any part of the mention name
+                    return mentionParts.some(part => part.startsWith(textName) || textName.startsWith(part));
+                  });
+
+                  if (mentionedUser) {
+                    // Use the actual user's name from the mention object
+                    return (
+                      <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
+                        @{mentionedUser.name}
+                      </span>
+                    );
+                  }
+
+                  // Fallback: if mention exists in text but not in mentions array
+                  return (
+                    <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
+                      {part}
+                    </span>
+                  );
+                }
+                return part;
+              })}
+            </div>
 
             {/* Attachments */}
             {comment.attachments && comment.attachments.length > 0 && (
@@ -1131,11 +1148,10 @@ const renderAttachment = (attachment: CommentAttachment) => {
                   <button
                     key={reactionType}
                     onClick={() => toggleReaction(comment.id, reactionType)}
-                    className={`text-xs border rounded-full px-2 py-0.5 ${
-                      active
+                    className={`text-xs border rounded-full px-2 py-0.5 ${active
                         ? "bg-blue-50 border-blue-200 text-blue-700"
                         : "text-gray-600"
-                    }`}
+                      }`}
                     title={active ? "Remove reaction" : "Add reaction"}
                   >
                     <span className="mr-1">{reactionEmojis[reactionType]}</span>
@@ -1221,7 +1237,7 @@ const renderAttachment = (attachment: CommentAttachment) => {
                     placeholder="Write your reply... Mention someone with @"
                     className="min-h-[60px] mb-2"
                   />
-                  
+
                   {/* Reply mention popup */}
                   {showReplyMentionPopup && (
                     <MentionPopup
@@ -1278,17 +1294,15 @@ const renderAttachment = (attachment: CommentAttachment) => {
           <div className="text-xs text-gray-500">Sort</div>
           <div className="inline-flex rounded-md border overflow-hidden">
             <button
-              className={`px-2 py-1 text-xs ${
-                sort === "newest" ? "bg-gray-50 text-gray-900" : "text-gray-600"
-              }`}
+              className={`px-2 py-1 text-xs ${sort === "newest" ? "bg-gray-50 text-gray-900" : "text-gray-600"
+                }`}
               onClick={() => setSort("newest")}
             >
               Newest
             </button>
             <button
-              className={`px-2 py-1 text-xs border-l ${
-                sort === "oldest" ? "bg-gray-50 text-gray-900" : "text-gray-600"
-              }`}
+              className={`px-2 py-1 text-xs border-l ${sort === "oldest" ? "bg-gray-50 text-gray-900" : "text-gray-600"
+                }`}
               onClick={() => setSort("oldest")}
             >
               Oldest
@@ -1309,16 +1323,16 @@ const renderAttachment = (attachment: CommentAttachment) => {
             className="pl-8"
           />
         </div>
-        <Button 
-          onClick={handleSearch} 
+        <Button
+          onClick={handleSearch}
           disabled={isSearching}
           size="sm"
         >
           {isSearching ? "Searching..." : "Search"}
         </Button>
         {searchTerm && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setSearchTerm("");
               load("", 0, paginationMeta.pageSize);
@@ -1426,7 +1440,7 @@ const renderAttachment = (attachment: CommentAttachment) => {
         </p>
       ) : (
         <>
-          <div 
+          <div
             ref={scrollContainerRef}
             className="space-y-3 max-h-[500px] overflow-y-auto"
           >
@@ -1437,14 +1451,14 @@ const renderAttachment = (attachment: CommentAttachment) => {
                 </li>
               ))}
             </ul>
-            
+
             {/* Loading indicator for infinite scroll */}
             {isLoadingMore && (
               <div className="flex justify-center py-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
               </div>
             )}
-            
+
             {/* No more comments to load indicator */}
             {!hasMore && comments.length > 0 && (
               <div className="text-center py-4 text-sm text-gray-500">
