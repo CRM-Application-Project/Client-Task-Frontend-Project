@@ -149,7 +149,7 @@ export default function LoginPage() {
     password: "",
   });
 
-  const { toast,dismiss } = useToast();
+  const { toast, dismiss } = useToast();
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -401,8 +401,8 @@ export default function LoginPage() {
       : loginTouched[field] &&
         !loginErrors[field] &&
         (field === "email" ? email : password)
-      ? "border-green-500"
-      : "";
+        ? "border-green-500"
+        : "";
 
   const renderValidationStatus = (field: "email" | "password") => {
     if (!loginTouched[field]) return null;
@@ -764,7 +764,7 @@ export default function LoginPage() {
             moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
             moduleName: access.moduleName
               ? access.moduleName.charAt(0).toUpperCase() +
-                access.moduleName.slice(1)
+              access.moduleName.slice(1)
               : "Unknown",
             canView: access.canView ?? true,
             canEdit: access.canEdit ?? false,
@@ -866,7 +866,7 @@ export default function LoginPage() {
             quality={100}
             priority
             className="transform-none"
-            sizes="50vw"
+            sizes="(max-width: 1024px) 0vw, 50vw"
           />
         </div>
         {/* Overlay */}
@@ -874,16 +874,16 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="lg:w-1/2 flex items-center justify-center p-8 lg:p-12">
-        <div className="w-full max-w-md space-y-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 min-h-screen lg:min-h-0">
+        <div className="w-full max-w-md space-y-6 sm:space-y-8">
           {/* Logo and Branding */}
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-3 sm:space-y-4">
             {/* Logo Section */}
             <div>
               <img
                 src={logoUrl}
                 alt="Logo"
-                className="mx-auto h-16 w-auto"
+                className="mx-auto h-12 sm:h-14 md:h-16 w-auto max-w-[200px]"
                 onError={(e) => {
                   // Fallback to default logo if the loaded logo fails
                   (e.target as HTMLImageElement).src = "/default-logo.png";
@@ -891,11 +891,11 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">
+            <div className="space-y-1 sm:space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                 {forgotPasswordMode ? "Reset Password" : "Welcome Back"}
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground px-2">
                 {forgotPasswordMode
                   ? "Follow the steps to reset your password"
                   : "Please sign in to your account to continue"}
@@ -925,9 +925,9 @@ export default function LoginPage() {
 
           {/* Login Form */}
           <Card className="border border-border shadow-elevated">
-            <CardContent className="p-8">
+            <CardContent className="p-4 sm:p-6 md:p-8">
               {!forgotPasswordMode ? (
-                <form onSubmit={handleLogin} className="space-y-6">
+                <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
                   <div className="space-y-2">
                     <Label
                       htmlFor="email"
@@ -944,7 +944,7 @@ export default function LoginPage() {
                       onChange={(e) => setFieldValue("email", e.target.value)}
                       onBlur={() => handleBlurLogin("email")}
                       required
-                      className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
+                      className={`h-11 sm:h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
                         "email"
                       )}`}
                       autoComplete="email"
@@ -970,7 +970,7 @@ export default function LoginPage() {
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         required={requiresCompany}
-                        className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                        className="h-11 sm:h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
                         autoComplete="organization"
                         style={{ fontSize: '16px' }} // Prevent iOS zoom
                       />
@@ -996,7 +996,7 @@ export default function LoginPage() {
                         }
                         onBlur={() => handleBlurLogin("password")}
                         required
-                        className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
+                        className={`h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
                           "password"
                         )}`}
                         onCopy={handleCopyPrevention}
@@ -1022,7 +1022,7 @@ export default function LoginPage() {
                     {renderValidationStatus("password")}
                   </div>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 text-sm">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1033,7 +1033,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={handleForgotPassword}
-                      className="text-primary hover:text-primary/80 font-medium transition-colors"
+                      className="text-primary hover:text-primary/80 font-medium transition-colors text-center sm:text-right"
                     >
                       Forgot password?
                     </button>
@@ -1042,9 +1042,8 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isLoading || !isLoginFormValid}
-                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 shadow-subtle ${
-                      isLoading || !isLoginFormValid ? "btn-disabled" : ""
-                    }`}
+                    className={`w-full h-11 sm:h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 shadow-subtle ${isLoading || !isLoginFormValid ? "btn-disabled" : ""
+                      }`}
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
@@ -1061,7 +1060,7 @@ export default function LoginPage() {
                 </form>
               ) : (
                 // Forgot Password Flow
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {/* Step 1: Email verification */}
                   {!otpSent && (
                     <div className="space-y-4">
@@ -1072,7 +1071,7 @@ export default function LoginPage() {
                       <Button
                         onClick={handleForgotPassword}
                         disabled={isLoading}
-                        className="w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white"
+                        className="w-full h-11 sm:h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white"
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -1109,16 +1108,15 @@ export default function LoginPage() {
                           placeholder="Enter the code sent to your email"
                           value={otp}
                           onChange={(e) => setOtp(e.target.value)}
-                          className="h-12 bg-background border-input focus:border-primary text-base"
+                          className="h-11 sm:h-12 bg-background border-input focus:border-primary text-base"
                           style={{ fontSize: '16px' }}
                         />
                       </div>
                       <Button
                         onClick={handleVerifyOtp}
                         disabled={isLoading || !otp}
-                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${
-                          isLoading || !otp ? "btn-disabled" : ""
-                        }`}
+                        className={`w-full h-11 sm:h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${isLoading || !otp ? "btn-disabled" : ""
+                          }`}
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
@@ -1158,7 +1156,7 @@ export default function LoginPage() {
                             onChange={(e) =>
                               handleNewPasswordChange(e.target.value)
                             }
-                            className="h-12 pr-12 bg-background border-input focus:border-primary text-base"
+                            className="h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary text-base"
                             onCopy={handleCopyPrevention}
                             onPaste={handlePastePrevention}
                             style={{ fontSize: '16px' }}
@@ -1192,7 +1190,7 @@ export default function LoginPage() {
                             onChange={(e) =>
                               handleConfirmPasswordChange(e.target.value)
                             }
-                            className="h-12 pr-12 bg-background border-input focus:border-primary text-base"
+                            className="h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary text-base"
                             onCopy={handleCopyPrevention}
                             onPaste={handlePastePrevention}
                             style={{ fontSize: '16px' }}
@@ -1234,14 +1232,13 @@ export default function LoginPage() {
                           !confirmPassword ||
                           passwordErrors.length > 0
                         }
-                        className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${
-                          isLoading ||
-                          !newPassword ||
-                          !confirmPassword ||
-                          passwordErrors.length > 0
+                        className={`w-full h-11 sm:h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white ${isLoading ||
+                            !newPassword ||
+                            !confirmPassword ||
+                            passwordErrors.length > 0
                             ? "btn-disabled"
                             : ""
-                        }`}
+                          }`}
                       >
                         {isLoading ? (
                           <div className="flex items-center gap-2">
