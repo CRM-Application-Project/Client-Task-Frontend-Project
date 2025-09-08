@@ -175,38 +175,38 @@ export function DashboardSidebar({
   );
 
   const cleanPath = pathname.split("?")[0].split("#")[0];
-useEffect(() => {
-  setExpanded((prev) => {
-    let next = [...prev];
-    const openIfNeeded = (key: string) => {
-      if (!next.includes(key)) next.push(key);
-    };
+  useEffect(() => {
+    setExpanded((prev) => {
+      let next = [...prev];
+      const openIfNeeded = (key: string) => {
+        if (!next.includes(key)) next.push(key);
+      };
 
-    filteredNav.forEach((item) => {
-      const children = getChildren(item);
-      const hasActiveChild = children.some(
-        (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
-      );
-      if (
-        (cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
-        !manuallyCollapsed.has(item.name)
-      ) {
-        openIfNeeded(item.name);
+      filteredNav.forEach((item) => {
+        const children = getChildren(item);
+        const hasActiveChild = children.some(
+          (c) => cleanPath === c.href || cleanPath.startsWith(c.href + "/")
+        );
+        if (
+          (cleanPath === item.href || cleanPath.startsWith(item.href + "/") || hasActiveChild) &&
+          !manuallyCollapsed.has(item.name)
+        ) {
+          openIfNeeded(item.name);
+        }
+      });
+
+      // Check if we're on the profile page or change password
+      const isProfilePage = cleanPath === "/profile";
+      const isChangePasswordTab = searchParams?.get("tab") === "change-password";
+      const isSettingsActive = isProfilePage || isChangePasswordTab;
+      
+      if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
+        openIfNeeded("Settings");
       }
+
+      return Array.from(new Set(next));
     });
-
-    // Check if we're on the profile page or change password
-    const isProfilePage = cleanPath === "/profile";
-    const isChangePasswordTab = searchParams?.get("tab") === "change-password";
-    const isSettingsActive = isProfilePage || isChangePasswordTab;
-    
-    if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
-      openIfNeeded("Settings");
-    }
-
-    return Array.from(new Set(next));
-  });
-}, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams]);
+  }, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -222,66 +222,66 @@ useEffect(() => {
     });
   }, []);
 
-const handleLogout = useCallback(async () => {
-  const result = await Swal.fire({
-    title: "Are you sure?",
-    text: "You will be logged out from the system",
-    icon: "warning",
-    width: "400px",
-    showCancelButton: true,
-    confirmButtonColor: "var(--brand-primary)",
-    cancelButtonColor: "#d33",
-    confirmButtonText: "Yes, logout!",
-    background: "#fff",
-    customClass: {
-      container: "bg-opacity-80",
-      popup: "rounded-lg shadow-xl",
-      title: "text-gray-800",
-      confirmButton:
-        "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
-      cancelButton:
-        "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
-    },
-  });
+  const handleLogout = useCallback(async () => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You will be logged out from the system",
+      icon: "warning",
+      width: "400px",
+      showCancelButton: true,
+      confirmButtonColor: "var(--brand-primary)",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, logout!",
+      background: "#fff",
+      customClass: {
+        container: "bg-opacity-80",
+        popup: "rounded-lg shadow-xl",
+        title: "text-gray-800",
+        confirmButton:
+          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
+        cancelButton:
+          "bg-brand-primary hover:bg-brand-primary/90 text-text-white px-4 py-2 rounded-md",
+      },
+    });
 
-  if (!result.isConfirmed) return;
+    if (!result.isConfirmed) return;
 
-  try {
-    // Call the logout API
-    const response = await logoutUser();
-    
-    if (response.isSuccess) {
-      // Clear local storage regardless of API response
-      ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
-        localStorage.removeItem(k)
-      );
+    try {
+      // Call the logout API
+      const response = await logoutUser();
       
-      // Redirect to login page
-      router.push("/");
-    } else {
-      // If API call fails but user confirmed logout, still log them out locally
-      console.error("Logout API failed:", response.message);
+      if (response.isSuccess) {
+        // Clear local storage regardless of API response
+        ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
+          localStorage.removeItem(k)
+        );
+        
+        // Redirect to login page
+        router.push("/");
+      } else {
+        // If API call fails but user confirmed logout, still log them out locally
+        console.error("Logout API failed:", response.message);
+        ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
+          localStorage.removeItem(k)
+        );
+        router.push("/");
+      }
+    } catch (error) {
+      // If there's an error with the API call, still log out locally
+      console.error("Error during logout:", error);
       ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
         localStorage.removeItem(k)
       );
       router.push("/");
     }
-  } catch (error) {
-    // If there's an error with the API call, still log out locally
-    console.error("Error during logout:", error);
-    ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl"].forEach((k) =>
-      localStorage.removeItem(k)
-    );
-    router.push("/");
-  }
-}, [router]);
+  }, [router]);
 
   const isExpandedView = !collapsed || hovered;
 
   const SidebarContent = useCallback(() => {
-  const isProfilePage = cleanPath === "/profile";
-  const isChangePasswordTab = searchParams?.get("tab") === "change-password";
-  const isSettingsActive = isProfilePage || isChangePasswordTab;
+    const isProfilePage = cleanPath === "/profile";
+    const isChangePasswordTab = searchParams?.get("tab") === "change-password";
+    const isSettingsActive = isProfilePage || isChangePasswordTab;
 
     return (
       <div className="flex h-full flex-col bg-[#3b3b3b] relative">
@@ -360,7 +360,7 @@ const handleLogout = useCallback(async () => {
                       {isExpandedView && isGroupExpanded && (
                         <div className="space-y-1 pl-6 pt-1 w-full">
                           {children.map((c) => {
-                            const isChildActive = pathname === c.href;
+                            const isChildActive = pathname === c.href || pathname.startsWith(c.href + "/");
                             return (
                               <Button
                                 key={c.href}
@@ -369,11 +369,14 @@ const handleLogout = useCallback(async () => {
                                 className={cn(
                                   "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
                                   isChildActive
-                                    ? "text-white"
-                                    : "text-gray-300 hover:text-white hover:bg-transparent"
+                                    ? "bg-white/10 text-white"
+                                    : "text-gray-300 hover:text-white hover:bg-white/5"
                                 )}
                               >
                                 <span className="whitespace-nowrap">{c.name}</span>
+                                {isChildActive && (
+                                  <span className="absolute left-0 bottom-0 h-[2px] bg-white w-full transition-all duration-300" />
+                                )}
                               </Button>
                             );
                           })}
@@ -402,66 +405,66 @@ const handleLogout = useCallback(async () => {
             </div>
 
             {/* Settings */}
-           <div className={cn("mt-8 pt-4 border-t border-sidebar-border transition-all duration-300", collapsed && !hovered && "mt-4")}>
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-            isSettingsActive
-              ? "bg-white text-brand-primary shadow-sm"
-              : "text-white hover:bg-white hover:text-brand-primary",
-            collapsed && !hovered && "justify-center px-2"
-          )}
-          onClick={() => toggleGroup("Settings")}
-        >
-          <div className="flex items-center gap-3">
-            <Settings className="h-5 w-5 flex-shrink-0" />
-            {isExpandedView && <span className="whitespace-nowrap">Settings</span>}
-          </div>
-          {isExpandedView && (
-            <ChevronRight
-              className={cn(
-                "h-4 w-4 flex-shrink-0 transition-transform duration-200",
-                expanded.includes("Settings") && "rotate-45"
-              )}
-            />
-          )}
-        </Button>
+            <div className={cn("mt-8 pt-4 border-t border-sidebar-border transition-all duration-300", collapsed && !hovered && "mt-4")}>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                  isSettingsActive
+                    ? "bg-white text-brand-primary shadow-sm"
+                    : "text-white hover:bg-white hover:text-brand-primary",
+                  collapsed && !hovered && "justify-center px-2"
+                )}
+                onClick={() => toggleGroup("Settings")}
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="h-5 w-5 flex-shrink-0" />
+                  {isExpandedView && <span className="whitespace-nowrap">Settings</span>}
+                </div>
+                {isExpandedView && (
+                  <ChevronRight
+                    className={cn(
+                      "h-4 w-4 flex-shrink-0 transition-transform duration-200",
+                      expanded.includes("Settings") && "rotate-45"
+                    )}
+                  />
+                )}
+              </Button>
 
-        {isExpandedView && expanded.includes("Settings") && (
-          <div className="space-y-1 pl-6 pt-1 w-full">
-            {SETTINGS.map((it) => {
-              // Determine if this setting item is active
-              const isProfileItem = it.name === "Profile";
-              const isPasswordItem = it.name === "Change Password";
-              
-              const isChildActive = 
-                (isProfileItem && isProfilePage && !isChangePasswordTab) ||
-                (isPasswordItem && isChangePasswordTab);
-              
-              return (
-                <Button
-                  key={it.href}
-                  variant="ghost"
-                  onClick={() => router.push(it.href)}
-                  className={cn(
-                    "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
-                    isChildActive
-                      ? "bg-white/10 text-white"
-                      : "text-gray-300 hover:text-white hover:bg-white/5"
-                  )}
-                >
-                  <it.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">{it.name}</span>
-                  {isChildActive && (
-                    <span className="absolute left-0 bottom-0 h-[2px] bg-white w-full transition-all duration-300" />
-                  )}
-                </Button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              {isExpandedView && expanded.includes("Settings") && (
+                <div className="space-y-1 pl-6 pt-1 w-full">
+                  {SETTINGS.map((it) => {
+                    // Determine if this setting item is active
+                    const isProfileItem = it.name === "Profile";
+                    const isPasswordItem = it.name === "Change Password";
+                    
+                    const isChildActive = 
+                      (isProfileItem && isProfilePage && !isChangePasswordTab) ||
+                      (isPasswordItem && isChangePasswordTab);
+                    
+                    return (
+                      <Button
+                        key={it.href}
+                        variant="ghost"
+                        onClick={() => router.push(it.href)}
+                        className={cn(
+                          "relative w-full justify-start rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 group",
+                          isChildActive
+                            ? "bg-white/10 text-white"
+                            : "text-gray-300 hover:text-white hover:bg-white/5"
+                        )}
+                      >
+                        <it.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap">{it.name}</span>
+                        {isChildActive && (
+                          <span className="absolute left-0 bottom-0 h-[2px] bg-white w-full transition-all duration-300" />
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </ScrollArea>
         </nav>
 
@@ -482,34 +485,34 @@ const handleLogout = useCallback(async () => {
       </div>
     );
   }, [
- isExpandedView,
-  collapsed,
-  hovered,
-  ready,
-  filteredNav,
-  getChildren,
-  expanded,
-  pathname,
-  can,
-  router,
-  toggleGroup,
-  handleLogout,
-  logoUrl,
-  searchParams,
-  cleanPath,
+    isExpandedView,
+    collapsed,
+    hovered,
+    ready,
+    filteredNav,
+    getChildren,
+    expanded,
+    pathname,
+    can,
+    router,
+    toggleGroup,
+    handleLogout,
+    logoUrl,
+    searchParams,
+    cleanPath,
   ]);
 
   return (
     <>
-        <div
-      className={cn(
-        "hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300 ease-in-out",
-        collapsed && !hovered ? "lg:w-16" : "lg:w-56"
-      )}
-      key={searchParams?.toString()} // Force re-render when search params change
-    >
-      <SidebarContent />
-    </div>
+      <div
+        className={cn(
+          "hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300 ease-in-out",
+          collapsed && !hovered ? "lg:w-16" : "lg:w-56"
+        )}
+        key={searchParams?.toString()} // Force re-render when search params change
+      >
+        <SidebarContent />
+      </div>
 
       {/* Mobile */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>

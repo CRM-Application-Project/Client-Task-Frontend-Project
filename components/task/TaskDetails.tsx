@@ -999,7 +999,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
             </div>
           ) : (
             <div className="relative group flex items-center gap-3 p-3 border rounded-md">
-              <Calendar className="h-4 w-4 text-blue-500" />
+              <Calendar className="h-4 w-4 text-gray-500" />
               <div>
                 <p className="text-xs text-gray-500">Start Date</p>
                 <p className="text-sm font-medium text-gray-900">

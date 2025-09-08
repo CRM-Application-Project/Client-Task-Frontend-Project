@@ -141,14 +141,10 @@ export default function TaskFlowTimelineCard({
         </div>
         <div className="flex items-center">
           <div className="flex items-center mr-4">
-            <div className="w-3 h-3 rounded-full bg-indigo-500 mr-2"></div>
-            <span className="text-sm text-slate-600">Tasks Processed</span>
+            <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+            <span className="text-sm text-slate-600">Tasks Completed</span>
           </div>
-          {peakDay && (
-            <div className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-              Peak: {peakDay}
-            </div>
-          )}
+         
         </div>
       </div>
 

@@ -441,7 +441,7 @@ export const UpdateStaffModal = ({
 
                 {/* Role */}
                 <div>
-                  <Label>User Role</Label>
+                  <Label className="block text-sm font-medium text-gray-600 mb-1">User Role</Label>
                   <Select
                     value={formData.userRole}
                     onValueChange={(value) =>
@@ -454,7 +454,7 @@ export const UpdateStaffModal = ({
                     <SelectContent>
                       {roleScopes.map((role) => (
                         <SelectItem key={role.role} value={role.role}>
-                          <span className="text-md font-medium">
+                          <span className="text-md font-normal">
                             {formatText(role.role)}{" "}
                           </span>
                           <span className="text-xs text-gray-500">

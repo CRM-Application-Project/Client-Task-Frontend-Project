@@ -661,15 +661,15 @@ export default function LoginPage() {
   };
 
   // -------------------- Post-login routing helpers --------------------
-  const getFirstAccessibleModule = (modules: UserModuleAccess[]): string => {
-    if (!modules || modules.length === 0) return "/not-found";
+  const getFirstAccessibleModule = (userModules: UserModuleAccess[]): string => {
+    if (!userModules || userModules.length === 0) return "/not-found";
     const modulePriority = ["lead", "task", "employees", "department", "user"];
     for (const moduleName of modulePriority) {
-      const module = modules.find(
+      const userModule = userModules.find(
         (m) =>
           m.moduleName.toLowerCase() === moduleName.toLowerCase() && m.canView
       );
-      if (module) {
+      if (userModule) {
         const routeMap: { [key: string]: string } = {
           lead: "/leads",
           leads: "/leads",
@@ -684,7 +684,7 @@ export default function LoginPage() {
         return routeMap[moduleName.toLowerCase()] || "/not-found";
       }
     }
-    const firstAccessible = modules.find((m) => m.canView);
+    const firstAccessible = userModules.find((m) => m.canView);
     if (firstAccessible) {
       const routeMap: { [key: string]: string } = {
         lead: "/leads",
@@ -736,7 +736,7 @@ export default function LoginPage() {
           localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
         }
 
-        const modules =
+        const userModules =
           profileResponse.userModuleAccessList?.map((access) => ({
             id: access.moduleId || parseInt(access.id?.toString() || "0"),
             moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
@@ -754,7 +754,7 @@ export default function LoginPage() {
 
         const completeUserProfile = {
           ...profileResponse,
-          modules,
+          modules: userModules,
           userId: profileResponse.id,
           contactNumber: profileResponse.phoneNumber || "",
           dateOfBirth: "",
@@ -771,7 +771,7 @@ export default function LoginPage() {
           "currentUser",
           JSON.stringify(completeUserProfile)
         );
-        localStorage.setItem("userModules", JSON.stringify(modules));
+        localStorage.setItem("userModules", JSON.stringify(userModules));
         localStorage.setItem("userId", response.data.profileResponse.id);
         localStorage.setItem(
           "user",
@@ -800,7 +800,7 @@ export default function LoginPage() {
         } else if (!profileResponse.isPasswordUpdated) {
           redirectPath = "/reset-password";
         } else {
-          redirectPath = getFirstAccessibleModule(modules);
+          redirectPath = getFirstAccessibleModule(userModules);
         }
 
         setTimeout(() => {
@@ -834,7 +834,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
       {/* Left Side - Image */}
-      <div className="lg:w-1/2 relative hidden lg:block animate-slide-in-left">
+      <div className="lg:w-1/2 relative hidden lg:block">
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
           <Image
             src="/login.jpeg"
@@ -843,6 +843,7 @@ export default function LoginPage() {
             objectFit="cover"
             quality={100}
             priority
+            className="transform-none" // Prevent image scaling
           />
         </div>
         {/* Overlay */}
@@ -850,7 +851,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="lg:w-1/2 flex items-center justify-center p-8 lg:p-12 animate-slide-in-right">
+      <div className="lg:w-1/2 flex items-center justify-center p-8 lg:p-12">
         <div className="w-full max-w-md space-y-8">
           {/* Logo and Branding */}
           <div className="text-center space-y-4">
@@ -900,7 +901,7 @@ export default function LoginPage() {
           )}
 
           {/* Login Form */}
-          <Card className="border border-border shadow-elevated animate-scale-in">
+          <Card className="border border-border shadow-elevated">
             <CardContent className="p-8">
               {!forgotPasswordMode ? (
                 <form onSubmit={handleLogin} className="space-y-6">
@@ -924,10 +925,34 @@ export default function LoginPage() {
                         "email"
                       )}`}
                       autoComplete="email"
+                      style={{ fontSize: '16px' }} // Prevent iOS zoom
                     />
                     {renderValidationStatus("email")}
                   </div>
 
+                  {/* Company Name Field - Conditional */}
+                  {showCompanyField && (
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="companyName"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Company Name
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
+                      <Input
+                        id="companyName"
+                        type="text"
+                        placeholder="Enter your company name"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        required={requiresCompany}
+                        className="h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                        autoComplete="organization"
+                        style={{ fontSize: '16px' }} // Prevent iOS zoom
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label
@@ -954,6 +979,7 @@ export default function LoginPage() {
                         onCopy={handleCopyPrevention}
                         onPaste={handlePastePrevention}
                         autoComplete="current-password"
+                        style={{ fontSize: '16px' }} // Prevent iOS zoom
                       />
                       <button
                         type="button"
@@ -993,7 +1019,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isLoading || !isLoginFormValid}
-                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-subtle ${
+                    className={`w-full h-12 bg-brand-primary hover:bg-brand-primary/90 text-text-white font-semibold transition-all duration-300 shadow-subtle ${
                       isLoading || !isLoginFormValid ? "btn-disabled" : ""
                     }`}
                   >
@@ -1042,7 +1068,7 @@ export default function LoginPage() {
 
                   {/* Step 2: OTP Verification */}
                   {otpSent && !otpVerified && (
-                    <div className="space-y-4 animate-slide-down">
+                    <div className="space-y-4">
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         <span>Verification code sent to {email}</span>
@@ -1061,6 +1087,7 @@ export default function LoginPage() {
                           value={otp}
                           onChange={(e) => setOtp(e.target.value)}
                           className="h-12 bg-background border-input focus:border-primary"
+                          style={{ fontSize: '16px' }} // Prevent iOS zoom
                         />
                       </div>
                       <Button
