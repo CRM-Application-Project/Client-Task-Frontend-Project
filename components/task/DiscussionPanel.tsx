@@ -264,36 +264,41 @@ export function DiscussionPanel({
       );
       
       if (response.isSuccess && response.data) {
-        const formattedComments: CommentItem[] = response.data.content.map((comment: any) => ({
-          id: comment.id.toString(),
-          parentId: comment.parentId || null,
-          author: {
-            id: comment.author.id,
-            name: comment.author.label,
-            avatar: "",
-          },
-          content: comment.message,
-          createdAt: comment.createdAt,
-          isEdited: false,
-          updatedAt: comment.createdAt,
-          attachments: comment.files ? comment.files.map((file: any) => ({
-            id: file.id.toString(),
-            fileName: file.fileName,
-            fileSize: 0,
-            url: "#",
-          })) : [],
-          reactions: comment.reactions ? comment.reactions.map((reaction: any) => ({
-            emoji: reaction.reaction,
-            count: 1,
-            reacted: reaction.reactedBy !== null,
-          })) : [],
-          mentions: comment.mentions ? comment.mentions.map((mention: any) => ({
-            id: mention.mentioned.id,
-            name: mention.mentioned.label,
-          })) : [],
-          replyCount: comment.replyCount || 0,
-          isDeletable: comment.isDeletable || false,
-        }));
+        const formattedComments: CommentItem[] = response.data.content.map((comment: any) => {
+          // Debug logging
+          console.log('Raw comment from API:', comment);
+          
+          return {
+            id: comment.id.toString(),
+            parentId: comment.parentId || null,
+            author: {
+              id: comment.author.id,
+              name: comment.author.label,
+              avatar: "",
+            },
+            content: comment.message,
+            createdAt: comment.createdAt,
+            isEdited: false,
+            updatedAt: comment.createdAt,
+            attachments: comment.files ? comment.files.map((file: any) => ({
+              id: file.id.toString(),
+              fileName: file.fileName,
+              fileSize: 0,
+              url: "#",
+            })) : [],
+            reactions: comment.reactions ? comment.reactions.map((reaction: any) => ({
+              emoji: reaction.reaction,
+              count: 1,
+              reacted: reaction.reactedBy !== null,
+            })) : [],
+            mentions: comment.mentions ? comment.mentions.map((mention: any) => ({
+              id: mention.mentioned.id,
+              name: mention.mentioned.label,
+            })) : [],
+            replyCount: comment.replyCount || 0,
+            isDeletable: comment.isDeletable || false,
+          };
+        });
         
         if (append) {
           setComments(prev => [...prev, ...formattedComments]);
@@ -544,230 +549,216 @@ export function DiscussionPanel({
   };
 
   // Handle file download
-const handleFileDownload = async (fileId: string, fileName: string) => {
-  setDownloadingFiles(prev => [...prev, fileId]);
-  
-  try {
-    const response: GetDiscussionFileDownloadLinkResponse = await getDiscussionFileDownloadLink(fileId);
+  const handleFileDownload = async (fileId: string, fileName: string) => {
+    setDownloadingFiles(prev => [...prev, fileId]);
     
-    if (response.isSuccess && response.data) {
-      // For images and other files, force download instead of opening in new tab
-      try {
-        // Fetch the file as a blob
-        const fileResponse = await fetch(response.data.url, {
-          method: 'GET',
-          headers: {
-            'Accept': '*/*',
-          },
-        });
-        
-        if (!fileResponse.ok) {
-          throw new Error('Failed to fetch file');
+    try {
+      const response: GetDiscussionFileDownloadLinkResponse = await getDiscussionFileDownloadLink(fileId);
+      
+      if (response.isSuccess && response.data) {
+        // For images and other files, force download instead of opening in new tab
+        try {
+          // Fetch the file as a blob
+          const fileResponse = await fetch(response.data.url, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*',
+            },
+          });
+          
+          if (!fileResponse.ok) {
+            throw new Error('Failed to fetch file');
+          }
+          
+          const blob = await fileResponse.blob();
+          
+          // Create blob URL and trigger download
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          link.style.display = 'none';
+          
+          // Add to DOM, click, and remove
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up blob URL after a short delay
+          setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+          }, 100);
+          
+          toast({
+            title: "Success",
+            description: `${fileName} downloaded successfully`,
+          });
+        } catch (fetchError) {
+          console.warn('Blob download failed, falling back to direct link:', fetchError);
+          // Fallback: try direct download with proper attributes
+          const link = document.createElement('a');
+          link.href = response.data.url;
+          link.download = fileName;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.style.display = 'none';
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast({
+            title: "Download Started",
+            description: `${fileName} download initiated`,
+          });
         }
-        
-        const blob = await fileResponse.blob();
-        
-        // Create blob URL and trigger download
-        const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName;
-        link.style.display = 'none';
-        
-        // Add to DOM, click, and remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up blob URL after a short delay
-        setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl);
-        }, 100);
-        
-        toast({
-          title: "Success",
-          description: `${fileName} downloaded successfully`,
-        });
-      } catch (fetchError) {
-        console.warn('Blob download failed, falling back to direct link:', fetchError);
-        // Fallback: try direct download with proper attributes
-        const link = document.createElement('a');
-        link.href = response.data.url;
-        link.download = fileName;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        toast({
-          title: "Download Started",
-          description: `${fileName} download initiated`,
-        });
+      } else {
+        throw new Error(response.message || "Failed to get download link");
       }
-    } else {
-      throw new Error(response.message || "Failed to get download link");
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to download ${fileName}`,
+      });
+    } finally {
+      setDownloadingFiles(prev => prev.filter(id => id !== fileId));
     }
-  } catch (error) {
-    console.error("Error downloading file:", error);
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: `Failed to download ${fileName}`,
-    });
-  } finally {
-    setDownloadingFiles(prev => prev.filter(id => id !== fileId));
-  }
-};
-
- 
-
-
-  // Helper function to extract clean message without mention syntax
-  const extractCleanMessage = (text: string, mentionedUsers: AssignDropdown[]) => {
-    let cleanText = text;
-
-    // Remove @mentions from the text
-    mentionedUsers.forEach(user => {
-      const mentionPattern = new RegExp(`@${user.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'g');
-      cleanText = cleanText.replace(mentionPattern, '');
-    });
-
-    return cleanText.trim();
   };
 
-const handlePost = async () => {
-  if (!canComment) return;
-  if (!editorValue?.trim() && pendingFiles.length === 0) return;
-  
-  setIsPosting(true);
-  try {
-    const mentionIds = mentionedUsers.map(user => user.id);
+  // Fixed handlePost function - send original message
+  const handlePost = async () => {
+    if (!canComment) return;
+    if (!editorValue?.trim() && pendingFiles.length === 0) return;
     
-    // Extract clean message without @mentions
-    const cleanMessage = extractCleanMessage(editorValue, mentionedUsers);
-    
-    // Create optimistic comment for UI
-    const newComment: CommentItem = {
-      id: `temp_${Date.now()}`,
-      parentId: null,
-      author: { id: "me", name: "You" },
-      content: editorValue || "",
-      createdAt: new Date().toISOString(),
-      isEdited: false,
-      updatedAt: new Date().toISOString(),
-      attachments: [],
-      reactions: [],
-      mentions: mentionedUsers.map(user => ({
-        id: user.id,
-        name: user.label,
-      })),
-      replyCount: 0,
-      isDeletable: true,
-    };
-
-    setComments((prev) => [newComment, ...prev]);
-
-    let commentResponse;
-
-    if (pendingFiles.length > 0) {
-      // If files are present, use the file upload API that also handles the comment
-      // Upload the first file (assuming your API handles one file per comment)
-      const file = pendingFiles[0];
+    setIsPosting(true);
+    try {
+      const mentionIds = mentionedUsers.map(user => user.id);
+      const messageToSend = editorValue; // Send original message with @mentions
       
-      try {
-        const uploadResponse = await uploadDiscussionFile(taskId, {
-          message: cleanMessage,
-          mentions: mentionIds,
-          fileName: file.name,
-          fileType: file.type
-        });
+      // Debug logs
+      console.log('Posting message:', messageToSend);
+      console.log('Posting mentions:', mentionIds);
+      console.log('Mentioned users:', mentionedUsers);
+      
+      // Create optimistic comment for UI
+      const newComment: CommentItem = {
+        id: `temp_${Date.now()}`,
+        parentId: null,
+        author: { id: "me", name: "You" },
+        content: messageToSend,
+        createdAt: new Date().toISOString(),
+        isEdited: false,
+        updatedAt: new Date().toISOString(),
+        attachments: [],
+        reactions: [],
+        mentions: mentionedUsers.map(user => ({
+          id: user.id,
+          name: user.label,
+        })),
+        replyCount: 0,
+        isDeletable: true,
+      };
 
-        if (!uploadResponse.isSuccess) {
-          throw new Error(uploadResponse.message);
-        }
+      setComments((prev) => [newComment, ...prev]);
 
-        await uploadFileToS3(
-          uploadResponse.data.url,
-          file,
-          file.type
-        );
+      let commentResponse;
 
-        const verifyResponse = await verifyDiscussionFile(uploadResponse.data.docId);
-        if (!verifyResponse.isSuccess) {
-          throw new Error("File verification failed");
-        }
-
-        // The comment is created through the file upload process
-        commentResponse = uploadResponse;
+      if (pendingFiles.length > 0) {
+        // If files are present, use the file upload API that also handles the comment
+        const file = pendingFiles[0];
         
-        // Update optimistic comment with uploaded file
-        setComments((prev) => 
-          prev.map(c => 
-            c.id === newComment.id 
-              ? {
-                  ...c,
-                  attachments: [
-                    {
-                      id: uploadResponse.data.docId.toString(),
-                      fileName: file.name,
-                      fileSize: file.size,
-                      url: uploadResponse.data.url.split('?')[0]
-                    }
-                  ]
-                }
-              : c
-          )
-        );
+        try {
+          const uploadResponse = await uploadDiscussionFile(taskId, {
+            message: messageToSend,
+            mentions: mentionIds,
+            fileName: file.name,
+            fileType: file.type
+          });
 
-      } catch (error) {
-        console.error(`Failed to upload file ${file.name}:`, error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: `Failed to upload file ${file.name}`,
+          if (!uploadResponse.isSuccess) {
+            throw new Error(uploadResponse.message);
+          }
+
+          await uploadFileToS3(
+            uploadResponse.data.url,
+            file,
+            file.type
+          );
+
+          const verifyResponse = await verifyDiscussionFile(uploadResponse.data.docId);
+          if (!verifyResponse.isSuccess) {
+            throw new Error("File verification failed");
+          }
+
+          // The comment is created through the file upload process
+          commentResponse = uploadResponse;
+          
+          // Update optimistic comment with uploaded file
+          setComments((prev) => 
+            prev.map(c => 
+              c.id === newComment.id 
+                ? {
+                    ...c,
+                    attachments: [
+                      {
+                        id: uploadResponse.data.docId.toString(),
+                        fileName: file.name,
+                        fileSize: file.size,
+                        url: uploadResponse.data.url.split('?')[0]
+                      }
+                    ]
+                  }
+                : c
+            )
+          );
+
+        } catch (error) {
+          console.error(`Failed to upload file ${file.name}:`, error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to upload file ${file.name}`,
+          });
+          throw error;
+        }
+
+      } else {
+        // If no files, use the regular comment API
+        commentResponse = await addTaskDiscussionComment(taskId, {
+          message: messageToSend, // Send original message with @mentions
+          mentions: mentionIds,
         });
-        // Re-throw to trigger the catch block below
-        throw error;
       }
 
-    } else {
-      // If no files, use the regular comment API
-      commentResponse = await addTaskDiscussionComment(taskId, {
-        message: cleanMessage,
-        mentions: mentionIds,
+      if (!commentResponse.isSuccess) {
+        throw new Error(commentResponse.message || "Failed to post comment");
+      }
+
+      setEditorValue("");
+      setPendingFiles([]);
+      setMentionedUsers([]);
+
+      toast({
+        title: "Success",
+        description: "Comment posted successfully",
       });
+      
+      await load(searchTerm, 0, paginationMeta.pageSize);
+
+    } catch (e: any) {
+      console.error("Error posting comment", e);
+      setComments((prev) => prev.filter(c => !c.id.startsWith('temp_')));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: e.message || "Failed to post comment",
+      });
+    } finally {
+      setIsPosting(false);
     }
-
-    if (!commentResponse.isSuccess) {
-      throw new Error(commentResponse.message || "Failed to post comment");
-    }
-
-    setEditorValue("");
-    setPendingFiles([]);
-    setMentionedUsers([]);
-
-    toast({
-      title: "Success",
-      description: "Comment posted successfully",
-    });
-    
-    await load(searchTerm, 0, paginationMeta.pageSize);
-
-  } catch (e: any) {
-    console.error("Error posting comment", e);
-    setComments((prev) => prev.filter(c => !c.id.startsWith('temp_')));
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: e.message || "Failed to post comment",
-    });
-  } finally {
-    setIsPosting(false);
-  }
-};
+  };
 
   // Handle reply functionality
   const handleReply = (commentId: string, authorName: string) => {
@@ -781,18 +772,20 @@ const handlePost = async () => {
     }, 0);
   };
 
-  // Fixed reply post handler (removed file upload functionality and clean message)
+  // Fixed reply post handler - send original message
   const handleReplyPost = async (commentId: string) => {
     if (!replyContent.trim()) return;
     
     setIsReplying(true);
     try {
-      // Extract clean message without @mentions
-      const cleanReplyMessage = extractCleanMessage(replyContent, replyMentionedUsers);
+      const messageToSend = replyContent; // Send original message with @mentions
       
-      // Simple payload without file uploads
+      // Debug logs
+      console.log('Posting reply message:', messageToSend);
+      console.log('Posting reply mentions:', replyMentionedUsers.map(user => user.id));
+      
       const payload = {
-        message: cleanReplyMessage,
+        message: messageToSend,
         mentions: replyMentionedUsers.map(user => user.id),
       };
       
@@ -1089,22 +1082,35 @@ const renderAttachment = (attachment: CommentAttachment) => {
             </div>
 
             {/* Plain text content */}
-            <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-              {comment.content.split(/(@\w+)/g).map((part, i) => {
-                if (part.startsWith('@')) {
-                  const username = part.substring(1);
-                  const mentionedUser = comment.mentions?.find(m => m.name === username);
-                  if (mentionedUser) {
-                    return (
-                      <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-                        @{username}
-                      </span>
-                    );
-                  }
-                }
-                return part;
-              })}
-            </div>
+   <div className="text-gray-700 mt-1 whitespace-pre-wrap">
+  {comment.content.split(/(@[^\s]+)/g).map((part, i) => {
+    if (part.startsWith('@')) {
+      const usernameFromText = part.substring(1);
+      
+      // Find the actual mentioned user object from the mentions array
+      const mentionedUser = comment.mentions?.find(m => 
+        m.name.toLowerCase().trim() === usernameFromText.toLowerCase().trim()
+      );
+      
+      if (mentionedUser) {
+        // Use the actual user's name from the mention object
+        return (
+          <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
+            @{mentionedUser.name}
+          </span>
+        );
+      }
+      
+      // Fallback: if mention exists in text but not in mentions array
+      return (
+        <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  })}
+</div>
 
             {/* Attachments */}
             {comment.attachments && comment.attachments.length > 0 && (

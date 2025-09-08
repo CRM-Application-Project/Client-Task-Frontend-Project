@@ -290,7 +290,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const [isEditingAssignee, setIsEditingAssignee] = useState(false);
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [isEditingEndDate, setIsEditingEndDate] = useState(false);
-  const [activeAnalyticsView, setActiveAnalyticsView] = useState<'graph' | 'report' | null>(null);
+  const [activeAnalyticsView, setActiveAnalyticsView] = useState<'graph' | 'timesheet' | null>(null);
   const [isEditingAcceptanceCriteria, setIsEditingAcceptanceCriteria] =
     useState(false);
   const [users, setUsers] = useState<AssignDropdown[]>([]);
@@ -776,7 +776,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setActiveAnalyticsView('report')}
+        onClick={() => setActiveAnalyticsView('timesheet')}
         className="flex items-center gap-2 text-xs"
       >
         <FileText className="h-3 w-3" />

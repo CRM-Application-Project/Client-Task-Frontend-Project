@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { BarChart3, FileText, TrendingUp, Clock, AlertTriangle, CheckCircle, Target, Calendar } from 'lucide-react';
+import { BarChart3, FileText, TrendingUp, Clock, AlertTriangle, CheckCircle, Target, Calendar, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Props interface
@@ -16,7 +16,7 @@ interface ProgressAnalyticsProps {
     subject: string;
   };
   onClose: () => void;
-  viewType?: 'graph' | 'report'; // Determine which view to show
+  viewType?: 'graph' | 'timesheet'; // Updated to 'timesheet'
 }
 
 const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ 
@@ -47,6 +47,64 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     { category: 'On Time', value: Math.max(0, 100 - overrun), fill: '#10b981' },
     { category: 'Overrun', value: Math.min(100, (overrun / task.estimatedHours) * 100), fill: '#ef4444' }
   ];
+
+  // Generate dummy timesheet data
+  const generateTimesheetData = () => {
+    const startDate = new Date(task.startDate);
+    const endDate = new Date(task.endDate);
+    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    const workEntries = [
+      "Implemented user authentication system",
+      "Fixed bugs in payment processing module",
+      "Optimized database queries for better performance",
+      "Designed and implemented new UI components",
+      "Wrote unit tests for core functionality",
+      "Refactored legacy code for maintainability",
+      "Integrated third-party API for analytics",
+      "Performed code review and provided feedback",
+      "Deployed application to staging environment",
+      "Created documentation for API endpoints"
+    ];
+    
+    return Array.from({ length: days }, (_, i) => {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      
+      // Distribute hours across days
+      const dailyHours = i === days - 1 
+        ? task.actualHours % (days - 1) || task.actualHours / days 
+        : Math.floor(task.actualHours / days);
+      
+      return {
+        date: date.toLocaleDateString(),
+        hours: dailyHours,
+        description: workEntries[i % workEntries.length]
+      };
+    });
+  };
+
+  const timesheetData = generateTimesheetData();
+
+  // Function to download timesheet as CSV
+  const downloadTimesheet = () => {
+    const csvContent = [
+      ['Date', 'Hours', 'Description'],
+      ...timesheetData.map(entry => [entry.date, entry.hours, `"${entry.description}"`])
+    ].map(e => e.join(',')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `timesheet-${task.subject.replace(/\s+/g, '-').toLowerCase()}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const GraphView = () => (
     <div className="space-y-6 p-4 bg-white border rounded-lg">
@@ -154,153 +212,126 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     </div>
   );
 
-  const ReportView = () => (
+  const TimesheetView = () => (
     <div className="space-y-6 p-4 bg-white border rounded-lg">
       <div className="flex items-center justify-between">
         <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <FileText className="h-5 w-5 text-green-500" />
-          Progress Analytics - Report View
+          Timesheet - {task.subject}
         </h4>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={onClose}
-        >
-          Close
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={downloadTimesheet}
+            className="flex items-center gap-1"
+          >
+            <Download className="h-4 w-4" />
+            Download CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Executive Summary */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-lg">
-          <h5 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Executive Summary
-          </h5>
-          <div className="space-y-3 text-sm">
-            <p className="text-gray-700">
-              Task <strong>{task.subject}</strong> has been completed with the following performance metrics:
-            </p>
-            <ul className="space-y-2 text-gray-600">
-              <li className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Status: <strong className="text-gray-800">{task.status}</strong></span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Clock className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <span>Time utilization: <strong className="text-gray-800">{utilizationRate.toFixed(1)}%</strong> of allocated time</span>
-              </li>
-              <li className="flex items-start gap-2">
-                {efficiency >= 100 ? (
-                  <TrendingUp className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                )}
-                <span>Efficiency: <strong className="text-gray-800">{efficiency.toFixed(1)}%</strong> efficiency rate</span>
-              </li>
-            </ul>
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <h5 className="font-medium text-gray-700 mb-4">Daily Work Log</h5>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Hours
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Description
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {timesheetData.map((entry, index) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {entry.date}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {entry.hours}h
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {entry.description}
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-gray-100 font-semibold">
+                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                  Total
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                  {task.actualHours}h
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-900">
+                  Completed {task.status.toLowerCase()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Summary Card */}
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h5 className="font-medium text-gray-700 mb-3">Time Summary</h5>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Estimated Hours:</span>
+              <span className="text-sm font-medium">{task.estimatedHours}h</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Actual Hours:</span>
+              <span className={`text-sm font-medium ${task.actualHours > task.estimatedHours ? 'text-red-600' : 'text-green-600'}`}>
+                {task.actualHours}h
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Variance:</span>
+              <span className={`text-sm font-medium ${overrun > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {overrun > 0 ? '+' : ''}{(task.actualHours - task.estimatedHours).toFixed(1)}h
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Time Analysis */}
-        <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-6 rounded-lg">
-          <h5 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Time Analysis
-          </h5>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-white rounded-md">
-                <div className="text-2xl font-bold text-blue-600">{task.estimatedHours}h</div>
-                <div className="text-xs text-gray-500">Estimated</div>
-              </div>
-              <div className="text-center p-3 bg-white rounded-md">
-                <div className="text-2xl font-bold text-red-600">{task.actualHours}h</div>
-                <div className="text-xs text-gray-500">Actual</div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-3 rounded-md">
-              <div className="text-center">
-                <div className={`text-lg font-bold ${overrun > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {overrun > 0 ? '+' : ''}{(task.actualHours - task.estimatedHours).toFixed(1)}h
-                </div>
-                <div className="text-xs text-gray-500">Variance from Estimate</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Insights */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-purple-50 to-pink-100 p-6 rounded-lg">
-          <h5 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Performance Insights
-          </h5>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-white p-4 rounded-md text-center">
-              <div className={`text-xl font-bold ${efficiency >= 100 ? 'text-green-600' : 'text-red-600'}`}>
+        {/* Efficiency Card */}
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h5 className="font-medium text-gray-700 mb-3">Efficiency</h5>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Efficiency Rate:</span>
+              <span className={`text-sm font-medium ${efficiency >= 100 ? 'text-green-600' : 'text-red-600'}`}>
                 {efficiency.toFixed(1)}%
-              </div>
-              <div className="text-sm text-gray-600">Efficiency Rate</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {efficiency >= 100 ? 'Above target' : 'Below target'}
-              </div>
+              </span>
             </div>
-            
-            <div className="bg-white p-4 rounded-md text-center">
-              <div className="text-xl font-bold text-blue-600">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Utilization:</span>
+              <span className="text-sm font-medium text-blue-600">
                 {utilizationRate.toFixed(1)}%
-              </div>
-              <div className="text-sm text-gray-600">Resource Utilization</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Of total allocated time
-              </div>
+              </span>
             </div>
-            
-            <div className="bg-white p-4 rounded-md text-center">
-              <div className={`text-xl font-bold ${overrun <= task.graceHours ? 'text-green-600' : 'text-red-600'}`}>
-                {task.graceHours}h
-              </div>
-              <div className="text-sm text-gray-600">Grace Period</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {overrun <= task.graceHours ? 'Within limits' : 'Exceeded'}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-md">
-            <h6 className="font-medium text-gray-700 mb-3">Recommendations</h6>
-            <div className="space-y-2 text-sm text-gray-600">
-              {efficiency >= 100 ? (
-                <p className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Excellent time management - task completed within estimated timeframe.
-                </p>
-              ) : (
-                <p className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                  Consider reviewing estimation methodology for future similar tasks.
-                </p>
-              )}
-              
-              {utilizationRate > 90 ? (
-                <p className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                  High resource utilization detected - consider adding buffer time for future tasks.
-                </p>
-              ) : (
-                <p className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Good resource management with adequate buffer maintained.
-                </p>
-              )}
-              
-              <p className="flex items-start gap-2">
-                <Calendar className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                Task duration: {Math.ceil((new Date(task.endDate).getTime() - new Date(task.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
-              </p>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Grace Hours Used:</span>
+              <span className={`text-sm font-medium ${overrun > task.graceHours ? 'text-red-600' : 'text-amber-600'}`}>
+                {Math.min(overrun, task.graceHours)}h of {task.graceHours}h
+              </span>
             </div>
           </div>
         </div>
@@ -311,8 +342,8 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   // Only render the requested view type
   if (viewType === 'graph') {
     return <GraphView />;
-  } else if (viewType === 'report') {
-    return <ReportView />;
+  } else if (viewType === 'timesheet') {
+    return <TimesheetView />;
   }
 
   // Fallback
