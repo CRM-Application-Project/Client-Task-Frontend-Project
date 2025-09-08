@@ -80,7 +80,7 @@ interface TaskDetailsResponse {
   graceHours: number;
   actualHours: number;
   actionType: string;
-  requiredReviewAction:boolean;
+  requiredReviewAction: boolean;
   status: string;
   comment: string;
   assignee: {
@@ -94,9 +94,9 @@ interface TaskDetailsResponse {
     avatar?: string;
   };
   approver: { // Changed from reviewer
-  id: string;
-  label: string;
-};
+    id: string;
+    label: string;
+  };
   completedBy: {
     id: string;
     label: string;
@@ -302,6 +302,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const [editedAcceptanceCriteria, setEditedAcceptanceCriteria] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { permissions } = usePermissions("task");
+  const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchTaskDetails = useCallback(async () => {
@@ -393,15 +394,15 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         setTask((prev) =>
           prev
             ? {
-                ...prev,
-                assignee: selectedUser
-                  ? {
-                      id: selectedUser.id,
-                      label: selectedUser.label,
-                      avatar: prev.assignee?.avatar,
-                    }
-                  : prev.assignee,
-              }
+              ...prev,
+              assignee: selectedUser
+                ? {
+                  id: selectedUser.id,
+                  label: selectedUser.label,
+                  avatar: prev.assignee?.avatar,
+                }
+                : prev.assignee,
+            }
             : null
         );
         setIsEditingAssignee(false);
@@ -419,6 +420,21 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         ? editedStartDate
         : `${editedStartDate}T00:00:00`;
 
+      // Validate that start date is not after end date
+      if (task?.endDate) {
+        const startDate = new Date(formattedDateTime);
+        const endDate = new Date(task.endDate);
+
+        if (startDate > endDate) {
+          toast({
+            title: "Invalid Date",
+            description: "Start date cannot be after the end date",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const response = await updateTask(taskId, {
         startDate: formattedDateTime,
       });
@@ -427,11 +443,25 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           prev ? { ...prev, startDate: formattedDateTime } : null
         );
         setIsEditingStartDate(false);
+        toast({
+          title: "Success",
+          description: "Start date updated successfully",
+        });
       } else {
         console.error("Failed to update start date:", response.message);
+        toast({
+          title: "Error",
+          description: response.message || "Failed to update start date",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error updating start date:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while updating the start date",
+        variant: "destructive",
+      });
     }
   };
 
@@ -441,17 +471,44 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         ? editedEndDate
         : `${editedEndDate}T23:59:59`;
 
+      // Validate that end date is not before start date
+      const startDate = new Date(task?.startDate || editedStartDate);
+      const endDate = new Date(formattedDateTime);
+
+      if (endDate < startDate) {
+        toast({
+          title: "Invalid Date",
+          description: "End date cannot be before the start date",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const response = await updateTask(taskId, { endDate: formattedDateTime });
       if (response.isSuccess) {
         setTask((prev) =>
           prev ? { ...prev, endDate: formattedDateTime } : null
         );
         setIsEditingEndDate(false);
+        toast({
+          title: "Success",
+          description: "End date updated successfully",
+        });
       } else {
         console.error("Failed to update end date:", response.message);
+        toast({
+          title: "Error",
+          description: response.message || "Failed to update end date",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error updating end date:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while updating the end date",
+        variant: "destructive",
+      });
     }
   };
 
@@ -464,11 +521,11 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         setTask((prev) =>
           prev
             ? {
-                ...prev,
-                acceptanceInfo: {
-                  acceptanceCriteria: editedAcceptanceCriteria,
-                },
-              }
+              ...prev,
+              acceptanceInfo: {
+                acceptanceCriteria: editedAcceptanceCriteria,
+              },
+            }
             : null
         );
         setIsEditingAcceptanceCriteria(false);
@@ -655,22 +712,20 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
 
         <div className="flex flex-wrap gap-2 mb-3">
           <Badge
-            className={`${
-              priorityColors[task.priority]
-            } flex items-center gap-1`}
+            className={`${priorityColors[task.priority]
+              } flex items-center gap-1`}
           >
             {priorityIcons[task.priority]} {task.priority}
           </Badge>
           <Badge variant="outline">{task.taskStageName}</Badge>
           <Badge variant="outline" className="flex items-center gap-1">
             <span
-              className={`h-2 w-2 rounded-full ${
-                task.status === "STARTED"
-                  ? "bg-blue-500"
-                  : task.status === "COMPLETED"
+              className={`h-2 w-2 rounded-full ${task.status === "STARTED"
+                ? "bg-blue-500"
+                : task.status === "COMPLETED"
                   ? "bg-green-500"
                   : "bg-gray-400"
-              }`}
+                }`}
             ></span>
             {task.status.replace(/_/g, " ")}
           </Badge>
@@ -679,130 +734,128 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         </div>
 
         {/* Hours Progress */}
-      {/* Hours Progress */}
-<div className="mb-3">
-  <div className="flex items-center justify-between mb-2">
-    <h4 className="text-xs text-gray-500 flex items-center gap-2">
-      <Timer className="h-3 w-3" /> Hours Progress
-    </h4>
-    <span className="text-xs text-gray-600">
-      {task.actualHours?.toFixed(1)}h / {task.estimatedHours}h
-      {task.graceHours > 0 && ` (+${task.graceHours}h grace)`}
-    </span>
-  </div>
+        {/* Hours Progress */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs text-gray-500 flex items-center gap-2">
+              <Timer className="h-3 w-3" /> Hours Progress
+            </h4>
+            <span className="text-xs text-gray-600">
+              {task.actualHours?.toFixed(1)}h / {task.estimatedHours}h
+              {task.graceHours > 0 && ` (+${task.graceHours}h grace)`}
+            </span>
+          </div>
 
-  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-    {/* Main progress bar */}
-    <div
-      className={`h-full transition-all duration-300 ${getProgressColor()}`}
-      style={{ width: `${Math.min(100, getProgressPercentage())}%` }}
-    />
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
+            {/* Main progress bar */}
+            <div
+              className={`h-full transition-all duration-300 ${getProgressColor()}`}
+              style={{ width: `${Math.min(100, getProgressPercentage())}%` }}
+            />
 
-    {/* Grace period indicator */}
-    {task.graceHours > 0 && (
-      <div
-        className="absolute top-0 h-full bg-gray-300 opacity-30"
-        style={{
-          left: `${
-            (task.estimatedHours /
-              (task.estimatedHours + task.graceHours)) *
-            100
-          }%`,
-          width: `${
-            (task.graceHours /
-              (task.estimatedHours + task.graceHours)) *
-            100
-          }%`,
-        }}
-      />
-    )}
-  </div>
+            {/* Grace period indicator */}
+            {task.graceHours > 0 && (
+              <div
+                className="absolute top-0 h-full bg-gray-300 opacity-30"
+                style={{
+                  left: `${(task.estimatedHours /
+                    (task.estimatedHours + task.graceHours)) *
+                    100
+                    }%`,
+                  width: `${(task.graceHours /
+                    (task.estimatedHours + task.graceHours)) *
+                    100
+                    }%`,
+                }}
+              />
+            )}
+          </div>
 
-  {/* Existing progress details */}
-  <div className="flex justify-between text-xs text-gray-500 mt-1">
-    <span>0h</span>
-    <span className="text-gray-400">|</span>
-    <span>{task.estimatedHours}h</span>
-    {task.graceHours > 0 && (
-      <>
-        <span className="text-gray-400">|</span>
-        <span>{task.estimatedHours + task.graceHours}h</span>
-      </>
-    )}
-  </div>
+          {/* Existing progress details */}
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0h</span>
+            <span className="text-gray-400">|</span>
+            <span>{task.estimatedHours}h</span>
+            {task.graceHours > 0 && (
+              <>
+                <span className="text-gray-400">|</span>
+                <span>{task.estimatedHours + task.graceHours}h</span>
+              </>
+            )}
+          </div>
 
-  {/* Status indicators */}
-  <div className="flex items-center gap-4 mt-2 text-xs">
-    {task.actualHours > task.estimatedHours + task.graceHours && (
-      <span className="text-red-600 flex items-center gap-1">
-        <AlertCircle className="h-3 w-3" />
-        Exceeded Estimate by{" "}
-        {(
-          task.actualHours -
-          task.estimatedHours -
-          task.graceHours
-        ).toFixed(1)}
-        h
-      </span>
-    )}
-    {task.actualHours > task.estimatedHours &&
-      task.actualHours <= task.estimatedHours + task.graceHours && (
-        <span className="text-amber-600 flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          In grace period (
-          {(task.actualHours - task.estimatedHours).toFixed(1)}h over)
-        </span>
-      )}
-    {task.actualHours <= task.estimatedHours && (
-      <span className="text-green-600 flex items-center gap-1">
-        <CheckCircle className="h-3 w-3" />
-        Within estimated hours
-      </span>
-    )}
-  </div>
+          {/* Status indicators */}
+          <div className="flex items-center gap-4 mt-2 text-xs">
+            {task.actualHours > task.estimatedHours + task.graceHours && (
+              <span className="text-red-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Exceeded Estimate by{" "}
+                {(
+                  task.actualHours -
+                  task.estimatedHours -
+                  task.graceHours
+                ).toFixed(1)}
+                h
+              </span>
+            )}
+            {task.actualHours > task.estimatedHours &&
+              task.actualHours <= task.estimatedHours + task.graceHours && (
+                <span className="text-amber-600 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  In grace period (
+                  {(task.actualHours - task.estimatedHours).toFixed(1)}h over)
+                </span>
+              )}
+            {task.actualHours <= task.estimatedHours && (
+              <span className="text-green-600 flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                Within estimated hours
+              </span>
+            )}
+          </div>
 
-  {/* Analytics Options */}
-  {!activeAnalyticsView && (
-    <div className="flex gap-2 mt-3">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setActiveAnalyticsView('graph')}
-        className="flex items-center gap-2 text-xs"
-      >
-        <BarChart3 className="h-3 w-3" />
-        Graph View Analysis
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setActiveAnalyticsView('timesheet')}
-        className="flex items-center gap-2 text-xs"
-      >
-        <FileText className="h-3 w-3" />
-        Report View Analysis
-      </Button>
-    </div>
-  )}
-</div>
+          {/* Analytics Options */}
+          {!activeAnalyticsView && (
+            <div className="flex gap-2 mt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveAnalyticsView('graph')}
+                className="flex items-center gap-2 text-xs"
+              >
+                <BarChart3 className="h-3 w-3" />
+                Graph View Analysis
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveAnalyticsView('timesheet')}
+                className="flex items-center gap-2 text-xs"
+              >
+                <FileText className="h-3 w-3" />
+                Report View Analysis
+              </Button>
+            </div>
+          )}
+        </div>
 
-{/* Analytics Views - This should be right after the hours progress section */}
-{activeAnalyticsView && (
-  <ProgressAnalytics 
-    task={{
-      estimatedHours: task.estimatedHours || 0,
-      actualHours: task.actualHours || 0,
-      graceHours: task.graceHours || 0,
-      startDate: task.startDate,
-      endDate: task.endDate || '',
-      status: task.taskStageName || 'Unknown',
-      priority: task.priority,
-      subject: task.subject
-    }}
-    onClose={() => setActiveAnalyticsView(null)}
-    viewType={activeAnalyticsView}
-  />
-)}
+        {/* Analytics Views - This should be right after the hours progress section */}
+        {activeAnalyticsView && (
+          <ProgressAnalytics
+            task={{
+              estimatedHours: task.estimatedHours || 0,
+              actualHours: task.actualHours || 0,
+              graceHours: task.graceHours || 0,
+              startDate: task.startDate,
+              endDate: task.endDate || '',
+              status: task.taskStageName || 'Unknown',
+              priority: task.priority,
+              subject: task.subject
+            }}
+            onClose={() => setActiveAnalyticsView(null)}
+            viewType={activeAnalyticsView}
+          />
+        )}
 
         {/* Description */}
         <div className="mb-3 mt-7">
@@ -927,6 +980,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
                   type="date"
                   value={editedStartDate.split("T")[0]}
                   onChange={(e) => setEditedStartDate(e.target.value)}
+                  max={editedEndDate ? editedEndDate.split("T")[0] : task.endDate ? task.endDate.split("T")[0] : undefined}
                   className="w-full"
                 />
               </div>
@@ -970,14 +1024,12 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           {task.endDate &&
             (isEditingEndDate ? (
               <div
-                className={`flex items-center gap-3 p-3 border rounded-md ${
-                  isOverdue ? "border-red-200" : ""
-                }`}
+                className={`flex items-center gap-3 p-3 border rounded-md ${isOverdue ? "border-red-200" : ""
+                  }`}
               >
                 <Calendar
-                  className={`h-4 w-4 ${
-                    isOverdue ? "text-red-500" : "text-gray-500"
-                  }`}
+                  className={`h-4 w-4 ${isOverdue ? "text-red-500" : "text-gray-500"
+                    }`}
                 />
                 <div className="flex-1">
                   <p className="text-xs text-gray-500">Due Date</p>
@@ -985,6 +1037,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
                     type="date"
                     value={editedEndDate ? editedEndDate.split("T")[0] : ""}
                     onChange={(e) => setEditedEndDate(e.target.value)}
+                    min={editedStartDate ? editedStartDate.split("T")[0] : task.startDate.split("T")[0]}
                     className="w-full"
                   />
                 </div>
@@ -1003,21 +1056,18 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
               </div>
             ) : (
               <div
-                className={`relative group flex items-center gap-3 p-3 border rounded-md ${
-                  isOverdue ? "border-red-200" : ""
-                }`}
+                className={`relative group flex items-center gap-3 p-3 border rounded-md ${isOverdue ? "border-red-200" : ""
+                  }`}
               >
                 <Calendar
-                  className={`h-4 w-4 ${
-                    isOverdue ? "text-red-500" : "text-gray-500"
-                  }`}
+                  className={`h-4 w-4 ${isOverdue ? "text-red-500" : "text-gray-500"
+                    }`}
                 />
                 <div>
                   <p className="text-xs text-gray-500">Due Date</p>
                   <p
-                    className={`text-sm font-medium ${
-                      isOverdue ? "text-red-600" : "text-gray-900"
-                    }`}
+                    className={`text-sm font-medium ${isOverdue ? "text-red-600" : "text-gray-900"
+                      }`}
                   >
                     {new Date(task.endDate).toLocaleDateString("en-US", {
                       year: "numeric",
@@ -1225,7 +1275,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           </div>
         </div>
       )}
-{/* Analytics Views */}
+      {/* Analytics Views */}
 
       {/* Meta Info footer */}
       <div className="bg-white shadow-sm rounded-lg border p-3 text-xs text-gray-500 flex justify-between">
