@@ -1083,39 +1083,29 @@ export function DiscussionPanel({
 
             {/* Plain text content */}
             <div className="text-gray-700 mt-1 whitespace-pre-wrap">
-              {comment.content.split(/(@\w+(?:\s+\w+)*)/g).map((part, i) => {
-                if (part.startsWith('@')) {
-                  const usernameFromText = part.substring(1).trim();
-
-                  // Find the actual mentioned user object from the mentions array
-                  const mentionedUser = comment.mentions?.find(m => {
-                    const mentionName = m.name.toLowerCase().trim();
-                    const textName = usernameFromText.toLowerCase().trim();
-
-                    // Try exact match first
-                    return mentionName === textName ||
-                      mentionName.includes(textName) ||
-                      textName.includes(mentionName);
-                  });
-
-                  if (mentionedUser) {
-                    // Use the actual user's name from the mention object
-                    return (
-                      <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-                        @{mentionedUser.name}
-                      </span>
-                    );
-                  }
-
-                  // Fallback: if mention exists in text but not in mentions array
-                  return (
-                    <span key={i} className="bg-blue-100 text-blue-700 px-1 rounded">
-                      {part}
-                    </span>
-                  );
+              {(() => {
+                // If no mentions, just return the content as is
+                if (!comment.mentions || comment.mentions.length === 0) {
+                  return comment.content;
                 }
-                return part;
-              })}
+
+                let processedContent = comment.content;
+
+                // Replace each mention with highlighted version
+                comment.mentions.forEach((mention) => {
+                  // Escape special regex characters in the mention name
+                  const escapedName = mention.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const mentionPattern = new RegExp(`@${escapedName}(?=\\s|$)`, 'gi');
+
+                  processedContent = processedContent.replace(mentionPattern, (match) => {
+                    return `<span class="bg-blue-100 text-blue-700 px-1 rounded">@${mention.name}</span>`;
+                  });
+                });
+
+                return (
+                  <span dangerouslySetInnerHTML={{ __html: processedContent }} />
+                );
+              })()}
             </div>
 
             {/* Attachments */}

@@ -270,6 +270,28 @@ export default function LoginPage() {
     `;
   };
 
+  // -------------------- Prevent Mobile Zoom Effect --------------------
+  useEffect(() => {
+    // Prevent zoom on input focus for mobile devices
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    } else {
+      const newViewport = document.createElement('meta');
+      newViewport.name = 'viewport';
+      newViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+      document.head.appendChild(newViewport);
+    }
+
+    // Cleanup function to restore normal viewport behavior
+    return () => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      }
+    };
+  }, []);
+
   // -------------------- Theme Verification Effect --------------------
   useEffect(() => {
     const verifyUserAndSetTheme = async () => {
@@ -839,11 +861,12 @@ export default function LoginPage() {
           <Image
             src="/login.jpeg"
             alt="CRM Background"
-            layout="fill"
-            objectFit="cover"
+            fill
+            style={{ objectFit: 'cover' }}
             quality={100}
             priority
-            className="transform-none" // Prevent image scaling
+            className="transform-none"
+            sizes="50vw"
           />
         </div>
         {/* Overlay */}
@@ -921,11 +944,11 @@ export default function LoginPage() {
                       onChange={(e) => setFieldValue("email", e.target.value)}
                       onBlur={() => handleBlurLogin("email")}
                       required
-                      className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${borderClass(
+                      className={`h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
                         "email"
                       )}`}
                       autoComplete="email"
-                      style={{ fontSize: '16px' }} // Prevent iOS zoom
+                      style={{ fontSize: '16px' }}
                     />
                     {renderValidationStatus("email")}
                   </div>
@@ -973,13 +996,13 @@ export default function LoginPage() {
                         }
                         onBlur={() => handleBlurLogin("password")}
                         required
-                        className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg ${borderClass(
+                        className={`h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
                           "password"
                         )}`}
                         onCopy={handleCopyPrevention}
                         onPaste={handlePastePrevention}
                         autoComplete="current-password"
-                        style={{ fontSize: '16px' }} // Prevent iOS zoom
+                        style={{ fontSize: '16px' }}
                       />
                       <button
                         type="button"
@@ -1086,8 +1109,8 @@ export default function LoginPage() {
                           placeholder="Enter the code sent to your email"
                           value={otp}
                           onChange={(e) => setOtp(e.target.value)}
-                          className="h-12 bg-background border-input focus:border-primary"
-                          style={{ fontSize: '16px' }} // Prevent iOS zoom
+                          className="h-12 bg-background border-input focus:border-primary text-base"
+                          style={{ fontSize: '16px' }}
                         />
                       </div>
                       <Button
@@ -1135,9 +1158,10 @@ export default function LoginPage() {
                             onChange={(e) =>
                               handleNewPasswordChange(e.target.value)
                             }
-                            className="h-12 pr-12 bg-background border-input focus:border-primary"
+                            className="h-12 pr-12 bg-background border-input focus:border-primary text-base"
                             onCopy={handleCopyPrevention}
                             onPaste={handlePastePrevention}
+                            style={{ fontSize: '16px' }}
                           />
                           <button
                             type="button"
@@ -1168,9 +1192,10 @@ export default function LoginPage() {
                             onChange={(e) =>
                               handleConfirmPasswordChange(e.target.value)
                             }
-                            className="h-12 pr-12 bg-background border-input focus:border-primary"
+                            className="h-12 pr-12 bg-background border-input focus:border-primary text-base"
                             onCopy={handleCopyPrevention}
                             onPaste={handlePastePrevention}
+                            style={{ fontSize: '16px' }}
                           />
                           <button
                             type="button"
