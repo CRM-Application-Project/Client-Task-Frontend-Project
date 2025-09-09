@@ -1083,22 +1083,44 @@ export const fetchLeadsOverview = async (
   return res as LeadOverviewResponse;
 };
 
+
+
+
+
+export type TaskFlowGraphAnalysis = Record<string, number>;
+
+
+export interface TaskOverviewResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    startDate: string;
+    endDate: string;
+    taskAnalytics: TaskAnalytics;
+    taskFlowGraphAnalysis: Record<string, number>;
+    topPerformerTasks: TaskPerformer[];
+    avgPerformerTasks: TaskPerformer[];
+    leastPerformerTasks: TaskPerformer[];
+    taskStatusGraphData: Record<string, number>;
+    departmentAnalytics: DepartmentAnalytics[];
+  };
+}
+
 export interface TaskAnalytics {
   totalTasks: number;
   inReviewTasks: number;
   ongoingTasks: number;
   completedTasks: number;
-  completedTasksPercentage: number;
+  completedPercentage: number;
 }
 
 export interface TaskPerformer {
   userName: string;
   totalTasks: number;
+  ongoingTasks: number;
   completedTasks: number;
   completedPercentage: number;
 }
-
-export type TaskFlowGraphAnalysis = Record<string, number>;
 
 export interface DepartmentAnalytics {
   departmentName: string;
@@ -1109,21 +1131,6 @@ export interface DepartmentAnalytics {
   completedPercentage: number;
 }
 
-export interface TaskOverviewResponse {
-  isSuccess: boolean;
-  message: string;
-  data: {
-    startDate: string;
-    endDate: string;
-    taskAnalytics: TaskAnalytics;
-    taskFlowGraphAnalysis: TaskFlowGraphAnalysis;
-    topPerformerTasks: TaskPerformer[];
-    avgPerformerTasks: TaskPerformer[];
-    leastPerformerTasks: TaskPerformer[];
-    taskStatusGraphData: Record<string, number>;
-    departmentAnalytics: DepartmentAnalytics[];
-  };
-}
 
 // Fetch Tasks Overview
 export const fetchTasksOverview = async (
