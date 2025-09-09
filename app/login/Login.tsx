@@ -270,24 +270,84 @@ export default function LoginPage() {
     `;
   };
 
-  // -------------------- Prevent Mobile Zoom Effect --------------------
+  // -------------------- Prevent Layout Shifts on Desktop --------------------
   useEffect(() => {
-    // Prevent zoom on input focus for mobile devices
-    const viewport = document.querySelector('meta[name="viewport"]');
-    if (viewport) {
-      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-    } else {
-      const newViewport = document.createElement('meta');
-      newViewport.name = 'viewport';
-      newViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-      document.head.appendChild(newViewport);
-    }
+    // Add CSS to prevent layout shifts on desktop
+    const style = document.createElement('style');
+    style.textContent = `
+      .login-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      
+      .login-image-container {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 50% !important;
+        height: 100% !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+        will-change: auto !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+      
+      .login-form-container {
+        position: absolute !important;
+        top: 0 !important;
+        right: 0 !important;
+        width: 50% !important;
+        height: 100% !important;
+        overflow-y: auto !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+      }
+      
+      .login-image-container img {
+        transform: none !important;
+        -webkit-transform: none !important;
+        will-change: auto !important;
+      }
+      
+      /* Disable all transitions and animations on focus */
+      input:focus, textarea:focus, select:focus {
+        transition: none !important;
+        -webkit-transition: none !important;
+        animation: none !important;
+        -webkit-animation: none !important;
+      }
+      
+      /* Prevent any transforms on the entire layout */
+      .login-container * {
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      }
+      
+      @media (max-width: 1024px) {
+        .login-container {
+          position: static;
+          height: auto;
+          overflow: visible;
+        }
+        .login-image-container {
+          display: none !important;
+        }
+        .login-form-container {
+          position: static !important;
+          width: 100% !important;
+          height: auto !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
 
-    // Cleanup function to restore normal viewport behavior
+    // Cleanup function
     return () => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
       }
     };
   }, []);
@@ -384,6 +444,8 @@ export default function LoginPage() {
     const err = validateLoginField(field, field === "email" ? email : password);
     setLoginErrors((prev) => ({ ...prev, [field]: err }));
   };
+
+
 
   const emailValid = useMemo(
     () => validateLoginField("email", email) === "",
@@ -854,18 +916,18 @@ export default function LoginPage() {
 
   // -------------------- UI --------------------
   return (
-    <div className="min-h-screen bg-background flex flex-col lg:flex-row">
+    <div className="login-container min-h-screen bg-background flex flex-col lg:flex-row">
       {/* Left Side - Image */}
-      <div className="lg:w-1/2 relative hidden lg:block">
+      <div className="login-image-container lg:w-1/2 relative hidden lg:block">
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
           <Image
             src="/login.jpeg"
             alt="CRM Background"
             fill
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'cover', transform: 'none' }}
             quality={100}
             priority
-            className="transform-none"
+            className="transform-none will-change-auto"
             sizes="(max-width: 1024px) 0vw, 50vw"
           />
         </div>
@@ -874,7 +936,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 min-h-screen lg:min-h-0">
+      <div className="login-form-container w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 min-h-screen lg:min-h-0">
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
           {/* Logo and Branding */}
           <div className="text-center space-y-3 sm:space-y-4">
@@ -944,7 +1006,7 @@ export default function LoginPage() {
                       onChange={(e) => setFieldValue("email", e.target.value)}
                       onBlur={() => handleBlurLogin("email")}
                       required
-                      className={`h-11 sm:h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
+                      className={`h-11 sm:h-12 bg-background border-input focus:border-primary rounded-lg text-base ${borderClass(
                         "email"
                       )}`}
                       autoComplete="email"
@@ -970,9 +1032,9 @@ export default function LoginPage() {
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         required={requiresCompany}
-                        className="h-11 sm:h-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg"
+                        className="h-11 sm:h-12 bg-background border-input focus:border-primary rounded-lg"
                         autoComplete="organization"
-                        style={{ fontSize: '16px' }} // Prevent iOS zoom
+                        style={{ fontSize: '16px' }}
                       />
                     </div>
                   )}
@@ -996,7 +1058,7 @@ export default function LoginPage() {
                         }
                         onBlur={() => handleBlurLogin("password")}
                         required
-                        className={`h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary transition-all duration-200 rounded-lg text-base ${borderClass(
+                        className={`h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary rounded-lg text-base ${borderClass(
                           "password"
                         )}`}
                         onCopy={handleCopyPrevention}
