@@ -1006,7 +1006,7 @@ export default function LoginPage() {
                       onChange={(e) => setFieldValue("email", e.target.value)}
                       onBlur={() => handleBlurLogin("email")}
                       required
-                      className={`h-11 sm:h-12 bg-background border-input focus:border-primary rounded-lg text-base ${borderClass(
+                      className={`h-11 sm:h-12 bg-background border-input focus:border-primary rounded-lg text-[14px] ${borderClass(
                         "email"
                       )}`}
                       autoComplete="email"
@@ -1015,29 +1015,7 @@ export default function LoginPage() {
                     {renderValidationStatus("email")}
                   </div>
 
-                  {/* Company Name Field - Conditional */}
-                  {showCompanyField && (
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="companyName"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Company Name
-                        <span className="text-red-500 ml-1">*</span>
-                      </Label>
-                      <Input
-                        id="companyName"
-                        type="text"
-                        placeholder="Enter your company name"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        required={requiresCompany}
-                        className="h-11 sm:h-12 bg-background border-input focus:border-primary rounded-lg"
-                        autoComplete="organization"
-                        style={{ fontSize: '16px' }}
-                      />
-                    </div>
-                  )}
+               
 
                   <div className="space-y-2">
                     <Label
@@ -1058,7 +1036,7 @@ export default function LoginPage() {
                         }
                         onBlur={() => handleBlurLogin("password")}
                         required
-                        className={`h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary rounded-lg text-base ${borderClass(
+                        className={`h-11 sm:h-12 pr-12 bg-background border-input focus:border-primary rounded-lg text-[14px] ${borderClass(
                           "password"
                         )}`}
                         onCopy={handleCopyPrevention}

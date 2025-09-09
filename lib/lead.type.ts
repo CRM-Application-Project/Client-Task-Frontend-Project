@@ -83,6 +83,7 @@ interface UpdateLeadRequest {
   leadStatus: string;
   leadSource: string;
   leadAddedBy: string;
+  leadAssignedTo?: string | null;
   customerMobileNumber: string;
   companyEmailAddress: string;
   customerName: string;

@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { LeadStatus, LeadSource, LeadPriority } from "../../lib/leads";
 import { useToast } from "@/hooks/use-toast";
-import { updateLead, fetchLeadStages } from "@/app/services/data.service";
+import { updateLead, fetchLeadStages, getAssignDropdown } from "@/app/services/data.service";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
 import { LeadStage } from "@/lib/data";
 
@@ -82,6 +82,7 @@ const formSchema = z.object({
   leadStatus: z.string().min(1, "Status is required"),
   leadPriority: z.string().min(1, "Priority is required"),
   leadSource: z.string().min(1, "Source is required"),
+  leadAssignedTo: z.string().optional().or(z.literal("")),
   leadLabel: z.string().optional().or(z.literal("")),
   leadReference: z.string().optional().or(z.literal("")),
   comment: z.string().optional(),
@@ -92,6 +93,10 @@ type CountryCode = {
   name: string;
   code: string;
 };
+interface AssignDropdown {
+  id: string;
+  label: string;
+}
 interface EditLeadModalProps {
   countryCodes: CountryCode[];
   loadingCountryCodes: boolean;
@@ -118,6 +123,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
   const [stages, setStages] = useState<LeadStage[]>([]);
   const [loadingStages, setLoadingStages] = useState(false);
+  const [assignees, setAssignees] = useState<AssignDropdown[]>([]);
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
 
   // Fetch lead stages if not provided via props
   useEffect(() => {
@@ -150,6 +157,33 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     }
   }, [isOpen, leadStages]);
 
+  // Fetch assignees when modal opens
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      if (!isOpen) return;
+
+      setLoadingAssignees(true);
+      try {
+        const response = await getAssignDropdown();
+        if (response.isSuccess && response.data) {
+          setAssignees(response.data);
+        } else {
+          console.error("Failed to fetch assignees:", response.message);
+          setAssignees([]);
+        }
+      } catch (error) {
+        console.error("Error fetching assignees:", error);
+        setAssignees([]);
+      } finally {
+        setLoadingAssignees(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchAssignees();
+    }
+  }, [isOpen]);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -162,6 +196,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadStatus: lead?.leadStatus || "",
       leadPriority: lead?.leadPriority || "",
       leadSource: lead?.leadSource || "",
+      leadAssignedTo: lead?.leadAssignedTo || "unassigned",
       leadLabel: lead?.leadLabel || "",
       leadReference: lead?.leadReference || "",
       comment: lead?.comment || "",
@@ -184,6 +219,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadStatus: lead.leadStatus,
       leadPriority: lead.leadPriority || "",
       leadSource: lead.leadSource,
+      leadAssignedTo: lead.leadAssignedTo || "unassigned",
       leadLabel: lead.leadLabel || "",
       leadReference: lead.leadReference || "",
       comment: lead.comment || "",
@@ -205,6 +241,13 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       countryCodes
     );
 
+    // Find the assignee ID from the assignees list based on lead.leadAssignedTo
+    let assignedToId = "unassigned";
+    if (lead.leadAssignedTo && assignees.length > 0) {
+      const assignee = assignees.find(a => a.label === lead.leadAssignedTo || a.id === lead.leadAssignedTo);
+      assignedToId = assignee?.id || "unassigned";
+    }
+
     form.reset({
       customerName: lead.customerName,
       customerEmailAddress: lead.customerEmailAddress,
@@ -214,6 +257,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadStatus: lead.leadStatus,
       leadPriority: lead.leadPriority , // Ensure priority is set
       leadSource: lead.leadSource,
+      leadAssignedTo: assignedToId,
       leadLabel: lead.leadLabel || "",
       leadReference: lead.leadReference || "",
       comment: lead.comment || "",
@@ -221,7 +265,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
     setSelectedCode(code);
   }
-}, [lead, form, countryCodes]);
+}, [lead, form, countryCodes, assignees]);
 
   const parsePhoneNumber = (
     phone: string,
@@ -259,6 +303,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       ""
     )}`;
 
+    // Find the selected assignee label
+    const selectedAssignee = assignees.find(a => a.id === data.leadAssignedTo);
+    const assigneeLabel = selectedAssignee?.label || "";
+
     const payload = {
       leadId: lead.leadId,
       customerName: data.customerName,
@@ -270,6 +318,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadPriority: data.leadPriority as LeadPriority, // Include priority
       leadSource: data.leadSource as LeadSource,
       leadAddedBy: lead.leadAddedBy,
+      leadAssignedTo: data.leadAssignedTo === "unassigned" ? null : data.leadAssignedTo,
       leadLabel: data.leadLabel || "",
       leadReference: data.leadReference || "",
       comment: data.comment || "",
@@ -289,6 +338,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           leadStatus: data.leadStatus as LeadStatus,
           leadPriority: data.leadPriority as LeadPriority,
           leadSource: data.leadSource as LeadSource,
+          leadAssignedTo: data.leadAssignedTo === "unassigned" ? null : (assigneeLabel || null),
+          assignedToName: data.leadAssignedTo === "unassigned" ? undefined : (assigneeLabel || undefined),
           leadLabel: data.leadLabel || "",
           leadReference: data.leadReference || "",
           comment: data.comment || "",
@@ -474,18 +525,44 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 )}
               />
 
-              {/* Display Assigned To as read-only */}
-              <FormItem>
-                <FormLabel>Assigned To</FormLabel>
-                <FormControl>
-                  <Input
-                    value={lead?.assignedToName || lead?.leadAddedBy || ""}
-                    readOnly
-                    disabled
-                    className="bg-gray-100"
-                  />
-                </FormControl>
-              </FormItem>
+              <FormField
+                control={form.control}
+                name="leadAssignedTo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned To</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select assignee" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {loadingAssignees ? (
+                          <SelectItem value="loading" disabled>
+                            Loading assignees...
+                          </SelectItem>
+                        ) : assignees.length > 0 ? (
+                          assignees.map((assignee) => (
+                            <SelectItem
+                              key={assignee.id}
+                              value={assignee.id}
+                            >
+                              {assignee.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-assignees" disabled>
+                            No assignees available
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
