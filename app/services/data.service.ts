@@ -1111,7 +1111,7 @@ export interface TaskAnalytics {
   inReviewTasks: number;
   ongoingTasks: number;
   completedTasks: number;
-  completedPercentage: number;
+  completedTasksPercentage: number;
 }
 
 export interface TaskPerformer {
