@@ -65,7 +65,7 @@ export default function KpisTasks({ data }: KpisTasksProps) {
       color: "text-green-600 bg-green-50",
     },
     {
-      value: `${data?.completedTasksPercentage?.toFixed(1) || 0}%`,
+      value: `${data?.completedPercentage?.toFixed(1) || 0}%`,
       label: "Completion Rate",
       icon: Clock4,
       color: "text-purple-600 bg-purple-50",
