@@ -169,7 +169,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
       <Button
         onClick={onAddStage}
         variant="outline"
-        className="border-gray-300 text-gray-700 rounded-md shadow-sm flex items-center px-3 py-2"
+        className="border-gray-200 text-gray-700 rounded-md shadow-sm flex items-center px-3 py-2"
       >
         <Plus className="h-4 w-4 mr-2" />
         Add Stage
@@ -199,14 +199,14 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 variant="outline"
                 size="icon"
                 onClick={onImportTask}
-                className="border border-gray-300 bg-white hover:bg-gray-100 rounded-md"
+                className="border border-gray-200 bg-white hover:bg-gray-100 rounded-md"
               >
                 <UploadCloud className="h-4 w-4 text-gray-600" />
               </Button>
             )}
 
             {/* View Mode Toggle */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
               <Button
                 variant={viewMode === "kanban" ? "default" : "ghost"}
                 size="sm"
@@ -250,7 +250,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 rounded-lg border-gray-300 focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="pl-10 rounded-lg border-gray-200 focus-visible:ring-2 focus-visible:ring-primary/50"
               />
             </div>
 
@@ -262,7 +262,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
     className={`w-full rounded-lg flex items-center justify-between gap-2 ${
       localFilters.dateRange
         ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-        : "border-gray-300"
+        : "border-gray-200"
     }`}
   >
     <span className="flex items-center gap-2 text-text-secondary truncate">
@@ -302,7 +302,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 )
               }
             >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
+              <SelectTrigger className="w-full rounded-lg border-gray-200">
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
@@ -325,7 +325,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 )
               }
             >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
+              <SelectTrigger className="w-full rounded-lg border-gray-200">
                 <SelectValue placeholder="Stage" />
               </SelectTrigger>
               <SelectContent>
@@ -351,7 +351,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 )
               }
             >
-              <SelectTrigger className="w-full rounded-lg border-gray-300">
+              <SelectTrigger className="w-full rounded-lg border-gray-200">
                 <SelectValue placeholder="Assigned To" />
               </SelectTrigger>
               <SelectContent>
@@ -375,7 +375,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
             <Button
               variant="outline"
               onClick={handleClearFilters}
-              className="border-gray-300 w-full"
+              className="border-gray-200 w-full"
             >
               Clear Filters
             </Button>
@@ -387,7 +387,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="absolute -bottom-6 left-1/2 -translate-x-1/2 
-               w-12 h-12 rounded-full bg-white flex items-center justify-center border-b-2 border-gray-300 shadow-md transition-colors"
+               w-12 h-12 rounded-full bg-white flex items-center justify-center border-b-2 border-gray-200 shadow-md transition-colors"
       >
         {isExpanded ? (
           <ChevronUp className="h-5 w-5 text-gray-700 mt-2" />

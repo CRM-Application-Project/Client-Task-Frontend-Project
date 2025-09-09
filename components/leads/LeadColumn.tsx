@@ -159,7 +159,7 @@ const EditStageModal = ({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400"
                   placeholder="Enter stage name"
                   required
                 />
@@ -184,7 +184,7 @@ const EditStageModal = ({
                         Math.min(parseInt(e.target.value) || 1, 20)
                       ) // ✅ clamp in state
                   }
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900"
                   required
                 />
 
@@ -205,7 +205,7 @@ const EditStageModal = ({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
                   placeholder="Enter stage description (optional)"
                 />
               </div>
@@ -215,7 +215,7 @@ const EditStageModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium"
+                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 hover:border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium"
               >
                 Cancel
               </button>
@@ -541,10 +541,10 @@ export const LeadColumn = ({
         ref={columnRef}
         className={`flex-shrink-0 min-w-[280px] max-w-[320px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
           isColumnDraggedOver
-            ? "bg-gray-50 border-2 border-gray-300 border-dashed"
+            ? "bg-gray-50 border-2 border-gray-200 border-dashed"
             : "bg-gray-50 border-gray-200"
         } ${isColumnDragging ? "opacity-50 scale-95" : ""} ${
-          isDragOver ? "bg-gray-50 border-2 border-gray-300 border-dashed" : ""
+          isDragOver ? "bg-gray-50 border-2 border-gray-200 border-dashed" : ""
         } ${!leadPermissions.canEdit ? "opacity-80 cursor-not-allowed" : ""}`} // Added disabled styling
         onDragOver={leadPermissions.canEdit ? handleDragOver : undefined} // Only enable if can edit
         onDragLeave={leadPermissions.canEdit ? handleStageDragLeave : undefined} // Only enable if can edit
@@ -642,7 +642,7 @@ export const LeadColumn = ({
         <div
           className={`h-[calc(100vh-280px)] min-h-[550px] p-3 transition-all duration-300 ease-in-out ${
             isDragOver
-              ? "bg-gray-50/50 border-2 border-gray-300 border-dashed shadow-inner"
+              ? "bg-gray-50/50 border-2 border-gray-200 border-dashed shadow-inner"
               : "bg-transparent"
           }`}
           style={{
@@ -728,7 +728,7 @@ export const LeadColumn = ({
             <div className="mt-4">
               <button
                 onClick={() => onAddLeadForStage(currentStage.leadStageId)}
-                className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group"
+                className="w-full p-4 border-2 border-dashed border-gray-200 rounded-lg hover:border-gray-200 hover:bg-gray-50 transition-all duration-200 group"
                 type="button"
               >
                 <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-gray-700">
@@ -769,7 +769,7 @@ export const LeadColumn = ({
 
           {/* Drop indicator when dragging over non-empty column */}
           {isDragOver && leads.length > 0 && (
-            <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-300 border-dashed transition-all duration-200 animate-pulse">
+            <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-200 border-dashed transition-all duration-200 animate-pulse">
               <div className="flex items-center justify-center gap-2">
                 <svg
                   className="w-5 h-5"

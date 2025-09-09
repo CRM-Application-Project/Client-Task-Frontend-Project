@@ -901,7 +901,7 @@ const Leads = () => {
           <button
             onClick={() => handlePageChange(paginationData.currentPage - 1)}
             disabled={paginationData.currentPage === 0}
-            className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -915,7 +915,7 @@ const Leads = () => {
                 return (
                   <span
                     key={`ellipsis-${index}`}
-                    className="relative inline-flex items-center px-3 py-2 text-sm font-medium bg-white text-gray-500 border border-gray-300 cursor-default"
+                    className="relative inline-flex items-center px-3 py-2 text-sm font-medium bg-white text-gray-500 border border-gray-200 cursor-default"
                   >
                     ...
                   </span>
@@ -929,7 +929,7 @@ const Leads = () => {
                   className={`relative inline-flex items-center px-3 py-2 text-sm font-medium border rounded-md ${
                     paginationData.currentPage === pageNum
                       ? "bg-brand-primary text-white border-brand-primary"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                   }`}
                 >
                   {pageNum + 1}
@@ -941,7 +941,7 @@ const Leads = () => {
           <button
             onClick={() => handlePageChange(paginationData.currentPage + 1)}
             disabled={paginationData.lastPage}
-            className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next
             <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

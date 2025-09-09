@@ -140,9 +140,9 @@ const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
       {/* Input Field */}
       <div
         className={`
-          w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-sm
+          w-full h-10 px-3 border border-gray-200 rounded-md bg-white text-sm
           flex items-center justify-between cursor-pointer
-          hover:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400
+          hover:border-gray-200 focus-within:ring-1 focus-within:ring-gray-400
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -231,7 +231,7 @@ const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
             <select
               value={selectedTime}
               onChange={(e) => handleTimeChange(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400"
             >
               {generateTimeOptions().map((time) => (
                 <option key={time} value={time}>

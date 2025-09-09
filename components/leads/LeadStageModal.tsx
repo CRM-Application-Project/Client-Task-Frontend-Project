@@ -136,7 +136,7 @@ export function CreateLeadStageModal({
               }}
               onBlur={() => setTouched({ ...touched, name: true })}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
-                errors.name ? "border-red-500" : "border-gray-300"
+                errors.name ? "border-red-500" : "border-gray-200"
               }`}
               placeholder="Enter stage name (e.g., New Lead, Contacted, Qualified)"
             />
@@ -155,7 +155,7 @@ export function CreateLeadStageModal({
                 setFormData({ ...formData, description: e.target.value })
               }
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
               placeholder="Optional description for this lead stage"
             />
           </div>
@@ -178,7 +178,7 @@ export function CreateLeadStageModal({
               min="1"
               max="20"
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${
-                errors.orderNumber ? "border-red-500" : "border-gray-300"
+                errors.orderNumber ? "border-red-500" : "border-gray-200"
               }`}
             />
 

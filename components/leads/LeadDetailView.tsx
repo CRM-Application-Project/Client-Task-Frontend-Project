@@ -494,7 +494,6 @@ const LeadDetailView: React.FC<LeadDetailViewProps> = ({
             className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh activity"
           >
-            <RotateCcw className={`h-4 w-4 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
 

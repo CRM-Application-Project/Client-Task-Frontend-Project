@@ -662,7 +662,7 @@ export default function StaffPage() {
                                   className="sr-only peer"
                                 />
                                 <div
-                                  className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${
+                                  className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${
                                     user.isActive
                                       ? "peer-checked:bg-brand-primary"
                                       : "bg-gray-400"
@@ -875,7 +875,7 @@ export default function StaffPage() {
                                                                 e.target.checked
                                                               )
                                                             }
-                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded"
                                                           />
                                                           <span className="ml-2 text-sm text-gray-700">
                                                             View
@@ -896,7 +896,7 @@ export default function StaffPage() {
                                                                 e.target.checked
                                                               )
                                                             }
-                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded"
                                                           />
                                                           <span className="ml-2 text-sm text-gray-700">
                                                             Create
@@ -924,7 +924,7 @@ export default function StaffPage() {
                                                             disabled={
                                                               !editPermissions.canCreate
                                                             }
-                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded ${
                                                               !editPermissions.canCreate
                                                                 ? "opacity-50 cursor-not-allowed"
                                                                 : ""
@@ -963,7 +963,7 @@ export default function StaffPage() {
                                                             disabled={
                                                               !editPermissions.canCreate
                                                             }
-                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded ${
                                                               !editPermissions.canCreate
                                                                 ? "opacity-50 cursor-not-allowed"
                                                                 : ""
@@ -1064,7 +1064,7 @@ export default function StaffPage() {
                                                     <div className="flex justify-end space-x-2">
                                                       <button
                                                         onClick={cancelEditing}
-                                                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                        className="inline-flex items-center px-3 py-1 border border-gray-200 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                                       >
                                                         Cancel
                                                       </button>
@@ -1100,7 +1100,7 @@ export default function StaffPage() {
                                                         className={`inline-flex items-center p-1.5 border rounded-full
     ${
       user.isActive
-        ? "border-gray-300 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+        ? "border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
         : "opacity-40 cursor-not-allowed pointer-events-none"
     }`}
                                                         disabled={
@@ -1137,7 +1137,7 @@ export default function StaffPage() {
     ${
       !user.isActive
         ? "opacity-40 cursor-not-allowed pointer-events-none border-gray-200 text-gray-300"
-        : "border-gray-300 text-gray-500 hover:text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        : "border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
     }`}
                                                         title={
                                                           user.isActive

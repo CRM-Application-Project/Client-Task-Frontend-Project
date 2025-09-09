@@ -111,7 +111,7 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
   const topSource = chartData.length > 0 ? chartData[0] : null;
 
   return (
-    <div className="rounded-xl bg-white p-2 shadow-sm border border-slate-200">
+    <div className="rounded-xl bg-white p-2 shadow-sm border border-gray-200">
       <CardHeader className="items-start pb-0">
         <CardTitle className="text-lg font-semibold text-slate-800">
           Lead Sources
@@ -137,7 +137,7 @@ export default function LeadSourcesCard({ data }: LeadSourcesCardProps) {
                       content={
                         <ChartTooltipContent
                           hideLabel
-                          className="!bg-white !text-slate-800 !border !border-slate-200 shadow-sm p-2"
+                          className="!bg-white !text-slate-800 !border !border-gray-200 shadow-sm p-2"
                           formatter={(value, name, props) => [
                             `${value} leads`,
                             props.payload.formattedSource,

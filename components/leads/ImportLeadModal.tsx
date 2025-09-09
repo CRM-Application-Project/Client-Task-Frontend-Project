@@ -139,7 +139,7 @@ const ImportLeadModal: React.FC<ImportLeadModalProps> = ({
 
         <div className="space-y-3">
           {/* File Upload */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+          <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center">
             {!selectedFile ? (
               <div className="space-y-2">
                 <Upload className="h-6 w-6 text-gray-400 mx-auto" />

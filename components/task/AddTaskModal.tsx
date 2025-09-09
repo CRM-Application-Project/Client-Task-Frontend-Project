@@ -1102,7 +1102,7 @@ const handleSubmit = (e: React.FormEvent) => {
 
               {hasPreSelectedStage ? (
                 <>
-                  <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
+                  <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-200"}`}>
                     <span className="text-sm">
                       {stages.find((stage) => stage.id === preSelectedStageId)
                         ?.name || "Selected Stage"}
@@ -1147,7 +1147,7 @@ const handleSubmit = (e: React.FormEvent) => {
                 </>
               ) : (
                 <>
-                  <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-300"}`}>
+                  <div className={`flex items-center gap-2 p-2 border rounded-md bg-gray-50 text-gray-700 ${validationErrors.taskStageId ? "border-red-500" : "border-gray-200"}`}>
                     <span className="text-sm">
                       {stages.length > 0 ? stages[0].name : "No stages available"}
                     </span>
@@ -1293,7 +1293,7 @@ const handleSubmit = (e: React.FormEvent) => {
   value={formatDateTimeForInput(formData.startDate)}
   onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
   onBlur={() => setTouchedFields(prev => new Set(prev).add("startDate"))}
-  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-300"}`}
+  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
   // Only set min for new tasks, not when editing
   min={editingTask ? undefined : getCurrentDateTime()}
 />
@@ -1316,7 +1316,7 @@ const handleSubmit = (e: React.FormEvent) => {
   value={formatDateTimeForInput(formData.endDate)}
   onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
   onBlur={() => setTouchedFields(prev => new Set(prev).add("endDate"))}
-  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-300"}`}
+  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
   min={getMinEndDate()}
 />
 
@@ -1480,7 +1480,7 @@ const handleSubmit = (e: React.FormEvent) => {
               )}
             </Label>
             <div 
-              className={`border rounded-md ${validationErrors.description ? "border-red-500" : "border-gray-300"}`}
+              className={`border rounded-md ${validationErrors.description ? "border-red-500" : "border-gray-200"}`}
               onBlur={() => setTouchedFields(prev => new Set(prev).add("description"))}
             >
               <RichTextEditor

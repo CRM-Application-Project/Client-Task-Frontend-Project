@@ -15,12 +15,24 @@ interface ProgressAnalyticsProps {
     priority: string;
     subject: string;
   };
+  timesheetEntries?: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    workedHours: number;
+    comment: string;
+    actionDoneBy: {
+      id: string;
+      label: string;
+    };
+  }>;
   onClose: () => void;
   viewType?: 'graph' | 'timesheet'; // Updated to 'timesheet'
 }
 
 const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ 
   task, 
+  timesheetEntries = [],
   onClose,
   viewType = 'graph'
 }) => {
@@ -48,49 +60,33 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     { category: 'Overrun', value: Math.min(100, (overrun / task.estimatedHours) * 100), fill: '#ef4444' }
   ];
 
-  // Generate dummy timesheet data
-  const generateTimesheetData = () => {
-    const startDate = new Date(task.startDate);
-    const endDate = new Date(task.endDate);
-    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  // Use real timesheet data or fallback to empty array
+  const getTimesheetData = () => {
+    if (timesheetEntries && timesheetEntries.length > 0) {
+      return timesheetEntries.map(entry => ({
+        date: new Date(entry.startTime).toLocaleDateString(),
+        hours: entry.workedHours,
+        description: entry.comment || 'No description provided',
+        user: entry.actionDoneBy.label
+      }));
+    }
     
-    const workEntries = [
-      "Implemented user authentication system",
-      "Fixed bugs in payment processing module",
-      "Optimized database queries for better performance",
-      "Designed and implemented new UI components",
-      "Wrote unit tests for core functionality",
-      "Refactored legacy code for maintainability",
-      "Integrated third-party API for analytics",
-      "Performed code review and provided feedback",
-      "Deployed application to staging environment",
-      "Created documentation for API endpoints"
-    ];
-    
-    return Array.from({ length: days }, (_, i) => {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      
-      // Distribute hours across days
-      const dailyHours = i === days - 1 
-        ? task.actualHours % (days - 1) || task.actualHours / days 
-        : Math.floor(task.actualHours / days);
-      
-      return {
-        date: date.toLocaleDateString(),
-        hours: dailyHours,
-        description: workEntries[i % workEntries.length]
-      };
-    });
+    // Fallback to empty array if no timesheet entries
+    return [];
   };
 
-  const timesheetData = generateTimesheetData();
+  const timesheetData = getTimesheetData();
 
   // Function to download timesheet as CSV
   const downloadTimesheet = () => {
     const csvContent = [
-      ['Date', 'Hours', 'Description'],
-      ...timesheetData.map(entry => [entry.date, entry.hours, `"${entry.description}"`])
+      ['Date', 'Hours', 'User', 'Description'],
+      ...timesheetData.map(entry => [
+        entry.date, 
+        entry.hours, 
+        entry.user || 'Unknown',
+        `"${entry.description}"`
+      ])
     ].map(e => e.join(',')).join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -220,15 +216,17 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
           Timesheet - {task.subject}
         </h4>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={downloadTimesheet}
-            className="flex items-center gap-1"
-          >
-            <Download className="h-4 w-4" />
-            Download CSV
-          </Button>
+          {timesheetData.length > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={downloadTimesheet}
+              className="flex items-center gap-1"
+            >
+              <Download className="h-4 w-4" />
+              Download CSV
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm"
@@ -242,52 +240,71 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       <div className="bg-gray-50 p-4 rounded-lg">
         <h5 className="font-medium text-gray-700 mb-4">Daily Work Log</h5>
         
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hours
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {timesheetData.map((entry, index) => (
-                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {entry.date}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {entry.hours}h
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {entry.description}
-                  </td>
+        {timesheetData.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+            <p>No timesheet entries found</p>
+            <p className="text-sm">Start logging your work hours to see them here</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hours
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
                 </tr>
-              ))}
-              <tr className="bg-gray-100 font-semibold">
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                  Total
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {task.actualHours}h
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
-                  Completed {task.status.toLowerCase()}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {timesheetData.map((entry, index) => (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {entry.date}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {entry.hours}h
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {entry.user || 'Unknown'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {entry.description}
+                    </td>
+                  </tr>
+                ))}
+                {timesheetData.length > 0 && (
+                  <tr className="bg-gray-100 font-semibold">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      Total
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {timesheetData.reduce((sum, entry) => sum + entry.hours, 0)}h
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      -
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      Completed {task.status.toLowerCase()}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-1">
         {/* Summary Card */}
         <div className="bg-blue-50 p-4 rounded-lg">
           <h5 className="font-medium text-gray-700 mb-3">Time Summary</h5>
@@ -311,30 +328,6 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
           </div>
         </div>
 
-        {/* Efficiency Card */}
-        <div className="bg-green-50 p-4 rounded-lg">
-          <h5 className="font-medium text-gray-700 mb-3">Efficiency</h5>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Efficiency Rate:</span>
-              <span className={`text-sm font-medium ${efficiency >= 100 ? 'text-green-600' : 'text-red-600'}`}>
-                {efficiency.toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Utilization:</span>
-              <span className="text-sm font-medium text-blue-600">
-                {utilizationRate.toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Grace Hours Used:</span>
-              <span className={`text-sm font-medium ${overrun > task.graceHours ? 'text-red-600' : 'text-amber-600'}`}>
-                {Math.min(overrun, task.graceHours)}h of {task.graceHours}h
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

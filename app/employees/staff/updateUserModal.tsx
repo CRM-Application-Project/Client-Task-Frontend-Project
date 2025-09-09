@@ -317,7 +317,7 @@ export const UpdateStaffModal = ({
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-md p-2 border"
+                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-200 rounded-md p-2 border"
                     required
                   />
                 </div>
@@ -336,7 +336,7 @@ export const UpdateStaffModal = ({
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-md p-2 border"
+                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-200 rounded-md p-2 border"
                     required
                   />
                 </div>
@@ -355,7 +355,7 @@ export const UpdateStaffModal = ({
                     name="emailAddress"
                     value={formData.emailAddress}
                     onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-md p-2 border"
+                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-200 rounded-md p-2 border"
                     required
                   />
                 </div>
@@ -475,7 +475,7 @@ export const UpdateStaffModal = ({
                       name="isActive"
                       checked={formData.isActive}
                       onChange={handleChange}
-                      className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+                      className="h-4 w-4 text-black focus:ring-black border-gray-200 rounded"
                     />
                     <label
                       htmlFor="isActive"
@@ -492,7 +492,7 @@ export const UpdateStaffModal = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary"
+                  className="inline-flex justify-center py-2 px-4 border border-gray-200 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary"
                 >
                   Cancel
                 </button>

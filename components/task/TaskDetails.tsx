@@ -17,6 +17,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   BarChart3,
+  Plus,
+  RotateCcw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,10 @@ import {
   updateTask,
   getAssignDropdown,
   decideTask,
+  addTimesheet,
+  getTimesheet,
+  AddTimesheetRequest,
+  TimesheetEntry as APITimesheetEntry,
   // --- Optional: wire these when your backend is ready ---
   // getTaskComments,
   // addTaskComment,
@@ -34,6 +40,7 @@ import {
   // deleteTaskComment,
   // toggleTaskCommentReaction,
 } from "@/app/services/data.service";
+import { parseRecurrenceRule, isTaskRecurring } from "@/lib/recurrence";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
@@ -48,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "./Richtaskeditor";
 import { formatFileSize } from "@/hooks/Detail";
 import { DiscussionPanel } from "./DiscussionPanel";
+import { CreateTimesheetModal } from "./CreateTimesheetModal";
 
 interface TaskDetailsProps {
   taskId: number;
@@ -107,6 +115,8 @@ interface TaskDetailsResponse {
   acceptanceInfo: {
     acceptanceCriteria: string;
   };
+  isRecurring?: boolean;
+  recurrenceRule?: string;
 }
 
 interface DocumentUrlResponse {
@@ -291,6 +301,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [isEditingEndDate, setIsEditingEndDate] = useState(false);
   const [activeAnalyticsView, setActiveAnalyticsView] = useState<'graph' | 'timesheet' | null>(null);
+  const [timesheetEntries, setTimesheetEntries] = useState<APITimesheetEntry[]>([]);
   const [isEditingAcceptanceCriteria, setIsEditingAcceptanceCriteria] =
     useState(false);
   const [users, setUsers] = useState<AssignDropdown[]>([]);
@@ -301,9 +312,23 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const [editedEndDate, setEditedEndDate] = useState("");
   const [editedAcceptanceCriteria, setEditedAcceptanceCriteria] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isTimesheetModalOpen, setIsTimesheetModalOpen] = useState(false);
   const { permissions } = usePermissions("task");
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const fetchTimesheetData = useCallback(async () => {
+    try {
+      const response = await getTimesheet(taskId);
+      if (response.isSuccess) {
+        setTimesheetEntries(response.data);
+      } else {
+        console.error("Failed to fetch timesheet data:", response.message);
+      }
+    } catch (error) {
+      console.error("Error fetching timesheet data:", error);
+    }
+  }, [taskId]);
 
   const fetchTaskDetails = useCallback(async () => {
     setIsLoading(true);
@@ -349,8 +374,9 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
     if (taskId) {
       fetchTaskDetails();
       fetchUsers();
+      fetchTimesheetData();
     }
-  }, [taskId, fetchTaskDetails]);
+  }, [taskId, fetchTaskDetails, fetchTimesheetData]);
 
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
@@ -615,6 +641,42 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
     }
   };
 
+  const handleCreateTimesheet = async (timesheetData: any) => {
+    try {
+      // Convert form data to API format
+      const payload: AddTimesheetRequest = {
+        startTime: `${timesheetData.date}T${timesheetData.startTime}:00`, // ISO datetime
+        endTime: `${timesheetData.date}T${timesheetData.endTime}:00`, // ISO datetime
+        workedHours: timesheetData.workedHours,
+        comment: timesheetData.comment
+      };
+
+      const response = await addTimesheet(taskId, payload);
+      
+      if (response.isSuccess) {
+        toast({
+          title: "Success",
+          description: "Timesheet entry created successfully",
+        });
+        
+        // Refresh task details to update hours
+        await fetchTaskDetails();
+        await fetchTimesheetData();
+      } else {
+        throw new Error(response.message);
+      }
+      
+    } catch (error) {
+      console.error('Error creating timesheet:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create timesheet entry",
+        variant: "destructive",
+      });
+      throw error; // Re-throw to let the modal handle it
+    }
+  };
+
   const isOverdue = task?.endDate && new Date(task.endDate) < new Date();
 
   // Calculate progress percentage based on actual vs estimated hours
@@ -695,9 +757,19 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
             </div>
           ) : (
             <div className="relative group">
-              <h1 className="text-base font-semibold text-gray-900 bg-gray-50 p-3 rounded-md">
-                {task.subject}
-              </h1>
+              <div className="bg-gray-50 p-3 rounded-md">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base font-semibold text-gray-900 flex-1">
+                    {task.subject}
+                  </h1>
+                
+                </div>
+                {isTaskRecurring(task) && (
+                  <div className="text-sm text-blue-600 mt-1 font-medium">
+                    Recurring: {parseRecurrenceRule(task.recurrenceRule || '')}
+                  </div>
+                )}
+              </div>
               {permissions.canEdit && (
                 <button
                   onClick={() => setIsEditingSubject(true)}
@@ -833,7 +905,16 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
                 className="flex items-center gap-2 text-xs"
               >
                 <FileText className="h-3 w-3" />
-                Report View Analysis
+                View Timesheet
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTimesheetModalOpen(true)}
+                className="flex items-center gap-2 text-xs"
+              >
+                <Plus className="h-3 w-3" />
+                Create Time Sheet
               </Button>
             </div>
           )}
@@ -852,6 +933,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
               priority: task.priority,
               subject: task.subject
             }}
+            timesheetEntries={timesheetEntries}
             onClose={() => setActiveAnalyticsView(null)}
             viewType={activeAnalyticsView}
           />
@@ -1282,6 +1364,13 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
         <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
         <span>Updated: {new Date(task.updatedAt).toLocaleDateString()}</span>
       </div>
+
+      {/* Create Timesheet Modal */}
+      <CreateTimesheetModal
+        isOpen={isTimesheetModalOpen}
+        onClose={() => setIsTimesheetModalOpen(false)}
+        onSubmit={handleCreateTimesheet}
+      />
     </div>
   );
 }

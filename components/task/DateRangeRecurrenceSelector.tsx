@@ -250,14 +250,14 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
               onChange={(e) => handleDateRangeUpdate('startDate', e.target.value)}
               min={getCurrentDate()}
               disabled={disabled}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <input
               type="time"
               value={dateRange.startTime}
               onChange={(e) => handleDateRangeUpdate('startTime', e.target.value)}
               disabled={disabled}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -273,14 +273,14 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
               onChange={(e) => handleDateRangeUpdate('endDate', e.target.value)}
               min={dateRange.startDate || getCurrentDate()}
               disabled={disabled}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <input
               type="time"
               value={dateRange.endTime}
               onChange={(e) => handleDateRangeUpdate('endTime', e.target.value)}
               disabled={disabled}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -303,7 +303,7 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
                 value={dateRange.recurrenceType}
                 onChange={(e) => handleRecurrenceTypeChange(e.target.value)}
                 disabled={disabled}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {recurrenceTypes.map(type => (
                   <option key={type.value} value={type.value}>
@@ -326,7 +326,7 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
                     value={dateRange.recurrenceInterval}
                     onChange={(e) => handleDateRangeUpdate('recurrenceInterval', parseInt(e.target.value) || 1)}
                     disabled={disabled}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-20 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <span className="text-sm text-gray-600">
                     {dateRange.recurrenceType === 'daily' ? 'day(s)' :
@@ -410,7 +410,7 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
                   checked={dateRange.excludeWeekends}
                   onChange={(e) => handleDateRangeUpdate('excludeWeekends', e.target.checked)}
                   disabled={disabled || dateRange.recurrenceType === 'weekdays'}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-200 text-blue-600 focus:ring-blue-500"
                 />
                 Exclude weekends
               </label>
@@ -421,7 +421,7 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
                   checked={dateRange.excludeHolidays}
                   onChange={(e) => handleDateRangeUpdate('excludeHolidays', e.target.checked)}
                   disabled={disabled}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-200 text-blue-600 focus:ring-blue-500"
                 />
                 Exclude holidays
               </label>
@@ -466,7 +466,7 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
                   value={dateRange.occurrences}
                   onChange={(e) => handleDateRangeUpdate('occurrences', parseInt(e.target.value) || 1)}
                   disabled={disabled || dateRange.endType !== 'after'}
-                  className="w-16 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-16 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 occurrences
               </label>
@@ -488,7 +488,7 @@ const DateRangeRecurrenceSelector: React.FC<DateRangeRecurrenceSelectorProps> = 
                   onChange={(e) => handleDateRangeUpdate('recurrenceEndDate', e.target.value)}
                   min={dateRange.startDate || getCurrentDate()}
                   disabled={disabled || dateRange.endType !== 'on'}
-                  className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </label>
             </div>

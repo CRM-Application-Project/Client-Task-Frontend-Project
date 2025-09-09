@@ -77,7 +77,7 @@ export function CreateStageModal({
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${errors.name ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500 ${errors.name ? 'border-red-500' : 'border-gray-200'
                 }`}
               placeholder="Enter stage name (e.g., To Do, In Progress, Done)"
             />
@@ -94,7 +94,7 @@ export function CreateStageModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
               placeholder="Optional description for this stage"
             />
           </div>
@@ -110,7 +110,7 @@ export function CreateStageModal({
               value={formData.orderNumber}
               onChange={(e) => setFormData({ ...formData, orderNumber: parseInt(e.target.value) || 1 })}
               min="1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-500"
             />
             <p className="text-sm text-gray-500 mt-1">
               Determines the order of stages in the board

@@ -69,7 +69,7 @@ export default function TasksTopStaffCard({
             {currentData.map((staff, index) => (
               <div
                 key={index}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 transition"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-gray-200 bg-slate-50 p-4 hover:bg-slate-100 transition"
               >
                 {/* Left: rank + name */}
                 <div className="flex items-center gap-3 sm:w-[25%]">

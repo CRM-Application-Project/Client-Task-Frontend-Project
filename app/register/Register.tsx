@@ -1565,7 +1565,7 @@ const clearServerError = (fieldName: FieldName) => {
                               onMouseEnter={() => setIsLogoHovered(true)}
                               onMouseLeave={() => setIsLogoHovered(false)}
                             >
-                              <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+                              <div className="w-24 h-24 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
                                 {companyLogo ? (
                                   <>
                                     <img
@@ -1609,7 +1609,7 @@ const clearServerError = (fieldName: FieldName) => {
                             <div className="flex-1">
                               <Label
                                 htmlFor="logo-upload"
-                                className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
+                                className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-gray-200 transition-colors"
                               >
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                   <Upload className="w-8 h-8 mb-2 text-gray-500" />
@@ -1673,7 +1673,7 @@ const clearServerError = (fieldName: FieldName) => {
                               className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
                                 selectedTheme === theme
                                   ? "border-primary bg-primary/5"
-                                  : "border-gray-200 hover:border-gray-300"
+                                  : "border-gray-200 hover:border-gray-200"
                               }`}
                               onClick={() => handleThemeSelect(theme)}
                             >

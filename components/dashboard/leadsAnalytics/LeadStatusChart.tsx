@@ -75,7 +75,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
   const activeStagesCount = chartData.length;
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-200">
+    <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
       <CardHeader className="items-start pb-0">
         <CardTitle className="text-lg font-semibold text-slate-800">
           Lead Status
@@ -101,7 +101,7 @@ export default function LeadStatus({ data }: SalesFunnelCardProps) {
                         content={
                           <ChartTooltipContent
                             hideLabel
-                            className="!bg-white !text-slate-800 !shadow-md !rounded-md !border !border-slate-200 p-2"
+                            className="!bg-white !text-slate-800 !shadow-md !rounded-md !border !border-gray-200 p-2"
                             formatter={(value) => [`${value} leads`, null]}
                           />
                         }

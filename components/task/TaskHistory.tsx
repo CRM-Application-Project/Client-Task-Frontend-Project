@@ -236,8 +236,8 @@ export function TaskHistory({
   const labelCls =
     "flex items-center gap-2 text-xs font-semibold text-gray-800 mb-2";
   const controlCls =
-    "w-full h-10 px-3 text-xs border border-gray-300 rounded-lg bg-white " +
-    "hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-400 " +
+    "w-full h-10 px-3 text-xs border border-gray-200 rounded-lg bg-white " +
+    "hover:border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-400 " +
     "transition-all duration-200";
   const selectCls = controlCls + " appearance-none cursor-pointer pr-8";
 
@@ -273,7 +273,7 @@ export function TaskHistory({
           )}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center text-xs bg-white border border-gray-300 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+            className="flex items-center text-xs bg-white border border-gray-200 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
           >
             <Filter className="h-3 w-3 mr-1" />
             Filter
@@ -295,7 +295,7 @@ export function TaskHistory({
 
       {/* Enhanced Filter Panel */}
       {showFilters && (
-        <div className="bg-white p-4 rounded-lg border border-gray-300 shadow-sm">
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           {/* Filter Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -498,7 +498,7 @@ export function TaskHistory({
 
       {/* Empty */}
       {!isLoading && history.length === 0 && (
-        <div className="text-center py-4 bg-white rounded border border-gray-300 p-4">
+        <div className="text-center py-4 bg-white rounded border border-gray-200 p-4">
           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
             <History className="h-4 w-4 text-gray-400" />
           </div>
@@ -536,7 +536,7 @@ export function TaskHistory({
                   </div>
 
                   {/* Card */}
-                  <div className="flex-1 bg-white border border-gray-300 rounded-lg p-3">
+                  <div className="flex-1 bg-white border border-gray-200 rounded-lg p-3">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs font-semibold text-gray-800">
@@ -549,7 +549,7 @@ export function TaskHistory({
 
                     {/* Event Type */}
                     {record.eventType && (
-                      <span className="inline-block mb-2 px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-300">
+                      <span className="inline-block mb-2 px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-200">
                         {eventTypes.find((et) => et.value === record.eventType)
                           ?.label || record.eventType}
                       </span>
