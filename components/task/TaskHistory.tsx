@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   History,
   RefreshCw,
@@ -45,6 +45,83 @@ interface EventTypeOption {
   value: string;
   label: string;
 }
+
+
+interface Option {
+  value: string;
+  label: string;
+}
+
+interface CustomSelectProps {
+  options: Option[];
+  value?: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({
+  options,
+  value,
+  placeholder = "Select...",
+  onChange,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const selected = options.find((opt) => opt.value === value);
+
+   return (
+    <div className="relative w-full" ref={ref}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="border rounded-md px-3 py-2  cursor-pointer bg-white text-xs" // Added text-sm
+      >
+        {selected ? (
+          <span className="text-gray-800 ">{selected.label}</span>
+        ) : (
+          <span className="text-gray-400 ">{placeholder}</span>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-10 mt-1 w-full max-h-40 overflow-y-auto border rounded-md bg-white shadow-md text-xs"> {/* Added text-xs */}
+          {options.map((opt) => (
+            <div
+              key={opt.value}
+              className={`px-3 py-1.5 cursor-pointer hover:bg-gray-100 ${
+                opt.value === value ? "bg-gray-200" : ""
+              }`}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CustomSelect;
+
+
+
 
 export function TaskHistory({
   history,
@@ -247,6 +324,8 @@ export function TaskHistory({
       (value) => value !== undefined && value !== ""
     );
   };
+const dropdownScrollCls =
+  selectCls + " max-h-32 overflow-y-auto"; // ~5 items (32px each)
 
   // Format date for API (add time component to make it LocalDateTime compatible)
   const formatDateForApi = (dateString: string) => {
@@ -323,21 +402,16 @@ export function TaskHistory({
                 Done By
               </label>
               <div className="relative">
-                <select
-                  value={filters.doneById || ""}
-                  onChange={(e) =>
-                    handleFilterChange("doneById", e.target.value || undefined)
-                  }
-                  disabled={isLoadingUsers}
-                  className={selectCls}
-                >
-                  <option value="">All Users</option>
-                  {users.map((u) => (
-                    <option key={u.userId} value={u.userId}>
-                      {u.firstName} {u.lastName}
-                    </option>
-                  ))}
-                </select>
+            <CustomSelect
+  value={filters.doneById || ""}
+  placeholder="All Users"
+  options={users.map((u) => ({
+    value: u.userId,
+    label: `${u.firstName} ${u.lastName}`,
+  }))}
+  onChange={(val) => handleFilterChange("doneById", val || undefined)}
+/>
+
                 <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                 {isLoadingUsers && (
                   <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
@@ -354,21 +428,16 @@ export function TaskHistory({
                 Event Type
               </label>
               <div className="relative">
-                <select
-                  value={filters.eventTypes || ""}
-                  onChange={(e) =>
-                    handleFilterChange("eventTypes", e.target.value || undefined)
-                  }
-                  disabled={isLoadingEvents}
-                  className={selectCls}
-                >
-                  <option value="">All Event Types</option>
-                  {eventTypes.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+              <CustomSelect
+  value={filters.eventTypes || ""}
+  placeholder="All Event Types"
+  options={eventTypes.map((t) => ({
+    value: t.value,
+    label: t.label,
+  }))}
+  onChange={(val) => handleFilterChange("eventTypes", val || undefined)}
+/>
+
                 <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                 {isLoadingEvents && (
                   <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
@@ -396,8 +465,8 @@ export function TaskHistory({
                   }
                   className={selectCls}
                 >
-                  <option value="desc">Newest First</option>
-                  <option value="asc">Oldest First</option>
+                  <option value="desc">DESCENDING</option>
+                  <option value="asc">ASCENDING</option>
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
               </div>
@@ -418,24 +487,25 @@ export function TaskHistory({
         From Date
       </label>
       <div className="relative">
-        <input
-          type="date"
-          value={
-            filters.createdAfter ? filters.createdAfter.split("T")[0] : ""
-          }
-          onChange={(e) => {
-            const newFromDate = formatDateForApi(e.target.value);
-            handleFilterChange("createdAfter", newFromDate);
-            
-            // If the current "to date" is before the new "from date", clear it
-            if (filters.createdBefore && newFromDate && newFromDate > filters.createdBefore) {
-              handleFilterChange("createdBefore", "");
-            }
-          }}
-          className={controlCls + " pr-8"}
-          placeholder="Select start date"
-        />
-        <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+        {/* From Date */}
+<input
+  type="date"
+  value={filters.createdAfter ? filters.createdAfter.split("T")[0] : ""}
+  onChange={(e) => {
+    const newFromDate = formatDateForApi(e.target.value);
+    handleFilterChange("createdAfter", newFromDate);
+
+    // Reset ToDate if it is before the new FromDate
+    if (filters.createdBefore && newFromDate && newFromDate > filters.createdBefore) {
+      handleFilterChange("createdBefore", "");
+    }
+  }}
+  className={controlCls + " pr-8"}
+  placeholder="Select start date"
+  max={new Date().toISOString().split("T")[0]} // 👈 prevent selecting future dates
+/>
+
+       
       </div>
     </div>
 
@@ -445,29 +515,24 @@ export function TaskHistory({
         To Date
       </label>
       <div className="relative">
-        <input
-          type="date"
-          value={
-            filters.createdBefore
-              ? filters.createdBefore.split("T")[0]
-              : ""
-          }
-          onChange={(e) => {
-            const newToDate = formatDateForApi(e.target.value);
-            
-            // Only update if the new to date is after the from date (if from date exists)
-            if (!filters.createdAfter || (newToDate && newToDate >= filters.createdAfter)) {
-              handleFilterChange("createdBefore", newToDate);
-            } else {
-              // Optionally show an error message here
-              console.error("To date must be after from date");
-            }
-          }}
-          min={filters.createdAfter ? filters.createdAfter.split("T")[0] : undefined}
-          className={controlCls + " pr-8"}
-          placeholder="Select end date"
-        />
-        <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+        {/* To Date */}
+<input
+  type="date"
+  value={filters.createdBefore ? filters.createdBefore.split("T")[0] : ""}
+  onChange={(e) => {
+    const newToDate = formatDateForApi(e.target.value);
+    if (!filters.createdAfter || (newToDate && newToDate >= filters.createdAfter)) {
+      handleFilterChange("createdBefore", newToDate);
+    } else {
+      console.error("To date must be after from date");
+    }
+  }}
+  min={filters.createdAfter ? filters.createdAfter.split("T")[0] : undefined} // 👈 start from FromDate
+  className={controlCls + " pr-8"}
+  placeholder="Select end date"
+/>
+
+      
       </div>
     </div>
   </div>

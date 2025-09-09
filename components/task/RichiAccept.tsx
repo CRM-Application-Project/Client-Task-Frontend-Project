@@ -66,7 +66,7 @@ interface RichTextEditorProps {
   id?: string;
 }
 
-export const RichTextEditor = ({
+export const RichTextEditorAccptance = ({
   value,
   id,
   onChange,
@@ -144,7 +144,6 @@ export const RichTextEditor = ({
 
   const checkActiveFormats = () => {
     if (!editorRef.current) return;
-    
     const newActiveFormats = new Set<string>();
     const alignmentCommands: Record<string, string> = {
       justifyLeft: "left",
@@ -153,34 +152,18 @@ export const RichTextEditor = ({
       justifyFull: "justify",
     };
     
-    // Check text formatting commands
-    const formatCommands = [
-      { command: "bold", key: "bold" },
-      { command: "italic", key: "italic" },
-      { command: "underline", key: "underline" },
-      { command: "strikeThrough", key: "strikeThrough" },
-    ];
+    if (document.queryCommandState("bold")) newActiveFormats.add("bold");
+    if (document.queryCommandState("italic")) newActiveFormats.add("italic");
+    if (document.queryCommandState("underline"))
+      newActiveFormats.add("underline");
+    if (document.queryCommandState("strikeThrough"))
+      newActiveFormats.add("strikeThrough");
     
-    formatCommands.forEach(({ command, key }) => {
-      try {
-        if (document.queryCommandState(command)) {
-          newActiveFormats.add(key);
-        }
-      } catch (e) {
-        console.warn(`Could not check command state for ${command}:`, e);
-      }
-    });
-    
-    // Check alignment
     for (const [command, alignment] of Object.entries(alignmentCommands)) {
-      try {
-        if (document.queryCommandState(command)) {
-          newActiveFormats.add(alignment);
-          setTextAlignment(alignment);
-          break;
-        }
-      } catch (e) {
-        console.warn(`Could not check command state for ${command}:`, e);
+      if (document.queryCommandState(command)) {
+        newActiveFormats.add(alignment);
+        setTextAlignment(alignment);
+        break;
       }
     }
     
@@ -225,6 +208,8 @@ export const RichTextEditor = ({
       checkActiveFormats();
     }
   };
+
+ 
 
   const insertAtCursor = (html: string) => {
     editorRef.current?.focus();
@@ -380,65 +365,14 @@ export const RichTextEditor = ({
     };
   }, [handleSelectionChange]);
 
-  // Enhanced setAlignment function to handle lists properly
   const setAlignment = (alignment: string) => {
-    editorRef.current?.focus();
-    
     const commands: Record<string, string> = {
       left: "justifyLeft",
       center: "justifyCenter",
       right: "justifyRight",
       justify: "justifyFull",
     };
-    
-    // Check if we're in a list
-    const listInfo = isInList();
-    
-    if (listInfo.inList && listInfo.list) {
-      // Apply alignment to the entire list container
-      const listElement = listInfo.list as HTMLElement;
-      
-      // Remove any existing alignment classes
-      listElement.style.textAlign = '';
-      listElement.style.direction = '';
-      listElement.classList.remove('text-left', 'text-center', 'text-right', 'text-justify');
-      
-      // Apply new alignment
-      switch(alignment) {
-        case 'left':
-          listElement.style.textAlign = 'left';
-          listElement.style.listStylePosition = 'inside';
-          break;
-        case 'center':
-          listElement.style.textAlign = 'center';
-          listElement.style.listStylePosition = 'inside';
-          break;
-        case 'right':
-          listElement.style.textAlign = 'right';
-          listElement.style.listStylePosition = 'inside';
-          break;
-        case 'justify':
-          listElement.style.textAlign = 'justify';
-          listElement.style.listStylePosition = 'inside';
-          break;
-      }
-      
-      // Also apply to individual list items for better browser compatibility
-      const listItems = listElement.querySelectorAll('li');
-      listItems.forEach((li: any) => {
-        li.style.textAlign = alignment;
-      });
-      
-    } else {
-      // Regular text alignment
-      executeFormat(commands[alignment]);
-    }
-    
-    setTextAlignment(alignment);
-    setTimeout(() => {
-      handleInput();
-      checkActiveFormats();
-    }, 10);
+    executeFormat(commands[alignment]);
   };
 
   const addLink = () => {
@@ -462,47 +396,39 @@ export const RichTextEditor = ({
   const addHorizontalRule = () => {
     executeFormat("insertHorizontalRule");
   };
+  // In RichTextEditor component, modify the executeFormat function
+const executeFormat = (command: string, value?: string) => {
+  editorRef.current?.focus();
+  
+  // Save the current selection
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  
+  // Check if selection is within this editor
+  if (!editorRef.current?.contains(selection.anchorNode)) return;
+  
+  const success = document.execCommand(command, false, value);
+  // ... rest of your existing code
+};
 
-  // Enhanced executeFormat function
-  const executeFormat = (command: string, value?: string) => {
-    editorRef.current?.focus();
-    
-    // Save the current selection
+// Add this to handle selection changes
+useEffect(() => {
+  const handleSelectionChange = () => {
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    // Check if selection is within this editor
-    if (!editorRef.current?.contains(selection.anchorNode)) return;
-    
-    // Execute the command
-    document.execCommand(command, false, value);
-    
-    // Force re-check of active formats after a short delay
-    setTimeout(() => {
-      checkActiveFormats();
-    }, 10);
-    
-    handleInput();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      // Only check formats if selection is within this editor
+      if (editorRef.current?.contains(range.startContainer)) {
+        checkActiveFormats();
+      }
+    }
   };
 
-  // Add this to handle selection changes
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        // Only check formats if selection is within this editor
-        if (editorRef.current?.contains(range.startContainer)) {
-          checkActiveFormats();
-        }
-      }
-    };
-
-    document.addEventListener("selectionchange", handleSelectionChange);
-    return () => {
-      document.removeEventListener("selectionchange", handleSelectionChange);
-    };
-  }, []);
+  document.addEventListener("selectionchange", handleSelectionChange);
+  return () => {
+    document.removeEventListener("selectionchange", handleSelectionChange);
+  };
+}, []);
 
   return (
     <div className={`border border-gray-200 rounded-md bg-white ${className}`} id={id}>
@@ -778,30 +704,35 @@ export const RichTextEditor = ({
             text-shadow: none !important;
           }
           
-          /* Enhanced list styling with proper alignment and marker inclusion */
-          .rich-text-editor ul,
-          .rich-text-editor ol {
-            margin: 0.5rem 0;
-            padding-left: 1.5rem;
-            list-style-position: inside;
+          /* Ensure selection works on all text elements */
+          .rich-text-editor *::selection {
+            background-color: #2563eb !important;
+            color: white !important;
+          }
+          
+          .rich-text-editor *::-moz-selection {
+            background-color: #2563eb !important;
+            color: white !important;
+          }
+          
+          /* Make list markers selectable and included in selection */
+          .rich-text-editor ul, .rich-text-editor ol {
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
             user-select: text;
           }
           
-          /* Make list items fully selectable including markers */
           .rich-text-editor li {
-            display: list-item;
-            margin: 0.25rem 0;
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
             user-select: text;
+            display: list-item;
             position: relative;
+            margin: 0.25rem 0;
           }
           
-          /* Ensure markers are included in selection */
           .rich-text-editor li::marker {
             -webkit-user-select: text;
             -moz-user-select: text;
@@ -811,40 +742,88 @@ export const RichTextEditor = ({
             font-variant-numeric: tabular-nums;
           }
           
-          /* Fix alignment for lists - ensure markers move with content */
-          .rich-text-editor ul[style*="text-align: center"],
-          .rich-text-editor ol[style*="text-align: center"] {
-            list-style-position: inside;
-            text-align: center;
-            padding-left: 0;
+          /* Enhanced list styling */
+          /* Enhanced selection visibility with strong contrast */
+          .rich-text-editor ::selection {
+            background-color: #2563eb !important;
+            color: white !important;
+            text-shadow: none !important;
           }
           
-          .rich-text-editor ul[style*="text-align: right"],
-          .rich-text-editor ol[style*="text-align: right"] {
-            list-style-position: inside;
-            text-align: right;
-            padding-left: 0;
-            direction: rtl;
+          .rich-text-editor ::-moz-selection {
+            background-color: #2563eb !important;
+            color: white !important;
+            text-shadow: none !important;
           }
           
-          .rich-text-editor ul[style*="text-align: right"] li,
-          .rich-text-editor ol[style*="text-align: right"] li {
-            direction: ltr;
-            text-align: right;
+          /* Ensure selection works on all text elements */
+          .rich-text-editor *::selection {
+            background-color: #2563eb !important;
+            color: white !important;
           }
           
-          .rich-text-editor ul[style*="text-align: left"],
-          .rich-text-editor ol[style*="text-align: left"] {
-            list-style-position: inside;
-            text-align: left;
+          .rich-text-editor *::-moz-selection {
+            background-color: #2563eb !important;
+            color: white !important;
+          }
+          
+          /* Make list markers selectable and included in selection */
+          .rich-text-editor ul, .rich-text-editor ol {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+          }
+          
+          .rich-text-editor li {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+            display: list-item;
+            position: relative;
+            margin: 0.25rem 0;
+          }
+          
+          .rich-text-editor li::marker {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+            unicode-bidi: isolate;
+            font-variant-numeric: tabular-nums;
+          }
+          
+          /* Enhanced list styling */
+          .rich-text-editor ul {
+            list-style-type: disc;
             padding-left: 1.5rem;
+            margin: 0.5rem 0;
+            -webkit-user-select: text;
+            user-select: text;
+            -webkit-user-select: text;
+            user-select: text;
           }
           
-          .rich-text-editor ul[style*="text-align: justify"],
-          .rich-text-editor ol[style*="text-align: justify"] {
-            list-style-position: inside;
-            text-align: justify;
+          .rich-text-editor ol {
+            list-style-type: decimal;
             padding-left: 1.5rem;
+            margin: 0.5rem 0;
+            counter-reset: list-counter;
+            -webkit-user-select: text;
+            user-select: text;
+            -webkit-user-select: text;
+            user-select: text;
+          }
+          
+          .rich-text-editor ol li {
+            list-style: decimal;
+            display: list-item;
+          }
+          
+          .rich-text-editor ul li {
+            list-style: disc;
+            display: list-item;
           }
           
           /* Improve cursor and interaction */
@@ -864,11 +843,49 @@ export const RichTextEditor = ({
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
-            user-select: none;
           }
           
           .rich-text-editor:focus {
             outline: none;
+          }
+          /* Ensure all content is selectable */
+          .rich-text-editor * {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+          /* Improve cursor and interaction */
+          .rich-text-editor {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+            cursor: text;
+          }
+          
+          /* Special handling for better list selection */
+          .rich-text-editor li > * {
+            display: inline;
+          }
+          
+          /* Enhanced visual feedback for active selection */
+          .rich-text-editor:focus-within {
+            box-shadow: 0 0 0 2px #3b82f6;
+          }
+          
+          /* Improve readability of selected text */
+          .rich-text-editor strong::selection,
+          .rich-text-editor b::selection {
+            background-color: #1d4ed8 !important;
+            color: white !important;
+          }
+          
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+          .rich-text-editor em::selection,
+          .rich-text-editor i::selection {
+            background-color: #1d4ed8 !important;
+            color: white !important;
           }
           
           /* Ensure all content is selectable */
@@ -880,6 +897,11 @@ export const RichTextEditor = ({
             position: relative;
           }
           
+          /* Special handling for better list selection */
+          .rich-text-editor li > * {
+            display: inline;
+            -webkit-user-select: text;
+            -khtml-user-select: text;
           /* Enhanced visual feedback for active selection */
           .rich-text-editor:focus-within {
             box-shadow: 0 0 0 2px #3b82f6;
@@ -904,31 +926,6 @@ export const RichTextEditor = ({
             text-decoration: underline !important;
           }
           
-          /* Fix for better list marker selection across browsers */
-          .rich-text-editor li {
-            position: relative;
-            display: list-item;
-            list-style-position: inside;
-          }
-          
-          /* Webkit specific fixes for list selection */
-          .rich-text-editor ul li::before,
-          .rich-text-editor ol li::before {
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-            user-select: text;
-          }
-          
-          /* Better handling of nested lists */
-          .rich-text-editor ul ul,
-          .rich-text-editor ol ol,
-          .rich-text-editor ul ol,
-          .rich-text-editor ol ul {
-            margin: 0.25rem 0;
-            padding-left: 1.5rem;
-          }
-          
           /* Ensure consistent selection across browsers */
           .rich-text-editor {
             -webkit-touch-callout: text;
@@ -937,13 +934,6 @@ export const RichTextEditor = ({
             -moz-user-select: text;
             -ms-user-select: text;
             user-select: text;
-          }
-          
-          /* Fix for Firefox list marker selection */
-          @-moz-document url-prefix() {
-            .rich-text-editor li {
-              list-style-position: inside;
-            }
           }
         `}
       </style>

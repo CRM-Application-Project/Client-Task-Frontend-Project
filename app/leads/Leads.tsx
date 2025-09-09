@@ -40,6 +40,8 @@ import { ChangeStatusConfirmModal } from "@/components/leads/ChangeStatusDragCon
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useCountryCodes } from "@/hooks/useCountryCodes";
+import { Menu } from "@headlessui/react";
+import { EllipsisVertical } from "lucide-react"; 
 
 // Updated Lead interface
 interface Lead {
@@ -1540,27 +1542,57 @@ const Leads = () => {
                         <div>{lead.customerMobileNumber}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleViewLead(lead)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEditLead(lead)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(lead)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+  <Menu as="div" className="relative inline-block text-left">
+    <div>
+      <Menu.Button className="flex items-center text-gray-500 hover:text-gray-700">
+        <EllipsisVertical className="h-5 w-5" aria-hidden="true" />
+      </Menu.Button>
+    </div>
+
+    <Menu.Items className="absolute right-0 mt-2 w-28 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+      <div className="py-1">
+        <Menu.Item>
+          {({ active }) => (
+            <button
+              onClick={() => handleViewLead(lead)}
+              className={`${
+                active ? "bg-gray-100" : ""
+              } block w-full px-4 py-2 text-sm text-gray-700 text-left`}
+            >
+              View
+            </button>
+          )}
+        </Menu.Item>
+
+        <Menu.Item>
+          {({ active }) => (
+            <button
+              onClick={() => handleEditLead(lead)}
+              className={`${
+                active ? "bg-gray-100" : ""
+              } block w-full px-4 py-2 text-sm text-gray-700 text-left`}
+            >
+              Edit
+            </button>
+          )}
+        </Menu.Item>
+
+        <Menu.Item>
+          {({ active }) => (
+            <button
+              onClick={() => handleDeleteClick(lead)}
+              className={`${
+                active ? "bg-gray-100" : ""
+              } block w-full px-4 py-2 text-sm text-red-600 text-left`}
+            >
+              Delete
+            </button>
+          )}
+        </Menu.Item>
+      </div>
+    </Menu.Items>
+  </Menu>
+</td>
                     </tr>
                   ))}
                 </tbody>
