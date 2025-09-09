@@ -38,6 +38,8 @@ export const API_CONSTANTS = {
     CREATE: "/tasks/",
     UPDATE: "/tasks/{taskId}",
     DELETE: "/tasks/{taskId}",
+    ADD_TIMESHEET: (taskId: number | string) => `/tasks/${taskId}/timesheet`,
+    GET_TIMESHEET: (taskId: number | string) => `/tasks/${taskId}/timesheet`,
     GET_BY_ID: "/tasks/{taskId}",
     FILTER: "/tasks/filter",
     DROPDOWN: "/task/stages/dropdown",

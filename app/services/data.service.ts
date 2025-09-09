@@ -1145,7 +1145,73 @@ export const fetchTasksOverview = async (
   const res = await getRequest(endpoint);
   return res as TaskOverviewResponse;
 };
+export interface AddTimesheetRequest {
+  startTime: string;   // ISO datetime
+  endTime: string;     // ISO datetime
+  workedHours: number;
+  comment?: string;
+}
 
+export interface AddTimesheetResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    id: number;
+    taskId: number;
+    taskInstanceId: number;
+    occurrenceDate: string | null;
+    startTime: string;
+    endTime: string;
+    actionDoneBy: {
+      id: string;
+      label: string;
+    };
+    comment: string;
+    estimatedHours: number;
+    hoursSpent: number;
+    taskEndDate: string;
+    workedHours: number;
+  };
+}
+export const addTimesheet = async (
+  taskId: number | string,
+  payload: AddTimesheetRequest
+): Promise<AddTimesheetResponse> => {
+  const res = await postRequest(API_CONSTANTS.TASK.ADD_TIMESHEET(taskId), payload);
+  return res as AddTimesheetResponse;
+  
+};
+export interface TimesheetEntry {
+  id: number;
+  taskId: number;
+  taskInstanceId: number;
+  occurrenceDate: string | null;
+  startTime: string;
+  endTime: string;
+  actionDoneBy: {
+    id: string;
+    label: string;
+  };
+  comment: string;
+  estimatedHours: number;
+  hoursSpent: number;
+  taskEndDate: string;
+  workedHours: number;
+}
+
+export interface GetTimesheetResponse {
+  isSuccess: boolean;
+  message: string;
+  data: TimesheetEntry[];
+}
+
+// ------------- Function -------------
+export const getTimesheet = async (
+  taskId: number | string
+): Promise<GetTimesheetResponse> => {
+  const res = await getRequest(API_CONSTANTS.TASK.GET_TIMESHEET(taskId));
+  return res as GetTimesheetResponse;
+};
 export const decideTask = async (
   taskId: number | string,
   payload: TaskDecisionRequest

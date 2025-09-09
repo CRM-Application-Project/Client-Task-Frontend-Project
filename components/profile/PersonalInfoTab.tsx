@@ -253,7 +253,7 @@ export function PersonalInfoTab() {
                       <Input 
                         {...field} 
                         placeholder="Enter first name"
-                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                        className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
                       />
                     </FormControl>
                     <FormMessage />
@@ -271,7 +271,7 @@ export function PersonalInfoTab() {
                       <Input 
                         {...field} 
                         placeholder="Enter last name"
-                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                        className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
                       />
                     </FormControl>
                     <FormMessage />
@@ -293,7 +293,7 @@ export function PersonalInfoTab() {
                         {...field} 
                         type="email"
                         placeholder="Enter email"
-                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                        className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
                       />
                     </FormControl>
                     <FormMessage />
@@ -313,7 +313,7 @@ export function PersonalInfoTab() {
                         value={field.value || ''}
                         onChange={(e) => field.onChange(e.target.value || null)}
                         placeholder="Enter phone number"
-                        className="h-11 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                        className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
                       />
                     </FormControl>
                     <FormMessage />

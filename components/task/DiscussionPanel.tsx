@@ -1030,7 +1030,7 @@ export function DiscussionPanel({
           title={`Download ${attachment.fileName}`}
         >
           {isDownloading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-transparent" />
           ) : (
             <svg
               className="h-4 w-4"

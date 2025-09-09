@@ -272,7 +272,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                             onFocus={handleInputFocus}
                             onBlur={handleInputBlur}
                             className={`w-full h-10 rounded-md border ${
-                              isInvalid ? "border-red-500" : "border-gray-300"
+                              isInvalid ? "border-red-500" : "border-gray-200"
                             } bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400`}
                             min={getCurrentDateTime()}
                           />
@@ -299,7 +299,7 @@ const AddFollowUpModal: React.FC<AddFollowUpModalProps> = ({
                     <FormControl>
                       <select
                         {...field}
-                        className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                        className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                       >
                         <option value="CALL">Call</option>
                         <option value="EMAIL">Email</option>

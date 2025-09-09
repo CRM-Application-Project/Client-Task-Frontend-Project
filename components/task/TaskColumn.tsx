@@ -139,7 +139,7 @@ const EditStageModal = ({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400"
                   placeholder="Enter stage name"
                   required
                 />
@@ -161,7 +161,7 @@ const EditStageModal = ({
                   onChange={(e) =>
                     setOrderNumber(parseInt(e.target.value) || 1)
                   }
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
@@ -182,7 +182,7 @@ const EditStageModal = ({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
                   placeholder="Enter stage description (optional)"
                 />
               </div>
@@ -193,7 +193,7 @@ const EditStageModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium"
+                className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 hover:border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium"
               >
                 Cancel
               </button>
@@ -673,7 +673,7 @@ useEffect(() => {
       ref={columnRef}
       className={`flex-shrink-0 w-[300px] rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
         isColumnDraggedOver
-          ? "bg-gray-50 border-2 border-gray-300 border-dashed"
+          ? "bg-gray-50 border-2 border-gray-200 border-dashed"
           : "bg-gray-50 border-gray-200"
       } ${isColumnDragging ? "opacity-50 scale-95" : ""}`}
       data-stage-id={stage.id}
@@ -810,7 +810,7 @@ useEffect(() => {
       <div
         className={`h-[calc(100vh-280px)] min-h-[550px] p-3 transition-all duration-300 ease-in-out ${
           isDraggedOver
-            ? "bg-gray-50/50 border-2 border-gray-300 border-dashed shadow-inner"
+            ? "bg-gray-50/50 border-2 border-gray-200 border-dashed shadow-inner"
             : "bg-transparent"
         }`}
         onDragOver={handleDragOver}
@@ -885,7 +885,7 @@ useEffect(() => {
           <div className="mt-4">
             <button
               onClick={() => onAddTaskForStage(stage.id)}
-              className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 group"
+              className="w-full p-4 border-2 border-dashed border-gray-200 rounded-lg hover:border-gray-200 hover:bg-gray-50 transition-all duration-200 group"
               type="button"
             >
               <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-gray-700">
@@ -926,7 +926,7 @@ useEffect(() => {
 
         {/* Drop indicator when dragging over non-empty column */}
        {isDraggedOver && tasks.length > 0 && (
-          <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-300 border-dashed transition-all duration-200 animate-pulse h-[120px] flex items-center justify-center">
+          <div className="mt-4 text-center py-6 text-gray-600 bg-gray-50 rounded-xl border-2 border-gray-200 border-dashed transition-all duration-200 animate-pulse h-[120px] flex items-center justify-center">
             <div className="flex items-center justify-center gap-2">
               <svg
                 className="w-5 h-5"
@@ -1018,7 +1018,7 @@ useEffect(() => {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors text-gray-900 placeholder-gray-400 resize-none"
                       placeholder="Add a brief comment..."
                       disabled={isUpdating}
                     />
@@ -1029,7 +1029,7 @@ useEffect(() => {
                   <button
                     type="button"
                     onClick={handleCancelMove}
-                    className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium disabled:opacity-50"
+                    className="px-4 py-2.5 text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 hover:border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors font-medium disabled:opacity-50"
                     disabled={isUpdating}
                   >
                     Cancel

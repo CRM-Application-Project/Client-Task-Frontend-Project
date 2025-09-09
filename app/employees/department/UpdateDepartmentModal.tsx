@@ -104,7 +104,7 @@ export default function UpdateDepartmentModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter department name"
               className={`outline-none border ${
-                error ? "border-red-500" : "border-gray-300"
+                error ? "border-red-500" : "border-gray-200"
               } rounded-md p-2`}
             />
             {error && <p className="text-sm text-red-600">{error}</p>}

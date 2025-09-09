@@ -110,7 +110,7 @@ export default function CreateDepartmentModal({
               }}
               placeholder="Enter department name"
               className={`outline-none border ${
-                errors.name ? "border-red-500" : "border-gray-300"
+                errors.name ? "border-red-500" : "border-gray-200"
               } rounded-md p-2`}
             />
             {errors.name && (

@@ -12,6 +12,7 @@ import {
   GripVertical,
   Play,
   Square,
+  RotateCcw,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ import {
   getDocumentDownloadUrl,
   deleteDocument,
 } from "@/app/services/data.service";
+import { parseRecurrenceRule, isTaskRecurring } from "@/lib/recurrence";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   TaskStatus,
@@ -428,20 +430,28 @@ export const TaskCard = ({
           <div className="flex items-start text-[14px] justify-between gap-3">
             {/* Subject with truncation and tooltip */}
             <div className="flex-1 min-w-0">
-              <h3
-                className="font-medium text-foreground leading-tight break-words"
-                title={task.subject.length > 45 ? task.subject : undefined}
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  wordBreak: "break-word",
-                  lineHeight: "1.3",
-                }}
-              >
-                {task.subject}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3
+                  className="font-medium text-foreground leading-tight break-words flex-1"
+                  title={task.subject.length > 45 ? task.subject : undefined}
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    wordBreak: "break-word",
+                    lineHeight: "1.3",
+                  }}
+                >
+                  {task.subject}
+                </h3>
+          
+              </div>
+              {isTaskRecurring(task) && (
+                <div className="text-xs text-blue-600 mt-1 font-medium">
+                  {parseRecurrenceRule(task.recurrenceRule || '')}
+                </div>
+              )}
             </div>
 
             {/* Priority Badge - No longer moves */}

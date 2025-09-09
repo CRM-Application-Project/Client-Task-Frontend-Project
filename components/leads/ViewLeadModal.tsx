@@ -111,7 +111,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "LOW":
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-gray-100 text-gray-800 border-gray-200";
       case "MEDIUM":
         return "bg-blue-50 text-blue-800 border-blue-200";
       case "HIGH":
@@ -119,7 +119,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
       case "URGENT":
         return "bg-red-50 text-red-800 border-red-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
@@ -142,7 +142,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
       case "CLOSED_LOST":
         return "bg-red-50 text-red-800 border-red-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
@@ -504,7 +504,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
 
               {/* Empty */}
               {!loading && !error && leadTracks.length === 0 && (
-                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg p-6 text-center">
                   <p className="text-gray-500 text-sm">
                     ✨ No activity history yet
                   </p>
