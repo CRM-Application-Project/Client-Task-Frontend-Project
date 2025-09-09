@@ -1360,10 +1360,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
       {/* Analytics Views */}
 
       {/* Meta Info footer */}
-      <div className="bg-white shadow-sm rounded-lg border p-3 text-xs text-gray-500 flex justify-between">
-        <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
-        <span>Updated: {new Date(task.updatedAt).toLocaleDateString()}</span>
-      </div>
+
 
       {/* Create Timesheet Modal */}
       <CreateTimesheetModal

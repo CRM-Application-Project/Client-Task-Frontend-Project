@@ -52,7 +52,34 @@ export default function TaskFlowTimelineCard({
   // Layout (height fixed, width responsive)
   const pad = 32;
   const h = 280;
-  const maxY = useMemo(() => Math.max(...values, 80), [values]);
+  
+  // Dynamic Y-axis scaling based on actual data
+  const { maxY, minY } = useMemo(() => {
+    if (!values.length) return { maxY: 100, minY: 0 };
+    
+    const dataMax = Math.max(...values);
+    const dataMin = Math.min(...values);
+    
+    // If all values are the same, create a small range around that value
+    if (dataMax === dataMin) {
+      const value = dataMax;
+      if (value === 0) {
+        return { maxY: 10, minY: 0 };
+      } else {
+        const padding = Math.max(1, Math.ceil(value * 0.2));
+        return { maxY: value + padding, minY: Math.max(0, value - padding) };
+      }
+    }
+    
+    // For varied data, add some padding above and below
+    const range = dataMax - dataMin;
+    const padding = Math.max(1, Math.ceil(range * 0.1));
+    
+    return {
+      maxY: dataMax + padding,
+      minY: Math.max(0, dataMin - Math.floor(padding / 2))
+    };
+  }, [values]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -84,7 +111,16 @@ export default function TaskFlowTimelineCard({
   }, [xMax, xMin, values.length]);
 
   const toX = (i: number) => xMin + (i + 1) * stepX;
-  const toY = (v: number) => pad + (maxY - v) * ((h - pad * 2) / maxY);
+  
+  // Updated Y-axis mapping to use the dynamic range
+  const toY = (v: number) => {
+    const yRange = h - pad * 2;
+    const dataRange = maxY - minY;
+    if (dataRange === 0) {
+      return pad + yRange / 2; // Center if no range
+    }
+    return pad + ((maxY - v) / dataRange) * yRange;
+  };
 
   const points: Point[] = useMemo(
     () =>
@@ -94,8 +130,36 @@ export default function TaskFlowTimelineCard({
         label: labels[i],
         value: v,
       })),
-    [w, values, labels]
+    [w, values, labels, maxY, minY]
   );
+
+  // Generate appropriate grid lines based on the data range
+  const gridValues = useMemo(() => {
+    const range = maxY - minY;
+    let step: number;
+    
+    if (range <= 5) {
+      step = 1;
+    } else if (range <= 20) {
+      step = Math.ceil(range / 5);
+    } else if (range <= 100) {
+      step = Math.ceil(range / 4 / 5) * 5; // Round to nearest 5
+    } else {
+      step = Math.ceil(range / 4 / 10) * 10; // Round to nearest 10
+    }
+    
+    const gridLines: number[] = [];
+    for (let v = minY; v <= maxY; v += step) {
+      gridLines.push(Math.round(v));
+    }
+    
+    // Ensure we always have the max value
+    if (!gridLines.includes(maxY)) {
+      gridLines.push(maxY);
+    }
+    
+    return gridLines.sort((a, b) => a - b);
+  }, [maxY, minY]);
 
   // Hover state
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -165,14 +229,8 @@ export default function TaskFlowTimelineCard({
             </linearGradient>
           </defs>
 
-          {/* Horizontal gridlines */}
-          {[
-            0,
-            Math.floor(maxY / 4),
-            Math.floor(maxY / 2),
-            Math.floor((3 * maxY) / 4),
-            maxY,
-          ].map((v) => (
+          {/* Horizontal gridlines with dynamic values */}
+          {gridValues.map((v) => (
             <g key={v}>
               <line
                 x1={xMin}

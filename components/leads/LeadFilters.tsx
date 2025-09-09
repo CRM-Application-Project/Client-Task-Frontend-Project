@@ -95,7 +95,7 @@ export const LeadFilters = ({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [localFilters, setLocalFilters] = useState<ExtendedLeadFilters>(filters);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   
   // Use a ref to track if assignees have been fetched

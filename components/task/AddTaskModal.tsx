@@ -52,6 +52,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getTaskStagesDropdown, User } from "@/app/services/data.service";
 import { TaskStage } from "@/lib/data";
 import { RichTextEditor } from "./Richi";
+import { RichTextEditorAccptance } from "./RichiAccept";
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -164,22 +165,22 @@ export const AddTaskModal = ({
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [showRecurrence, setShowRecurrence] = useState(false);
-
-const [formData, setFormData] = useState<CreateTaskRequest>({
-  subject: "",
-  description: "",
-  priority: "LOW",
-  taskStageId: 0,
-  startDate: new Date().toISOString(),
-  endDate: "",
-  assignee: "",
-  approverId: "", // Changed from reviewer
-  acceptanceCriteria: "",
-  graceHours: 0,
-  estimatedHours: 0,
-  isRecurring: false, // Added this field
-  recurrenceRule: undefined,
-});
+  const [openDateTimeField, setOpenDateTimeField] = useState<"startDate" | "endDate" | null>(null);
+  const [formData, setFormData] = useState<CreateTaskRequest>({
+    subject: "",
+    description: "",
+    priority: "LOW",
+    taskStageId: 0,
+    startDate: new Date().toISOString(),
+    endDate: "",
+    assignee: "",
+    approverId: "", // Changed from reviewer
+    acceptanceCriteria: "",
+    graceHours: 0,
+    estimatedHours: 0,
+    isRecurring: false, // Added this field
+    recurrenceRule: undefined,
+  });
 
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>({
     frequency: "WEEKLY",
@@ -312,23 +313,31 @@ const weekDays = [
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
+const getMinStartDate = useCallback(() => {
+  // For new tasks, always use current time
+  if (!editingTask) {
+    return getCurrentDateTime();
+  }
+  
+  // For edit tasks, only enforce current time when start date is being actively changed
+  if (dirtyFields.has("startDate") || touchedFields.has("startDate")) {
+    return getCurrentDateTime();
+  }
+  
+  // For edit tasks where start date isn't being modified, don't restrict
+  return undefined;
+}, [editingTask, dirtyFields, touchedFields]);
 
   // Get minimum end date (start date + 1 day)
- const getMinEndDate = useCallback(() => {
+const getMinEndDate = useCallback(() => {
   if (!formData.startDate) return getCurrentDateTime();
   
   try {
     const startDate = new Date(formData.startDate);
     const nextDay = new Date(startDate);
-    nextDay.setDate(startDate.getDate() + 1);
+    nextDay.setDate(startDate.getDate());
     
-    // For edit mode, if the start date hasn't changed, don't restrict the min date
-    // This allows editing other fields without changing the end date
-    if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
-      return undefined; // No minimum restriction for existing tasks
-    }
-    
-    // Format for datetime-local input: YYYY-MM-DDTHH:MM
+    // Always enforce minimum end date based on start date for both add and edit modes
     const year = nextDay.getFullYear();
     const month = String(nextDay.getMonth() + 1).padStart(2, "0");
     const day = String(nextDay.getDate()).padStart(2, "0");
@@ -340,8 +349,7 @@ const weekDays = [
     console.error("Error calculating min end date:", error);
     return getCurrentDateTime();
   }
-}, [formData.startDate, editingTask, dirtyFields]);
-
+}, [formData.startDate]);
   const areValuesEqual = (original: any, current: any): boolean => {
     if (original === current) return true;
     if (original instanceof Date && typeof current === "string") {
@@ -356,7 +364,7 @@ const weekDays = [
   };
 
   // Validate individual field
- const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad: boolean = false): string => {
+const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad: boolean = false): string => {
   // Don't validate on initial load unless it's an edit with existing data
   if (isInitialLoad && !editingTask) {
     return "";
@@ -407,13 +415,22 @@ const weekDays = [
     case "startDate":
       if (!value) return "Start date is required";
       
-      // Only validate against current time for NEW tasks or when start date is modified in edit mode
+      // Always validate start date against current time when it's being changed
       if (!editingTask || dirtyFields.has("startDate")) {
         const startDate = new Date(value);
         const now = new Date();
         
         if (startDate < now) {
           return "Start date must be in the future";
+        }
+      } else if (editingTask) {
+        // Even in edit mode, if start date is in the past and user tries to modify other fields,
+        // we should still allow it but warn about date consistency
+        const startDate = new Date(value);
+        const now = new Date();
+        
+        if (startDate < now && (dirtyFields.has("endDate") || touchedFields.has("startDate"))) {
+          return "Start date is in the past. Please update if needed.";
         }
       }
       break;
@@ -422,6 +439,14 @@ const weekDays = [
       if (value && formData.startDate) {
         const startDate = new Date(formData.startDate);
         const endDate = new Date(value);
+        
+        // For edit mode, be more flexible with date validation if neither date field is dirty
+        if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
+          // Only validate if end date is actually being changed
+          if (!touchedFields.has("endDate")) {
+            break;
+          }
+        }
         
         const minEndDate = new Date(startDate);
         minEndDate.setDate(startDate.getDate() + 1);
@@ -915,10 +940,13 @@ const handleSubmit = (e: React.FormEvent) => {
   }
 }
 
+  // Fixed date time change handler to auto-close
   const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
     try {
       if (!value) {
         updateFormField(field, "");
+        // Close the date picker when value is cleared
+        setOpenDateTimeField(null);
         return;
       }
 
@@ -931,6 +959,11 @@ const handleSubmit = (e: React.FormEvent) => {
 
       const isoString = date.toISOString();
       updateFormField(field, isoString);
+      
+      // Auto-close the date picker after selection
+      setTimeout(() => {
+        setOpenDateTimeField(null);
+      }, 100);
     } catch (error) {
       console.error("Error handling datetime change:", error);
     }
@@ -1279,51 +1312,48 @@ const handleSubmit = (e: React.FormEvent) => {
             </div>
           )}
 
-          {/* Dates with Time Picker */}
+          {/* Fixed Dates with Time Picker - Auto-close functionality */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div className="space-y-2">
+  <Label className="text-sm font-medium text-foreground">
+    Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
+    {dirtyFields.has("startDate") && (
+      <span className="text-blue-600 text-xs ml-1">• Modified</span>
+    )}
+  </Label>
+  <input
+    type="datetime-local"
+    value={formatDateTimeForInput(formData.startDate)}
+    onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
+    onFocus={() => setOpenDateTimeField("startDate")}
+    onBlur={() => handleFieldBlur("startDate")}
+    className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
+    min={getMinStartDate()}
+  />
+  {validationErrors.startDate && (
+    <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
+  )}
+</div>
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
-              {dirtyFields.has("startDate") && (
-                <span className="text-blue-600 text-xs ml-1">• Modified</span>
-              )}
-            </Label>
-           <input
-  type="datetime-local"
-  value={formatDateTimeForInput(formData.startDate)}
-  onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
-  onBlur={() => setTouchedFields(prev => new Set(prev).add("startDate"))}
-  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
-  // Only set min for new tasks, not when editing
-  min={editingTask ? undefined : getCurrentDateTime()}
-/>
-
-
-            {validationErrors.startDate && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              End Date & Time {!editingTask && <span className="text-red-500">*</span>}
-              {dirtyFields.has("endDate") && (
-                <span className="text-blue-600 text-xs ml-1">• Modified</span>
-              )}
-            </Label>
-            <input
-  type="datetime-local"
-  value={formatDateTimeForInput(formData.endDate)}
-  onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
-  onBlur={() => setTouchedFields(prev => new Set(prev).add("endDate"))}
-  className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
-  min={getMinEndDate()}
-/>
-
-            {validationErrors.endDate && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
-            )}
-          </div>
+  <Label className="text-sm font-medium text-foreground">
+    End Date & Time {!editingTask && <span className="text-red-500">*</span>}
+    {dirtyFields.has("endDate") && (
+      <span className="text-blue-600 text-xs ml-1">• Modified</span>
+    )}
+  </Label>
+  <input
+    type="datetime-local"
+    value={formatDateTimeForInput(formData.endDate)}
+    onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
+    onFocus={() => setOpenDateTimeField("endDate")}
+    onBlur={() => handleFieldBlur("endDate")}
+    className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
+    min={getMinEndDate()}
+  />
+  {validationErrors.endDate && (
+    <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
+  )}
+</div>
         </div>
 
           {/* Grace Hours and Estimated Hours */}
@@ -1471,7 +1501,7 @@ const handleSubmit = (e: React.FormEvent) => {
           </div>
         </div>
 
-          {/* Description */}
+          {/* Description - Fixed with unique id */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">
               Description {!editingTask && <span className="text-red-500">*</span>}
@@ -1484,6 +1514,7 @@ const handleSubmit = (e: React.FormEvent) => {
               onBlur={() => setTouchedFields(prev => new Set(prev).add("description"))}
             >
               <RichTextEditor
+               id={`description-editor-${isOpen ? 'open' : 'closed'}`}
                 value={formData.description}
                 onChange={handleDescriptionChange}
                 placeholder="Enter Description"
@@ -1495,7 +1526,7 @@ const handleSubmit = (e: React.FormEvent) => {
             )}
           </div>
 
-          {/* Acceptance Criteria */}
+          {/* Acceptance Criteria - Fixed with unique id */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground text-blue-600">
               Acceptance Criteria
@@ -1504,6 +1535,7 @@ const handleSubmit = (e: React.FormEvent) => {
               )}
             </Label>
             <RichTextEditor
+            id={`acceptance-criteria-editor-${isOpen ? 'open' : 'closed'}`}
               value={formData.acceptanceCriteria || ""}
               onChange={(value) => updateFormField("acceptanceCriteria", value)}
               placeholder="Start typing your acceptance criteria..."

@@ -146,10 +146,10 @@ const handleLogout = useCallback(async () => {
 
       {/* Right */}
       <div className="flex items-center gap-4">
-        {/* <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
+        <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
           <Bell className="h-5 w-5" />
         </button>
-        <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
+        {/* <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none">
           <Moon className="h-5 w-5" />
         </button> */}
 
