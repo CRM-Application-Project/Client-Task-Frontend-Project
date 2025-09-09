@@ -196,7 +196,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadStatus: lead?.leadStatus || "",
       leadPriority: lead?.leadPriority || "",
       leadSource: lead?.leadSource || "",
-      leadAssignedTo: lead?.leadAssignedTo || "unassigned",
+      leadAssignedTo: lead?.leadAssignedTo || "",
       leadLabel: lead?.leadLabel || "",
       leadReference: lead?.leadReference || "",
       comment: lead?.comment || "",
@@ -219,7 +219,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadStatus: lead.leadStatus,
       leadPriority: lead.leadPriority || "",
       leadSource: lead.leadSource,
-      leadAssignedTo: lead.leadAssignedTo || "unassigned",
+      leadAssignedTo: lead.leadAssignedTo || "",
       leadLabel: lead.leadLabel || "",
       leadReference: lead.leadReference || "",
       comment: lead.comment || "",
@@ -242,10 +242,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     );
 
     // Find the assignee ID from the assignees list based on lead.leadAssignedTo
-    let assignedToId = "unassigned";
+    let assignedToId = "";
     if (lead.leadAssignedTo && assignees.length > 0) {
       const assignee = assignees.find(a => a.label === lead.leadAssignedTo || a.id === lead.leadAssignedTo);
-      assignedToId = assignee?.id || "unassigned";
+      assignedToId = assignee?.id || "";
     }
 
     form.reset({
@@ -318,7 +318,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       leadPriority: data.leadPriority as LeadPriority, // Include priority
       leadSource: data.leadSource as LeadSource,
       leadAddedBy: lead.leadAddedBy,
-      leadAssignedTo: data.leadAssignedTo === "unassigned" ? null : data.leadAssignedTo,
+      leadAssignedTo: data.leadAssignedTo || null,
       leadLabel: data.leadLabel || "",
       leadReference: data.leadReference || "",
       comment: data.comment || "",
@@ -338,8 +338,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
           leadStatus: data.leadStatus as LeadStatus,
           leadPriority: data.leadPriority as LeadPriority,
           leadSource: data.leadSource as LeadSource,
-          leadAssignedTo: data.leadAssignedTo === "unassigned" ? null : (assigneeLabel || null),
-          assignedToName: data.leadAssignedTo === "unassigned" ? undefined : (assigneeLabel || undefined),
+          leadAssignedTo: data.leadAssignedTo || null,
+          assignedToName: assigneeLabel || undefined,
           leadLabel: data.leadLabel || "",
           leadReference: data.leadReference || "",
           comment: data.comment || "",
@@ -538,7 +538,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
                         {loadingAssignees ? (
                           <SelectItem value="loading" disabled>
                             Loading assignees...
