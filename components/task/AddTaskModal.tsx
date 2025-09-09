@@ -135,9 +135,6 @@ interface GetTaskByIdResponse {
 interface RecurrenceRule {
   frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
   interval: number;
-  endType: "NEVER" | "AFTER" | "ON_DATE";
-  endAfter?: number;
-  endOnDate?: string;
   byWeekDay?: number[];
   byMonthDay?: number[];
   byMonth?: number[];
@@ -187,7 +184,6 @@ const [formData, setFormData] = useState<CreateTaskRequest>({
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>({
     frequency: "WEEKLY",
     interval: 1,
-    endType: "NEVER",
     excludeWeekends: true,
     byWeekDay: [1, 2, 3, 4, 5], // Default to weekdays (Mon-Fri)
   });
@@ -272,17 +268,6 @@ const weekDays = [
       result.byMonthDay = Array.isArray(options.bymonthday) 
         ? options.bymonthday 
         : [options.bymonthday];
-    }
-
-    // Parse end conditions
-    if (options.count) {
-      result.endType = "AFTER";
-      result.endAfter = options.count;
-    } else if (options.until) {
-      result.endType = "ON_DATE";
-      result.endOnDate = options.until.toISOString();
-    } else {
-      result.endType = "NEVER";
     }
 
     // Check if weekends are excluded (no Saturday/Sunday in byweekday)
@@ -465,13 +450,6 @@ const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string =
   // Set bymonthday if provided (for MONTHLY frequency)
   if (rule.frequency === "MONTHLY" && rule.byMonthDay && rule.byMonthDay.length > 0) {
     options.bymonthday = rule.byMonthDay;
-  }
-
-  // Set end condition
-  if (rule.endType === "AFTER" && rule.endAfter) {
-    options.count = rule.endAfter;
-  } else if (rule.endType === "ON_DATE" && rule.endOnDate) {
-    options.until = new Date(rule.endOnDate);
   }
 
   // Handle exclude weekends - we need to modify the byweekday instead of using exrule
@@ -835,15 +813,6 @@ useEffect(() => {
       });
     }
 
-    // Validate recurrence if enabled
-    if (showRecurrence) {
-      if (recurrenceRule.endType === "AFTER" && (!recurrenceRule.endAfter || recurrenceRule.endAfter < 1)) {
-        errors.recurrence = "Please enter a valid number of occurrences";
-      } else if (recurrenceRule.endType === "ON_DATE" && (!recurrenceRule.endOnDate || new Date(recurrenceRule.endOnDate) <= new Date(formData.startDate))) {
-        errors.recurrence = "End date must be after the start date";
-      }
-    }
-
     // Validate comment if stage changed
     if (editingTask && stageChanged) {
       const commentError = validateComment();
@@ -1026,7 +995,6 @@ const handleSubmit = (e: React.FormEvent) => {
       setRecurrenceRule({
         frequency: "WEEKLY",
         interval: 1,
-        endType: "NEVER",
         excludeWeekends: true,
         byWeekDay: [1, 2, 3, 4, 5],
       });
@@ -1217,86 +1185,35 @@ const handleSubmit = (e: React.FormEvent) => {
 
             {showRecurrence && (
               <div className="space-y-4 mt-4 pl-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Repeat every
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={recurrenceRule.interval}
-                        onChange={(e) => handleRecurrenceChange("interval", parseInt(e.target.value) || 1)}
-                        className="w-20"
-                      />
-                      <Select
-                        value={recurrenceRule.frequency}
-                        onValueChange={(value) => handleRecurrenceChange("frequency", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {frequencies.map((freq) => (
-                            <SelectItem key={freq.value} value={freq.value}>
-                              {freq.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Ends
-                    </Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">
+                    Repeat every
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={recurrenceRule.interval}
+                      onChange={(e) => handleRecurrenceChange("interval", parseInt(e.target.value) || 1)}
+                      className="w-20"
+                    />
                     <Select
-                      value={recurrenceRule.endType}
-                      onValueChange={(value) => handleRecurrenceChange("endType", value as any)}
+                      value={recurrenceRule.frequency}
+                      onValueChange={(value) => handleRecurrenceChange("frequency", value as any)}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="NEVER">Never</SelectItem>
-                        <SelectItem value="AFTER">After</SelectItem>
-                        <SelectItem value="ON_DATE">On date</SelectItem>
+                        {frequencies.map((freq) => (
+                          <SelectItem key={freq.value} value={freq.value}>
+                            {freq.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-
-                {recurrenceRule.endType === "AFTER" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Number of occurrences
-                    </Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={recurrenceRule.endAfter || 1}
-                      onChange={(e) => handleRecurrenceChange("endAfter", parseInt(e.target.value) || 1)}
-                      className="w-32"
-                    />
-                  </div>
-                )}
-
-                {recurrenceRule.endType === "ON_DATE" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      End date
-                    </Label>
-                    <input
-                      type="date"
-                      value={recurrenceRule.endOnDate ? new Date(recurrenceRule.endOnDate).toISOString().split('T')[0] : ""}
-                      onChange={(e) => handleRecurrenceChange("endOnDate", e.target.value)}
-                      min={new Date(formData.startDate).toISOString().split('T')[0]}
-                      className="w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 border-gray-300"
-                    />
-                  </div>
-                )}
 
                 {recurrenceRule.frequency === "WEEKLY" && (
                   <div className="space-y-2">
