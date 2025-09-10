@@ -263,7 +263,7 @@ export const LeadFilters = ({
                 onClick={() => onViewModeChange("kanban")}
                 className={`rounded-none ${
                   viewMode === "kanban"
-                    ? "bg-gray-900 text-white"
+                    ? "bg-gray-900 text-white hover:bg-gray-800"
                     : "text-gray-600"
                 }`}
               >
@@ -273,11 +273,12 @@ export const LeadFilters = ({
                 variant={viewMode === "grid" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => onViewModeChange("grid")}
-                className={`rounded-none ${
-                  viewMode === "grid"
-                    ? "bg-gray-900 text-white"
-                    : "text-gray-600"
-                }`}
+          className={`rounded-none ${
+  viewMode === "grid"
+    ? "bg-gray-900 text-white hover:!bg-gray-800"
+    : "text-gray-600 hover:!bg-gray-200 "
+}`}
+
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>

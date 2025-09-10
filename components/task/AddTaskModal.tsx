@@ -595,7 +595,7 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
     const hours = pad(date.getHours());
     const minutes = pad(date.getMinutes());
     const seconds = pad(date.getSeconds());
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
   };
 
   const getAdjustedCurrentTime = (): Date => {
@@ -607,15 +607,22 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
     return now;
   };
 
-  const getCurrentDateTime = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
+const getCurrentDateTime = () => {
+  const now = new Date();
+  // Round to nearest 5 minutes for better UX
+  const minutes = Math.ceil(now.getMinutes() / 5) * 5;
+  now.setMinutes(minutes);
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutesStr = String(now.getMinutes()).padStart(2, "0");
+  
+  return `${year}-${month}-${day}T${hours}:${minutesStr}`;
+};
 
   const stageChanged = useMemo(() => {
     if (!editingTask || !originalFormData) return false;
@@ -915,56 +922,68 @@ const handleSubmit = (e: React.FormEvent) => {
     });
   }
 }
-
-  // Fixed date time change handler to auto-close
-  const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
-    try {
-      if (!value) {
-        updateFormField(field, "");
-        // Close the date picker when value is cleared
-        setOpenDateTimeField(null);
-        return;
-      }
-
-      // Accept the datetime value as-is without validation restrictions
-      const date = new Date(value);
-      
-      if (isNaN(date.getTime())) {
-        console.error("Invalid datetime:", value);
-        return;
-      }
-
-      const isoString = date.toISOString();
-      updateFormField(field, isoString);
-      
-      // Auto-close the date picker after selection
-      setTimeout(() => {
-        setOpenDateTimeField(null);
-      }, 100);
-    } catch (error) {
-      console.error("Error handling datetime change:", error);
+const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
+  try {
+    if (!value) {
+      updateFormField(field, "");
+      setOpenDateTimeField(null);
+      return;
     }
-  };
 
-  const formatDateTimeForInput = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "";
+    // Parse the datetime-local value and create ISO string without timezone conversion
+    const [datePart, timePart] = value.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Create ISO string directly without timezone conversion
+    // Format: YYYY-MM-DDTHH:mm:ss.000Z (but preserving local time as if it were UTC)
+    const isoString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`;
+    
+    updateFormField(field, isoString);
+    
+    setTimeout(() => {
+      setOpenDateTimeField(null);
+    }, 100);
+  } catch (error) {
+    console.error("Error handling datetime change:", error);
+  }
+};
+
+const formatDateTimeForInput = (dateString: string) => {
+  if (!dateString) return "";
+  try {
+    // Parse ISO string directly without timezone conversion
+    // Input format: "2025-09-10T16:30:00.000Z"
+    // Output format: "2025-09-10T16:30"
+    
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      // Remove the Z and milliseconds, then extract date and time parts
+      const cleanedString = dateString.replace('.000Z', '').replace('Z', '');
+      const [datePart, timePart] = cleanedString.split('T');
       
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch (error) {
-      console.error("Error formatting datetime:", error);
-      return "";
+      if (datePart && timePart) {
+        // Extract hours and minutes only (ignore seconds)
+        const [hours, minutes] = timePart.split(':');
+        return `${datePart}T${hours}:${minutes}`;
+      }
     }
-  };
-
+    
+    // Fallback: use Date parsing (may have timezone issues but better than nothing)
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (error) {
+    console.error("Error formatting datetime:", error);
+    return "";
+  }
+};
   const getPreSelectedStageName = () => {
     if (preSelectedStageId && stages.length > 0) {
       const selectedStage = stages.find(
@@ -1291,41 +1310,34 @@ const handleSubmit = (e: React.FormEvent) => {
 
           {/* Fixed Dates with Time Picker - Auto-close functionality */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-         <div className="space-y-2">
+<div className="space-y-2">
   <Label className="text-sm font-medium text-foreground">
     Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
-    {dirtyFields.has("startDate") && (
-      <span className="text-blue-600 text-xs ml-1">• Modified</span>
-    )}
   </Label>
   <input
     type="datetime-local"
     value={formatDateTimeForInput(formData.startDate)}
     onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
-    onFocus={() => setOpenDateTimeField("startDate")}
     onBlur={() => handleFieldBlur("startDate")}
     className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
-    step="60"
+    min={editingTask ? undefined : getCurrentDateTime()} // Only restrict for new tasks
   />
   {validationErrors.startDate && (
     <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
   )}
 </div>
-          <div className="space-y-2">
+
+<div className="space-y-2">
   <Label className="text-sm font-medium text-foreground">
     End Date & Time {!editingTask && <span className="text-red-500">*</span>}
-    {dirtyFields.has("endDate") && (
-      <span className="text-blue-600 text-xs ml-1">• Modified</span>
-    )}
   </Label>
   <input
     type="datetime-local"
     value={formatDateTimeForInput(formData.endDate)}
     onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
-    onFocus={() => setOpenDateTimeField("endDate")}
     onBlur={() => handleFieldBlur("endDate")}
     className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
-    step="60"
+    min={formData.startDate ? formatDateTimeForInput(formData.startDate) : undefined}
   />
   {validationErrors.endDate && (
     <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
@@ -1344,9 +1356,9 @@ const handleSubmit = (e: React.FormEvent) => {
                 )}
               </Label>
               <Input
-                type="number"
-                min="0.5"
-                step="0.5"
+   
+                min="0"
+            
                 value={formData.estimatedHours || 0}
                 onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
                 onBlur={() => setTouchedFields(prev => new Set(prev).add("estimatedHours"))}
@@ -1366,9 +1378,9 @@ const handleSubmit = (e: React.FormEvent) => {
                 )}
               </Label>
               <Input
-                type="number"
+            
                 min="0"
-                step="0.5"
+         
                 value={formData.graceHours || 0}
                 onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
                 onBlur={() => setTouchedFields(prev => new Set(prev).add("graceHours"))}
