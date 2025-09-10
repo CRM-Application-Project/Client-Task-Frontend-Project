@@ -24,8 +24,8 @@ interface ProgressAnalyticsProps {
   taskId: number;
 }
 
-const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ 
-  task, 
+const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
+  task,
   timesheetEntries = [],
   effortReports = [],
   onClose,
@@ -48,17 +48,17 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
   ];
 
   // Generate daily progress from effort reports
-  const dailyProgress = effortReports.length > 0 
+  const dailyProgress = effortReports.length > 0
     ? Object.entries(effortReports[0]?.dailyWorkedHours || {}).map(([date, hours], index) => ({
-        day: new Date(date).toLocaleDateString(),
-        cumulative: hours,
-        planned: Math.min(task.estimatedHours, (index + 1) )
-      }))
+      day: new Date(date).toLocaleDateString(),
+      cumulative: hours,
+      planned: Math.min(task.estimatedHours, (index + 1))
+    }))
     : Array.from({ length: 10 }, (_, i) => ({
-        day: `Day ${i + 1}`,
-        cumulative: Math.min(task.actualHours, (i + 1) * (task.actualHours / 10)),
-        planned: Math.min(task.estimatedHours, (i + 1) * (task.estimatedHours / 10))
-      }));
+      day: `Day ${i + 1}`,
+      cumulative: Math.min(task.actualHours, (i + 1) * (task.actualHours / 10)),
+      planned: Math.min(task.estimatedHours, (i + 1) * (task.estimatedHours / 10))
+    }));
 
   const efficiencyData = [
     { category: 'On Time', value: Math.max(0, 100 - overrun), fill: '#10b981' },
@@ -75,7 +75,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         user: entry.actionDoneBy.label
       }));
     }
-    
+
     // Fallback to empty array if no timesheet entries
     return [];
   };
@@ -88,15 +88,15 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
       const response = await downloadWorklogExcel({
         taskId: taskId
       });
-      
+
       const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      
+
       link.setAttribute('href', url);
       link.setAttribute('download', `worklog-${task.subject.replace(/\s+/g, '-').toLowerCase()}.xlsx`);
       link.style.visibility = 'hidden';
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -106,7 +106,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         title: "Success",
         description: "Worklog Excel file downloaded successfully",
       });
-    } catch (error:any) {
+    } catch (error: any) {
       console.error('Error downloading worklog:', error);
       toast({
         title: "Error",
@@ -123,8 +123,8 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
           <BarChart3 className="h-5 w-5 text-blue-500" />
           Progress Analytics - Graph View
         </h4>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={onClose}
         >
@@ -151,21 +151,54 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         <div className="bg-gray-50 p-4 rounded-lg">
           <h5 className="font-medium text-gray-700 mb-3">Progress Over Time</h5>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={dailyProgress} margin={{ top: 5, right: 30, left: 60, bottom: 60 }}>
+            <LineChart
+              data={dailyProgress}
+              margin={{ top: 5, right: 30, left: 10, bottom: 10 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="day" 
-                label={{ value: 'Date', position: 'insideBottomMiddle', offset: 0 }}
+
+              {/* X Axis */}
+              <XAxis
+                dataKey="day"
+                label={{
+                  value: "Date",
+                  position: "insideBottom",
+                  offset: -10,   // pushes the label below ticks
+                  style: { fill: "#374151", fontWeight: "600" },
+                }}
               />
-              <YAxis 
-                label={{ value: 'Time in Hours', angle: -90, position: 'insideMiddle', textAnchor: 'middle' }}
+
+              {/* Y Axis */}
+              <YAxis
+                label={{
+                  value: "Time in Hours",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: -0,   // pushes the label left of ticks
+                  style: { textAnchor: "middle", fill: "#374151", fontWeight: "600" },
+                }}
               />
+
               <Tooltip />
-              <Line type="monotone" dataKey="cumulative" stroke="#ef4444" strokeWidth={2} name="Actual" />
-              <Line type="monotone" dataKey="planned" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" name="Estimated" />
+              <Line
+                type="monotone"
+                dataKey="cumulative"
+                stroke="#ef4444"
+                strokeWidth={2}
+                name="Actual"
+              />
+              <Line
+                type="monotone"
+                dataKey="planned"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                name="Estimated"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
+
 
         {/* Efficiency Pie Chart */}
         <div className="bg-gray-50 p-4 rounded-lg">
@@ -254,8 +287,8 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         </h4>
         <div className="flex gap-2">
           {(timesheetData.length > 0 || timesheetEntries.length > 0) && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={downloadTimesheet}
               className="flex items-center gap-1"
@@ -264,8 +297,8 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               Download Excel
             </Button>
           )}
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={onClose}
           >
@@ -276,7 +309,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
 
       <div className="bg-gray-50 p-4 rounded-lg">
         <h5 className="font-medium text-gray-700 mb-4">Daily Work Log</h5>
-        
+
         {timesheetData.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
