@@ -108,6 +108,74 @@ export function CreateStaffModal({
       .join(" ");
   };
 
+  // ===== Get default permissions based on role and module =====
+// ===== Get default permissions based on role and module =====
+
+
+  // ===== Update module access when role changes =====
+// ===== Update module access when role changes =====
+useEffect(() => {
+  if (formData.userRole && modules.length > 0) {
+    let defaultModules: Module[] = [];
+    
+    // Check if role includes "staff" (case-insensitive)
+    if (formData.userRole.toLowerCase().includes("staff")) {
+      // For staff roles, only include task and lead modules
+      defaultModules = modules.filter(module => {
+        const normalizedName = module.name.toLowerCase();
+        return normalizedName.toLowerCase()==="task" || normalizedName.toLowerCase()==="lead";
+      });
+    } else {
+      // For admin/super admin, include all modules
+      defaultModules = [...modules];
+    }
+
+    const newModuleAccess = defaultModules.map(module => {
+      const permissions = getDefaultPermissions(formData.userRole, module.name);
+      return {
+        moduleId: module.id,
+        moduleName: module.name,
+        ...permissions
+      };
+    });
+
+    setFormData(prev => ({ ...prev, moduleAccess: newModuleAccess }));
+  }
+}, [formData.userRole, modules]);
+
+// ===== Get default permissions based on role and module =====
+const getDefaultPermissions = (role: string, moduleName: string) => {
+  // For admin and super admin, give all permissions
+  if (role.toLowerCase().includes("admin")) {
+    return { canView: true, canEdit: true, canDelete: true, canCreate: true };
+  }
+  
+  // For staff roles, only give access to tasks and leads
+  if (role.toLowerCase().includes("staff")) {
+    const normalizedModuleName = moduleName.toLowerCase();
+    
+    if (normalizedModuleName.toLowerCase()==="task") {
+      return { canView: true, canEdit: true, canDelete: false, canCreate: false };
+    }
+    
+    if (normalizedModuleName.toLowerCase()==="lead") {
+      return { canView: true, canEdit: true, canDelete: true, canCreate: true };
+    }
+    
+    // No access to other modules for staff by default
+    return { canView: false, canEdit: false, canDelete: false, canCreate: false };
+  }
+  
+  // Default for other roles
+  return { canView: true, canEdit: false, canDelete: false, canCreate: false };
+};
+
+// ===== Check if a module is required for staff roles =====
+const isStaffRequiredModule = (moduleName: string) => {
+  const normalizedName = moduleName.toLowerCase();
+  return normalizedName.includes("task") || normalizedName.includes("lead");
+};
+
   // Recompute overall validity on any relevant change
   useEffect(() => {
     setIsFormValid(validateForm());
@@ -464,52 +532,80 @@ export function CreateStaffModal({
     setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
   };
 
-  const addModule = () => {
-    if (!selectedModule) {
-      setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
-      setValidationErrors((prev) => ({
-        ...prev,
-        moduleAccess: "Please select a module to add",
-      }));
-      return;
-    }
-
-    const selectedModuleItem = modules.find((m) => m.id === selectedModule);
-    if (!selectedModuleItem) return;
-
-    if (formData.moduleAccess.some((ma) => ma.moduleId === selectedModule)) {
-      setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
-      setValidationErrors((prev) => ({
-        ...prev,
-        moduleAccess: "Module already added",
-      }));
-      return;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      moduleAccess: [
-        ...prev.moduleAccess,
-        {
-          moduleId: selectedModuleItem.id,
-          moduleName: selectedModuleItem.name,
-          canView: true,
-          canEdit: false,
-          canDelete: false,
-          canCreate: false,
-        },
-      ],
-    }));
-
-    setSelectedModule(null);
-
-    // Clear error after adding
+ const addModule = () => {
+  if (!selectedModule) {
     setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
-    const error = validateField("moduleAccess", formData.moduleAccess);
-    setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
-  };
+    setValidationErrors((prev) => ({
+      ...prev,
+      moduleAccess: "Please select a module to add",
+    }));
+    return;
+  }
+
+  const selectedModuleItem = modules.find((m) => m.id === selectedModule);
+  if (!selectedModuleItem) return;
+
+  // For staff users, only allow adding task and lead modules
+  if (formData.userRole === "staff") {
+    const normalizedName = selectedModuleItem.name.toLowerCase();
+    if (!normalizedName.includes("task") && !normalizedName.includes("lead")) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Module",
+        description: "Staff users can only access Task and Lead modules",
+      });
+      return;
+    }
+  }
+
+  if (formData.moduleAccess.some((ma) => ma.moduleId === selectedModule)) {
+    setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
+    setValidationErrors((prev) => ({
+      ...prev,
+      moduleAccess: "Module already added",
+    }));
+    return;
+  }
+
+  const permissions = getDefaultPermissions(formData.userRole, selectedModuleItem.name);
+
+  setFormData((prev) => ({
+    ...prev,
+    moduleAccess: [
+      ...prev.moduleAccess,
+      {
+        moduleId: selectedModuleItem.id,
+        moduleName: selectedModuleItem.name,
+        ...permissions
+      },
+    ],
+  }));
+
+  setSelectedModule(null);
+
+  // Clear error after adding
+  setTouchedFields((prev) => ({ ...prev, moduleAccess: true }));
+  const error = validateField("moduleAccess", formData.moduleAccess);
+  setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
+};
 
   const removeModule = (moduleId: number) => {
+    // For staff users, don't allow removal of task and lead modules
+    if (formData.userRole === "staff") {
+      const moduleToRemove = modules.find(m => m.id === moduleId);
+      if (moduleToRemove) {
+        const normalizedName = moduleToRemove.name.toLowerCase();
+        if (normalizedName.includes("task") || normalizedName.includes("lead")) {
+          toast({
+            variant: "destructive",
+            title: "Cannot Remove",
+            description: "Task and Lead modules are required for staff users",
+          });
+          return;
+        }
+      }
+    }
+    
     setFormData((prev) => ({
       ...prev,
       moduleAccess: prev.moduleAccess.filter((ma) => ma.moduleId !== moduleId),
@@ -520,11 +616,12 @@ export function CreateStaffModal({
     setValidationErrors((prev) => ({ ...prev, moduleAccess: error }));
   };
 
-  const getAvailableModules = () => {
-    return modules.filter(
-      (moduleItem) => !formData.moduleAccess.some((ma) => ma.moduleId === moduleItem.id)
-    );
-  };
+const getAvailableModules = () => {
+
+  return modules.filter(
+    (moduleItem) => !formData.moduleAccess.some((ma) => ma.moduleId === moduleItem.id)
+  );
+};
 
   if (!isOpen) return null;
 
@@ -793,66 +890,102 @@ export function CreateStaffModal({
           </div>
 
           {/* Module Access */}
-          <div className="space-y-4">
-            <Label className="block">Module Access Permissions</Label>
+    
+{/* Module Access */}
+<div className="space-y-4">
+  <Label className="block">Module Access Permissions</Label>
+  <p className="text-sm text-gray-500">
+    {formData.userRole.toLowerCase().includes("staff") 
+      ? "Staff users have access to Tasks and Leads modules by default. You can add additional modules if needed." 
+      : formData.userRole.toLowerCase().includes("admin")
+      ? "Admin users have full access to all modules by default"
+      : "Select modules and set permissions for this user"}
+  </p>
 
-            {/* Add Module Section */}
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 space-y-2">
-                <Label>Select Module</Label>
-                <Select
-                  value={selectedModule ? selectedModule.toString() : ""}
-                  onValueChange={(value) => setSelectedModule(parseInt(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a module" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableModules().map((moduleItem) => (
-                      <SelectItem key={moduleItem.id} value={moduleItem.id.toString()}>
-                        <span className="font-medium capitalize">
-                          {formatText(moduleItem.name)}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                type="button"
-                onClick={addModule}
-                className="bg-brand-primary text-text-white hover:bg-brand-primary/90"
-              >
-                Add Module
-              </Button>
-            </div>
-            {/* Added Modules */}
-            {formData.moduleAccess.length > 0 && (
+  {/* Add Module Section - Show for all roles */}
+  <div className="flex gap-2 items-end">
+    <div className="flex-1 space-y-2">
+      <Label>
+        {formData.userRole.toLowerCase().includes("staff") ? "Select Additional Module" : "Select Module"}
+      </Label>
+      <Select
+        value={selectedModule ? selectedModule.toString() : ""}
+        onValueChange={(value) => setSelectedModule(parseInt(value))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select a module" />
+        </SelectTrigger>
+        <SelectContent>
+          {getAvailableModules().map((moduleItem) => (
+            <SelectItem key={moduleItem.id} value={moduleItem.id.toString()}>
+              <span className="font-medium capitalize">
+                {formatText(moduleItem.name)}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+    <Button
+      type="button"
+      onClick={addModule}
+      className="bg-brand-primary text-text-white hover:bg-brand-primary/90"
+    >
+      Add Module
+    </Button>
+  </div>
+  
+  {/* Added Modules */}
+  {/* Added Modules */}
+{formData.moduleAccess.length > 0 && (
   <div className="border rounded-md p-4">
-    <h3 className="font-medium mb-3">Added Modules</h3>
+    <h3 className="font-medium mb-3">Module Permissions</h3>
     <div className="space-y-4">
       {formData.moduleAccess.map((moduleAccess) => {
-        // Renamed 'module' to 'moduleData' to avoid conflict
         const moduleData = modules.find(
           (m) => m.id === moduleAccess.moduleId
         );
+        const isStaffRole = formData.userRole.toLowerCase().includes("staff");
+        const isRequiredForStaff = isStaffRole && moduleData && isStaffRequiredModule(moduleData.name);
+        const isTaskModule = moduleData?.name.toLowerCase().includes("task");
+        
         return (
           <div
             key={moduleAccess.moduleId}
             className="border rounded p-3 relative"
           >
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute top-2 right-2 h-6 w-6 p-0"
-              onClick={() => removeModule(moduleAccess.moduleId)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {!isRequiredForStaff && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2 h-6 w-6 p-0"
+                onClick={() => removeModule(moduleAccess.moduleId)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+            
+            {isRequiredForStaff && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="absolute top-2 right-2">
+                      <AlertCircle className="h-4 w-4 text-gray-400" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>This module is required for staff users</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
             <div className="font-medium mb-2">
               {formatText(moduleData?.name || moduleAccess.moduleName)}
+              {isRequiredForStaff && (
+                <span className="ml-2 text-xs text-gray-500">(Required for Staff)</span>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -868,6 +1001,7 @@ export function CreateStaffModal({
                       Boolean(checked)
                     )
                   }
+                   // Only disable for non-task modules
                 />
                 <Label htmlFor={`${moduleAccess.moduleId}-canView`}>
                   View
@@ -886,6 +1020,7 @@ export function CreateStaffModal({
                       Boolean(checked)
                     )
                   }
+                 // Only disable for non-task modules
                 />
                 <Label
                   htmlFor={`${moduleAccess.moduleId}-canCreate`}
@@ -906,6 +1041,7 @@ export function CreateStaffModal({
                       Boolean(checked)
                     )
                   }
+                
                 />
                 <Label htmlFor={`${moduleAccess.moduleId}-canEdit`}>
                   Edit
@@ -924,6 +1060,7 @@ export function CreateStaffModal({
                       Boolean(checked)
                     )
                   }
+                 
                 />
                 <Label
                   htmlFor={`${moduleAccess.moduleId}-canDelete`}
@@ -939,10 +1076,53 @@ export function CreateStaffModal({
   </div>
 )}
 
-            {touchedFields.moduleAccess && validationErrors.moduleAccess && (
-              <p className="text-red-500 text-xs">
-                {validationErrors.moduleAccess}
-              </p>
+  {touchedFields.moduleAccess && validationErrors.moduleAccess && (
+    <p className="text-red-500 text-xs">
+      {validationErrors.moduleAccess}
+    </p>
+  )}
+</div>
+
+          {/* Password Section */}
+          <div className="space-y-4">
+            <Label className="block">Password Settings</Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sendMail"
+                checked={sendMail}
+                onCheckedChange={(checked) => setSendMail(Boolean(checked))}
+              />
+              <Label htmlFor="sendMail">
+                Send welcome email with temporary password
+              </Label>
+            </div>
+            
+            {!sendMail && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={formData.password}
+                  onChange={(e) => setField("password", e.target.value)}
+                  onBlur={() => handleBlur("password")}
+                  required={!sendMail}
+                  className={
+                    touchedFields.password && validationErrors.password
+                      ? "border-red-500"
+                      : ""
+                  }
+                />
+                {touchedFields.password && validationErrors.password && (
+                  <p className="text-red-500 text-xs">
+                    {validationErrors.password}
+                  </p>
+                )}
+                <p className="text-sm text-gray-500">
+                  Password must be at least 8 characters long
+                </p>
+              </div>
             )}
           </div>
 
