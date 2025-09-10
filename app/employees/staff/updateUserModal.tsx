@@ -68,6 +68,12 @@ export const UpdateStaffModal = ({
   >([]);
   const { toast } = useToast();
   const [roleScopes, setRoleScopes] = useState<RoleScope[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<{
+    firstName?: string;
+    lastName?: string;
+    emailAddress?: string;
+    departmentId?: string;
+  }>({});
 
   useEffect(() => {
     if (user) {
@@ -158,11 +164,20 @@ export const UpdateStaffModal = ({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
+
+    // Validate required fields
+    if (name === 'firstName' || name === 'lastName' || name === 'emailAddress') {
+      setFieldErrors(prev => ({
+        ...prev,
+        [name]: !value.trim() ? 'This field is required' : undefined
+      }));
+    }
   };
 
   useEffect(() => {
     if (isOpen) {
       setError("");
+      setFieldErrors({});
     }
   }, [isOpen]);
 
@@ -186,6 +201,14 @@ export const UpdateStaffModal = ({
       ...formData,
       [fieldName]: value,
     });
+
+    // Validate department selection
+    if (fieldName === 'departmentId') {
+      setFieldErrors(prev => ({
+        ...prev,
+        departmentId: !value ? 'This field is required' : undefined
+      }));
+    }
   };
 
   const handleContactNumberChange = (
@@ -203,7 +226,23 @@ export const UpdateStaffModal = ({
     try {
       if (!user) return;
 
-      if (!formData.firstName || !formData.lastName || !formData.emailAddress) {
+      // Validate required fields
+      const errors: typeof fieldErrors = {};
+      if (!formData.firstName?.trim()) {
+        errors.firstName = 'This field is required';
+      }
+      if (!formData.lastName?.trim()) {
+        errors.lastName = 'This field is required';
+      }
+      if (!formData.emailAddress?.trim()) {
+        errors.emailAddress = 'This field is required';
+      }
+      if (!formData.departmentId) {
+        errors.departmentId = 'This field is required';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
         setError("Please fill in all required fields");
         return;
       }
@@ -229,8 +268,8 @@ export const UpdateStaffModal = ({
       } else {
         setError(response.message || "Failed to update user");
       }
-    } catch (err) {
-      setError("An error occurred while updating the user");
+    } catch (err:any) {
+      setError(err.message || "An error occurred while updating the user");
       console.error(err);
     } finally {
       setLoading(false);
@@ -317,9 +356,14 @@ export const UpdateStaffModal = ({
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-200 rounded-md p-2 border"
+                    className={`block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border rounded-md p-2 ${
+                      fieldErrors.firstName ? 'border-red-500' : 'border-gray-200'
+                    }`}
                     required
                   />
+                  {fieldErrors.firstName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.firstName}</p>
+                  )}
                 </div>
 
                 {/* Last Name */}
@@ -336,9 +380,14 @@ export const UpdateStaffModal = ({
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-200 rounded-md p-2 border"
+                    className={`block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border rounded-md p-2 ${
+                      fieldErrors.lastName ? 'border-red-500' : 'border-gray-200'
+                    }`}
                     required
                   />
+                  {fieldErrors.lastName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.lastName}</p>
+                  )}
                 </div>
 
                 {/* Email */}
@@ -355,9 +404,14 @@ export const UpdateStaffModal = ({
                     name="emailAddress"
                     value={formData.emailAddress}
                     onChange={handleChange}
-                    className="block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border-gray-200 rounded-md p-2 border"
+                    className={`block w-full shadow-sm sm:text-sm focus:ring-blue-500 focus:border-blue-500 border rounded-md p-2 ${
+                      fieldErrors.emailAddress ? 'border-red-500' : 'border-gray-200'
+                    }`}
                     required
                   />
+                  {fieldErrors.emailAddress && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.emailAddress}</p>
+                  )}
                 </div>
 
                 {/* Contact */}
@@ -436,7 +490,11 @@ export const UpdateStaffModal = ({
                       label: dept.name,
                     }))}
                     placeholder="Select Department"
+                    status={fieldErrors.departmentId ? 'error' : ''}
                   />
+                  {fieldErrors.departmentId && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.departmentId}</p>
+                  )}
                 </div>
 
                 {/* Role */}
