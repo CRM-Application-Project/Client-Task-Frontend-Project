@@ -959,10 +959,14 @@ const transformTasks = useCallback(
         limit,
       };
 
+      console.log('Converting UI filters to API params:', uiFilters);
+
       if (searchQuery.trim()) apiParams.searchTerm = searchQuery.trim();
       if (uiFilters.priority) apiParams.priorities = uiFilters.priority;
       if (uiFilters.stageIds) apiParams.stageIds = uiFilters.stageIds;
       if (uiFilters.assignedTo) apiParams.assigneeIds = uiFilters.assignedTo;
+
+      console.log('API params before date range processing:', apiParams);
 
       if (uiFilters.dateRange) {
         const formatDateWithTime = (date: Date) => {
@@ -993,6 +997,7 @@ const transformTasks = useCallback(
         }
       }
 
+      console.log('Final API params:', apiParams);
       return apiParams;
     },
     []
@@ -1002,14 +1007,17 @@ const transformTasks = useCallback(
 
 // In fetchTasksGrid and fetchTasksKanban functions, add type checking:
   const fetchTasksGrid = useCallback(
-    async (page: number = 1, showLoading = false) => {
+    async (page: number = 1, showLoading = false, overrideFilters?: typeof filters, overrideSearchQuery?: string) => {
       if (isFilteringRef.current) return;
 
       isFilteringRef.current = true;
       if (showLoading) setIsRefreshing(true);
 
       try {
-        const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
+        const filtersToUse = overrideFilters !== undefined ? overrideFilters : filters;
+        const searchQueryToUse = overrideSearchQuery !== undefined ? overrideSearchQuery : searchQuery;
+        
+        const apiParams = convertFiltersToApiParams(filtersToUse, searchQueryToUse, page, paginationState.pageSize);
         const response = await filterTasks(apiParams);
 
         if (response.isSuccess && response.data && 'totalPages' in response.data) {
@@ -1048,7 +1056,7 @@ const transformTasks = useCallback(
   );
 
   const fetchTasksKanban = useCallback(
-    async (page: number = 1, append: boolean = false, showLoading = false) => {
+    async (page: number = 1, append: boolean = false, showLoading = false, overrideFilters?: typeof filters, overrideSearchQuery?: string) => {
       if (isFilteringRef.current) return;
 
       isFilteringRef.current = true;
@@ -1056,7 +1064,10 @@ const transformTasks = useCallback(
       if (!append && page > 1) setIsLoadingMore(true);
 
       try {
-        const apiParams = convertFiltersToApiParams(filters, searchQuery, page, paginationState.pageSize);
+        const filtersToUse = overrideFilters !== undefined ? overrideFilters : filters;
+        const searchQueryToUse = overrideSearchQuery !== undefined ? overrideSearchQuery : searchQuery;
+        
+        const apiParams = convertFiltersToApiParams(filtersToUse, searchQueryToUse, page, paginationState.pageSize);
         const response = await filterTasks(apiParams);
 
         if (response.isSuccess && response.data) {
@@ -1212,29 +1223,30 @@ const transformTasks = useCallback(
   }, [viewMode, fetchStages, fetchUsers, fetchTasksGrid, fetchTasksKanban, toast]); // Add viewMode as dependency
 
   // ========== SEARCH DEBOUNCING ==========
- useEffect(() => {
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
+  // Search is now handled only through Apply Filters - no automatic debouncing
+  // useEffect(() => {
+  //   if (searchTimeoutRef.current) {
+  //     clearTimeout(searchTimeoutRef.current);
+  //   }
 
-  if (isInitialLoadingRef.current) return;
+  //   if (isInitialLoadingRef.current) return;
 
-  searchTimeoutRef.current = setTimeout(() => {
-    if (viewMode === "grid") {
-      fetchTasksGrid(1, true);
-    } else {
-      setKanbanPage(1);
-      setHasMoreTasks(true);
-      fetchTasksKanban(1, false, true);
-    }
-  }, 300);
+  //   searchTimeoutRef.current = setTimeout(() => {
+  //     if (viewMode === "grid") {
+  //       fetchTasksGrid(1, true);
+  //     } else {
+  //       setKanbanPage(1);
+  //       setHasMoreTasks(true);
+  //       fetchTasksKanban(1, false, true);
+  //     }
+  //   }, 300);
 
-  return () => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-  };
-}, [searchQuery, viewMode, fetchTasksGrid, fetchTasksKanban]);
+  //   return () => {
+  //     if (searchTimeoutRef.current) {
+  //       clearTimeout(searchTimeoutRef.current);
+  //     }
+  //   };
+  // }, [searchQuery, viewMode, fetchTasksGrid, fetchTasksKanban]);
 
   // ========== PAGINATION HANDLERS ==========
   const handlePageChange = useCallback(
@@ -1248,29 +1260,27 @@ const transformTasks = useCallback(
   // ========== FILTER HANDLERS ==========
   const handleFilterChange = useCallback(
     async (newFilters: typeof filters) => {
+      console.log('Task handleFilterChange called with:', newFilters);
       setFilters(newFilters);
-      
-      if (viewMode === "grid") {
-        setPaginationState(prev => ({ ...prev, currentPage: 1 }));
-        await fetchTasksGrid(1, true);
-      } else {
-        setKanbanPage(1);
-        setHasMoreTasks(true);
-        await fetchTasksKanban(1, false, true);
-      }
+      // Don't fetch immediately - wait for Apply Filters
     },
-    [viewMode, fetchTasksGrid, fetchTasksKanban]
+    []
   );
 
-  const handleApplyFilters = useCallback(async () => {
+  const handleApplyFilters = useCallback(async (newFilters?: typeof filters) => {
+    // Use the passed filters if provided, otherwise use current state
+    const filtersToApply = newFilters || filters;
+    console.log('Task handleApplyFilters called with newFilters:', newFilters, 'Using filters:', filtersToApply);
+    
     if (viewMode === "grid") {
-      await fetchTasksGrid(paginationState.currentPage, true);
+      setPaginationState(prev => ({ ...prev, currentPage: 1 }));
+      await fetchTasksGrid(1, true, filtersToApply);
     } else {
       setKanbanPage(1);
       setHasMoreTasks(true);
-      await fetchTasksKanban(1, false, true);
+      await fetchTasksKanban(1, false, true, filtersToApply);
     }
-  }, [viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban]);
+  }, [viewMode, paginationState.currentPage, fetchTasksGrid, fetchTasksKanban, filters]);
 
   // ========== VIEW MODE CHANGE HANDLER ==========
   const handleViewModeChange = useCallback(
@@ -1722,16 +1732,22 @@ const handleCloseModal = useCallback(() => {
   }, [selectedTaskId, tasks, allTasksForInfiniteScroll, viewMode, handleEditTask]);
 
   const handleClearAllFilters = useCallback(async () => {
-    setFilters({});
-    setSearchQuery("");
+    // Define cleared filters and search query
+    const clearedFilters = {};
+    const clearedSearchQuery = "";
     
+    // Update state
+    setFilters(clearedFilters);
+    setSearchQuery(clearedSearchQuery);
+    
+    // Pass cleared filters directly to fetch functions to avoid state timing issues
     if (viewMode === "grid") {
       setPaginationState(prev => ({ ...prev, currentPage: 1 }));
-      await fetchTasksGrid(1, true);
+      await fetchTasksGrid(1, true, clearedFilters, clearedSearchQuery);
     } else {
       setKanbanPage(1);
       setHasMoreTasks(true);
-      await fetchTasksKanban(1, false, true);
+      await fetchTasksKanban(1, false, true, clearedFilters, clearedSearchQuery);
     }
   }, [viewMode, fetchTasksGrid, fetchTasksKanban]);
 

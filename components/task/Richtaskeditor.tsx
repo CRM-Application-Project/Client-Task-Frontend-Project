@@ -27,9 +27,10 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  id?: string;
 }
 
- export const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEditorProps) => {
+ export const RichTextEditor = ({ value, onChange, placeholder, className, id }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -48,6 +49,26 @@ interface RichTextEditorProps {
   // Check active formats
   const checkActiveFormats = () => {
     if (!editorRef.current) return;
+    
+    // Only check formats if this editor is currently focused
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    
+    const focusedElement = selection.focusNode;
+    if (!focusedElement) return;
+    
+    // Check if the selection is within this editor
+    let isInThisEditor = false;
+    let currentNode: Node | null = focusedElement;
+    while (currentNode) {
+      if (currentNode === editorRef.current) {
+        isInThisEditor = true;
+        break;
+      }
+      currentNode = currentNode.parentNode;
+    }
+    
+    if (!isInThisEditor) return;
     
     const newActiveFormats = new Set<string>();
     const alignmentCommands: Record<string, string> = {
@@ -108,14 +129,79 @@ interface RichTextEditorProps {
     }
   };
 
+  const handleFocus = () => {
+    // Update active formats when this editor gains focus
+    setTimeout(() => {
+      checkActiveFormats();
+    }, 10);
+  };
+
+  const handleBlur = () => {
+    // Clear active formats when this editor loses focus
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount || !editorRef.current) {
+        setActiveFormats(new Set());
+        setTextAlignment("left");
+        return;
+      }
+      
+      const range = selection.getRangeAt(0);
+      const commonAncestor = range.commonAncestorContainer;
+      
+      let isInThisEditor = false;
+      let currentNode: Node | null = commonAncestor;
+      while (currentNode) {
+        if (currentNode === editorRef.current) {
+          isInThisEditor = true;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      
+      if (!isInThisEditor) {
+        setActiveFormats(new Set());
+        setTextAlignment("left");
+      }
+    }, 100);
+  };
+
 
 
   // Add event listener for selection changes
 
 
   const executeFormat = (command: string, value?: string) => {
-    // Ensure the editor is focused
-    editorRef.current?.focus();
+    if (!editorRef.current) return;
+    
+    // Ensure this editor is focused before executing commands
+    editorRef.current.focus();
+    
+    // Double-check that the selection is within this editor
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const commonAncestor = range.commonAncestorContainer;
+      
+      let isInThisEditor = false;
+      let currentNode: Node | null = commonAncestor;
+      while (currentNode) {
+        if (currentNode === editorRef.current) {
+          isInThisEditor = true;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      
+      if (!isInThisEditor) {
+        // If selection is not in this editor, create a new selection at the end
+        const newRange = document.createRange();
+        newRange.selectNodeContents(editorRef.current);
+        newRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    }
     
     // Execute the command
     const success = document.execCommand(command, false, value);
@@ -145,11 +231,35 @@ interface RichTextEditorProps {
   };
 
   const insertAtCursor = (html: string) => {
-    editorRef.current?.focus();
+    if (!editorRef.current) return;
+    
+    editorRef.current.focus();
     
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       let range = selection.getRangeAt(0);
+      
+      // Ensure the range is within this editor
+      const commonAncestor = range.commonAncestorContainer;
+      let isInThisEditor = false;
+      let currentNode: Node | null = commonAncestor;
+      while (currentNode) {
+        if (currentNode === editorRef.current) {
+          isInThisEditor = true;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      
+      if (!isInThisEditor) {
+        // Create a new range at the end of this editor
+        range = document.createRange();
+        range.selectNodeContents(editorRef.current);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      
       range.deleteContents();
       
       const div = document.createElement('div');
@@ -168,20 +278,71 @@ interface RichTextEditorProps {
         selection.removeAllRanges();
         selection.addRange(newRange);
       }
+    } else {
+      // No selection, insert at the end of the editor
+      const range = document.createRange();
+      range.selectNodeContents(editorRef.current);
+      range.collapse(false);
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      const frag = document.createDocumentFragment();
+      let node, lastNode;
+      while ((node = div.firstChild)) {
+        lastNode = frag.appendChild(node);
+      }
+      range.insertNode(frag);
+      if (lastNode) {
+        const newRange = range.cloneRange();
+        newRange.setStartAfter(lastNode);
+        newRange.collapse(true);
+        selection?.removeAllRanges();
+        selection?.addRange(newRange);
+      }
     }
     
     handleInput(null);
   };
 
   const insertEmoji = (emoji: string) => {
+    if (!editorRef.current) return;
+    
+    // Ensure this editor is focused before inserting emoji
+    editorRef.current.focus();
     insertAtCursor(emoji);
     setShowEmojiPicker(false);
   };
 
 const toggleList = (ordered: boolean) => {
-  editorRef.current?.focus();
+  if (!editorRef.current) return;
   
+  editorRef.current.focus();
+  
+  // Ensure the selection is within this editor
   const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const commonAncestor = range.commonAncestorContainer;
+    
+    let isInThisEditor = false;
+    let currentNode: Node | null = commonAncestor;
+    while (currentNode) {
+      if (currentNode === editorRef.current) {
+        isInThisEditor = true;
+        break;
+      }
+      currentNode = currentNode.parentNode;
+    }
+    
+    if (!isInThisEditor) {
+      // Create a new selection at the end of this editor
+      const newRange = document.createRange();
+      newRange.selectNodeContents(editorRef.current);
+      newRange.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+  }
+  
   if (!selection || selection.rangeCount === 0) return;
 
   const range = selection.getRangeAt(0);
@@ -312,7 +473,26 @@ const convertListType = (listElement: HTMLElement, newType: string) => {
 
 // Add event listener for selection changes
 const handleSelectionChange = useCallback(() => {
-  checkActiveFormats();
+  // Only check formats if the selection is within this editor
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount || !editorRef.current) return;
+  
+  const range = selection.getRangeAt(0);
+  const commonAncestor = range.commonAncestorContainer;
+  
+  let isInThisEditor = false;
+  let currentNode: Node | null = commonAncestor;
+  while (currentNode) {
+    if (currentNode === editorRef.current) {
+      isInThisEditor = true;
+      break;
+    }
+    currentNode = currentNode.parentNode;
+  }
+  
+  if (isInThisEditor) {
+    checkActiveFormats();
+  }
 }, []); // Empty dependency array since checkActiveFormats doesn't change
 
 // Add event listener for selection changes
@@ -323,6 +503,8 @@ useEffect(() => {
   };
 }, [handleSelectionChange]); // Now this dependency is stable // Now this dependency is stable
   const setAlignment = (alignment: string) => {
+    if (!editorRef.current) return;
+    
     const commands: Record<string, string> = {
       'left': 'justifyLeft',
       'center': 'justifyCenter',
@@ -333,6 +515,8 @@ useEffect(() => {
   };
 
   const addLink = () => {
+    if (!editorRef.current) return;
+    
     const url = prompt('Enter URL:');
     if (url) {
       executeFormat('createLink', url);
@@ -340,6 +524,8 @@ useEffect(() => {
   };
 
   const addImage = () => {
+    if (!editorRef.current) return;
+    
     const url = prompt('Enter image URL:');
     if (url) {
       executeFormat('insertImage', url);
@@ -347,10 +533,14 @@ useEffect(() => {
   };
 
   const makeHeading = () => {
+    if (!editorRef.current) return;
+    
     executeFormat('formatBlock', 'H3');
   };
 
   const addHorizontalRule = () => {
+    if (!editorRef.current) return;
+    
     executeFormat('insertHorizontalRule');
   };
 
@@ -548,7 +738,12 @@ useEffect(() => {
             variant="ghost"
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            onClick={() => {
+              if (editorRef.current) {
+                editorRef.current.focus();
+                setShowEmojiPicker(!showEmojiPicker);
+              }
+            }}
             className="h-8 w-8 p-0 hover:bg-gray-200"
             title="Insert Emoji"
           >
@@ -556,7 +751,10 @@ useEffect(() => {
           </Button>
           
           {showEmojiPicker && (
-            <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto">
+            <div 
+              className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               {Object.entries(emojiCategories).map(([category, emojis]) => (
                 <div key={category} className="p-2">
                   <div className="text-xs font-medium text-gray-600 mb-1 sticky top-0 bg-white">
@@ -616,9 +814,12 @@ useEffect(() => {
         ref={editorRef}
         contentEditable
         onInput={handleInput}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         className="min-h-[200px] p-4 focus:outline-none text-sm leading-relaxed"
         style={{ wordWrap: 'break-word' }}
         data-placeholder={placeholder}
+        data-editor-id={id}
       />
 
   

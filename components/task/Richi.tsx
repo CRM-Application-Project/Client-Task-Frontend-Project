@@ -68,11 +68,11 @@ interface RichTextEditorProps {
 
 export const RichTextEditor = ({
   value,
-  id,
   onChange,
   placeholder,
   className,
   minHeight = "200px",
+  id,
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -144,6 +144,26 @@ export const RichTextEditor = ({
 
   const checkActiveFormats = () => {
     if (!editorRef.current) return;
+    
+    // Only check formats if this editor is currently focused
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    
+    const focusedElement = selection.focusNode;
+    if (!focusedElement) return;
+    
+    // Check if the selection is within this editor
+    let isInThisEditor = false;
+    let currentNode: Node | null = focusedElement;
+    while (currentNode) {
+      if (currentNode === editorRef.current) {
+        isInThisEditor = true;
+        break;
+      }
+      currentNode = currentNode.parentNode;
+    }
+    
+    if (!isInThisEditor) return;
     
     const newActiveFormats = new Set<string>();
     const alignmentCommands: Record<string, string> = {
@@ -226,11 +246,127 @@ export const RichTextEditor = ({
     }
   };
 
-  const insertAtCursor = (html: string) => {
-    editorRef.current?.focus();
+  const handleFocus = () => {
+    // Update active formats when this editor gains focus
+    setTimeout(() => {
+      checkActiveFormats();
+    }, 10);
+  };
+
+  const handleBlur = () => {
+    // Clear active formats when this editor loses focus
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount || !editorRef.current) {
+        setActiveFormats(new Set());
+        setTextAlignment("left");
+        return;
+      }
+      
+      const range = selection.getRangeAt(0);
+      const commonAncestor = range.commonAncestorContainer;
+      
+      let isInThisEditor = false;
+      let currentNode: Node | null = commonAncestor;
+      while (currentNode) {
+        if (currentNode === editorRef.current) {
+          isInThisEditor = true;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      
+      if (!isInThisEditor) {
+        setActiveFormats(new Set());
+        setTextAlignment("left");
+      }
+    }, 100);
+  };
+
+  const executeFormat = (command: string, value?: string) => {
+    if (!editorRef.current) return;
+    
+    // Ensure this editor is focused before executing commands
+    editorRef.current.focus();
+    
+    // Double-check that the selection is within this editor
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const commonAncestor = range.commonAncestorContainer;
+      
+      let isInThisEditor = false;
+      let currentNode: Node | null = commonAncestor;
+      while (currentNode) {
+        if (currentNode === editorRef.current) {
+          isInThisEditor = true;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      
+      if (!isInThisEditor) {
+        // If selection is not in this editor, create a new selection at the end
+        const newRange = document.createRange();
+        newRange.selectNodeContents(editorRef.current);
+        newRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    }
+    
+    const success = document.execCommand(command, false, value);
+    if (!success && command === "bold") {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed) {
+          const bold = document.createElement("strong");
+          try {
+            range.surroundContents(bold);
+          } catch (e) {
+            bold.appendChild(range.extractContents());
+            range.insertNode(bold);
+          }
+        }
+      }
+    }
+    setTimeout(() => {
+      handleInput();
+      checkActiveFormats();
+    }, 10);
+  };
+
+  // Fixed insertAtCursor function with proper cursor positioning
+   const insertAtCursor = (html: string) => {
+    if (!editorRef.current) return;
+    
+    editorRef.current.focus();
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       let range = selection.getRangeAt(0);
+      
+      // Ensure the range is within this editor
+      const commonAncestor = range.commonAncestorContainer;
+      let isInThisEditor = false;
+      let currentNode: Node | null = commonAncestor;
+      while (currentNode) {
+        if (currentNode === editorRef.current) {
+          isInThisEditor = true;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      
+      if (!isInThisEditor) {
+        // Create a new range at the end of this editor
+        range = document.createRange();
+        range.selectNodeContents(editorRef.current);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      
       range.deleteContents();
       const div = document.createElement("div");
       div.innerHTML = html;
@@ -247,91 +383,122 @@ export const RichTextEditor = ({
         selection.removeAllRanges();
         selection.addRange(newRange);
       }
+    } else {
+      // No selection, insert at the end of the editor
+      const range = document.createRange();
+      range.selectNodeContents(editorRef.current);
+      range.collapse(false);
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      const frag = document.createDocumentFragment();
+      let node, lastNode;
+      while ((node = div.firstChild)) {
+        lastNode = frag.appendChild(node);
+      }
+      range.insertNode(frag);
+      if (lastNode) {
+        const newRange = range.cloneRange();
+        newRange.setStartAfter(lastNode);
+        newRange.collapse(true);
+        selection?.removeAllRanges();
+        selection?.addRange(newRange);
+      }
     }
     handleInput();
   };
 
   const insertEmoji = (emoji: string) => {
+    if (!editorRef.current) return;
+    
+    // Ensure this editor is focused before inserting emoji
+    editorRef.current.focus();
     insertAtCursor(emoji);
     setShowEmojiPicker(false);
   };
 
   // Enhanced list functions with proper behavior
   const insertNumberedList = () => {
-    editorRef.current?.focus();
+  if (!editorRef.current) return;
+  
+  editorRef.current.focus();
+  
+  // Ensure the selection is within this editor
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const commonAncestor = range.commonAncestorContainer;
     
-    const listInfo = isInList();
-    
-    if (listInfo.inList) {
-      if (listInfo.listType === 'ordered') {
-        // Already in numbered list - add new list item
-        const newListItem = document.createElement('li');
-        newListItem.innerHTML = '<br>';
-        listInfo.listItem?.parentNode?.insertBefore(newListItem, listInfo.listItem?.nextSibling);
-        
-        // Set cursor in new list item
-        const range = document.createRange();
-        const selection = window.getSelection();
-        range.setStart(newListItem, 0);
-        range.setEnd(newListItem, 0);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      } else {
-        // In unordered list - convert to ordered list
-        if (listInfo.list) {
-          const ol = document.createElement('ol');
-          ol.innerHTML = listInfo.list.innerHTML;
-          listInfo.list.parentNode?.replaceChild(ol, listInfo.list);
-        }
+    let isInThisEditor = false;
+    let currentNode: Node | null = commonAncestor;
+    while (currentNode) {
+      if (currentNode === editorRef.current) {
+        isInThisEditor = true;
+        break;
       }
-    } else {
-      // Not in list - create new ordered list
-      document.execCommand("insertOrderedList");
+      currentNode = currentNode.parentNode;
     }
     
-    setTimeout(() => {
-      handleInput();
-      checkActiveFormats();
-    }, 10);
-  };
+    if (!isInThisEditor) {
+      // Create a new selection at the end of this editor
+      const newRange = document.createRange();
+      newRange.selectNodeContents(editorRef.current);
+      newRange.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+  }
+  
+  // Use browser's native command
+  document.execCommand("insertOrderedList");
+  
+  // Force re-render to update active formats
+  setTimeout(() => {
+    handleInput();
+    checkActiveFormats();
+  }, 10);
+};
 
-  const insertBulletList = () => {
-    editorRef.current?.focus();
+const insertBulletList = () => {
+  if (!editorRef.current) return;
+  
+  editorRef.current.focus();
+  
+  // Ensure the selection is within this editor
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const commonAncestor = range.commonAncestorContainer;
     
-    const listInfo = isInList();
-    
-    if (listInfo.inList) {
-      if (listInfo.listType === 'unordered') {
-        // Already in bullet list - add new list item
-        const newListItem = document.createElement('li');
-        newListItem.innerHTML = '<br>';
-        listInfo.listItem?.parentNode?.insertBefore(newListItem, listInfo.listItem?.nextSibling);
-        
-        // Set cursor in new list item
-        const range = document.createRange();
-        const selection = window.getSelection();
-        range.setStart(newListItem, 0);
-        range.setEnd(newListItem, 0);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      } else {
-        // In ordered list - convert to unordered list
-        if (listInfo.list) {
-          const ul = document.createElement('ul');
-          ul.innerHTML = listInfo.list.innerHTML;
-          listInfo.list.parentNode?.replaceChild(ul, listInfo.list);
-        }
+    let isInThisEditor = false;
+    let currentNode: Node | null = commonAncestor;
+    while (currentNode) {
+      if (currentNode === editorRef.current) {
+        isInThisEditor = true;
+        break;
       }
-    } else {
-      // Not in list - create new unordered list
-      document.execCommand("insertUnorderedList");
+      currentNode = currentNode.parentNode;
     }
     
-    setTimeout(() => {
-      handleInput();
-      checkActiveFormats();
-    }, 10);
-  };
+    if (!isInThisEditor) {
+      // Create a new selection at the end of this editor
+      const newRange = document.createRange();
+      newRange.selectNodeContents(editorRef.current);
+      newRange.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+  }
+  
+  document.execCommand("insertUnorderedList");
+  
+  // Force re-render to update active formats
+  setTimeout(() => {
+    handleInput();
+    checkActiveFormats();
+  }, 10);
+};
+
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -370,7 +537,26 @@ export const RichTextEditor = ({
   };
 
   const handleSelectionChange = useCallback(() => {
-    checkActiveFormats();
+    // Only check formats if the selection is within this editor
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount || !editorRef.current) return;
+    
+    const range = selection.getRangeAt(0);
+    const commonAncestor = range.commonAncestorContainer;
+    
+    let isInThisEditor = false;
+    let currentNode: Node | null = commonAncestor;
+    while (currentNode) {
+      if (currentNode === editorRef.current) {
+        isInThisEditor = true;
+        break;
+      }
+      currentNode = currentNode.parentNode;
+    }
+    
+    if (isInThisEditor) {
+      checkActiveFormats();
+    }
   }, []);
 
   useEffect(() => {
@@ -382,7 +568,7 @@ export const RichTextEditor = ({
 
   // Enhanced setAlignment function to handle lists properly
   const setAlignment = (alignment: string) => {
-    editorRef.current?.focus();
+    if (!editorRef.current) return;
     
     const commands: Record<string, string> = {
       left: "justifyLeft",
@@ -442,6 +628,8 @@ export const RichTextEditor = ({
   };
 
   const addLink = () => {
+    if (!editorRef.current) return;
+    
     const url = prompt("Enter URL:");
     if (url) {
       executeFormat("createLink", url);
@@ -449,6 +637,8 @@ export const RichTextEditor = ({
   };
 
   const addImage = () => {
+    if (!editorRef.current) return;
+    
     const url = prompt("Enter image URL:");
     if (url) {
       executeFormat("insertImage", url);
@@ -456,34 +646,18 @@ export const RichTextEditor = ({
   };
 
   const makeHeading = () => {
+    if (!editorRef.current) return;
+    
     executeFormat("formatBlock", "H3");
   };
 
   const addHorizontalRule = () => {
+    if (!editorRef.current) return;
+    
     executeFormat("insertHorizontalRule");
   };
 
-  // Enhanced executeFormat function
-  const executeFormat = (command: string, value?: string) => {
-    editorRef.current?.focus();
-    
-    // Save the current selection
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    // Check if selection is within this editor
-    if (!editorRef.current?.contains(selection.anchorNode)) return;
-    
-    // Execute the command
-    document.execCommand(command, false, value);
-    
-    // Force re-check of active formats after a short delay
-    setTimeout(() => {
-      checkActiveFormats();
-    }, 10);
-    
-    handleInput();
-  };
+
 
   // Add this to handle selection changes
   useEffect(() => {
@@ -687,15 +861,23 @@ export const RichTextEditor = ({
             type="button"
             variant="ghost"
             size="sm"
-            onMouseDown={(e: any) => e.preventDefault()}
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="h-10 w-9 p-0"
+            onMouseDown={(e:any) => e.preventDefault()}
+            onClick={() => {
+              if (editorRef.current) {
+                editorRef.current.focus();
+                setShowEmojiPicker(!showEmojiPicker);
+              }
+            }}
+            className="h-8 w-8 p-0 hover:bg-gray-200"
             title="Insert Emoji"
           >
             <Smile className="h-4 w-4" />
           </Button>
           {showEmojiPicker && (
-            <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto">
+            <div 
+              className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-64 overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               {Object.entries(emojiCategories).map(([category, emojis]) => (
                 <div key={category} className="p-2">
                   <div className="text-xs font-medium text-gray-600 mb-1 sticky top-0 bg-white">
@@ -753,6 +935,8 @@ export const RichTextEditor = ({
         ref={editorRef}
         contentEditable
         onInput={handleInput}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className="p-4 focus:outline-none text-sm leading-relaxed rich-text-editor"
         style={{ 
@@ -760,6 +944,7 @@ export const RichTextEditor = ({
           minHeight: minHeight
         }}
         data-placeholder={placeholder}
+        data-editor-id={id}
       />
       
       {/* Enhanced CSS for proper list styling, selection behavior, and improved visibility */}

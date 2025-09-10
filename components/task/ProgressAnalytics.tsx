@@ -2,6 +2,8 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { BarChart3, FileText, TrendingUp, Clock, AlertTriangle, CheckCircle, Target, Calendar, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { downloadWorklogExcel, TaskWorklog, TaskEffortReport, WorklogExcelRequest } from '@/app/services/data.service';
+import { useToast } from '@/hooks/use-toast';
 
 // Props interface
 interface ProgressAnalyticsProps {
@@ -15,45 +17,48 @@ interface ProgressAnalyticsProps {
     priority: string;
     subject: string;
   };
-  timesheetEntries?: Array<{
-    id: number;
-    startTime: string;
-    endTime: string;
-    workedHours: number;
-    comment: string;
-    actionDoneBy: {
-      id: string;
-      label: string;
-    };
-  }>;
+  timesheetEntries?: TaskWorklog[];
+  effortReports?: TaskEffortReport[];
   onClose: () => void;
-  viewType?: 'graph' | 'timesheet'; // Updated to 'timesheet'
+  viewType?: 'graph' | 'timesheet';
+  taskId: number;
 }
 
 const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({ 
   task, 
   timesheetEntries = [],
+  effortReports = [],
   onClose,
-  viewType = 'graph'
+  viewType = 'graph',
+  taskId
 }) => {
+  const { toast } = useToast();
+
   // Calculate analytics data
   const totalAllowedHours = task.estimatedHours + task.graceHours;
   const efficiency = (task.estimatedHours / task.actualHours) * 100;
   const overrun = Math.max(0, task.actualHours - task.estimatedHours);
   const utilizationRate = (task.actualHours / totalAllowedHours) * 100;
 
-  // Generate chart data
+  // Generate chart data from effort reports
   const hoursBreakdown = [
     { name: 'Estimated', hours: task.estimatedHours, fill: '#3b82f6' },
     { name: 'Actual', hours: task.actualHours, fill: '#ef4444' },
     { name: 'Grace', hours: task.graceHours, fill: '#f59e0b' }
   ];
 
-  const dailyProgress = Array.from({ length: 10 }, (_, i) => ({
-    day: `Day ${i + 1}`,
-    cumulative: Math.min(task.actualHours, (i + 1) * (task.actualHours / 10)),
-    planned: Math.min(task.estimatedHours, (i + 1) * (task.estimatedHours / 10))
-  }));
+  // Generate daily progress from effort reports
+  const dailyProgress = effortReports.length > 0 
+    ? Object.entries(effortReports[0]?.dailyWorkedHours || {}).map(([date, hours], index) => ({
+        day: new Date(date).toLocaleDateString(),
+        cumulative: hours,
+        planned: Math.min(task.estimatedHours, (index + 1) * (task.estimatedHours / 10))
+      }))
+    : Array.from({ length: 10 }, (_, i) => ({
+        day: `Day ${i + 1}`,
+        cumulative: Math.min(task.actualHours, (i + 1) * (task.actualHours / 10)),
+        planned: Math.min(task.estimatedHours, (i + 1) * (task.estimatedHours / 10))
+      }));
 
   const efficiencyData = [
     { category: 'On Time', value: Math.max(0, 100 - overrun), fill: '#10b981' },
@@ -77,29 +82,38 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
 
   const timesheetData = getTimesheetData();
 
-  // Function to download timesheet as CSV
-  const downloadTimesheet = () => {
-    const csvContent = [
-      ['Date', 'Hours', 'User', 'Description'],
-      ...timesheetData.map(entry => [
-        entry.date, 
-        entry.hours, 
-        entry.user || 'Unknown',
-        `"${entry.description}"`
-      ])
-    ].map(e => e.join(',')).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `timesheet-${task.subject.replace(/\s+/g, '-').toLowerCase()}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Function to download timesheet as CSV using the API
+  const downloadTimesheet = async () => {
+    try {
+      const response = await downloadWorklogExcel({
+        taskId: taskId
+      });
+      
+      const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `worklog-${task.subject.replace(/\s+/g, '-').toLowerCase()}.xlsx`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "Worklog Excel file downloaded successfully",
+      });
+    } catch (error) {
+      console.error('Error downloading worklog:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download worklog Excel file",
+        variant: "destructive",
+      });
+    }
   };
 
   const GraphView = () => (
@@ -143,7 +157,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               <YAxis />
               <Tooltip />
               <Line type="monotone" dataKey="cumulative" stroke="#ef4444" strokeWidth={2} name="Actual" />
-              <Line type="monotone" dataKey="planned" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" name="Planned" />
+              <Line type="monotone" dataKey="planned" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" name="Estimated" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -190,18 +204,36 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 {efficiency.toFixed(1)}%
               </span>
             </div>
-            <div className="flex justify-between items-center">
+            {/* <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Utilization Rate</span>
               <span className="font-semibold text-blue-600">
                 {utilizationRate.toFixed(1)}%
               </span>
-            </div>
+            </div> */}
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Hours Overrun</span>
               <span className={`font-semibold ${overrun > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 {overrun.toFixed(1)}h
               </span>
             </div>
+            {effortReports.length > 0 && (
+              <>
+                {/* <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Task Status</span>
+                  <span className={`font-semibold ${effortReports[0].isCompleted ? 'text-green-600' : 'text-blue-600'}`}>
+                    {effortReports[0].isCompleted ? 'Completed' : 'In Progress'}
+                  </span>
+                </div> */}
+                {effortReports[0].isOverdue && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Delay Hours</span>
+                    <span className="font-semibold text-red-600">
+                      {effortReports[0].delayHours || 0}h
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -216,7 +248,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
           Timesheet - {task.subject}
         </h4>
         <div className="flex gap-2">
-          {timesheetData.length > 0 && (
+          {(timesheetData.length > 0 || timesheetEntries.length > 0) && (
             <Button 
               variant="outline" 
               size="sm"
@@ -224,7 +256,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
               className="flex items-center gap-1"
             >
               <Download className="h-4 w-4" />
-              Download CSV
+              Download Excel
             </Button>
           )}
           <Button 
@@ -319,12 +351,12 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
                 {task.actualHours}h
               </span>
             </div>
-            <div className="flex justify-between">
+            {/* <div className="flex justify-between">
               <span className="text-sm text-gray-600">Variance:</span>
               <span className={`text-sm font-medium ${overrun > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 {overrun > 0 ? '+' : ''}{(task.actualHours - task.estimatedHours).toFixed(1)}h
               </span>
-            </div>
+            </div> */}
           </div>
         </div>
 
