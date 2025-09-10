@@ -1352,11 +1352,11 @@ const handleCloseModal = useCallback(() => {
             variant: "destructive",
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error saving task:", error);
         toast({
           title: "Error",
-          description: `Failed to ${isEdit ? "update" : "create"} task. Please try again.`,
+          description: error.messsge || `Failed to ${editingTask ? "update" : "create"} task. Please try again.`,
           variant: "destructive",
         });
       }
@@ -1383,11 +1383,11 @@ const handleCloseModal = useCallback(() => {
             variant: "destructive",
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error creating stage:", error);
         toast({
           title: "Error",
-          description: "Failed to create stage. Please try again.",
+          description: error.message,
           variant: "destructive",
         });
       }
@@ -1450,11 +1450,11 @@ const handleCloseModal = useCallback(() => {
             variant: "default",
           });
         }
-      } catch (error) {
+      } catch (error : any) {
         console.error("Error updating stage:", error);
         toast({
           title: "Error",
-          description: "Failed to update stage. Please try again.",
+          description: error.message,
           variant: "destructive",
         });
       } finally {
@@ -1494,11 +1494,11 @@ const handleCloseModal = useCallback(() => {
             variant: "destructive",
           });
         }
-      } catch (error) {
+      } catch (error : any) {
         console.error("Error deleting task:", error);
         toast({
           title: "Error",
-          description: "Failed to delete task. Please try again.",
+          description:error.message|| "Failed to delete task. Please try again.",
           variant: "destructive",
         });
       }
@@ -1569,11 +1569,11 @@ const handleCloseModal = useCallback(() => {
       } else {
         throw new Error(response.message || "Failed to delete stage");
       }
-    } catch (error) {
+    } catch (error :any) {
       console.error("Error deleting stage:", error);
       toast({
         title: "Error",
-        description: "Failed to delete stage. Please try again.",
+      description: error.message || "Failed to delete stage. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -1614,11 +1614,11 @@ const handleCloseModal = useCallback(() => {
         setIsStopTaskModalOpen(false);
         setTaskToStop(null);
         setStopTaskComment("");
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error stopping task:", error);
         toast({
           title: "Error",
-          description: "Failed to stop task. Please try again.",
+          description: error.message || "Failed to stop task. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -1660,11 +1660,11 @@ const handleCloseModal = useCallback(() => {
             setHasMoreTasks(true);
             await fetchTasksKanban(1, false, true);
           }
-        } catch (error) {
+        } catch (error :any) {
           console.error("Error starting task:", error);
           toast({
             title: "Error",
-            description: "Failed to start task. Please try again.",
+            description: error.message || "Failed to start task. Please try again.",
             variant: "destructive",
           });
         }
