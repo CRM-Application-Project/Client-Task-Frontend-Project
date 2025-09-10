@@ -195,11 +195,11 @@ function TaskReviewSection({
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       console.error("Error submitting review:", error);
       toast({
         title: "Error submitting review",
-        description: "Something went wrong. Please try again.",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -228,7 +228,7 @@ function TaskReviewSection({
             <div className="flex gap-2">
               <Button
                 variant={reviewDecision === "ACCEPT" ? "default" : "outline"}
-                className="flex-1"
+                className="flex-1 bg-brand-primary text-white hover:bg-brand-primary/90"
                 onClick={() => setReviewDecision("ACCEPT")}
               >
                 <ThumbsUp className="h-4 w-4 mr-2" /> Accept
@@ -266,6 +266,7 @@ function TaskReviewSection({
               Cancel
             </Button>
             <Button
+            className="bg-brand-primary text-white hover:bg-brand-primary/90"
               onClick={() => handleReviewSubmit(reviewDecision === "ACCEPT")}
               disabled={!reviewCommentText.trim() || isSubmitting}
             >
@@ -506,11 +507,11 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       console.error("Error updating start date:", error);
       toast({
         title: "Error",
-        description: "An error occurred while updating the start date",
+        description: error.message || "An error occurred while updating the start date",
         variant: "destructive",
       });
     }
@@ -553,11 +554,11 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       console.error("Error updating end date:", error);
       toast({
         title: "Error",
-        description: "An error occurred while updating the end date",
+        description: error.message||"An error occurred while updating the end date",
         variant: "destructive",
       });
     }

@@ -227,7 +227,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 onClick={() => onViewModeChange("kanban")}
                 className={`rounded-none ${
                   viewMode === "kanban"
-                    ? "bg-gray-900 text-white"
+                    ? "bg-gray-900 text-white hover:bg-gray-800"
                     : "text-gray-600"
                 }`}
               >
@@ -239,7 +239,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
                 onClick={() => onViewModeChange("grid")}
                 className={`rounded-none ${
                   viewMode === "grid"
-                    ? "bg-gray-900 text-white"
+                    ? "bg-gray-900 text-white hover:bg-gray-800"
                     : "text-gray-600"
                 }`}
               >

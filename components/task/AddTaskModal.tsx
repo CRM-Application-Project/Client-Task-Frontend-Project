@@ -181,7 +181,7 @@ export const AddTaskModal = ({
     isRecurring: false, // Added this field
     recurrenceRule: undefined,
   });
-const closeDateTimeRef = useRef(false);
+
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>({
     frequency: "WEEKLY",
     interval: 1,
@@ -313,52 +313,38 @@ const weekDays = [
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
- const getMinStartDate = useCallback(() => {
-    // For new tasks, always use current time
-    if (!editingTask) {
-      return getCurrentDateTime();
-    }
-    
-    // For edit tasks, only enforce current time when start date is being actively changed
-    if (dirtyFields.has("startDate") || touchedFields.has("startDate")) {
-      return getCurrentDateTime();
-    }
-    
-    // For edit tasks where start date isn't being modified, don't restrict
-    return undefined;
-  }, [editingTask, dirtyFields, touchedFields]);
-const isDateTimeInPast = (dateTimeString: string): boolean => {
-    if (!dateTimeString) return false;
-    try {
-      const selectedDate = new Date(dateTimeString);
-      const now = new Date();
-      return selectedDate < now;
-    } catch (error) {
-      console.error("Error checking if datetime is in past:", error);
-      return false;
-    }
-  };
+const getMinStartDate = useCallback(() => {
+  // For new tasks, use current time but allow some flexibility
+  if (!editingTask) {
+    return undefined; // Remove strict current time restriction for new tasks
+  }
+  
+  // For edit tasks, allow more flexibility unless actively changing start date
+  return undefined; // Remove all restrictions to allow users to pick any time
+}, [editingTask, dirtyFields, touchedFields]);
+
   // Get minimum end date (start date + 1 day)
- const getMinEndDate = useCallback(() => {
-    if (!formData.startDate) return getCurrentDateTime();
+const getMinEndDate = useCallback(() => {
+  if (!formData.startDate) return undefined; // Remove restriction if no start date
+  
+  try {
+    const startDate = new Date(formData.startDate);
+    // Allow same day if time is later, more flexible approach
+    const sameDay = new Date(startDate);
+    sameDay.setHours(startDate.getHours() + 1); // Minimum 1 hour later
     
-    try {
-      const startDate = new Date(formData.startDate);
-      const minEndDate = new Date(startDate);
-      minEndDate.setMinutes(startDate.getMinutes() + 30); // At least 30 minutes after start
-      
-      const year = minEndDate.getFullYear();
-      const month = String(minEndDate.getMonth() + 1).padStart(2, "0");
-      const day = String(minEndDate.getDate()).padStart(2, "0");
-      const hours = String(minEndDate.getHours()).padStart(2, "0");
-      const minutes = String(minEndDate.getMinutes()).padStart(2, "0");
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch (error) {
-      console.error("Error calculating min end date:", error);
-      return getCurrentDateTime();
-    }
-  }, [formData.startDate]);
+    const year = sameDay.getFullYear();
+    const month = String(sameDay.getMonth() + 1).padStart(2, "0");
+    const day = String(sameDay.getDate()).padStart(2, "0");
+    const hours = String(sameDay.getHours()).padStart(2, "0");
+    const minutes = String(sameDay.getMinutes()).padStart(2, "0");
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (error) {
+    console.error("Error calculating min end date:", error);
+    return undefined; // Don't restrict on error
+  }
+}, [formData.startDate]);
   const areValuesEqual = (original: any, current: any): boolean => {
     if (original === current) return true;
     if (original instanceof Date && typeof current === "string") {
@@ -371,8 +357,7 @@ const isDateTimeInPast = (dateTimeString: string): boolean => {
       val === null || val === undefined || val === "" ? "" : val;
     return normalizeEmpty(original) === normalizeEmpty(current);
   };
- // Enhanced validation for start date
-  
+
   // Validate individual field
 const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad: boolean = false): string => {
   // Don't validate on initial load unless it's an edit with existing data
@@ -423,73 +408,41 @@ const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad
       if (!value || value <= 0) return "Estimated hours must be greater than 0";
       break;
     case "startDate":
-      return validateStartDate(value);
+      if (!value) return "Start date is required";
+      
+      // More flexible start date validation
+      if (!editingTask || dirtyFields.has("startDate")) {
+        const startDate = new Date(value);
+        const now = new Date();
+        // Allow past dates with a warning instead of strict validation
+        // Only enforce future dates for new tasks
+        if (!editingTask && startDate < now) {
+          return "Start date should be in the future for new tasks";
+        }
+      }
+      break;
     case "endDate":
-      return validateEndDate(value);
-    case "graceHours":
-      // Optional field, no validation needed
-      break;
-    case "acceptanceCriteria":
-      // Optional field, no validation needed
-      break;
-    case "isRecurring":
-      // Boolean field, no validation needed
-      break;
-    case "recurrenceRule":
-      // Optional field, no validation needed
+      if (!value) return "End date is required";
+      if (value && formData.startDate) {
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(value);
+        
+        // More flexible end date validation
+        if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
+          // Only validate if end date is actually being changed
+          if (!touchedFields.has("endDate")) {
+            break;
+          }
+        }
+        
+        // Allow same day end date if time is later, or next day
+        if (endDate <= startDate) {
+          return "End date must be after start date";
+        }
+      }
       break;
     default:
       return "";
-  }
-  return "";
-};
-
-// Helper functions for date validation
-const validateStartDate = (value: string): string => {
-  if (!value) return "Start date is required";
-  
-  // Always validate start date against current time when it's being changed
-  if (!editingTask || dirtyFields.has("startDate")) {
-    const startDate = new Date(value);
-    const now = new Date();
-    
-    if (startDate < now) {
-      return "Start date must be in the future";
-    }
-  } else if (editingTask) {
-    // Even in edit mode, if start date is in the past and user tries to modify other fields,
-    // we should still allow it but warn about date consistency
-    const startDate = new Date(value);
-    const now = new Date();
-    
-    if (startDate < now && (dirtyFields.has("endDate") || touchedFields.has("startDate"))) {
-      return "Start date is in the past. Please update if needed.";
-    }
-  }
-  return "";
-};
-
-const validateEndDate = (value: string): string => {
-  if (!value) return "End date is required";
-  
-  if (value && formData.startDate) {
-    const startDate = new Date(formData.startDate);
-    const endDate = new Date(value);
-    
-    // For edit mode, be more flexible with date validation if neither date field is dirty
-    if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
-      // Only validate if end date is actually being changed
-      if (!touchedFields.has("endDate")) {
-        return "";
-      }
-    }
-    
-    const minEndDate = new Date(startDate);
-    minEndDate.setDate(startDate.getDate() + 1);
-    
-    if (endDate <= minEndDate) {
-      return "End date must be at least 1 day after start date";
-    }
   }
   return "";
 };
@@ -642,40 +595,35 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
     const hours = pad(date.getHours());
     const minutes = pad(date.getMinutes());
     const seconds = pad(date.getSeconds());
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
   };
 
   const getAdjustedCurrentTime = (): Date => {
-    const now = new Date();
-    const currentMinutes = now.getMinutes();
-    const currentSeconds = now.getSeconds();
-    if (currentSeconds > 0) {
-      now.setMinutes(currentMinutes + 1);
-    }
-    const minutesToAdd = 5 - (now.getMinutes() % 5);
-    if (minutesToAdd < 5) {
-      now.setMinutes(now.getMinutes() + minutesToAdd);
-    } else {
-      now.setMinutes(now.getMinutes() + 5);
-    }
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-    return now;
-  };
+  const now = new Date();
+  // Add 5 minutes to current time
+  now.setMinutes(now.getMinutes() + 5);
+  // Set seconds and milliseconds to 0 for cleaner time values
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  return now;
+};
 
-   const getCurrentDateTime = () => {
-    const now = new Date();
-    // Add 5 minutes to current time to ensure it's in the future
-    now.setMinutes(now.getMinutes() + 5);
-    
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
+const getCurrentDateTime = () => {
+  const now = new Date();
+  // Round to nearest 5 minutes for better UX
+  const minutes = Math.ceil(now.getMinutes() / 5) * 5;
+  now.setMinutes(minutes);
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutesStr = String(now.getMinutes()).padStart(2, "0");
+  
+  return `${year}-${month}-${day}T${hours}:${minutesStr}`;
+};
 
   const stageChanged = useMemo(() => {
     if (!editingTask || !originalFormData) return false;
@@ -975,73 +923,68 @@ const handleSubmit = (e: React.FormEvent) => {
     });
   }
 }
-
-  // Fixed date time change handler to auto-close
 const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
-    try {
-      if (!value) {
-        updateFormField(field, "");
-        setOpenDateTimeField(null);
-        return;
-      }
-
-      // Validate that the selected time is not in the past
-      if (isDateTimeInPast(value)) {
-        toast({
-          title: "Invalid Time",
-          description: "Please select a future date and time",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const date = new Date(value);
-      
-      if (isNaN(date.getTime())) {
-        console.error("Invalid datetime:", value);
-        return;
-      }
-
-      const isoString = date.toISOString();
-      updateFormField(field, isoString);
-      
-      // Set flag to close the datetime picker on next render
-      closeDateTimeRef.current = true;
-    } catch (error) {
-      console.error("Error handling datetime change:", error);
+  try {
+    if (!value) {
+      updateFormField(field, "");
+      setOpenDateTimeField(null);
+      return;
     }
-  };
-  useEffect(() => {
-    if (closeDateTimeRef.current && openDateTimeField) {
-      // Use a small delay to ensure the selection is processed
-      const timer = setTimeout(() => {
-        setOpenDateTimeField(null);
-        closeDateTimeRef.current = false;
-      }, 50);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [openDateTimeField]);
 
-  const formatDateTimeForInput = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "";
-      
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch (error) {
-      console.error("Error formatting datetime:", error);
-      return "";
-    }
-  };
+    // Parse the datetime-local value and create ISO string without timezone conversion
+    const [datePart, timePart] = value.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Create ISO string directly without timezone conversion
+    // Format: YYYY-MM-DDTHH:mm:ss.000Z (but preserving local time as if it were UTC)
+    const isoString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`;
+    
+    updateFormField(field, isoString);
+    
+    setTimeout(() => {
+      setOpenDateTimeField(null);
+    }, 100);
+  } catch (error) {
+    console.error("Error handling datetime change:", error);
+  }
+};
 
+const formatDateTimeForInput = (dateString: string) => {
+  if (!dateString) return "";
+  try {
+    // Parse ISO string directly without timezone conversion
+    // Input format: "2025-09-10T16:30:00.000Z"
+    // Output format: "2025-09-10T16:30"
+    
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      // Remove the Z and milliseconds, then extract date and time parts
+      const cleanedString = dateString.replace('.000Z', '').replace('Z', '');
+      const [datePart, timePart] = cleanedString.split('T');
+      
+      if (datePart && timePart) {
+        // Extract hours and minutes only (ignore seconds)
+        const [hours, minutes] = timePart.split(':');
+        return `${datePart}T${hours}:${minutes}`;
+      }
+    }
+    
+    // Fallback: use Date parsing (may have timezone issues but better than nothing)
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (error) {
+    console.error("Error formatting datetime:", error);
+    return "";
+  }
+};
   const getPreSelectedStageName = () => {
     if (preSelectedStageId && stages.length > 0) {
       const selectedStage = stages.find(
@@ -1368,57 +1311,39 @@ const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => 
 
           {/* Fixed Dates with Time Picker - Auto-close functionality */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-         <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
-              {dirtyFields.has("startDate") && (
-                <span className="text-blue-600 text-xs ml-1">• Modified</span>
-              )}
-            </Label>
-            <input
-              type="datetime-local"
-              value={formatDateTimeForInput(formData.startDate)}
-              onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
-              onFocus={() => setOpenDateTimeField("startDate")}
-              onBlur={() => {
-                handleFieldBlur("startDate");
-                // Close after blur with a small delay
-                setTimeout(() => setOpenDateTimeField(null), 200);
-              }}
-              className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
-              min={getMinStartDate()}
-              step="300" // 5-minute increments
-            />
-            {validationErrors.startDate && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              End Date & Time {!editingTask && <span className="text-red-500">*</span>}
-              {dirtyFields.has("endDate") && (
-                <span className="text-blue-600 text-xs ml-1">• Modified</span>
-              )}
-            </Label>
-            <input
-              type="datetime-local"
-              value={formatDateTimeForInput(formData.endDate)}
-              onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
-              onFocus={() => setOpenDateTimeField("endDate")}
-              onBlur={() => {
-                handleFieldBlur("endDate");
-                // Close after blur with a small delay
-                setTimeout(() => setOpenDateTimeField(null), 200);
-              }}
-              className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
-              min={getMinEndDate()}
-              step="300" // 5-minute increments
-            />
-            {validationErrors.endDate && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
-            )}
-          </div>
+<div className="space-y-2">
+  <Label className="text-sm font-medium text-foreground">
+    Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
+  </Label>
+  <input
+    type="datetime-local"
+    value={formatDateTimeForInput(formData.startDate)}
+    onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
+    onBlur={() => handleFieldBlur("startDate")}
+    className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
+    min={editingTask ? undefined : getCurrentDateTime()} // Only restrict for new tasks
+  />
+  {validationErrors.startDate && (
+    <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
+  )}
+</div>
+
+<div className="space-y-2">
+  <Label className="text-sm font-medium text-foreground">
+    End Date & Time {!editingTask && <span className="text-red-500">*</span>}
+  </Label>
+  <input
+    type="datetime-local"
+    value={formatDateTimeForInput(formData.endDate)}
+    onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
+    onBlur={() => handleFieldBlur("endDate")}
+    className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
+    min={formData.startDate ? formatDateTimeForInput(formData.startDate) : undefined}
+  />
+  {validationErrors.endDate && (
+    <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
+  )}
+</div>
         </div>
 
           {/* Grace Hours and Estimated Hours */}
@@ -1432,9 +1357,9 @@ const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => 
                 )}
               </Label>
               <Input
-                type="number"
-                min="0.5"
-                step="0.5"
+   
+                min="0"
+            
                 value={formData.estimatedHours || 0}
                 onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
                 onBlur={() => setTouchedFields(prev => new Set(prev).add("estimatedHours"))}
@@ -1454,9 +1379,9 @@ const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => 
                 )}
               </Label>
               <Input
-                type="number"
+            
                 min="0"
-                step="0.5"
+         
                 value={formData.graceHours || 0}
                 onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
                 onBlur={() => setTouchedFields(prev => new Set(prev).add("graceHours"))}
