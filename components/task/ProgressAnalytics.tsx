@@ -52,7 +52,7 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
     ? Object.entries(effortReports[0]?.dailyWorkedHours || {}).map(([date, hours], index) => ({
         day: new Date(date).toLocaleDateString(),
         cumulative: hours,
-        planned: Math.min(task.estimatedHours, (index + 1) * (task.estimatedHours / 10))
+        planned: Math.min(task.estimatedHours, (index + 1) )
       }))
     : Array.from({ length: 10 }, (_, i) => ({
         day: `Day ${i + 1}`,
@@ -150,11 +150,16 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         {/* Daily Progress Line Chart */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h5 className="font-medium text-gray-700 mb-3">Progress Over Time</h5>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={dailyProgress}>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={dailyProgress} margin={{ top: 5, right: 30, left: 60, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
+              <XAxis 
+                dataKey="day" 
+                label={{ value: 'Date', position: 'insideBottomMiddle', offset: 0 }}
+              />
+              <YAxis 
+                label={{ value: 'Time in Hours', angle: -90, position: 'insideMiddle', textAnchor: 'middle' }}
+              />
               <Tooltip />
               <Line type="monotone" dataKey="cumulative" stroke="#ef4444" strokeWidth={2} name="Actual" />
               <Line type="monotone" dataKey="planned" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" name="Estimated" />
