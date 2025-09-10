@@ -45,7 +45,7 @@ interface TaskFiltersProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClearAllFilters: () => void;
-  onApplyFilters: () => void;
+  onApplyFilters: (filters?: ExtendedTaskFilters) => void;
   viewMode: "kanban" | "grid";
   onViewModeChange: (mode: "kanban" | "grid") => void;
   stages?: TaskStage[];
@@ -78,26 +78,35 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
     setLocalFilters(filters);
   }, [filters]);
 
+  useEffect(() => {
+    // Sync search query when it changes from parent
+    // This ensures that when clear all filters is called, the search input is also cleared
+  }, [searchQuery]);
+
   const clearDateRange = () => {
     const updatedFilters = { ...localFilters, dateRange: undefined };
     setLocalFilters(updatedFilters);
-    onFiltersChange(updatedFilters);
+    // Don't call onFiltersChange here - wait for Apply Filters
   };
 
   const handleDateRangeSelect = (range: { from: Date; to: Date }) => {
     const updatedFilters = { ...localFilters, dateRange: range };
     setLocalFilters(updatedFilters);
-    onFiltersChange(updatedFilters);
+    // Don't call onFiltersChange here - wait for Apply Filters
   };
 
   const handleFilterChange = (key: string, value: any) => {
     const updatedFilters = { ...localFilters, [key]: value };
+    console.log(`Filter changed - ${key}:`, value, 'Updated filters:', updatedFilters);
     setLocalFilters(updatedFilters);
+    // Don't call onFiltersChange here - wait for Apply Filters
   };
 
   const handleApplyFilters = () => {
+    console.log('Applying filters:', localFilters);
     onFiltersChange(localFilters);
-    onApplyFilters();
+    // Pass the local filters directly to avoid state timing issues
+    onApplyFilters(localFilters);
   };
 
   const handleClearFilters = () => {
@@ -110,6 +119,11 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
       stageIds: undefined,
     };
     setLocalFilters(clearedFilters);
+    // Clear search query in parent component
+    onSearchChange("");
+    // Update filters in parent first
+    onFiltersChange(clearedFilters);
+    // Then call clear all which will handle the API call with the cleared filters
     onClearAllFilters();
   };
 

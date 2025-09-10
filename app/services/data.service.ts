@@ -1212,6 +1212,95 @@ export const getTimesheet = async (
   const res = await getRequest(API_CONSTANTS.TASK.GET_TIMESHEET(taskId));
   return res as GetTimesheetResponse;
 };
+
+
+export interface TaskEffortReport {
+  taskId: number;
+  userId: string;
+  userName: string;
+  totalHoursSpent: number;
+  estimatedHours: number;
+  efficiencyPercentage: number;
+  isCompleted: boolean;
+  completedAt: string | null;
+  isOverdue: boolean;
+  delayHours: number | null;
+  expectedEndDate: string;
+  dailyWorkedHours: Record<string, number>; // e.g. { "2025-09-09": 2.5 }
+}
+
+export interface GetTaskEffortsResponse {
+  isSuccess: boolean;
+  message: string;
+  data: TaskEffortReport[];
+}
+
+export const getTaskEfforts = async (
+  taskId: number | string
+): Promise<GetTaskEffortsResponse> => {
+  const res = await getRequest(API_CONSTANTS.TASK.GET_EFFORTS(taskId));
+  return res as GetTaskEffortsResponse;
+};
+
+
+export interface TaskWorklog {
+  id: number;
+  taskId: number;
+  taskInstanceId: number | null; // some worklogs may link to instances
+  occurrenceDate: string | null;
+
+  startTime: string;   // e.g. "2025-09-09T14:36:19.463051"
+  endTime: string;     // e.g. "2025-09-09T14:36:25.128341"
+  workedHours: number; // e.g. 2.5
+  hoursSpent: number;  // e.g. 2.5
+  estimatedHours: number; // e.g. 4.0
+
+  comment: string;
+  actionDoneBy: {
+    id: string;
+    label: string;
+  };
+
+  taskEndDate: string;
+}
+
+export interface GetTaskWorklogsResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    totalPages: number;
+    totalElements: number;
+    pageSize: number;
+    pageIndex: number;
+    numberOfElementsInThePage: number;
+    content: TaskWorklog[];
+  };
+}
+export const getTaskWorklogs = async (
+  taskId: number | string
+): Promise<GetTaskWorklogsResponse> => {
+  const res = await getRequest(
+    `${API_CONSTANTS.TASK.GET_WORKLOGS}?taskId=${taskId}`
+  );
+  return res as GetTaskWorklogsResponse;
+};
+
+export interface WorklogExcelRequest {
+  taskId: number | string;
+}
+
+export type WorklogExcelResponse = Blob; // since API returns Excel file
+export const downloadWorklogExcel = async (
+  params: WorklogExcelRequest
+): Promise<WorklogExcelResponse> => {
+  const url = `${API_CONSTANTS.TASK.WORKLOGS_TO_EXCEL}?taskId=${params.taskId}`;
+
+  // We need to fetch as Blob (Excel file)
+  const res = await getRequest(url, { responseType: "blob" });
+  return res as WorklogExcelResponse;
+};
+
+
 export const decideTask = async (
   taskId: number | string,
   payload: TaskDecisionRequest
