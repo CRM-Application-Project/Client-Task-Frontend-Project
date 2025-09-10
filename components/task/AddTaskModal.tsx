@@ -1519,7 +1519,6 @@ const handleSubmit = (e: React.FormEvent) => {
                 onChange={handleDescriptionChange}
                 placeholder="Enter Description"
                 minHeight="120px"
-                id="task-description-editor"
               />
             </div>
             {validationErrors.description && (
@@ -1541,7 +1540,6 @@ const handleSubmit = (e: React.FormEvent) => {
               onChange={(value) => updateFormField("acceptanceCriteria", value)}
               placeholder="Start typing your acceptance criteria..."
               minHeight="200px"
-              id="acceptance-criteria-editor"
             />
           </div>
 

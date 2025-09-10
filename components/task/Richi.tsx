@@ -68,7 +68,6 @@ interface RichTextEditorProps {
 
 export const RichTextEditor = ({
   value,
-  id,
   onChange,
   placeholder,
   className,
@@ -658,27 +657,7 @@ const insertBulletList = () => {
     executeFormat("insertHorizontalRule");
   };
 
-  // Enhanced executeFormat function
-  const executeFormat = (command: string, value?: string) => {
-    editorRef.current?.focus();
-    
-    // Save the current selection
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    // Check if selection is within this editor
-    if (!editorRef.current?.contains(selection.anchorNode)) return;
-    
-    // Execute the command
-    document.execCommand(command, false, value);
-    
-    // Force re-check of active formats after a short delay
-    setTimeout(() => {
-      checkActiveFormats();
-    }, 10);
-    
-    handleInput();
-  };
+
 
   // Add this to handle selection changes
   useEffect(() => {
@@ -882,7 +861,7 @@ const insertBulletList = () => {
             type="button"
             variant="ghost"
             size="sm"
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={(e:any) => e.preventDefault()}
             onClick={() => {
               if (editorRef.current) {
                 editorRef.current.focus();
