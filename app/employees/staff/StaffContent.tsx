@@ -902,10 +902,7 @@ export default function StaffPage() {
                                                             Create
                                                           </span>
                                                         </label>
-                                                        <div className="text-xs text-gray-500 mt-1">
-                                                          Required for
-                                                          Edit/Delete
-                                                        </div>
+                                                      
                                                       </div>
 
                                                       <div className="flex flex-col items-center">
@@ -921,14 +918,8 @@ export default function StaffPage() {
                                                                 e.target.checked
                                                               )
                                                             }
-                                                            disabled={
-                                                              !editPermissions.canCreate
-                                                            }
-                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded ${
-                                                              !editPermissions.canCreate
-                                                                ? "opacity-50 cursor-not-allowed"
-                                                                : ""
-                                                            }`}
+                                                           
+                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded`}
                                                           />
                                                           <span
                                                             className={`ml-2 text-sm ${
@@ -940,11 +931,7 @@ export default function StaffPage() {
                                                             Edit
                                                           </span>
                                                         </label>
-                                                        {!editPermissions.canCreate && (
-                                                          <Tooltip title="Requires Create permission">
-                                                            <AlertCircle className="h-3 w-3 text-amber-500 mt-1" />
-                                                          </Tooltip>
-                                                        )}
+                                                       
                                                       </div>
 
                                                       <div className="flex flex-col items-center">
@@ -960,14 +947,8 @@ export default function StaffPage() {
                                                                 e.target.checked
                                                               )
                                                             }
-                                                            disabled={
-                                                              !editPermissions.canCreate
-                                                            }
-                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded ${
-                                                              !editPermissions.canCreate
-                                                                ? "opacity-50 cursor-not-allowed"
-                                                                : ""
-                                                            }`}
+                                                          
+                                                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 rounded `}
                                                           />
                                                           <span
                                                             className={`ml-2 text-sm ${
@@ -979,11 +960,7 @@ export default function StaffPage() {
                                                             Delete
                                                           </span>
                                                         </label>
-                                                        {!editPermissions.canCreate && (
-                                                          <Tooltip title="Requires Create permission">
-                                                            <AlertCircle className="h-3 w-3 text-amber-500 mt-1" />
-                                                          </Tooltip>
-                                                        )}
+                                                       
                                                       </div>
                                                     </div>
                                                   ) : (
@@ -1288,9 +1265,7 @@ export default function StaffPage() {
                                                   >
                                                     Create
                                                   </Checkbox>
-                                                  <Tooltip title="Required for Edit/Delete permissions">
-                                                    <AlertCircle className="h-3 w-3 text-amber-500 ml-1" />
-                                                  </Tooltip>
+                                                  
                                                 </div>
 
                                                 <div className="flex items-center">
@@ -1304,14 +1279,8 @@ export default function StaffPage() {
                                                         e.target.checked
                                                       )
                                                     }
-                                                    disabled={
-                                                      !newModulePermissions.canCreate
-                                                    }
-                                                    className={
-                                                      !newModulePermissions.canCreate
-                                                        ? "opacity-50"
-                                                        : ""
-                                                    }
+                                                  
+                                                    
                                                   >
                                                     Edit
                                                   </Checkbox>
@@ -1328,29 +1297,15 @@ export default function StaffPage() {
                                                         e.target.checked
                                                       )
                                                     }
-                                                    disabled={
-                                                      !newModulePermissions.canCreate
-                                                    }
-                                                    className={
-                                                      !newModulePermissions.canCreate
-                                                        ? "opacity-50"
-                                                        : ""
-                                                    }
+                                                    
+                                                    
                                                   >
                                                     Delete
                                                   </Checkbox>
                                                 </div>
                                               </div>
 
-                                              {!newModulePermissions.canCreate &&
-                                                (newModulePermissions.canEdit ||
-                                                  newModulePermissions.canDelete) && (
-                                                  <div className="mt-2 text-xs text-amber-600 flex items-center">
-                                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                                    Enable Create permission to
-                                                    use Edit/Delete
-                                                  </div>
-                                                )}
+                                             
                                             </div>
                                           )}
 

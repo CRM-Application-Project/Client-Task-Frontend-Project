@@ -72,6 +72,7 @@ export const UpdateStaffModal = ({
     firstName?: string;
     lastName?: string;
     emailAddress?: string;
+    contactNumber?: string;
     departmentId?: string;
   }>({});
 
@@ -166,7 +167,7 @@ export const UpdateStaffModal = ({
     });
 
     // Validate required fields
-    if (name === 'firstName' || name === 'lastName' || name === 'emailAddress') {
+    if (name === 'firstName' || name === 'lastName' || name === 'emailAddress'|| name === 'contactNumber') {
       setFieldErrors(prev => ({
         ...prev,
         [name]: !value.trim() ? 'This field is required' : undefined
@@ -211,12 +212,18 @@ export const UpdateStaffModal = ({
     }
   };
 
-  const handleContactNumberChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const value = e.target.value.replace(/\D/g, "");
-    setFormData({ ...formData, contactNumber: value });
-  };
+const handleContactNumberChange = (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const value = e.target.value.replace(/\D/g, "");
+  setFormData({ ...formData, contactNumber: value });
+
+  // Validate contact number field
+  setFieldErrors(prev => ({
+    ...prev,
+    contactNumber: !value.trim() ? 'This field is required' : undefined
+  }));
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,6 +243,9 @@ export const UpdateStaffModal = ({
       }
       if (!formData.emailAddress?.trim()) {
         errors.emailAddress = 'This field is required';
+      }
+      if (!formData.contactNumber) {
+        errors.contactNumber = 'This field is required';
       }
       if (!formData.departmentId) {
         errors.departmentId = 'This field is required';
@@ -415,19 +425,23 @@ export const UpdateStaffModal = ({
                 </div>
 
                 {/* Contact */}
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">Contact Number</Label>
-                  <Input
-                    type="tel"
-                    id="contactNumber"
-                    name="contactNumber"
-                    placeholder="Enter contact number"
-                    value={formData.contactNumber}
-                    onChange={handleContactNumberChange}
-                    maxLength={10}
-                    minLength={10}
-                  />
-                </div>
+               <div className="sm:col-span-2 space-y-2">
+  <Label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">Contact Number *</Label>
+  <Input
+    type="tel"
+    id="contactNumber"
+    name="contactNumber"
+    placeholder="Enter contact number"
+    value={formData.contactNumber}
+    onChange={handleContactNumberChange}
+    maxLength={10}
+    minLength={10}
+    className={fieldErrors.contactNumber ? 'border-red-500' : ''}
+  />
+  {fieldErrors.contactNumber && (
+    <p className="mt-1 text-sm text-red-600">{fieldErrors.contactNumber}</p>
+  )}
+</div>
 
                 {/* Date of Birth */}
                 <div>
