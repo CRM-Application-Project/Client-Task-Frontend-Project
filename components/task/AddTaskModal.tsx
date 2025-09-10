@@ -599,13 +599,14 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
   };
 
   const getAdjustedCurrentTime = (): Date => {
-    const now = new Date();
-    // Remove the restrictive 5-minute interval rounding
-    // Just ensure seconds and milliseconds are set to 0 for cleaner time values
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-    return now;
-  };
+  const now = new Date();
+  // Add 5 minutes to current time
+  now.setMinutes(now.getMinutes() + 5);
+  // Set seconds and milliseconds to 0 for cleaner time values
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  return now;
+};
 
 const getCurrentDateTime = () => {
   const now = new Date();
