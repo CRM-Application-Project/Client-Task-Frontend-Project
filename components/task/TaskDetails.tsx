@@ -30,9 +30,12 @@ import {
   getAssignDropdown,
   decideTask,
   addTimesheet,
-  getTimesheet,
+  getTaskWorklogs,
+  getTaskEfforts,
+  downloadWorklogExcel,
   AddTimesheetRequest,
-  TimesheetEntry as APITimesheetEntry,
+  TaskWorklog,
+  TaskEffortReport,
   // --- Optional: wire these when your backend is ready ---
   // getTaskComments,
   // addTaskComment,
@@ -89,6 +92,10 @@ interface TaskDetailsResponse {
   actualHours: number;
   actionType: string;
   requiredReviewAction: boolean;
+  isEditable: boolean;
+  isRecurring: boolean;
+  showTimeSheetEntry: boolean;
+  recurrenceRule?: string;
   status: string;
   comment: string;
   assignee: {
@@ -101,7 +108,7 @@ interface TaskDetailsResponse {
     label: string;
     avatar?: string;
   };
-  approver: { // Changed from reviewer
+  approver: {
     id: string;
     label: string;
   };
@@ -115,8 +122,10 @@ interface TaskDetailsResponse {
   acceptanceInfo: {
     acceptanceCriteria: string;
   };
-  isRecurring?: boolean;
-  recurrenceRule?: string;
+  currentInstance?: {
+    id: number;
+    occurrenceDate: string;
+  };
 }
 
 interface DocumentUrlResponse {
@@ -301,7 +310,8 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [isEditingEndDate, setIsEditingEndDate] = useState(false);
   const [activeAnalyticsView, setActiveAnalyticsView] = useState<'graph' | 'timesheet' | null>(null);
-  const [timesheetEntries, setTimesheetEntries] = useState<APITimesheetEntry[]>([]);
+  const [worklogEntries, setWorklogEntries] = useState<TaskWorklog[]>([]);
+  const [effortReports, setEffortReports] = useState<TaskEffortReport[]>([]);
   const [isEditingAcceptanceCriteria, setIsEditingAcceptanceCriteria] =
     useState(false);
   const [users, setUsers] = useState<AssignDropdown[]>([]);
@@ -317,16 +327,30 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const fetchTimesheetData = useCallback(async () => {
+  const fetchWorklogData = useCallback(async () => {
     try {
-      const response = await getTimesheet(taskId);
+      const response = await getTaskWorklogs(taskId);
       if (response.isSuccess) {
-        setTimesheetEntries(response.data);
+        // Handle paginated response - worklog entries are in response.data.content
+        setWorklogEntries(response.data.content || []);
       } else {
-        console.error("Failed to fetch timesheet data:", response.message);
+        console.error("Failed to fetch worklog data:", response.message);
       }
     } catch (error) {
-      console.error("Error fetching timesheet data:", error);
+      console.error("Error fetching worklog data:", error);
+    }
+  }, [taskId]);
+
+  const fetchEffortReports = useCallback(async () => {
+    try {
+      const response = await getTaskEfforts(taskId);
+      if (response.isSuccess) {
+        setEffortReports(response.data);
+      } else {
+        console.error("Failed to fetch effort reports:", response.message);
+      }
+    } catch (error) {
+      console.error("Error fetching effort reports:", error);
     }
   }, [taskId]);
 
@@ -374,9 +398,10 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
     if (taskId) {
       fetchTaskDetails();
       fetchUsers();
-      fetchTimesheetData();
+      fetchWorklogData();
+      fetchEffortReports();
     }
-  }, [taskId, fetchTaskDetails, fetchTimesheetData]);
+  }, [taskId, fetchTaskDetails, fetchWorklogData, fetchEffortReports]);
 
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
@@ -659,9 +684,10 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           description: "Timesheet entry created successfully",
         });
         
-        // Refresh task details to update hours
+        // Refresh task details to update hours and worklog data
         await fetchTaskDetails();
-        await fetchTimesheetData();
+        await fetchWorklogData();
+        await fetchEffortReports();
       } else {
         throw new Error(response.message);
       }
@@ -907,15 +933,17 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
                 <FileText className="h-3 w-3" />
                 View Timesheet
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsTimesheetModalOpen(true)}
-                className="flex items-center gap-2 text-xs"
-              >
-                <Plus className="h-3 w-3" />
-                Create Time Sheet
-              </Button>
+              {task.showTimeSheetEntry && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTimesheetModalOpen(true)}
+                  className="flex items-center gap-2 text-xs"
+                >
+                  <Plus className="h-3 w-3" />
+                  Create Time Sheet
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -933,9 +961,11 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
               priority: task.priority,
               subject: task.subject
             }}
-            timesheetEntries={timesheetEntries}
+            timesheetEntries={worklogEntries}
+            effortReports={effortReports}
             onClose={() => setActiveAnalyticsView(null)}
             viewType={activeAnalyticsView}
+            taskId={taskId}
           />
         )}
 
@@ -950,6 +980,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
                 value={editedDescription}
                 onChange={setEditedDescription}
                 placeholder="Enter task description..."
+                id="task-details-description-editor"
               />
               <div className="flex justify-end gap-2 mt-2">
                 <Button
@@ -1002,6 +1033,7 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
               onChange={setEditedAcceptanceCriteria}
               placeholder="Start typing your acceptance criteria..."
               className=""
+              id="task-details-acceptance-criteria-editor"
             />
 
             <div className="flex justify-end gap-2 mt-2">

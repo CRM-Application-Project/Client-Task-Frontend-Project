@@ -40,6 +40,11 @@ export const API_CONSTANTS = {
     DELETE: "/tasks/{taskId}",
     ADD_TIMESHEET: (taskId: number | string) => `/tasks/${taskId}/timesheet`,
     GET_TIMESHEET: (taskId: number | string) => `/tasks/${taskId}/timesheet`,
+        GET_EFFORTS: (taskId: number | string) => `/tasks/reports/${taskId}/efforts`,
+    GET_WORKLOGS: "/tasks/worklogs", // query param taskId
+      WORKLOGS_TO_EXCEL: "/tasks/reports/worklogs/to-excel",
+
+
     GET_BY_ID: "/tasks/{taskId}",
     FILTER: "/tasks/filter",
     DROPDOWN: "/task/stages/dropdown",
