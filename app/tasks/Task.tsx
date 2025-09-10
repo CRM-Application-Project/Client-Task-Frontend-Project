@@ -1039,11 +1039,11 @@ const transformTasks = useCallback(
           });
           setTasks([]);
         }
-      } catch (error) {
+      } catch (error:any) {
         console.error("Error fetching tasks:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch tasks. Please try again.",
+          description: error.message || "Failed to fetch tasks. Please try again.",
           variant: "destructive",
         });
         setTasks([]);

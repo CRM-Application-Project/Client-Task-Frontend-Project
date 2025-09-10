@@ -152,11 +152,11 @@ export function CreateTimesheetModal({ isOpen, onClose, onSubmit }: CreateTimesh
       });
       
       onClose();
-    } catch (error) {
+    } catch (error:any) {
       console.error('Error creating timesheet:', error);
       toast({
         title: "Error",
-        description: "Failed to create timesheet entry. Please try again.",
+        description: error.message,
         variant: "destructive",
       });
     } finally {

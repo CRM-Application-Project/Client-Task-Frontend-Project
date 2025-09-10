@@ -106,11 +106,11 @@ const ProgressAnalytics: React.FC<ProgressAnalyticsProps> = ({
         title: "Success",
         description: "Worklog Excel file downloaded successfully",
       });
-    } catch (error) {
+    } catch (error:any) {
       console.error('Error downloading worklog:', error);
       toast({
         title: "Error",
-        description: "Failed to download worklog Excel file",
+        description: error.message,
         variant: "destructive",
       });
     }
