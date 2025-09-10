@@ -314,40 +314,35 @@ const weekDays = [
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
 const getMinStartDate = useCallback(() => {
-  // For new tasks, always use current time
+  // For new tasks, use current time but allow some flexibility
   if (!editingTask) {
-    return getCurrentDateTime();
+    return undefined; // Remove strict current time restriction for new tasks
   }
   
-  // For edit tasks, only enforce current time when start date is being actively changed
-  if (dirtyFields.has("startDate") || touchedFields.has("startDate")) {
-    return getCurrentDateTime();
-  }
-  
-  // For edit tasks where start date isn't being modified, don't restrict
-  return undefined;
+  // For edit tasks, allow more flexibility unless actively changing start date
+  return undefined; // Remove all restrictions to allow users to pick any time
 }, [editingTask, dirtyFields, touchedFields]);
 
   // Get minimum end date (start date + 1 day)
 const getMinEndDate = useCallback(() => {
-  if (!formData.startDate) return getCurrentDateTime();
+  if (!formData.startDate) return undefined; // Remove restriction if no start date
   
   try {
     const startDate = new Date(formData.startDate);
-    const nextDay = new Date(startDate);
-    nextDay.setDate(startDate.getDate());
+    // Allow same day if time is later, more flexible approach
+    const sameDay = new Date(startDate);
+    sameDay.setHours(startDate.getHours() + 1); // Minimum 1 hour later
     
-    // Always enforce minimum end date based on start date for both add and edit modes
-    const year = nextDay.getFullYear();
-    const month = String(nextDay.getMonth() + 1).padStart(2, "0");
-    const day = String(nextDay.getDate()).padStart(2, "0");
-    const hours = String(nextDay.getHours()).padStart(2, "0");
-    const minutes = String(nextDay.getMinutes()).padStart(2, "0");
+    const year = sameDay.getFullYear();
+    const month = String(sameDay.getMonth() + 1).padStart(2, "0");
+    const day = String(sameDay.getDate()).padStart(2, "0");
+    const hours = String(sameDay.getHours()).padStart(2, "0");
+    const minutes = String(sameDay.getMinutes()).padStart(2, "0");
     
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   } catch (error) {
     console.error("Error calculating min end date:", error);
-    return getCurrentDateTime();
+    return undefined; // Don't restrict on error
   }
 }, [formData.startDate]);
   const areValuesEqual = (original: any, current: any): boolean => {
@@ -415,22 +410,14 @@ const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad
     case "startDate":
       if (!value) return "Start date is required";
       
-      // Always validate start date against current time when it's being changed
+      // More flexible start date validation
       if (!editingTask || dirtyFields.has("startDate")) {
         const startDate = new Date(value);
         const now = new Date();
-        
-        if (startDate < now) {
-          return "Start date must be in the future";
-        }
-      } else if (editingTask) {
-        // Even in edit mode, if start date is in the past and user tries to modify other fields,
-        // we should still allow it but warn about date consistency
-        const startDate = new Date(value);
-        const now = new Date();
-        
-        if (startDate < now && (dirtyFields.has("endDate") || touchedFields.has("startDate"))) {
-          return "Start date is in the past. Please update if needed.";
+        // Allow past dates with a warning instead of strict validation
+        // Only enforce future dates for new tasks
+        if (!editingTask && startDate < now) {
+          return "Start date should be in the future for new tasks";
         }
       }
       break;
@@ -440,7 +427,7 @@ const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad
         const startDate = new Date(formData.startDate);
         const endDate = new Date(value);
         
-        // For edit mode, be more flexible with date validation if neither date field is dirty
+        // More flexible end date validation
         if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
           // Only validate if end date is actually being changed
           if (!touchedFields.has("endDate")) {
@@ -448,11 +435,9 @@ const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad
           }
         }
         
-        const minEndDate = new Date(startDate);
-        minEndDate.setDate(startDate.getDate() + 1);
-        
-        if (endDate <= minEndDate) {
-          return "End date must be at least 1 day after start date";
+        // Allow same day end date if time is later, or next day
+        if (endDate <= startDate) {
+          return "End date must be after start date";
         }
       }
       break;
@@ -615,17 +600,8 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
 
   const getAdjustedCurrentTime = (): Date => {
     const now = new Date();
-    const currentMinutes = now.getMinutes();
-    const currentSeconds = now.getSeconds();
-    if (currentSeconds > 0) {
-      now.setMinutes(currentMinutes + 1);
-    }
-    const minutesToAdd = 5 - (now.getMinutes() % 5);
-    if (minutesToAdd < 5) {
-      now.setMinutes(now.getMinutes() + minutesToAdd);
-    } else {
-      now.setMinutes(now.getMinutes() + 5);
-    }
+    // Remove the restrictive 5-minute interval rounding
+    // Just ensure seconds and milliseconds are set to 0 for cleaner time values
     now.setSeconds(0);
     now.setMilliseconds(0);
     return now;
@@ -950,6 +926,7 @@ const handleSubmit = (e: React.FormEvent) => {
         return;
       }
 
+      // Accept the datetime value as-is without validation restrictions
       const date = new Date(value);
       
       if (isNaN(date.getTime())) {
@@ -1328,7 +1305,7 @@ const handleSubmit = (e: React.FormEvent) => {
     onFocus={() => setOpenDateTimeField("startDate")}
     onBlur={() => handleFieldBlur("startDate")}
     className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
-    min={getMinStartDate()}
+    step="60"
   />
   {validationErrors.startDate && (
     <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
@@ -1348,7 +1325,7 @@ const handleSubmit = (e: React.FormEvent) => {
     onFocus={() => setOpenDateTimeField("endDate")}
     onBlur={() => handleFieldBlur("endDate")}
     className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
-    min={getMinEndDate()}
+    step="60"
   />
   {validationErrors.endDate && (
     <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
