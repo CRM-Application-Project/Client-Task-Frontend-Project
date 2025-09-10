@@ -32,6 +32,19 @@ import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
 import { z } from "zod";
 
+// -------------------- Theme Caching Strategy --------------------
+/*
+ * Theme data is cached in localStorage with subdomain-specific keys to avoid unnecessary API calls.
+ * Cache Structure:
+ * - themeData_{subdomain}: Stores the theme configuration
+ * - themeData_timestamp_{subdomain}: Stores the cache timestamp
+ * - logoUrl: Stores the logo URL (shared across subdomains)
+ * 
+ * Cache Duration: 30 days (1 month)
+ * Cache is validated on each page load and refreshed if expired or corrupted.
+ * Use clearThemeCache() to manually clear cache when needed.
+ */
+
 // -------------------- Validation Constants --------------------
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 // Password: >=8, lowercase, uppercase, number, special char (same semantics as your register page)
@@ -352,6 +365,38 @@ export default function LoginPage() {
     };
   }, []);
 
+  // -------------------- Theme Cache Utility Functions --------------------
+  const clearThemeCache = (subDomainName?: string) => {
+    if (subDomainName) {
+      // Clear cache for specific subdomain
+      localStorage.removeItem(`themeData_${subDomainName}`);
+      localStorage.removeItem(`themeData_timestamp_${subDomainName}`);
+    } else {
+      // Clear all theme cache
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('themeData_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    // Also clear the old general keys
+    localStorage.removeItem("themeData");
+    localStorage.removeItem("logoUrl");
+  };
+
+  const isThemeCacheValid = (subDomainName: string, cacheDuration = 30 * 24 * 60 * 60 * 1000) => {
+    const cacheKey = `themeData_${subDomainName}`;
+    const cacheTimestampKey = `themeData_timestamp_${subDomainName}`;
+    
+    const cachedTheme = localStorage.getItem(cacheKey);
+    const cacheTimestamp = localStorage.getItem(cacheTimestampKey);
+    
+    return cachedTheme && 
+           cacheTimestamp && 
+           (Date.now() - parseInt(cacheTimestamp)) < cacheDuration;
+  };
+
   // -------------------- Theme Verification Effect --------------------
   useEffect(() => {
     const verifyUserAndSetTheme = async () => {
@@ -362,7 +407,59 @@ export default function LoginPage() {
 
         console.log("Extracted subdomain:", subDomainName);
 
-        // Call verifyUser endpoint
+        // Check for cached theme data first
+        const cacheKey = `themeData_${subDomainName}`;
+        const cacheTimestampKey = `themeData_timestamp_${subDomainName}`;
+        const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days (1 month) in milliseconds
+
+        const cachedTheme = localStorage.getItem(cacheKey);
+        const cacheTimestamp = localStorage.getItem(cacheTimestampKey);
+        const cachedLogoUrl = localStorage.getItem("logoUrl");
+
+        // Check for force refresh parameter in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceRefresh = urlParams.get('refreshTheme') === 'true';
+
+        if (forceRefresh) {
+          console.log("Force refresh requested, clearing cache");
+          clearThemeCache(subDomainName);
+        }
+
+        // Check if cache is valid (exists and not expired)
+        const isCacheValid = 
+          !forceRefresh &&
+          cachedTheme && 
+          cacheTimestamp && 
+          (Date.now() - parseInt(cacheTimestamp)) < CACHE_DURATION;
+
+        if (isCacheValid) {
+          console.log("Using cached theme data");
+          try {
+            const parsedThemeData = JSON.parse(cachedTheme);
+            
+            // Apply cached theme data
+            setThemeData({ 
+              logoUrl: cachedLogoUrl || "/default-logo.png", 
+              whiteLabelData: parsedThemeData 
+            });
+            applyThemeToDOM(parsedThemeData);
+            
+            // Set cached logo
+            if (cachedLogoUrl) {
+              setLogoUrl(cachedLogoUrl);
+            }
+            
+            return; // Exit early, no need to call API
+          } catch (parseError) {
+            console.error("Error parsing cached theme data:", parseError);
+            // Clear corrupted cache and proceed with API call
+            localStorage.removeItem(cacheKey);
+            localStorage.removeItem(cacheTimestampKey);
+          }
+        }
+
+        // If no valid cache, call API
+        console.log("Fetching fresh theme data from API");
         const verifyResponse = await verifyUser(subDomainName, "web");
 
         console.log("Verify user response:", verifyResponse);
@@ -381,7 +478,11 @@ export default function LoginPage() {
             setThemeData({ logoUrl, whiteLabelData });
             applyThemeToDOM(whiteLabelData);
 
-            // Optionally store theme data in localStorage for persistence
+            // Cache the theme data with timestamp
+            localStorage.setItem(cacheKey, JSON.stringify(whiteLabelData));
+            localStorage.setItem(cacheTimestampKey, Date.now().toString());
+            
+            // Also keep the old key for backward compatibility
             localStorage.setItem("themeData", JSON.stringify(whiteLabelData));
           }
         } else {
@@ -878,11 +979,11 @@ export default function LoginPage() {
 
         let redirectPath = "/not-found";
 
-        // Check if user is SUPER_ADMIN
-        if (profileResponse.userRole === "SUPER_ADMIN") {
-          redirectPath = "/dashboard";
-        } else if (!profileResponse.isPasswordUpdated) {
+        // Check password update status first
+        if (!profileResponse.isPasswordUpdated) {
           redirectPath = "/reset-password";
+        } else if (profileResponse.userRole === "SUPER_ADMIN") {
+          redirectPath = "/dashboard";
         } else {
           redirectPath = getFirstAccessibleModule(userModules);
         }
