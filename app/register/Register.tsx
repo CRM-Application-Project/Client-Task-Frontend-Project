@@ -171,7 +171,7 @@ const resetForm = () => {
   setShowPassword(false);
   setShowCompanyInfo(true);
   setIsFormValid(false);
-  
+ 
   // Reset file input
   const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
   if (fileInput) {
@@ -191,7 +191,7 @@ const SuccessModal = () => (
       >
         <X className="h-5 w-5 text-gray-500" />
       </button>
-      
+     
       <div className="mb-6 pt-4">
         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="h-8 w-8 text-gray-600" />
@@ -788,7 +788,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
   if (!canSubmit) return;
 
   setIsLoading(true);
-  
+ 
   try {
     // Create the registration data object
     const registerData = {
@@ -842,7 +842,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
       // Show success modal and reset form
       setShowSuccessModal(true);
       resetForm();
-      
+     
       toast({
         title: "Registration Successful",
         description: "Your account has been created successfully!",
@@ -851,9 +851,9 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
     } else {
       // Handle API response failure
       const errorMessage = response?.message || "Registration failed. Please check your information and try again.";
-      
+     
       console.error('Registration failed:', response);
-      
+     
       toast({
         title: "Registration Failed",
         description: errorMessage,
@@ -861,13 +861,13 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
         duration: 5000,
       });
     }
-    
+   
   } catch (error: any) {
     console.error("Registration error details:", error);
-    
+   
     let errorMessage = "An unexpected error occurred. Please try again later.";
     let serverErrorMessage = "";
-    
+   
     // Extract error message from different possible error structures
     if (error?.response?.data?.errorMessage) {
       serverErrorMessage = error.response.data.errorMessage;
@@ -890,18 +890,18 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
     } else if (error?.message) {
       errorMessage = error.message;
     }
-    
+   
     // Try to map server error to specific field if we have a server error message
     if (serverErrorMessage) {
       const fieldName = mapServerErrorToField(serverErrorMessage);
-      
+     
       if (fieldName) {
         // Set the server error for the specific field
-        setServerErrors(prev => ({ 
-          ...prev, 
-          [fieldName]: serverErrorMessage 
+        setServerErrors(prev => ({
+          ...prev,
+          [fieldName]: serverErrorMessage
         }));
-        
+       
         // Show a more generic toast message when we have field-specific errors
         toast({
           title: "Registration Failed",
@@ -909,17 +909,17 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
           variant: "destructive",
           duration: 5000,
         });
-        
+       
         // Scroll to the field with error (optional)
         const fieldElement = document.getElementById(fieldName);
         if (fieldElement) {
-          fieldElement.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
+          fieldElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
           });
           fieldElement.focus();
         }
-        
+       
       } else {
         // Show full error in toast if we can't map it to a specific field
         toast({
@@ -938,7 +938,7 @@ const renderValidationStatus = (fieldName: FieldName): React.ReactNode => {
         duration: 5000,
       });
     }
-    
+   
   } finally {
     setIsLoading(false);
   }
@@ -948,7 +948,7 @@ const [serverErrors, setServerErrors] = useState<ValidationErrors>(initialFieldE
 // Add a function to map server error messages to specific fields
 const mapServerErrorToField = (errorMessage: string): FieldName | null => {
   const message = errorMessage.toLowerCase();
-  
+ 
   if (message.includes('gst number') || message.includes('gst')) {
     return 'gstNumber';
   }
@@ -970,7 +970,7 @@ const mapServerErrorToField = (errorMessage: string): FieldName | null => {
   if (message.includes('password')) {
     return 'password';
   }
-  
+ 
   return null;
 };
 const clearServerError = (fieldName: FieldName) => {
@@ -982,19 +982,19 @@ const clearServerError = (fieldName: FieldName) => {
   if (serverErrors[field]) {
     return "border-destructive";
   }
-  
+ 
   // Then client-side validation
   if (touchedFields[field] && fieldErrors[field]) {
     return "border-destructive";
   } else if (touchedFields[field] && !fieldErrors[field] && (formData as any)[field]) {
     return "border-green-500";
   }
-  
+ 
   return "";
 };
 
 
-  
+ 
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewTheme, setPreviewTheme] = useState<ThemePalette | null>(null);
   const [fullScreenPreview, setFullScreenPreview] = useState(false);
@@ -1554,7 +1554,7 @@ const clearServerError = (fieldName: FieldName) => {
                             {renderValidationStatus("gstNumber")}
                           </div>
                         </div>
-                        
+                       
                         <div className="space-y-4">
                           <Label className="text-sm font-medium text-foreground">
                             Company Logo (Optional)
@@ -1705,7 +1705,7 @@ const clearServerError = (fieldName: FieldName) => {
                                       className="h-3 w-1/4 rounded"
                                       style={{
                                         backgroundColor:
-                                          theme.brandSettings.secondaryColor,
+                                          theme.brandSettings.textColor,
                                       }}
                                     />
                                   </div>
@@ -1725,7 +1725,7 @@ const clearServerError = (fieldName: FieldName) => {
                                     className="w-4 h-4 rounded-full border"
                                     style={{
                                       backgroundColor:
-                                        theme.brandSettings.secondaryColor,
+                                        theme.brandSettings.textColor,
                                     }}
                                     title="Secondary Color"
                                   />
@@ -1733,7 +1733,7 @@ const clearServerError = (fieldName: FieldName) => {
                                     className="w-4 h-4 rounded-full border"
                                     style={{
                                       backgroundColor:
-                                        theme.brandSettings.headerBgColor,
+                                        theme.brandSettings.secondaryColor,
                                     }}
                                     title="Header Background"
                                   />
@@ -1871,7 +1871,7 @@ const clearServerError = (fieldName: FieldName) => {
             opacity: 1;
           }
         }
-        
+       
         @keyframes slide-in-left {
           from {
             transform: translateX(-100%);
@@ -1882,7 +1882,7 @@ const clearServerError = (fieldName: FieldName) => {
             opacity: 1;
           }
         }
-        
+       
         @keyframes slide-in-right {
           from {
             transform: translateX(100%);
@@ -1893,7 +1893,7 @@ const clearServerError = (fieldName: FieldName) => {
             opacity: 1;
           }
         }
-        
+       
         @keyframes fade-in {
           from {
             opacity: 0;
@@ -1908,15 +1908,15 @@ const clearServerError = (fieldName: FieldName) => {
         .animate-scale-in {
           animation: scale-in 0.3s ease-out;
         }
-        
+       
         .animate-slide-in-left {
           animation: slide-in-left 0.6s ease-out;
         }
-        
+       
         .animate-slide-in-right {
           animation: slide-in-right 0.6s ease-out;
         }
-        
+       
         .animate-fade-in {
           animation: fade-in 0.4s ease-out;
         }
@@ -1924,16 +1924,16 @@ const clearServerError = (fieldName: FieldName) => {
         .scrollbar-thin::-webkit-scrollbar {
           width: 6px;
         }
-        
+       
         .scrollbar-thin::-webkit-scrollbar-track {
           background: #f1f5f9;
         }
-        
+       
         .scrollbar-thin::-webkit-scrollbar-thumb {
           background: #cbd5e1;
           border-radius: 3px;
         }
-        
+       
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
           background: #94a3b8;
         }
