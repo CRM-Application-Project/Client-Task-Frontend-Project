@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TaskPerformer } from "@/app/services/data.service";
-import { CheckCircle2, XCircle, ClipboardList } from "lucide-react";
+import { CheckCircle2, XCircle, ClipboardList, Clock } from "lucide-react";
 
 interface TasksTopStaffCardProps {
   topPerformers?: TaskPerformer[];
@@ -82,7 +82,7 @@ export default function TasksTopStaffCard({
                 </div>
 
                 {/* Middle stats */}
-                <div className="grid grid-cols-2 gap-4 text-center sm:w-[30%]">
+                <div className="grid grid-cols-3 gap-4 text-center sm:w-[40%]">
                   <div>
                     <div className="text-[12px] text-slate-500">Total Tasks</div>
                     <div className="text-slate-900 font-semibold">
@@ -93,7 +93,14 @@ export default function TasksTopStaffCard({
                     <div className="text-[12px] text-slate-500">Completed</div>
                     <div className="flex items-center justify-center gap-1 text-green-600 font-semibold">
                       <CheckCircle2 className="h-4 w-4" />
-                      {Math.round((staff.completedPercentage / 100) * staff.totalTasks)}
+                      {staff.completedTasks || Math.round((staff.completedPercentage / 100) * staff.totalTasks)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[12px] text-slate-500">Ongoing</div>
+                    <div className="flex items-center justify-center gap-1 text-orange-600 font-semibold">
+                      <Clock className="h-4 w-4" />
+                      {staff.ongoingTasks || (staff.totalTasks - (staff.completedTasks || Math.round((staff.completedPercentage / 100) * staff.totalTasks)))}
                     </div>
                   </div>
                 </div>

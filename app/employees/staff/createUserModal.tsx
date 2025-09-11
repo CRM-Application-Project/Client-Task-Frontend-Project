@@ -954,7 +954,7 @@ const getAvailableModules = () => {
             key={moduleAccess.moduleId}
             className="border rounded p-3 relative"
           >
-            {!isRequiredForStaff && (
+            
               <Button
                 type="button"
                 variant="ghost"
@@ -964,22 +964,9 @@ const getAvailableModules = () => {
               >
                 <X className="h-4 w-4" />
               </Button>
-            )}
+        
             
-            {isRequiredForStaff && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="absolute top-2 right-2">
-                      <AlertCircle className="h-4 w-4 text-gray-400" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>This module is required for staff users</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            
 
             <div className="font-medium mb-2">
               {formatText(moduleData?.name || moduleAccess.moduleName)}
