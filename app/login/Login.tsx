@@ -31,23 +31,11 @@ import {
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
 import { z } from "zod";
+import { generateFCMToken, initTokenRefreshHandler, preRegisterServiceWorker } from "../firebase";
 
-// -------------------- Theme Caching Strategy --------------------
-/*
- * Theme data is cached in localStorage with subdomain-specific keys to avoid unnecessary API calls.
- * Cache Structure:
- * - themeData_{subdomain}: Stores the theme configuration
- * - themeData_timestamp_{subdomain}: Stores the cache timestamp
- * - logoUrl: Stores the logo URL (shared across subdomains)
- * 
- * Cache Duration: 30 days (1 month)
- * Cache is validated on each page load and refreshed if expired or corrupted.
- * Use clearThemeCache() to manually clear cache when needed.
- */
 
 // -------------------- Validation Constants --------------------
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-// Password: >=8, lowercase, uppercase, number, special char (same semantics as your register page)
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
@@ -90,6 +78,12 @@ interface WhiteLabelData {
 interface ThemeData {
   logoUrl?: string;
   whiteLabelData?: WhiteLabelData;
+}
+
+declare global {
+  interface Window {
+    fcmCleanup?: () => void;
+  }
 }
 
 interface UserModuleAccess {
@@ -168,46 +162,38 @@ export default function LoginPage() {
 
   // -------------------- Theme Helper Functions --------------------
   const getSubdomain = (host: string): string => {
-    // Remove port number if present
     const hostWithoutPort = host.split(":")[0];
 
-    // Handle localhost and IP addresses
     if (
       hostWithoutPort.includes("localhost") ||
       hostWithoutPort.match(/^\d+\.\d+\.\d+\.\d+$/)
     ) {
-      // For local development, check if it has a subdomain prefix
       const parts = hostWithoutPort.split(".");
       if (parts.length > 1 && parts[0] !== "www" && parts[0] !== "localhost") {
-        return parts[0]; // Return the subdomain part
+        return parts[0];
       }
-      return "seabed2crest"; // Default for local development
+      return "seabed2crest";
     }
 
-    // For production domains with subdomains
     const parts = hostWithoutPort.split(".");
     if (parts.length > 2) {
-      return parts[0]; // Return the subdomain part
+      return parts[0];
     }
 
-    return "seabed2crest"; // Default if no subdomain detected
+    return "seabed2crest";
   };
 
   const adjustBrightness = (hex: string, percent: number): string => {
-    // Remove # if present
     let color = hex.replace("#", "");
 
-    // Parse r, g, b values
     let r = parseInt(color.substring(0, 2), 16);
     let g = parseInt(color.substring(2, 4), 16);
     let b = parseInt(color.substring(4, 6), 16);
 
-    // Adjust brightness
     r = Math.max(0, Math.min(255, Math.round(r + r * percent)));
     g = Math.max(0, Math.min(255, Math.round(g + g * percent)));
     b = Math.max(0, Math.min(255, Math.round(b + b * percent)));
 
-    // Convert back to hex
     return `#${r.toString(16).padStart(2, "0")}${g
       .toString(16)
       .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
@@ -232,7 +218,6 @@ export default function LoginPage() {
     const headerBg = headerBgColor || primary;
     const headerText = headerTextColor || surface;
 
-    // Create or update style element
     let styleElement = document.getElementById("dynamic-theme-styles");
     if (!styleElement) {
       styleElement = document.createElement("style");
@@ -242,33 +227,26 @@ export default function LoginPage() {
 
     styleElement.textContent = `
       :root {
-        /* Override base palette with brand colors */
         --color-primary: ${primary};
         --color-secondary: ${secondary};
         --color-accent: ${adjustBrightness(secondary, 0.3)};
         --color-surface: ${surface};
         
-        /* Brand Palette */
         --brand-primary: ${primary};
         --brand-secondary: ${secondary};
         
-        /* Text Colors */
         --text-primary: ${text};
         --text-secondary: ${adjustBrightness(text, 0.7)};
         --text-white: ${headerText};
         
-        /* Button Colors */
         --button-primary-background: ${primary};
         --button-primary-hover: ${adjustBrightness(primary, -0.2)};
         
-        /* Background Colors */
         --background-primary: ${surface};
         
-        /* Sidebar Colors */
         --sidebar-background: ${primary};
         --sidebar-foreground: ${headerText};
         
-        /* Additional theme-specific overrides */
         --background: ${surface};
         --foreground: ${text};
         --card: ${surface};
@@ -283,9 +261,22 @@ export default function LoginPage() {
     `;
   };
 
+  // Pre-register service worker on component mount
+  useEffect(() => {
+    const preRegisterSW = async () => {
+      try {
+        await preRegisterServiceWorker();
+        console.log('✅ Service worker pre-registered');
+      } catch (error) {
+        console.log('⚠️ Service worker pre-registration not critical:', error);
+      }
+    };
+    
+    preRegisterSW();
+  }, []);
+
   // -------------------- Prevent Layout Shifts on Desktop --------------------
   useEffect(() => {
-    // Add CSS to prevent layout shifts on desktop
     const style = document.createElement('style');
     style.textContent = `
       .login-container {
@@ -325,7 +316,6 @@ export default function LoginPage() {
         will-change: auto !important;
       }
       
-      /* Disable all transitions and animations on focus */
       input:focus, textarea:focus, select:focus {
         transition: none !important;
         -webkit-transition: none !important;
@@ -333,7 +323,6 @@ export default function LoginPage() {
         -webkit-animation: none !important;
       }
       
-      /* Prevent any transforms on the entire layout */
       .login-container * {
         backface-visibility: hidden !important;
         -webkit-backface-visibility: hidden !important;
@@ -357,7 +346,6 @@ export default function LoginPage() {
     `;
     document.head.appendChild(style);
 
-    // Cleanup function
     return () => {
       if (document.head.contains(style)) {
         document.head.removeChild(style);
@@ -365,124 +353,31 @@ export default function LoginPage() {
     };
   }, []);
 
-  // -------------------- Theme Cache Utility Functions --------------------
-  const clearThemeCache = (subDomainName?: string) => {
-    if (subDomainName) {
-      // Clear cache for specific subdomain
-      localStorage.removeItem(`themeData_${subDomainName}`);
-      localStorage.removeItem(`themeData_timestamp_${subDomainName}`);
-    } else {
-      // Clear all theme cache
-      const keys = Object.keys(localStorage);
-      keys.forEach(key => {
-        if (key.startsWith('themeData_')) {
-          localStorage.removeItem(key);
-        }
-      });
-    }
-    // Also clear the old general keys
-    localStorage.removeItem("themeData");
-    localStorage.removeItem("logoUrl");
-  };
-
-  const isThemeCacheValid = (subDomainName: string, cacheDuration = 30 * 24 * 60 * 60 * 1000) => {
-    const cacheKey = `themeData_${subDomainName}`;
-    const cacheTimestampKey = `themeData_timestamp_${subDomainName}`;
-    
-    const cachedTheme = localStorage.getItem(cacheKey);
-    const cacheTimestamp = localStorage.getItem(cacheTimestampKey);
-    
-    return cachedTheme && 
-           cacheTimestamp && 
-           (Date.now() - parseInt(cacheTimestamp)) < cacheDuration;
-  };
-
   // -------------------- Theme Verification Effect --------------------
   useEffect(() => {
     const verifyUserAndSetTheme = async () => {
       try {
-        // Extract subdomain from current URL
         const host = window.location.hostname;
         const subDomainName = getSubdomain(host);
 
         console.log("Extracted subdomain:", subDomainName);
 
-        // Check for cached theme data first
-        const cacheKey = `themeData_${subDomainName}`;
-        const cacheTimestampKey = `themeData_timestamp_${subDomainName}`;
-        const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days (1 month) in milliseconds
-
-        const cachedTheme = localStorage.getItem(cacheKey);
-        const cacheTimestamp = localStorage.getItem(cacheTimestampKey);
-        const cachedLogoUrl = localStorage.getItem("logoUrl");
-
-        // Check for force refresh parameter in URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const forceRefresh = urlParams.get('refreshTheme') === 'true';
-
-        if (forceRefresh) {
-          console.log("Force refresh requested, clearing cache");
-          clearThemeCache(subDomainName);
-        }
-
-        // Check if cache is valid (exists and not expired)
-        const isCacheValid = 
-          !forceRefresh &&
-          cachedTheme && 
-          cacheTimestamp && 
-          (Date.now() - parseInt(cacheTimestamp)) < CACHE_DURATION;
-
-        if (isCacheValid) {
-          console.log("Using cached theme data");
-          try {
-            const parsedThemeData = JSON.parse(cachedTheme);
-            
-            // Apply cached theme data
-            setThemeData({ 
-              logoUrl: cachedLogoUrl || "/default-logo.png", 
-              whiteLabelData: parsedThemeData 
-            });
-            applyThemeToDOM(parsedThemeData);
-            
-            // Set cached logo
-            if (cachedLogoUrl) {
-              setLogoUrl(cachedLogoUrl);
-            }
-            
-            return; // Exit early, no need to call API
-          } catch (parseError) {
-            console.error("Error parsing cached theme data:", parseError);
-            // Clear corrupted cache and proceed with API call
-            localStorage.removeItem(cacheKey);
-            localStorage.removeItem(cacheTimestampKey);
-          }
-        }
-
-        // If no valid cache, call API
-        console.log("Fetching fresh theme data from API");
         const verifyResponse = await verifyUser(subDomainName, "web");
 
         console.log("Verify user response:", verifyResponse);
 
         if (verifyResponse.isSuccess && verifyResponse.data) {
-          // Store logoUrl in localStorage and state
           const logoUrl = verifyResponse.data.logoUrl;
           if (logoUrl) {
             localStorage.setItem("logoUrl", logoUrl);
             setLogoUrl(logoUrl);
           }
 
-          // Store and apply theme data
           const whiteLabelData = verifyResponse.data.whiteLabelData;
           if (whiteLabelData) {
             setThemeData({ logoUrl, whiteLabelData });
             applyThemeToDOM(whiteLabelData);
 
-            // Cache the theme data with timestamp
-            localStorage.setItem(cacheKey, JSON.stringify(whiteLabelData));
-            localStorage.setItem(cacheTimestampKey, Date.now().toString());
-            
-            // Also keep the old key for backward compatibility
             localStorage.setItem("themeData", JSON.stringify(whiteLabelData));
           }
         } else {
@@ -490,12 +385,10 @@ export default function LoginPage() {
             "Failed to verify user or get theme data:",
             verifyResponse.message
           );
-          // Set default logo if verification fails
           setLogoUrl("/default-logo.png");
         }
       } catch (error) {
         console.error("Failed to verify user and set theme:", error);
-        // Set default logo on error
         setLogoUrl("/default-logo.png");
       }
     };
@@ -529,11 +422,9 @@ export default function LoginPage() {
     } else {
       setPassword(value);
     }
-    // mark as touched on first interaction
     if (!loginTouched[field]) {
       setLoginTouched((prev) => ({ ...prev, [field]: true }));
     }
-    // live validate
     const err = validateLoginField(field, value);
     setLoginErrors((prev) => ({ ...prev, [field]: err }));
   };
@@ -545,8 +436,6 @@ export default function LoginPage() {
     const err = validateLoginField(field, field === "email" ? email : password);
     setLoginErrors((prev) => ({ ...prev, [field]: err }));
   };
-
-
 
   const emailValid = useMemo(
     () => validateLoginField("email", email) === "",
@@ -887,11 +776,10 @@ export default function LoginPage() {
     return "/not-found";
   };
 
-  // -------------------- Login Submit --------------------
+  // -------------------- Login Submit (Optimized) --------------------
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Force touch + validate both fields
     setLoginTouched({ email: true, password: true });
     const emailErr = validateLoginField("email", email);
     const pwdErr = validateLoginField("password", password);
@@ -977,13 +865,36 @@ export default function LoginPage() {
           duration: 5000,
         });
 
+        // ✅ OPTIMIZED FCM Token Setup After Login
+        try {
+          console.log('🔔 Setting up notifications after login...');
+          
+          // Initialize token refresh handler (this will handle all token management)
+          const cleanup = initTokenRefreshHandler("WEB");
+          
+          // Store cleanup function for logout
+          window.fcmCleanup = cleanup;
+          
+          // Generate FCM token only once (no duplicate calls)
+          setTimeout(async () => {
+            const tokenResult = await generateFCMToken("WEB");
+            if (tokenResult.success) {
+              console.log('✅ FCM token setup completed successfully');
+            } else {
+              console.warn('⚠️ FCM token setup completed with warnings:', tokenResult.message);
+            }
+          }, 1000); // Delay to avoid race conditions
+          
+        } catch (fcmError) {
+          console.error('❌ FCM setup error (non-critical):', fcmError);
+        }
+
         let redirectPath = "/not-found";
 
-        // Check password update status first
-        if (!profileResponse.isPasswordUpdated) {
-          redirectPath = "/reset-password";
-        } else if (profileResponse.userRole === "SUPER_ADMIN") {
+        if (profileResponse.userRole === "SUPER_ADMIN") {
           redirectPath = "/dashboard";
+        } else if (!profileResponse.isPasswordUpdated) {
+          redirectPath = "/reset-password";
         } else {
           redirectPath = getFirstAccessibleModule(userModules);
         }
@@ -1015,7 +926,7 @@ export default function LoginPage() {
     }
   };
 
-  // -------------------- UI --------------------
+  // -------------------- UI (keeping the same structure) --------------------
   return (
     <div className="login-container min-h-screen bg-background flex flex-col lg:flex-row">
       {/* Left Side - Image */}
@@ -1032,7 +943,6 @@ export default function LoginPage() {
             sizes="(max-width: 1024px) 0vw, 50vw"
           />
         </div>
-        {/* Overlay */}
         <div className="absolute inset-0 bg-primary/10" />
       </div>
 
@@ -1041,14 +951,12 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
           {/* Logo and Branding */}
           <div className="text-center space-y-3 sm:space-y-4">
-            {/* Logo Section */}
             <div>
               <img
                 src={logoUrl}
                 alt="Logo"
                 className="mx-auto h-12 sm:h-14 md:h-16 w-auto max-w-[200px]"
                 onError={(e) => {
-                  // Fallback to default logo if the loaded logo fails
                   (e.target as HTMLImageElement).src = "/default-logo.png";
                 }}
               />
@@ -1115,8 +1023,6 @@ export default function LoginPage() {
                     />
                     {renderValidationStatus("email")}
                   </div>
-
-               
 
                   <div className="space-y-2">
                     <Label
@@ -1200,9 +1106,8 @@ export default function LoginPage() {
                   </Button>
                 </form>
               ) : (
-                // Forgot Password Flow
+                // Forgot Password Flow (keeping the same structure)
                 <div className="space-y-4 sm:space-y-6">
-                  {/* Step 1: Email verification */}
                   {!otpSent && (
                     <div className="space-y-4">
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -1229,7 +1134,6 @@ export default function LoginPage() {
                     </div>
                   )}
 
-                  {/* Step 2: OTP Verification */}
                   {otpSent && !otpVerified && (
                     <div className="space-y-4">
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -1274,7 +1178,6 @@ export default function LoginPage() {
                     </div>
                   )}
 
-                  {/* Step 3: Password Reset */}
                   {otpVerified && (
                     <div className="space-y-4 animate-slide-down">
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -1399,13 +1302,6 @@ export default function LoginPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Additional Links */}
-          {!forgotPasswordMode && (
-            <div className="text-center space-y-4">
-              {/* You can add additional links here if needed */}
-            </div>
-          )}
         </div>
       </div>
     </div>
