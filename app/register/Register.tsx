@@ -160,7 +160,7 @@ export default function RegisterPage() {
 const resetForm = () => {
   setFormData(initialFormData);
   setFieldErrors(initialFieldErrors);
-  setServerErrors(initialFieldErrors); // Add this line
+  setServerErrors(initialFieldErrors);
   setTouchedFields(initialTouchedFields);
   setCompanyLogo(null);
   setExtractedColors([]);
@@ -171,11 +171,14 @@ const resetForm = () => {
   setShowPassword(false);
   setShowCompanyInfo(true);
   setIsFormValid(false);
- 
-  // Reset file input
+  setIsLogoHovered(false);
+  
+  // Reset file input with the same technique
   const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
   if (fileInput) {
     fileInput.value = '';
+    fileInput.type = 'text';
+    fileInput.type = 'file';
   }
 };
 
@@ -239,54 +242,70 @@ const SuccessModal = () => (
   };
 
   // ---------- LOGO UPLOAD HANDLING ----------
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  
+  // Clear any previous state first
+  setIsUploading(false);
+  
+  if (!file) {
+    console.log('No file selected');
+    return;
+  }
 
-    setOriginalFileName(file.name);
+  console.log('File selected:', file.name, file.type, file.size);
+  setOriginalFileName(file.name);
 
-    if (!file.type.match("image.*")) {
-      toast({
-        title: "Invalid File",
-        description: "Please upload an image file",
-        variant: "destructive",
-        duration: 5000,
-      });
-      return;
-    }
+  if (!file.type.match("image.*")) {
+    toast({
+      title: "Invalid File",
+      description: "Please upload an image file",
+      variant: "destructive",
+      duration: 5000,
+    });
+    // Reset the input
+    event.target.value = '';
+    return;
+  }
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "File Too Large",
-        description: "Please upload an image smaller than 2MB",
-        variant: "destructive",
-        duration: 5000,
-      });
-      return;
-    }
+  if (file.size > 2 * 1024 * 1024) {
+    toast({
+      title: "File Too Large",
+      description: "Please upload an image smaller than 2MB",
+      variant: "destructive",
+      duration: 5000,
+    });
+    // Reset the input
+    event.target.value = '';
+    return;
+  }
 
-    setIsUploading(true);
-    const reader = new FileReader();
+  setIsUploading(true);
+  const reader = new FileReader();
 
-    reader.onload = (e) => {
-      const imageDataUrl = e.target?.result as string;
-      setCompanyLogo(imageDataUrl);
-      extractColorsFromImage(imageDataUrl);
-      setIsUploading(false);
-    };
-
-    reader.onerror = () => {
-      toast({
-        title: "Upload Error",
-        description: "Failed to read the image file",
-        variant: "destructive",
-        duration: 5000,
-      });
-      setIsUploading(false);
-    };
-
-    reader.readAsDataURL(file);
+  reader.onload = (e) => {
+    const imageDataUrl = e.target?.result as string;
+    console.log('File loaded successfully');
+    setCompanyLogo(imageDataUrl);
+    extractColorsFromImage(imageDataUrl);
+    setIsUploading(false);
   };
+
+  reader.onerror = (error) => {
+    console.error('FileReader error:', error);
+    toast({
+      title: "Upload Error",
+      description: "Failed to read the image file",
+      variant: "destructive",
+      duration: 5000,
+    });
+    setIsUploading(false);
+    // Reset the input
+    event.target.value = '';
+  };
+
+  reader.readAsDataURL(file);
+};
 
   const extractColorsFromImage = async (imageSrc: string) => {
     const img = new globalThis.Image();
@@ -1001,18 +1020,29 @@ const clearServerError = (fieldName: FieldName) => {
   const [isLogoHovered, setIsLogoHovered] = useState(false);
 
   // Add this function to handle logo deletion
-  const handleDeleteLogo = () => {
-    setCompanyLogo(null);
-    setExtractedColors([]);
-    setGeneratedThemes([]);
-    setSelectedTheme(null);
-    setShowThemeSelection(false);
-    toast({
-      title: "Logo Removed",
-      description: "Company logo has been removed",
-      duration: 5000,
-    });
-  };
+ const handleDeleteLogo = () => {
+  setCompanyLogo(null);
+  setExtractedColors([]);
+  setGeneratedThemes([]);
+  setSelectedTheme(null);
+  setShowThemeSelection(false);
+  setOriginalFileName(undefined);
+  setIsLogoHovered(false); // Reset hover state
+  
+  // Reset file input properly
+  const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
+  if (fileInput) {
+    fileInput.value = ''; // Clear the input
+    fileInput.type = 'text'; // Temporarily change type
+    fileInput.type = 'file'; // Change back to file to reset completely
+  }
+  
+  toast({
+    title: "Logo Removed",
+    description: "Company logo has been removed",
+    duration: 5000,
+  });
+};
 
   // Update the ThemePreviewModal component
   const ThemePreviewModal = ({
