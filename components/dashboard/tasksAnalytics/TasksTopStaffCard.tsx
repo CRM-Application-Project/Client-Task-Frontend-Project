@@ -93,14 +93,14 @@ export default function TasksTopStaffCard({
                     <div className="text-[12px] text-slate-500">Completed</div>
                     <div className="flex items-center justify-center gap-1 text-green-600 font-semibold">
                       <CheckCircle2 className="h-4 w-4" />
-                      {staff.completedTasks || Math.round((staff.completedPercentage / 100) * staff.totalTasks)}
+                      {staff.completedTasks}
                     </div>
                   </div>
                   <div>
                     <div className="text-[12px] text-slate-500">Ongoing</div>
                     <div className="flex items-center justify-center gap-1 text-orange-600 font-semibold">
                       <Clock className="h-4 w-4" />
-                      {staff.ongoingTasks || (staff.totalTasks - (staff.completedTasks || Math.round((staff.completedPercentage / 100) * staff.totalTasks)))}
+                      {staff.ongoingTasks}
                     </div>
                   </div>
                 </div>

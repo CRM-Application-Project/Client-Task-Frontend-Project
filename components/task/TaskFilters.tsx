@@ -279,7 +279,7 @@ const { permissions: taskPermissions, loading: taskPermissionsLoading } = usePer
         : "border-gray-200"
     }`}
   >
-    <span className="flex items-center gap-2 text-text-secondary truncate">
+    <span className="flex items-center gap-2 text-gray-600 truncate">
       <Calendar className="h-4 w-4 flex-shrink-0" />
       <span className="truncate">
         {localFilters.dateRange
