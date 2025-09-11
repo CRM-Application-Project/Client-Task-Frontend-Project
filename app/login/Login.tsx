@@ -956,9 +956,7 @@ export default function LoginPage() {
                 src={logoUrl}
                 alt="Logo"
                 className="mx-auto h-12 sm:h-14 md:h-16 w-auto max-w-[200px]"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/default-logo.png";
-                }}
+              
               />
             </div>
 
