@@ -1,8 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/hooks/Providers";
-import { headers } from "next/headers";
+import { headers } from "next/headers"
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -151,8 +153,11 @@ export default async function RootLayout({
   
   try {
     // Get headers for host information
-    const headersList = headers();
-    const host = headersList.get('host') || '';
+const headersList: Headers = headers() as unknown as Headers;
+const host = headersList.get("host") ?? "";
+
+
+
     
     // Extract subdomain from host
     const subDomainName = getSubdomain(host);
