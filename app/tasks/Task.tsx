@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, ReactNode } from "react";
 import { TaskFilters } from "@/components/task/TaskFilters";
 import { TaskColumn } from "@/components/task/TaskColumn";
 import { AddTaskModal } from "@/components/task/AddTaskModal";
@@ -575,6 +575,53 @@ const statuses: TaskStatus[] = [
   "DONE",
 ];
 
+import { createPortal } from "react-dom";
+
+
+
+interface MenuPortalProps {
+  children: ReactNode;
+  buttonRef: React.RefObject<HTMLElement>;
+}
+
+const MenuPortal = ({ children, buttonRef }: MenuPortalProps) => {
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const portalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.right + window.scrollX - 112, // 112px is approx menu width
+      });
+    }
+  }, [buttonRef]);
+
+  useEffect(() => {
+    if (portalRef.current) {
+      portalRef.current.style.top = `${position.top}px`;
+      portalRef.current.style.left = `${position.left}px`;
+    }
+  }, [position]);
+
+  useEffect(() => {
+    const portalElement = document.createElement('div');
+    portalElement.className = 'fixed z-50';
+    document.body.appendChild(portalElement);
+    portalRef.current = portalElement;
+
+    return () => {
+      if (portalRef.current) {
+        document.body.removeChild(portalRef.current);
+      }
+    };
+  }, []);
+
+  if (!portalRef.current) return null;
+
+  return createPortal(children, portalRef.current);
+};
 interface DeleteTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -2128,7 +2175,7 @@ const handleCloseModal = useCallback(() => {
                         </td>
  
 
-<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+<td className="px-6 py-4 whitespace-nowrap text-sm font-medium relative">
   <Menu as="div" className="relative inline-block text-left">
     <div>
       <Menu.Button className="flex items-center text-gray-500 hover:text-gray-700">
@@ -2136,7 +2183,7 @@ const handleCloseModal = useCallback(() => {
       </Menu.Button>
     </div>
 
-    <Menu.Items className="absolute right-0 mt-2 w-28 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+    <Menu.Items className="absolute right-6 mt-2 w-28 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50" style={{ position: 'fixed' }}>
       <div className="py-1">
         <Menu.Item>
           {({ active }) => (
