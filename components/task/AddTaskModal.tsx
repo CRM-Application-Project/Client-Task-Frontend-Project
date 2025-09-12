@@ -996,10 +996,25 @@ const formatDateTimeForInput = (dateString: string) => {
   };
 
   const handleRecurrenceChange = (field: keyof RecurrenceRule, value: any) => {
-    setRecurrenceRule(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setRecurrenceRule(prev => {
+      const newRule = {
+        ...prev,
+        [field]: value
+      };
+      
+      // If exclude weekends is toggled, automatically update the days
+      if (field === "excludeWeekends") {
+        if (value === true) {
+          // Exclude weekends: only select weekdays (Monday=1 to Friday=5)
+          newRule.byWeekDay = [1, 2, 3, 4, 5];
+        } else {
+          // Include weekends: select all days
+          newRule.byWeekDay = [0, 1, 2, 3, 4, 5, 6];
+        }
+      }
+      
+      return newRule;
+    });
   };
 
   const toggleWeekDay = (dayValue: number) => {
@@ -1012,10 +1027,18 @@ const formatDateTimeForInput = (dateString: string) => {
       newDays = [...currentDays, dayValue];
     }
     
-    // Sort days to maintain order (Mon, Tue, Wed, etc.)
+    // Sort days to maintain order (Sun, Mon, Tue, Wed, etc.)
     newDays.sort((a, b) => a - b);
     
-    handleRecurrenceChange("byWeekDay", newDays);
+    // Update excludeWeekends based on selected days
+    const hasWeekends = newDays.includes(0) || newDays.includes(6); // Sunday or Saturday
+    const excludeWeekends = !hasWeekends;
+    
+    setRecurrenceRule(prev => ({
+      ...prev,
+      byWeekDay: newDays,
+      excludeWeekends: excludeWeekends
+    }));
   };
 
   const toggleRecurrence = (checked: boolean) => {
@@ -1026,8 +1049,17 @@ const formatDateTimeForInput = (dateString: string) => {
         frequency: "WEEKLY",
         interval: 1,
         excludeWeekends: true,
-        byWeekDay: [1, 2, 3, 4, 5],
+        byWeekDay: [1, 2, 3, 4, 5], // Default to weekdays (Mon-Fri)
       });
+    } else {
+      // When enabling recurrence, set default to exclude weekends with weekdays selected
+      setRecurrenceRule(prev => ({
+        ...prev,
+        frequency: "WEEKLY",
+        interval: 1,
+        excludeWeekends: true,
+        byWeekDay: [1, 2, 3, 4, 5], // Default to weekdays (Mon-Fri)
+      }));
     }
   };
 
@@ -1251,32 +1283,56 @@ const formatDateTimeForInput = (dateString: string) => {
                       Repeat on
                     </Label>
                     <div className="flex flex-wrap gap-2">
-                      {weekDays.map((day) => (
-                        <Button
-                          key={day.value}
-                          type="button"
-                          variant={recurrenceRule.byWeekDay?.includes(day.value) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => toggleWeekDay(day.value)}
-                          className="h-8 px-2"
-                        >
-                          {day.short}
-                        </Button>
-                      ))}
+                      {weekDays.map((day) => {
+                        const isSelected = recurrenceRule.byWeekDay?.includes(day.value) || false;
+                        return (
+                          <Button
+                            key={day.value}
+                            type="button"
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleWeekDay(day.value)}
+                            className={`h-10 px-3 relative flex items-center gap-1 transition-all duration-200 ${
+                              isSelected 
+                                ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-primary/90" 
+                                : "hover:bg-gray-50 border-gray-200 text-gray-700"
+                            }`}
+                          >
+                            {isSelected && (
+                              <Check size={14} className="text-white" />
+                            )}
+                            <span className="text-sm font-medium">{day.short}</span>
+                          </Button>
+                        );
+                      })}
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Click days to select/deselect. Weekends will be automatically handled based on your selection.
+                    </p>
                   </div>
                 )}
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="exclude-weekends"
-                    checked={recurrenceRule.excludeWeekends}
-                    onCheckedChange={(checked) => handleRecurrenceChange("excludeWeekends", checked)}
-                    className="data-[state=checked]:bg-brand-primary"
-                  />
-                  <Label htmlFor="exclude-weekends" className="text-sm">
-                    Exclude weekends
-                  </Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="exclude-weekends"
+                      checked={recurrenceRule.excludeWeekends}
+                      onCheckedChange={(checked) => handleRecurrenceChange("excludeWeekends", checked)}
+                      className="data-[state=checked]:bg-brand-primary"
+                    />
+                    <Label htmlFor="exclude-weekends" className="text-sm flex items-center gap-2">
+                      Exclude weekends
+                      {recurrenceRule.excludeWeekends && (
+                        <Check size={14} className="text-green-600" />
+                      )}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-6">
+                    {recurrenceRule.excludeWeekends 
+                      ? "Only weekdays (Mon-Fri) will be selected automatically" 
+                      : "All days including weekends can be selected"
+                    }
+                  </p>
                 </div>
 
                 {validationErrors.recurrence && (
