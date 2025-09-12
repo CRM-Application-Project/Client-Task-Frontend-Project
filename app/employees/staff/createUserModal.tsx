@@ -24,7 +24,7 @@ import {
 } from "@/app/services/data.service";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, CheckCircle, EyeOff, Eye } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -75,6 +75,10 @@ export function CreateStaffModal({
     {}
   );
   const [isFormValid, setIsFormValid] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // ===== Password validation regex =====
+  const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -107,11 +111,50 @@ export function CreateStaffModal({
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
   };
-
+const handlePastePrevention = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Paste disabled",
+      description: "Please type your password instead of pasting",
+      variant: "default",
+      duration: 3000,
+    });
+  };
   // ===== Get default permissions based on role and module =====
 // ===== Get default permissions based on role and module =====
 
+ const handleDragOver = (e: React.DragEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+ const handleDrop = (e: React.DragEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Drag & drop disabled",
+      description: "Please type your password instead of dragging text",
+      variant: "default",
+      duration: 3000,
+    });
+  };
+   const renderPasswordValidationStatus = () => {
+    if (!touchedFields.password) return null;
 
+    if (validationErrors.password) {
+      return (
+        <div className="flex items-center gap-1 mt-1 text-red-500 text-xs">
+          <AlertCircle className="h-3 w-3" />
+          <span>{validationErrors.password}</span>
+        </div>
+      );
+    } else if (formData.password && !sendMail) {
+      return (
+        <div className="flex items-center gap-1 mt-1 text-green-600 text-xs">
+          <CheckCircle className="h-3 w-3" />
+          <span>Strong password</span>
+        </div>
+      );
+    }
+    return null;
+  };
   // ===== Update module access when role changes =====
 // ===== Update module access when role changes =====
 useEffect(() => {
@@ -298,13 +341,32 @@ const isStaffRequiredModule = (moduleName: string) => {
         if (!value || Number(value) === 0) return "Department is required";
         break;
       }
-      case "password": {
-        if (!sendMail && (!value || String(value).trim() === ""))
-          return "Password is required when not sending email";
-        if (!sendMail && String(value).length < 8)
-          return "Password must be at least 8 characters";
-        break;
-      }
+      // Replace this section in your validateField function:
+
+case "password": {
+  if (!sendMail && (!value || String(value).trim() === ""))
+    return "Password is required when not sending email";
+  if (!sendMail && String(value).length < 8)
+    return "Password must be at least 8 characters";
+  
+  // Add this regex validation:
+  if (!sendMail && !PASSWORD_REGEX.test(String(value))) {
+    const password = String(value);
+    if (!/(?=.*[a-z])/.test(password)) {
+      return "Password must contain at least one lowercase letter";
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return "Password must contain at least one uppercase letter";
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return "Password must contain at least one number";
+    }
+    if (!/(?=.*[^A-Za-z0-9])/.test(password)) {
+      return "Password must contain at least one special character";
+    }
+  }
+  break;
+}
       case "dateOfBirth": {
         if (!value) return "Date of birth is required";
         if (value > new Date()) return "Date of birth cannot be in the future";
@@ -1087,28 +1149,46 @@ const getAvailableModules = () => {
             {!sendMail && (
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={formData.password}
-                  onChange={(e) => setField("password", e.target.value)}
-                  onBlur={() => handleBlur("password")}
-                  required={!sendMail}
-                  className={
-                    touchedFields.password && validationErrors.password
-                      ? "border-red-500"
-                      : ""
-                  }
-                />
-                {touchedFields.password && validationErrors.password && (
-                  <p className="text-red-500 text-xs">
-                    {validationErrors.password}
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={(e) => setField("password", e.target.value)}
+                    onBlur={() => handleBlur("password")}
+                    onPaste={handlePastePrevention}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    required={!sendMail}
+                    className={`pr-10 ${
+                      touchedFields.password && validationErrors.password
+                        ? "border-red-500"
+                        : formData.password && !validationErrors.password
+                        ? "border-green-500"
+                        : ""
+                    }`}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {renderPasswordValidationStatus()}
+                {!sendMail && !validationErrors.password && (
+                  <p className="text-sm text-gray-500">
+                    Password must be at least 8 characters with uppercase, lowercase, number & special character
                   </p>
                 )}
-                <p className="text-sm text-gray-500">
-                  Password must be at least 8 characters long
-                </p>
               </div>
             )}
           </div>
