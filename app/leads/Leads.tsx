@@ -795,24 +795,35 @@ const Leads = () => {
     }
   };
 
-  const handleAddNewLead = (apiLeadData: any) => {
+  const handleAddNewLead = async (apiLeadData: any) => {
   if (!apiLeadData) return;
 
-  const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
-  
-  // Remove any temporary lead and add the real one
-  setLeads((prevLeads) => {
-    // Filter out any temporary leads and add the new real one
-    const filteredLeads = prevLeads.filter(lead => !lead.leadId.startsWith('temp-'));
-    return [newLead, ...filteredLeads];
-  });
-  
-  setAllKanbanLeads((prevLeads) => {
-    // Filter out any temporary leads and add the new real one
-    const filteredLeads = prevLeads.filter(lead => !lead.leadId.startsWith('temp-'));
-    return [newLead, ...filteredLeads];
-  });
+  try {
+    // Refresh the leads data to get the actual lead IDs from the server
+    await fetchData(0, false, true); // Force refresh from page 0
+    
+    // If you want to keep the optimistic update, you can still enhance the lead
+    const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
+    
+    // Remove any temporary leads and add the real one
+    setLeads((prevLeads) => {
+      const filteredLeads = prevLeads.filter(lead => !lead.leadId.startsWith('temp-'));
+      return [newLead, ...filteredLeads];
+    });
+    
+    setAllKanbanLeads((prevLeads) => {
+      const filteredLeads = prevLeads.filter(lead => !lead.leadId.startsWith('temp-'));
+      return [newLead, ...filteredLeads];
+    });
+  } catch (error) {
+    console.error("Failed to refresh leads after creation:", error);
+    // Fallback: just add the lead as-is
+    const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
+    setLeads((prevLeads) => [newLead, ...prevLeads]);
+    setAllKanbanLeads((prevLeads) => [newLead, ...prevLeads]);
+  }
 };
+
   const [restrictToFirstStage, setRestrictToFirstStage] = useState(false);
   const [presetStageId, setPresetStageId] = useState<string | undefined>();
 
@@ -1223,7 +1234,7 @@ const Leads = () => {
     setIsChangeAssignModalOpen(true);
   };
 
-  const handleUpdateAssignment = async (
+ const handleUpdateAssignment = async (
     leadId: string,
     assignedToId: string,
     assignedToLabel: string
@@ -1260,6 +1271,7 @@ const Leads = () => {
       });
     }
   };
+
 
   const handleImportLead = () => {
     setIsImportModalOpen(true);
