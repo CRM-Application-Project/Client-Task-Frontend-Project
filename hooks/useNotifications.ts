@@ -1,8 +1,8 @@
-// hooks/useNotifications.ts
+// useNotifications.ts - Optimized version
 "use client";
 import { cleanupNotifications, generateFCMToken, getDetailedDeviceType, getNotificationPermission, handleAppStartup, initTokenRefreshHandler, subscribeToMessages } from '@/app/firebase';
+import { NotificationResponse, notificationService } from '@/app/services/notificationService';
 import { useState, useEffect, useCallback, useRef } from 'react';
-// Update this path
 
 interface NotificationData {
   id: string;
@@ -10,6 +10,7 @@ interface NotificationData {
   body: string;
   timestamp: number;
   read: boolean;
+  module?: string;
   data?: any;
 }
 
@@ -26,7 +27,24 @@ interface UseNotificationsReturn {
   clearAll: () => void;
   removeNotification: (notificationId: string) => void;
   refreshToken: () => Promise<{ success: boolean; message: string }>;
+  fetchNotifications: () => Promise<void>;
 }
+
+// Helper function to map backend notification to frontend format
+const mapBackendNotificationToFrontend = (backendNotification: NotificationResponse): NotificationData => {
+  return {
+    id: backendNotification.notificationId,
+    title: backendNotification.module || 'System Notification',
+    body: backendNotification.notificationMessage,
+    timestamp: Date.now(),
+    read: backendNotification.isNotificationRead,
+    module: backendNotification.module,
+    data: {
+      module: backendNotification.module,
+      originalId: backendNotification.notificationId
+    }
+  };
+};
 
 export function useNotifications(): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
@@ -38,6 +56,65 @@ export function useNotifications(): UseNotificationsReturn {
   
   const tokenRefreshInitialized = useRef(false);
   const messageSubscribed = useRef(false);
+  const tokenSetupComplete = useRef(false);
+
+  // Function to fetch notifications from backend
+  const fetchNotifications = useCallback(async () => {
+    const userId = localStorage.getItem('userId');
+    
+    if (!userId) {
+      // Load from localStorage if no user logged in
+      const savedNotifications = localStorage.getItem('notifications');
+      if (savedNotifications) {
+        try {
+          const parsed = JSON.parse(savedNotifications);
+          setNotifications(parsed);
+          setUnreadCount(parsed.filter((n: NotificationData) => !n.read).length);
+        } catch (error) {
+          console.error('Error parsing saved notifications:', error);
+        }
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await notificationService.fetchAllNotifications();
+      
+      if (response.success && response.data) {
+        const mappedNotifications = response.data.map(mapBackendNotificationToFrontend);
+        
+        // Sort by timestamp (newest first)
+        mappedNotifications.sort((a, b) => b.timestamp - a.timestamp);
+        
+        setNotifications(mappedNotifications);
+        
+        // Calculate unread count
+        const unread = mappedNotifications.filter(n => !n.read).length;
+        setUnreadCount(unread);
+        
+        // Store in localStorage for offline access
+        localStorage.setItem('notifications', JSON.stringify(mappedNotifications));
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      
+      // Fallback to local storage if API fails
+      const savedNotifications = localStorage.getItem('notifications');
+      if (savedNotifications) {
+        try {
+          const parsed = JSON.parse(savedNotifications);
+          setNotifications(parsed);
+          setUnreadCount(parsed.filter((n: NotificationData) => !n.read).length);
+        } catch (parseError) {
+          console.error('Error parsing saved notifications:', parseError);
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Initialize device type and app startup
   useEffect(() => {
@@ -58,22 +135,15 @@ export function useNotifications(): UseNotificationsReturn {
         const existingToken = localStorage.getItem('fcmToken');
         if (existingToken) {
           setFcmToken(existingToken);
+          tokenSetupComplete.current = true;
         }
 
-        // Load notifications from localStorage if available
-        const savedNotifications = localStorage.getItem('notifications');
-        if (savedNotifications) {
-          try {
-            const parsed = JSON.parse(savedNotifications);
-            setNotifications(parsed);
-            setUnreadCount(parsed.filter((n: NotificationData) => !n.read).length);
-          } catch (error) {
-            console.error('Error parsing saved notifications:', error);
-          }
-        }
+        const userId = localStorage.getItem('userId');
+        
+        // Fetch notifications regardless of token status
+        await fetchNotifications();
 
         // Initialize token refresh handler if permission is granted and user is logged in
-        const userId = localStorage.getItem('userId');
         if (currentPermission === 'granted' && userId && !tokenRefreshInitialized.current) {
           initTokenRefreshHandler(detectedDeviceType);
           tokenRefreshInitialized.current = true;
@@ -87,14 +157,7 @@ export function useNotifications(): UseNotificationsReturn {
     };
 
     initNotifications();
-  }, []);
-
-  // Save notifications to localStorage whenever they change
-  useEffect(() => {
-    if (notifications.length > 0) {
-      localStorage.setItem('notifications', JSON.stringify(notifications));
-    }
-  }, [notifications]);
+  }, [fetchNotifications]);
 
   // Subscribe to foreground messages when permission is granted
   useEffect(() => {
@@ -118,13 +181,19 @@ export function useNotifications(): UseNotificationsReturn {
         });
         
         setUnreadCount(prev => prev + 1);
+        
+        // Refresh from backend to sync with server state
+        setTimeout(() => {
+          fetchNotifications();
+        }, 1000);
       };
 
       subscribeToMessages(handleMessage);
       messageSubscribed.current = true;
     }
-  }, [permission]);
+  }, [permission, fetchNotifications]);
 
+  // Optimized enableNotifications - saves token and fetches in one flow
   const enableNotifications = useCallback(async (userId?: string) => {
     const userIdToUse = userId || localStorage.getItem('userId');
     
@@ -132,23 +201,51 @@ export function useNotifications(): UseNotificationsReturn {
       return { success: false, message: 'User ID is required' };
     }
 
+    // Check if notifications are already enabled with a recent token
+    const existingToken = localStorage.getItem('fcmToken');
+    const lastSentTime = localStorage.getItem('lastTokenSentTime');
+    if (existingToken && lastSentTime && permission === 'granted' && tokenSetupComplete.current) {
+      const timeSinceLastSend = Date.now() - parseInt(lastSentTime);
+      if (timeSinceLastSend < 300000) { // 5 minutes
+        console.log('🔄 Notifications already enabled recently');
+        return { success: true, message: 'Notifications already enabled' };
+      }
+    }
+
     setIsLoading(true);
     
     try {
+      console.log('🔔 Generating FCM token...');
       const result = await generateFCMToken(deviceType);
       
-      if (result.success) {
-        setPermission('granted');
-        setFcmToken(result.token || null);
+      if (result.success && result.token) {
+        console.log('🔔 Saving token and fetching notifications...');
+        // Save token to backend
+        const backendResult = await notificationService.saveFCMToken(result.token, deviceType);
         
-        // Initialize token refresh handler if not already done
-        if (!tokenRefreshInitialized.current) {
-          initTokenRefreshHandler(deviceType);
-          tokenRefreshInitialized.current = true;
+        if (backendResult.success) {
+          setPermission('granted');
+          setFcmToken(result.token);
+          tokenSetupComplete.current = true;
+          
+          console.log('✅ Token saved, fetching notifications directly...');
+          
+          // Initialize token refresh handler if not already done
+          if (!tokenRefreshInitialized.current) {
+            initTokenRefreshHandler(deviceType);
+            tokenRefreshInitialized.current = true;
+          }
+          
+          // Fetch notifications directly without additional delay
+          await fetchNotifications();
+          
+          return { success: true, message: 'Notifications enabled successfully' };
+        } else {
+          tokenSetupComplete.current = false;
+          return { success: false, message: backendResult.message };
         }
-        
-        return { success: true, message: 'Notifications enabled successfully' };
       } else {
+        tokenSetupComplete.current = false;
         return { 
           success: false, 
           message: result.message || 'Failed to enable notifications' 
@@ -156,6 +253,7 @@ export function useNotifications(): UseNotificationsReturn {
       }
     } catch (error) {
       console.error('Error enabling notifications:', error);
+      tokenSetupComplete.current = false;
       return { 
         success: false, 
         message: 'An error occurred while enabling notifications' 
@@ -163,7 +261,7 @@ export function useNotifications(): UseNotificationsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [deviceType]);
+  }, [deviceType, fetchNotifications]);
 
   const refreshToken = useCallback(async () => {
     const userId = localStorage.getItem('userId');
@@ -177,15 +275,28 @@ export function useNotifications(): UseNotificationsReturn {
     }
 
     setIsLoading(true);
+    tokenSetupComplete.current = false;
     
     try {
       // Force generate a new token
       const result = await generateFCMToken(deviceType);
       
-      if (result.success) {
-        setFcmToken(result.token || null);
-        console.log('FCM token refreshed successfully');
-        return { success: true, message: 'Token refreshed successfully' };
+      if (result.success && result.token) {
+        // Send new token to backend and fetch notifications
+        const backendResult = await notificationService.saveFCMToken(result.token, deviceType);
+        
+        if (backendResult.success) {
+          setFcmToken(result.token);
+          tokenSetupComplete.current = true;
+          console.log('FCM token refreshed successfully');
+          
+          // Fetch notifications directly
+          await fetchNotifications();
+          
+          return { success: true, message: 'Token refreshed successfully' };
+        } else {
+          return { success: false, message: backendResult.message };
+        }
       } else {
         return { 
           success: false, 
@@ -201,24 +312,72 @@ export function useNotifications(): UseNotificationsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [deviceType, permission]);
+  }, [deviceType, permission, fetchNotifications]);
 
-  const markAsRead = useCallback((notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(n => {
-        if (n.id === notificationId && !n.read) {
-          setUnreadCount(count => Math.max(0, count - 1));
-          return { ...n, read: true };
-        }
-        return n;
-      })
-    );
-  }, []);
+  // Enhanced markAsRead function that calls backend API
+  const markAsRead = useCallback(async (notificationId: string) => {
+    try {
+      // Optimistically update UI
+      setNotifications(prev =>
+        prev.map(n => {
+          if (n.id === notificationId && !n.read) {
+            setUnreadCount(count => Math.max(0, count - 1));
+            return { ...n, read: true };
+          }
+          return n;
+        })
+      );
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    setUnreadCount(0);
-  }, []);
+      // Update backend
+      await notificationService.markNotificationAsRead(notificationId);
+      
+      // Update localStorage
+      const updatedNotifications = notifications.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
+      );
+      localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      
+      // Revert optimistic update on error
+      setNotifications(prev =>
+        prev.map(n => {
+          if (n.id === notificationId && n.read) {
+            setUnreadCount(count => count + 1);
+            return { ...n, read: false };
+          }
+          return n;
+        })
+      );
+    }
+  }, [notifications]);
+
+  const markAllAsRead = useCallback(async () => {
+    try {
+      // Optimistically update UI
+      const unreadNotifications = notifications.filter(n => !n.read);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+
+      // Mark all unread notifications as read in backend
+      const markReadPromises = unreadNotifications.map(notification => 
+        notificationService.markNotificationAsRead(notification.id)
+      );
+      
+      await Promise.all(markReadPromises);
+      
+      // Update localStorage
+      const updatedNotifications = notifications.map(n => ({ ...n, read: true }));
+      localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      
+      // Refresh from server on error
+      await fetchNotifications();
+    }
+  }, [notifications, fetchNotifications]);
 
   const clearAll = useCallback(() => {
     setNotifications([]);
@@ -232,9 +391,23 @@ export function useNotifications(): UseNotificationsReturn {
       if (notification && !notification.read) {
         setUnreadCount(count => Math.max(0, count - 1));
       }
-      return prev.filter(n => n.id !== notificationId);
+      const filtered = prev.filter(n => n.id !== notificationId);
+      localStorage.setItem('notifications', JSON.stringify(filtered));
+      return filtered;
     });
   }, []);
+
+  // Auto-refresh notifications periodically when user is logged in
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 5 * 60 * 1000); // Refresh every 5 minutes
+
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   // Cleanup on unmount or logout
   useEffect(() => {
@@ -250,11 +423,10 @@ export function useNotifications(): UseNotificationsReturn {
       setPermission(null);
       tokenRefreshInitialized.current = false;
       messageSubscribed.current = false;
+      tokenSetupComplete.current = false;
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    // Listen for custom logout event
     window.addEventListener('user-logout', handleLogout);
 
     return () => {
@@ -275,7 +447,8 @@ export function useNotifications(): UseNotificationsReturn {
     markAllAsRead,
     clearAll,
     removeNotification,
-    refreshToken
+    refreshToken,
+    fetchNotifications
   };
 }
 

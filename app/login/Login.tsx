@@ -31,7 +31,7 @@ import {
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
 import { z } from "zod";
-import { generateFCMToken, initTokenRefreshHandler, preRegisterServiceWorker } from "../firebase";
+import { generateFCMToken, getNotificationPermission, initTokenRefreshHandler, preRegisterServiceWorker } from "../firebase";
 
 
 // -------------------- Validation Constants --------------------
@@ -777,154 +777,170 @@ export default function LoginPage() {
   };
 
   // -------------------- Login Submit (Optimized) --------------------
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+// Fixed Login handleLogin function - only the relevant part
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    setLoginTouched({ email: true, password: true });
-    const emailErr = validateLoginField("email", email);
-    const pwdErr = validateLoginField("password", password);
-    setLoginErrors({ email: emailErr, password: pwdErr });
+  setLoginTouched({ email: true, password: true });
+  const emailErr = validateLoginField("email", email);
+  const pwdErr = validateLoginField("password", password);
+  setLoginErrors({ email: emailErr, password: pwdErr });
 
-    if (emailErr || pwdErr) return;
+  if (emailErr || pwdErr) return;
 
-    setIsLoading(true);
-    try {
-      const loginData = {
-        emailAddress: email,
-        password,
-        deviceType: "web",
-        accessRegion: "tenant",
-        ...(requiresCompany && { companyName }),
+  setIsLoading(true);
+  try {
+    const loginData = {
+      emailAddress: email,
+      password,
+      deviceType: "web",
+      accessRegion: "tenant",
+      ...(requiresCompany && { companyName }),
+    };
+
+    const response = (await loginUser(loginData)) as unknown as LoginResponse;
+
+    if (response.isSuccess) {
+      const { profileResponse, authTokenResponse } = response.data;
+
+      // Store auth tokens first
+      if (authTokenResponse.token) {
+        localStorage.setItem("authToken", authTokenResponse.token);
+      }
+      if (authTokenResponse.refreshToken) {
+        localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
+      }
+
+      // Store user data
+      const userModules = profileResponse.userModuleAccessList?.map((access) => ({
+        id: access.moduleId || parseInt(access.id?.toString() || "0"),
+        moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
+        moduleName: access.moduleName
+          ? access.moduleName.charAt(0).toUpperCase() + access.moduleName.slice(1)
+          : "Unknown",
+        canView: access.canView ?? true,
+        canEdit: access.canEdit ?? false,
+        canCreate: access.canCreate ?? false,
+        canDelete: access.canDelete ?? false,
+        createdAt: access.createdAt || new Date().toISOString(),
+        updatedAt: access.updatedAt || new Date().toISOString(),
+      })) || [];
+
+      const completeUserProfile = {
+        ...profileResponse,
+        modules: userModules,
+        userId: profileResponse.id,
+        contactNumber: profileResponse.phoneNumber || "",
+        dateOfBirth: "",
+        dateOfJoin: "",
+        profileImage: "",
+        address: "",
+        status: "active",
+        departmentId: 0,
+        departmentName: "",
+        isActive: true,
       };
 
-      const response = (await loginUser(loginData)) as unknown as LoginResponse;
+      // Store all user data in localStorage
+      localStorage.setItem("currentUser", JSON.stringify(completeUserProfile));
+      localStorage.setItem("userModules", JSON.stringify(userModules));
+      localStorage.setItem("userId", response.data.profileResponse.id);
+      localStorage.setItem("user", JSON.stringify(response.data.profileResponse));
 
-      if (response.isSuccess) {
-        const { profileResponse, authTokenResponse } = response.data;
+      // Update Redux store
+      dispatch(
+        loginSuccess({
+          user: completeUserProfile,
+          allUsers: [completeUserProfile],
+        })
+      );
 
-        if (authTokenResponse.token) {
-          localStorage.setItem("authToken", authTokenResponse.token);
-        }
-        if (authTokenResponse.refreshToken) {
-          localStorage.setItem("refreshToken", authTokenResponse.refreshToken);
-        }
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${profileResponse.firstName}!`,
+        variant: "default",
+        duration: 5000,
+      });
 
-        const userModules =
-          profileResponse.userModuleAccessList?.map((access) => ({
-            id: access.moduleId || parseInt(access.id?.toString() || "0"),
-            moduleId: access.moduleId || parseInt(access.id?.toString() || "0"),
-            moduleName: access.moduleName
-              ? access.moduleName.charAt(0).toUpperCase() +
-              access.moduleName.slice(1)
-              : "Unknown",
-            canView: access.canView ?? true,
-            canEdit: access.canEdit ?? false,
-            canCreate: access.canCreate ?? false,
-            canDelete: access.canDelete ?? false,
-            createdAt: access.createdAt || new Date().toISOString(),
-            updatedAt: access.updatedAt || new Date().toISOString(),
-          })) || [];
-
-        const completeUserProfile = {
-          ...profileResponse,
-          modules: userModules,
-          userId: profileResponse.id,
-          contactNumber: profileResponse.phoneNumber || "",
-          dateOfBirth: "",
-          dateOfJoin: "",
-          profileImage: "",
-          address: "",
-          status: "active",
-          departmentId: 0,
-          departmentName: "",
-          isActive: true,
-        };
-
-        localStorage.setItem(
-          "currentUser",
-          JSON.stringify(completeUserProfile)
-        );
-        localStorage.setItem("userModules", JSON.stringify(userModules));
-        localStorage.setItem("userId", response.data.profileResponse.id);
-        localStorage.setItem(
-          "user",
-          JSON.stringify(response.data.profileResponse)
-        );
-
-        dispatch(
-          loginSuccess({
-            user: completeUserProfile,
-            allUsers: [completeUserProfile],
-          })
-        );
-
-        toast({
-          title: "Login successful",
-          description: `Welcome back, ${profileResponse.firstName}!`,
-          variant: "default",
-          duration: 5000,
-        });
-
-        // ✅ OPTIMIZED FCM Token Setup After Login
+      // FIXED FCM Token Setup - Better sequencing and error handling
+      const setupNotifications = async () => {
         try {
-          console.log('🔔 Setting up notifications after login...');
+          console.log('🔔 Setting up notifications after successful login...');
           
-          // Initialize token refresh handler (this will handle all token management)
+          // Initialize token refresh handler first (this manages all token operations)
           const cleanup = initTokenRefreshHandler("WEB");
-          
-          // Store cleanup function for logout
           window.fcmCleanup = cleanup;
           
-          // Generate FCM token only once (no duplicate calls)
-          setTimeout(async () => {
-            const tokenResult = await generateFCMToken("WEB");
-            if (tokenResult.success) {
-              console.log('✅ FCM token setup completed successfully');
-            } else {
-              console.warn('⚠️ FCM token setup completed with warnings:', tokenResult.message);
-            }
-          }, 1000); // Delay to avoid race conditions
+          // Check if notifications are supported and get permission status
+          const permission = getNotificationPermission();
+          
+          if (permission === 'granted') {
+            console.log('🔔 Notification permission already granted, setting up token...');
+            
+            // Generate and save FCM token - this will be handled by the refresh handler
+            // We don't need to manually call generateFCMToken here as the refresh handler will do it
+            // Just trigger a token check after a short delay
+            setTimeout(() => {
+              // The token refresh handler will automatically generate and send the token
+              console.log('✅ FCM notification setup initiated');
+            }, 2000);
+            
+          } else if (permission === 'default') {
+            // Permission not yet requested - will be handled when user enables notifications
+            console.log('🔔 Notification permission not yet requested - will be handled on user action');
+          } else {
+            // Permission denied
+            console.log('❌ Notification permission denied');
+          }
           
         } catch (fcmError) {
+          // FCM errors are non-critical for login flow
           console.error('❌ FCM setup error (non-critical):', fcmError);
         }
+      };
 
-        let redirectPath = "/not-found";
+      // Run notification setup asynchronously without blocking navigation
+      setupNotifications();
 
-        if (profileResponse.userRole === "SUPER_ADMIN") {
-          redirectPath = "/dashboard";
-        } else if (!profileResponse.isPasswordUpdated) {
-          redirectPath = "/reset-password";
-        } else {
-          redirectPath = getFirstAccessibleModule(userModules);
-        }
+      // Determine redirect path
+      let redirectPath = "/not-found";
 
-        setTimeout(() => {
-          router.push(redirectPath);
-        }, 500);
+      if (profileResponse.userRole === "SUPER_ADMIN") {
+        redirectPath = "/dashboard";
+      } else if (!profileResponse.isPasswordUpdated) {
+        redirectPath = "/reset-password";
       } else {
-        toast({
-          title: "Login failed",
-          description: response.message,
-          variant: "destructive",
-          duration: 5000,
-        });
+        redirectPath = getFirstAccessibleModule(userModules);
       }
-    } catch (error) {
-      console.error("Login error:", error);
+
+      // Navigate after a brief delay to ensure everything is set up
+      setTimeout(() => {
+        router.push(redirectPath);
+      }, 500);
+      
+    } else {
       toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An error occurred during login",
+        title: "Login failed",
+        description: response.message,
         variant: "destructive",
         duration: 5000,
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Login error:", error);
+    toast({
+      title: "Error",
+      description:
+        error instanceof Error
+          ? error.message
+          : "An error occurred during login",
+      variant: "destructive",
+      duration: 5000,
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // -------------------- UI (keeping the same structure) --------------------
   return (

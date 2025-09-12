@@ -1,7 +1,7 @@
 "use client";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { BASE_URL } from "./http-common";
+import { notificationService } from "./services/notificationService";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAmHw8W1-CFjkZEBPChYScfWHAot-OeLJk",
@@ -21,40 +21,52 @@ let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let isTokenRefreshInProgress = false;
 let tokenRefreshTimeout: NodeJS.Timeout | null = null;
 let refreshHandlerCleanup: (() => void) | null = null;
+let lastSentToken: string | null = null;
+let tokenSendInProgress = false;
 
 const VAPID_KEY = "BB1gECwdCiIdphrOXUFhpS7tiId2-L0Xri5Dp8VOTQbqxbnTDCWTbnWvAl5kPnCKX4yScA1O9JsbZEz5aE6S57c";
-const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes only
-const DEBOUNCE_DELAY = 2000; // 2 seconds
+const TOKEN_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes (reduced frequency)
+const DEBOUNCE_DELAY = 1000; // 5 seconds (increased debounce)
+const TOKEN_SEND_COOLDOWN = 60 * 1000; // 1 minute cooldown between sends
 
-// Device type detection
-export function getDetailedDeviceType(): string {
+// Device type detection functions
+function getDeviceType(): string {
+  if (typeof window === 'undefined') return 'WEB';
+
+  const userAgent = navigator.userAgent;
+
+  if (/Mobi|Android/i.test(userAgent)) {
+    return "MOBILE";
+  } else if (/Tablet|iPad/i.test(userAgent)) {
+    return "TAB";
+  } else {
+    return "WEB"; // laptop / desktop
+  }
+}
+
+function getBrowserName(): string {
   if (typeof window === 'undefined') return 'UNKNOWN';
 
-  const userAgent = navigator.userAgent.toLowerCase();
-  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-  const isTablet = /ipad|android(?!.*mobile)|tablet/i.test(userAgent);
+  const userAgent = navigator.userAgent;
 
-  let deviceCategory = 'WEB';
-  if (isMobile && !isTablet) {
-    deviceCategory = 'MOBILE';
-  } else if (isTablet) {
-    deviceCategory = 'TAB';
+  if (userAgent.includes("Chrome") && !userAgent.includes("Edg") && !userAgent.includes("OPR")) {
+    return "CHROME";
+  } else if (userAgent.includes("Edg")) {
+    return "EDGE";
+  } else if (userAgent.includes("Firefox")) {
+    return "FIREFOX";
+  } else if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) {
+    return "SAFARI";
+  } else {
+    return "UNKNOWN";
   }
+}
 
-  let browser = 'UNKNOWN';
-  if (userAgent.includes('chrome') && !userAgent.includes('edge') && !userAgent.includes('opr')) {
-    browser = 'CHROME';
-  } else if (userAgent.includes('edge') || userAgent.includes('edg')) {
-    browser = 'EDGE';
-  } else if (userAgent.includes('firefox')) {
-    browser = 'FIREFOX';
-  } else if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
-    browser = 'SAFARI';
-  } else if (userAgent.includes('opr') || userAgent.includes('opera')) {
-    browser = 'OPERA';
-  }
-
-  return `${deviceCategory}-${browser}`;
+// Device type with browser detection
+export function getDetailedDeviceType(): string {
+  const device = getDeviceType();
+  const browser = getBrowserName();
+  return `${device}-${browser}`;
 }
 
 // Service worker management
@@ -153,7 +165,7 @@ async function checkAndRefreshToken(): Promise<void> {
     if (currentToken !== storedToken) {
       console.log('🔄 Token changed detected, updating backend...');
       const deviceType = getDetailedDeviceType();
-      const result = await sendTokenToBackend(currentToken, deviceType);
+      const result = await notificationService.saveFCMToken(currentToken, deviceType);
       
       if (result.success) {
         console.log('✅ Updated token sent to backend successfully');
@@ -167,43 +179,6 @@ async function checkAndRefreshToken(): Promise<void> {
     console.error('❌ Error in token refresh check:', error);
   } finally {
     isTokenRefreshInProgress = false;
-  }
-}
-
-// Send token to backend (only called when needed)
-async function sendTokenToBackend(fcmToken: string, deviceType: string): Promise<{ success: boolean; message: string; error?: unknown }> {
-  try {
-    const authToken = localStorage.getItem('authToken');
-    
-    const response = await fetch(`${BASE_URL}/notification/save-token`, {
-      method: 'POST',
-       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
-      },
-      body: JSON.stringify({
-        fcmToken: fcmToken,
-        deviceType: deviceType
-      }),
-      
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to send token to backend: ${response.status} ${errorText}`);
-    }
-
-    console.log('✅ FCM token sent to backend successfully');
-    
-    // Store token locally for comparison during refresh
-    localStorage.setItem('fcmToken', fcmToken);
-    localStorage.setItem('fcmTokenDeviceType', deviceType);
-    
-    return { success: true, message: 'Token saved successfully' };
-  } catch (error) {
-    console.error('❌ Failed to send FCM token to backend:', error);
-    return { success: false, message: 'Failed to save token to backend', error };
   }
 }
 
@@ -236,32 +211,10 @@ export async function generateFCMToken(deviceType?: string): Promise<{ success: 
     if (fcmToken) {
       console.log("✅ FCM Token generated:", fcmToken);
       
-      const userId = localStorage.getItem('userId');
-      const detectedDeviceType = deviceType || getDetailedDeviceType();
-      
-      if (userId) {
-        // Check if token is different before sending
-        const storedToken = localStorage.getItem('fcmToken');
-        if (fcmToken !== storedToken) {
-          const result = await sendTokenToBackend(fcmToken, detectedDeviceType);
-          return { 
-            success: result.success, 
-            token: fcmToken, 
-            message: result.message 
-          };
-        } else {
-          return {
-            success: true,
-            token: fcmToken,
-            message: 'Token already up to date'
-          };
-        }
-      }
-      
       return { 
         success: true, 
         token: fcmToken, 
-        message: 'Token generated successfully but not sent to backend (no user ID)' 
+        message: 'Token generated successfully' 
       };
     }
 
@@ -323,7 +276,7 @@ export function initTokenRefreshHandler(deviceType?: string): (() => void) {
   // Initial check (delayed to avoid conflicts with login flow)
   setTimeout(() => {
     debouncedTokenRefresh(checkAndRefreshToken);
-  }, 5000); // 5 second delay
+  }, 1000); // 5 second delay
 
   console.log('✅ Token refresh handler initialized');
 
@@ -386,10 +339,13 @@ export function cleanupNotifications(): void {
     // Remove stored tokens
     localStorage.removeItem('fcmToken');
     localStorage.removeItem('fcmTokenDeviceType');
+    localStorage.removeItem('lastTokenSentTime');
     
     // Reset global state
     isTokenRefreshInProgress = false;
+    tokenSendInProgress = false;
     serviceWorkerRegistration = null;
+    lastSentToken = null;
     
     console.log('🧹 Notification data cleaned up');
   } catch (error) {
@@ -456,9 +412,17 @@ export async function forceTokenRefresh(): Promise<{ success: boolean; token?: s
     // Generate new token
     const result = await generateFCMToken();
     
-    if (result.success) {
-      console.log('✅ Token refresh forced successfully');
-      return { success: true, token: result.token, message: 'Token refreshed successfully' };
+    if (result.success && result.token) {
+      // Send to backend using notification service
+      const deviceType = getDetailedDeviceType();
+      const backendResult = await notificationService.saveFCMToken(result.token, deviceType);
+      
+      if (backendResult.success) {
+        console.log('✅ Token refresh forced successfully');
+        return { success: true, token: result.token, message: 'Token refreshed successfully' };
+      } else {
+        return { success: false, message: backendResult.message };
+      }
     } else {
       return { success: false, message: result.message };
     }

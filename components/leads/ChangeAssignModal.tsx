@@ -75,8 +75,9 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
   // Watch the transferToId field to determine if button should be enabled
   const transferToId = form.watch("transferToId");
   
-  // Check if a valid assignee is selected
-  const isFormValid = transferToId && transferToId.length > 0;
+  // Check if a valid assignee is selected and lead is not temporary
+  const isTemporaryLead = lead ? lead.leadId.startsWith('temp-') : false;
+  const isFormValid = transferToId && transferToId.length > 0 && !isTemporaryLead;
 
   // Fetch assignees when modal opens
   React.useEffect(() => {
@@ -119,6 +120,16 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
 
   const onSubmit = async (data: FormData) => {
     if (!lead) return;
+
+    // Check if this is a temporary lead ID
+    if (lead.leadId.startsWith('temp-')) {
+      toast({
+        title: "Cannot Transfer",
+        description: "Please wait for the lead to be fully created before transferring",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const selectedAssignee = assignees.find((a) => a.id === data.transferToId);
     if (!selectedAssignee) {
@@ -183,6 +194,11 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
           <DialogTitle>Transfer Lead</DialogTitle>
           <DialogDescription>
             Transfer {lead?.customerName} to a different team member
+            {isTemporaryLead && (
+              <div className="mt-2 text-amber-600 text-sm">
+                Note: Please wait for the lead to be fully saved before transferring.
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -202,7 +218,7 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
                       form.setValue("transferToLabel", selected?.label || "");
                     }}
                     value={field.value}
-                    disabled={isSubmitting || loadingAssignees}
+                    disabled={isSubmitting || loadingAssignees || isTemporaryLead}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -210,6 +226,8 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
                           placeholder={
                             loadingAssignees
                               ? "Loading assignees..."
+                              : isTemporaryLead
+                              ? "Lead not ready for transfer"
                               : "Select team member"
                           }
                         />
@@ -238,15 +256,15 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
                 Cancel
               </Button>
               <Button 
-  type="submit" 
-  disabled={isSubmitting || loadingAssignees || !isFormValid}
-  className={`${
-    (isSubmitting || loadingAssignees || !isFormValid) ? "btn-disabled" : ""
-  }`}
->
-  {isSubmitting ? "Transferring..." : "Transfer Lead"}
-</Button>
-
+                type="submit" 
+                disabled={isSubmitting || loadingAssignees || !isFormValid}
+                className={`${
+                  (isSubmitting || loadingAssignees || !isFormValid) ? "btn-disabled" : "background-gray-600 hover:bg-gray-700 text-white"
+                }`}
+                title={isTemporaryLead ? "Cannot transfer lead until it's fully created" : ""}
+              >
+                {isSubmitting ? "Transferring..." : "Transfer Lead"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

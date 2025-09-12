@@ -796,13 +796,23 @@ const Leads = () => {
   };
 
   const handleAddNewLead = (apiLeadData: any) => {
-    if (!apiLeadData) return;
+  if (!apiLeadData) return;
 
-    const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
-    setLeads((prevLeads) => [newLead, ...prevLeads]);
-    setAllKanbanLeads((prevLeads) => [newLead, ...prevLeads]);
-  };
-
+  const newLead = enhanceLeadWithAssigneeName(apiLeadData, assignOptions);
+  
+  // Remove any temporary lead and add the real one
+  setLeads((prevLeads) => {
+    // Filter out any temporary leads and add the new real one
+    const filteredLeads = prevLeads.filter(lead => !lead.leadId.startsWith('temp-'));
+    return [newLead, ...filteredLeads];
+  });
+  
+  setAllKanbanLeads((prevLeads) => {
+    // Filter out any temporary leads and add the new real one
+    const filteredLeads = prevLeads.filter(lead => !lead.leadId.startsWith('temp-'));
+    return [newLead, ...filteredLeads];
+  });
+};
   const [restrictToFirstStage, setRestrictToFirstStage] = useState(false);
   const [presetStageId, setPresetStageId] = useState<string | undefined>();
 
