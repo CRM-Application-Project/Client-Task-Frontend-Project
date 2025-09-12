@@ -1,11 +1,11 @@
 "use client";
-import { Bell, Menu, X, Check } from "lucide-react";
+import { Bell, Menu, X, Check, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 import { logoutUser } from "@/app/services/data.service";
-import { useNotifications } from "@/hooks/useNotifications"; // Update this path
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface UserData {
   firstName: string;
@@ -56,12 +56,27 @@ const formatNotificationTime = (timestamp: number) => {
   return `${days}d ago`;
 };
 
+// Helper function to get module icon/color
+const getModuleStyle = (module: string) => {
+  const moduleStyles: Record<string, { color: string; bgColor: string }> = {
+    'TASK': { color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    'LEAD': { color: 'text-green-600', bgColor: 'bg-green-50' },
+    'EMPLOYEE': { color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    'SYSTEM': { color: 'text-gray-600', bgColor: 'bg-gray-50' },
+    'DEPARTMENT': { color: 'text-orange-600', bgColor: 'bg-orange-50' },
+    'DEFAULT': { color: 'text-gray-600', bgColor: 'bg-gray-50' }
+  };
+  
+  return moduleStyles[module?.toUpperCase()] || moduleStyles.DEFAULT;
+};
+
 export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const router = useRouter();
   const pathname = usePathname();
@@ -76,11 +91,16 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     markAsRead,
     markAllAsRead,
     clearAll,
-    removeNotification
+    removeNotification,
+    fetchNotifications
   } = useNotifications();
 
   // Get the current page title
   const pageTitle = getPageTitle(pathname);
+
+  // Display only first 8 notifications in dropdown, rest will be scrollable
+  const displayedNotifications = notifications.slice(0, 8);
+  const hasMoreNotifications = notifications.length > 8;
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -88,17 +108,12 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       try {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
-        
-        // Auto-enable notifications if user has granted permission but hasn't enabled yet
-        if (permission === 'granted' && parsedUser.userId) {
-          // This is handled by the hook automatically
-        }
       } catch (e) {
         console.error("Failed to parse user data", e);
       }
     }
     setIsUserLoading(false);
-  }, [permission]);
+  }, []);
 
   const handleEnableNotifications = async () => {
     if (!user?.userId) {
@@ -146,9 +161,44 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     }
   };
 
+  const handleRefreshNotifications = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleNotificationClick = (notification: any) => {
     // Mark as read
     markAsRead(notification.id);
+
+    // Handle notification action based on module
+    if (notification.module) {
+      switch (notification.module.toLowerCase()) {
+        case 'task':
+        case 'tasks':
+          router.push('/tasks');
+          break;
+        case 'lead':
+        case 'leads':
+          router.push('/leads');
+          break;
+        case 'employee':
+        case 'employees':
+          router.push('/employees');
+          break;
+        case 'department':
+        case 'departments':
+          router.push('/department');
+          break;
+        default:
+          console.log("Unknown notification module:", notification.module);
+      }
+    }
 
     // Handle notification action based on data
     if (notification.data?.action) {
@@ -173,6 +223,10 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       }
     }
 
+    setIsNotificationDropdownOpen(false);
+  };
+
+  const handleCloseNotificationDropdown = () => {
     setIsNotificationDropdownOpen(false);
   };
 
@@ -276,110 +330,178 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
           {/* Notification Dropdown */}
           {isNotificationDropdownOpen && permission === 'granted' && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden">
+            <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[500px] overflow-hidden">
               {/* Header */}
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900">Notifications</h3>
-                  <div className="flex gap-2 text-xs">
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900 text-lg">Notifications</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 text-xs">
+                    <button
+                      onClick={handleRefreshNotifications}
+                      disabled={isRefreshing}
+                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </button>
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        className="text-green-600 hover:text-green-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-green-50 transition-colors"
+                        title="Mark all read"
                       >
                         <Check className="h-3 w-3" />
-                        Mark all read
                       </button>
                     )}
                     {notifications.length > 0 && (
                       <button
                         onClick={clearAll}
-                        className="text-red-600 hover:text-red-800 flex items-center gap-1"
+                        className="text-red-600 hover:text-red-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                        title="Clear all"
                       >
                         <X className="h-3 w-3" />
-                        Clear all
                       </button>
                     )}
                   </div>
+                  {/* Close button */}
+                  <button
+                    onClick={handleCloseNotificationDropdown}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors ml-2"
+                    title="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
               
+              {/* Loading State */}
+              {isNotificationsLoading && (
+                <div className="p-6 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-500 text-sm mt-3">Loading notifications...</p>
+                </div>
+              )}
+              
               {/* Notifications List */}
-              <div className="max-h-64 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Bell className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-sm">No notifications yet</p>
-                    <p className="text-gray-400 text-xs mt-1">
-                      {`You'll see important updates here`}
-                    </p>
-                  </div>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      onClick={() => handleNotificationClick(notification)}
-                      className={`relative px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                        !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 text-sm truncate">
-                            {notification.title}
-                          </p>
-                          <p className="text-gray-600 text-sm mt-1 line-clamp-2">
-                            {notification.body}
-                          </p>
-                          <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-gray-400">
-                              {formatNotificationTime(notification.timestamp)}
-                            </p>
-                            {!notification.read && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeNotification(notification.id);
-                          }}
-                          className="ml-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
+              {!isNotificationsLoading && (
+                <div className="max-h-[400px] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <Bell className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 text-base font-medium">No notifications yet</p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        {`You'll see important updates here`}
+                      </p>
                     </div>
-                  ))
-                )}
-              </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {displayedNotifications.map((notification, index) => {
+                        const moduleStyle = getModuleStyle(notification.module || 'DEFAULT');
+                        
+                        return (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`relative px-4 py-4 cursor-pointer hover:bg-gray-50 transition-colors group ${
+                              !notification.read ? `${moduleStyle.bgColor} border-l-4 border-l-current ${moduleStyle.color}` : ''
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <p className="font-semibold text-gray-900 text-sm leading-tight">
+                                    {notification.title}
+                                  </p>
+                                  {notification.module && (
+                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${moduleStyle.color} ${moduleStyle.bgColor} border`}>
+                                      {notification.module.toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-3">
+                                  {notification.body}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs text-gray-400 font-medium">
+                                    {formatNotificationTime(notification.timestamp)}
+                                  </p>
+                                  {!notification.read && (
+                                    <div className={`w-2 h-2 rounded-full ${moduleStyle.color.replace('text-', 'bg-')}`}></div>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeNotification(notification.id);
+                                }}
+                                className="ml-2 p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-red-50"
+                                title="Remove notification"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Show more indicator */}
+                      {hasMoreNotifications && (
+                        <div className="px-4 py-3 bg-gray-50 text-center border-t border-gray-100">
+                          <p className="text-xs text-gray-500 font-medium">
+                            +{notifications.length - 8} more notifications
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Scroll up to see older notifications
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Permission Request Tooltip */}
           {isNotificationDropdownOpen && permission !== 'granted' && (
-            <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg border border-gray-200 z-50 p-4">
-              <div className="text-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bell className="h-5 w-5 text-gray-400" />
-                  <p className="font-medium text-gray-900">Enable Notifications</p>
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <Bell className="h-6 w-6 text-gray-400" />
+                  <p className="font-semibold text-gray-900 text-lg">Enable Notifications</p>
                 </div>
-                <p className="text-gray-600 mb-3">
+                <p className="text-gray-600 mb-6 leading-relaxed">
                   {permission === 'denied' 
-                    ? 'Notifications are blocked. Please enable them in your browser settings and refresh the page.'
-                    : 'Get notified about important updates, new tasks, and messages instantly.'
+                    ? 'Notifications are blocked. Please enable them in your browser settings and refresh the page to get important updates.'
+                    : 'Get notified about important updates, new tasks, and messages instantly. Stay connected with your team and never miss important information.'
                   }
                 </p>
                 {permission !== 'denied' && (
                   <button
                     onClick={handleEnableNotifications}
                     disabled={isEnablingNotifications}
-                    className="w-full bg-brand-primary text-white px-3 py-2 rounded-md text-sm hover:bg-brand-primary/90 disabled:opacity-50 transition-colors"
+                    className="w-full bg-brand-primary text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-brand-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                   >
-                    {isEnablingNotifications ? 'Setting up...' : 'Enable Notifications'}
+                    {isEnablingNotifications ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Setting up...
+                      </>
+                    ) : (
+                      <>
+                        <Bell className="h-4 w-4" />
+                        Enable Notifications
+                      </>
+                    )}
                   </button>
                 )}
+                <button
+                  onClick={handleCloseNotificationDropdown}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </div>
           )}
