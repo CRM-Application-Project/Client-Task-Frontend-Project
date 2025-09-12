@@ -26,7 +26,7 @@ class NotificationService {
 
   async fetchAllNotifications(): Promise<ApiResponse<NotificationResponse[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/notification/fetch`, {
+      const response = await fetch(`${BASE_URL}/notification/fetch`, {
         method: 'GET',
         credentials: 'include',
         headers: this.getAuthHeaders(),
@@ -75,7 +75,7 @@ class NotificationService {
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/notification/save-token`, {
+      const response = await fetch(`${BASE_URL}/notification/save-token`, {
         method: 'POST',
         credentials: 'include',
         headers: this.getAuthHeaders(),
