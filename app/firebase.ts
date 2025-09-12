@@ -23,11 +23,12 @@ let tokenRefreshTimeout: NodeJS.Timeout | null = null;
 let refreshHandlerCleanup: (() => void) | null = null;
 let lastSentToken: string | null = null;
 let tokenSendInProgress = false;
+let userEnablingNotifications = false; // New flag to prevent conflicts
 
 const VAPID_KEY = "BB1gECwdCiIdphrOXUFhpS7tiId2-L0Xri5Dp8VOTQbqxbnTDCWTbnWvAl5kPnCKX4yScA1O9JsbZEz5aE6S57c";
-const TOKEN_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes (reduced frequency)
-const DEBOUNCE_DELAY = 1000; // 5 seconds (increased debounce)
-const TOKEN_SEND_COOLDOWN = 60 * 1000; // 1 minute cooldown between sends
+const TOKEN_REFRESH_INTERVAL = 60 * 60 * 1000; // 60 minutes (increased from 30 minutes)
+const DEBOUNCE_DELAY = 2000; // 2 seconds (increased debounce)
+const TOKEN_SEND_COOLDOWN = 5 * 60 * 1000; // 5 minute cooldown between sends (increased)
 
 // Device type detection functions
 function getDeviceType(): string {
@@ -130,6 +131,11 @@ const debouncedTokenRefresh = (() => {
 async function checkAndRefreshToken(): Promise<void> {
   if (isTokenRefreshInProgress) {
     console.log('🔄 Token refresh already in progress, skipping...');
+    return;
+  }
+
+  if (userEnablingNotifications) {
+    console.log('🔄 User is enabling notifications, skipping automatic refresh...');
     return;
   }
 
@@ -257,8 +263,13 @@ export function initTokenRefreshHandler(deviceType?: string): (() => void) {
   // Handle page visibility changes (less aggressive)
   const handleVisibilityChange = () => {
     if (!document.hidden) {
-      console.log('👀 Page became visible, scheduling token check...');
-      debouncedTokenRefresh(checkAndRefreshToken);
+      // Only check token on visibility change if we haven't checked recently
+      const lastCheckTime = localStorage.getItem('lastTokenCheckTime');
+      if (!lastCheckTime || (Date.now() - parseInt(lastCheckTime)) > 5 * 60 * 1000) { // 5 minutes
+        console.log('👀 Page became visible, scheduling token check...');
+        localStorage.setItem('lastTokenCheckTime', Date.now().toString());
+        debouncedTokenRefresh(checkAndRefreshToken);
+      }
     }
   };
 
@@ -275,8 +286,13 @@ export function initTokenRefreshHandler(deviceType?: string): (() => void) {
 
   // Initial check (delayed to avoid conflicts with login flow)
   setTimeout(() => {
-    debouncedTokenRefresh(checkAndRefreshToken);
-  }, 1000); // 5 second delay
+    // Only do initial check if we haven't checked recently
+    const lastCheckTime = localStorage.getItem('lastTokenCheckTime');
+    if (!lastCheckTime || (Date.now() - parseInt(lastCheckTime)) > 10 * 60 * 1000) { // 10 minutes
+      localStorage.setItem('lastTokenCheckTime', Date.now().toString());
+      debouncedTokenRefresh(checkAndRefreshToken);
+    }
+  }, 5000); // 5 second delay
 
   console.log('✅ Token refresh handler initialized');
 
@@ -437,4 +453,14 @@ export async function requestNotificationPermission(userId?: string): Promise<{ 
   console.log('⚠️ requestNotificationPermission is deprecated, use generateFCMToken instead');
   const deviceType = getDetailedDeviceType();
   return await generateFCMToken(deviceType);
+}
+
+// Functions to manage user enabling state (prevent conflicts)
+export function setUserEnablingNotifications(enabling: boolean): void {
+  userEnablingNotifications = enabling;
+  console.log(`🔄 User enabling notifications flag set to: ${enabling}`);
+}
+
+export function isUserEnablingNotifications(): boolean {
+  return userEnablingNotifications;
 }

@@ -1,7 +1,7 @@
 // utils/logout.ts
 // Update this path
 import { cleanupNotifications } from '@/app/firebase';
-import { dispatchLogoutEvent } from '@/hooks/useNotifications'; // Update this path
+import { dispatchLogoutEvent } from '@/hooks/useNotificationsGlobal'; // Update this path
 
 export const handleUserLogout = async (
   logoutApiFunction?: () => Promise<any>, 
@@ -32,7 +32,14 @@ export const handleUserLogout = async (
       "notifications",
       "fcmToken",
       "fcmTokenDeviceType",
-      "themeData"
+      "themeData",
+      // Clean up notification timing data
+      "lastNotificationFetch",
+      "lastTokenSentTime",
+      "lastSentFCMToken",
+      "lastTokenCheckTime",
+      "lastNotificationEnabled",
+      "lastNotificationRefresh"
     ];
     
     itemsToRemove.forEach((item) => {

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 import { logoutUser } from "@/app/services/data.service";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/hooks/useNotificationsGlobal";
 
 interface UserData {
   firstName: string;
@@ -126,12 +126,28 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       return;
     }
 
+    // Check if notifications were recently enabled to prevent spam
+    const lastEnabledTime = localStorage.getItem('lastNotificationEnabled');
+    if (lastEnabledTime) {
+      const timeSinceLastEnabled = Date.now() - parseInt(lastEnabledTime);
+      if (timeSinceLastEnabled < 30000) { // 30 seconds cooldown
+        await Swal.fire({
+          title: "Please Wait",
+          text: "Notifications were recently enabled. Please wait a moment before trying again.",
+          icon: "info",
+          customClass: { popup: "rounded-lg shadow-xl" },
+        });
+        return;
+      }
+    }
+
     setIsEnablingNotifications(true);
     
     try {
       const result = await enableNotifications(user.userId);
       
       if (result.success) {
+        localStorage.setItem('lastNotificationEnabled', Date.now().toString());
         await Swal.fire({
           title: "Notifications Enabled!",
           text: "You will now receive push notifications for important updates.",
@@ -162,8 +178,18 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   const handleRefreshNotifications = async () => {
+    // Prevent rapid refresh requests
+    const lastRefreshTime = localStorage.getItem('lastNotificationRefresh');
+    if (lastRefreshTime) {
+      const timeSinceLastRefresh = Date.now() - parseInt(lastRefreshTime);
+      if (timeSinceLastRefresh < 10000) { // 10 seconds cooldown
+        return;
+      }
+    }
+
     setIsRefreshing(true);
     try {
+      localStorage.setItem('lastNotificationRefresh', Date.now().toString());
       await fetchNotifications();
     } catch (error) {
       console.error('Error refreshing notifications:', error);
