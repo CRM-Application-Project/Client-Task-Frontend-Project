@@ -471,7 +471,6 @@ class GlobalNotificationState {
     console.log('🧹 Resetting global notification state...');
     cleanupNotifications();
     notificationManager.reset();
-    notificationService.resetLocks();
     
     this.state = {
       notifications: [],

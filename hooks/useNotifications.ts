@@ -475,7 +475,6 @@ export function useNotifications(): UseNotificationsReturn {
     const handleLogout = () => {
       cleanupNotifications();
       notificationManager.reset();
-      notificationService.resetLocks(); // Reset API locks
       setNotifications([]);
       setUnreadCount(0);
       setFcmToken(null);
