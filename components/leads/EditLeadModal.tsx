@@ -235,16 +235,16 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
   }, [formValues, lead]);
 
   useEffect(() => {
-  if (lead && countryCodes.length > 0) {
+  if (lead && countryCodes.length > 0 && assignees.length > 0) {
     const { code, number } = parsePhoneNumber(
       lead.customerMobileNumber,
       countryCodes
     );
 
-    // Find the assignee ID from the assignees list based on lead.leadAssignedTo
+    // Find the assignee ID from the assignees list based on lead.leadAssignedTo (which is now the label)
     let assignedToId = "";
     if (lead.leadAssignedTo && assignees.length > 0) {
-      const assignee = assignees.find(a => a.label === lead.leadAssignedTo || a.id === lead.leadAssignedTo);
+      const assignee = assignees.find(a => a.label === lead.leadAssignedTo);
       assignedToId = assignee?.id || "";
     }
 
@@ -255,9 +255,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
       companyEmailAddress: lead.companyEmailAddress,
       leadAddress: lead.leadAddress,
       leadStatus: lead.leadStatus,
-      leadPriority: lead.leadPriority , // Ensure priority is set
+      leadPriority: lead.leadPriority,
       leadSource: lead.leadSource,
-      leadAssignedTo: assignedToId,
+      leadAssignedTo: assignedToId, // This should be the ID for the form
       leadLabel: lead.leadLabel || "",
       leadReference: lead.leadReference || "",
       comment: lead.comment || "",
@@ -291,7 +291,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     return { code: "+91", number: phone };
   };
 
-  const onSubmit = async (data: FormData) => {
+ const onSubmit = async (data: FormData) => {
   if (!lead) return;
 
   setIsSubmitting(true);
@@ -306,84 +306,88 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     // Find the selected assignee label
     const selectedAssignee = assignees.find(a => a.id === data.leadAssignedTo);
     const assigneeLabel = selectedAssignee?.label || "";
+    const assigneeId = selectedAssignee?.id || "";
+
+    // Don't send temporary lead IDs to the API
+    const leadId = lead.leadId.startsWith('temp-') ? '' : lead.leadId;
 
     const payload = {
-      leadId: lead.leadId,
+      leadId: leadId, // Use empty string for temp IDs or the actual ID
       customerName: data.customerName,
       customerEmailAddress: data.customerEmailAddress,
       customerMobileNumber: phoneWithCode,
       companyEmailAddress: data.companyEmailAddress || "",
       leadAddress: data.leadAddress || "",
       leadStatus: data.leadStatus as LeadStatus,
-      leadPriority: data.leadPriority as LeadPriority, // Include priority
+      leadPriority: data.leadPriority as LeadPriority,
       leadSource: data.leadSource as LeadSource,
       leadAddedBy: lead.leadAddedBy,
-      leadAssignedTo: data.leadAssignedTo || null,
+      leadAssignedTo: assigneeLabel, // Send the label, not the ID
       leadLabel: data.leadLabel || "",
       leadReference: data.leadReference || "",
       comment: data.comment || "",
     };
 
-      const response = await updateLead(payload);
+    const response = await updateLead(payload);
 
-      if (response.isSuccess) {
-        // Create the updated lead object
-        const updatedLead: Lead = {
-          ...lead,
-          customerName: data.customerName,
-          customerEmailAddress: data.customerEmailAddress,
-          customerMobileNumber: phoneWithCode,
-          companyEmailAddress: data.companyEmailAddress || "",
-          leadAddress: data.leadAddress || "",
-          leadStatus: data.leadStatus as LeadStatus,
-          leadPriority: data.leadPriority as LeadPriority,
-          leadSource: data.leadSource as LeadSource,
-          leadAssignedTo: data.leadAssignedTo || null,
-          assignedToName: assigneeLabel || undefined,
-          leadLabel: data.leadLabel || "",
-          leadReference: data.leadReference || "",
-          comment: data.comment || "",
-          updatedAt: new Date().toISOString(),
-        };
+    if (response.isSuccess) {
+      // Create the updated lead object
+      const updatedLead: Lead = {
+        ...lead,
+        customerName: data.customerName,
+        customerEmailAddress: data.customerEmailAddress,
+        customerMobileNumber: phoneWithCode,
+        companyEmailAddress: data.companyEmailAddress || "",
+        leadAddress: data.leadAddress || "",
+        leadStatus: data.leadStatus as LeadStatus,
+        leadPriority: data.leadPriority as LeadPriority,
+        leadSource: data.leadSource as LeadSource,
+        leadAssignedTo: assigneeLabel, // Store the label
+        assignedToName: assigneeLabel,
+        leadLabel: data.leadLabel || "",
+        leadReference: data.leadReference || "",
+        comment: data.comment || "",
+        updatedAt: new Date().toISOString(),
+      };
 
-        form.reset({
-          ...data,
-          customerMobileNumber: getPhoneWithoutCode(phoneWithCode),
-        });
-        setSelectedCode(selectedCode);
+      form.reset({
+        ...data,
+        customerMobileNumber: getPhoneWithoutCode(phoneWithCode),
+      });
+      setSelectedCode(selectedCode);
 
-        // Close modal first
-        onClose();
+      // Close modal first
+      onClose();
 
-        // Update local state immediately
-        onUpdateLead(updatedLead);
+      // Update local state immediately
+      onUpdateLead(updatedLead);
 
-        // Show success toast
-        toast({
-          title: "Lead updated",
-          description:
-            response.message ||
-            "Lead information has been successfully updated.",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: response.message || "Failed to update lead",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error updating lead:", error);
+      // Show success toast
+      toast({
+        title: "Lead updated",
+        description:
+          response.message ||
+          "Lead information has been successfully updated.",
+      });
+    } else {
       toast({
         title: "Error",
-        description:
-          error.message || "An error occurred while updating the lead.",
+        description: response.message || "Failed to update lead",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (error: any) {
+    console.error("Error updating lead:", error);
+    toast({
+      title: "Error",
+      description:
+        error.message || "An error occurred while updating the lead.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleClose = () => {
     form.reset();
