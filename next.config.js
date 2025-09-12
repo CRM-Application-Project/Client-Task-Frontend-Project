@@ -1,21 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  experimental: {
+    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+  },
   eslint: {
-    ignoreDuringBuilds: true,
+    // Only run ESLint on these directories during production builds
+    dirs: ['pages', 'components', 'lib', 'src'],
   },
-  images: {
-    unoptimized: true,
-    domains: ['s2chrms.s3.amazonaws.com'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 's2chrms.s3.amazonaws.com',
-        port: '',
-        pathname: '/crm-logos/images/**',
-      },
-    ],
+  typescript: {
+    // Enable type checking during build
+    ignoreBuildErrors: false,
   },
-};
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

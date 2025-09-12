@@ -60,7 +60,7 @@
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.13",
     "embla-carousel-react": "^8.3.0",
-    "eslint": "8.49.0",
+    "eslint": "^8.57.0",
     "firebase": "^12.2.1",
     "framer-motion": "^12.23.12",
     "input-otp": "^1.2.4",
@@ -69,7 +69,7 @@
     "next-themes": "^0.3.0",
     "postcss": "8.4.30",
     "react": "^18.2.0",
-    "react-beautiful-dnd": "^13.1.1",
+
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.53.0",
@@ -89,7 +89,7 @@
   },
   "devDependencies": {
     "@types/colorthief": "^2.6.0",
-    "@types/react-beautiful-dnd": "^13.1.8",
+
     "eslint-config-next": "^15.5.3"
   }
 }
