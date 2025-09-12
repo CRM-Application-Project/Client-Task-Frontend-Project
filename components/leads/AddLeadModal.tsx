@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -101,6 +101,17 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
   const [user, setUser] = useState<UserData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+
+  // Memoize filtered country codes for better performance
+  const filteredCodes = useMemo(() => {
+    if (!countrySearch) return codes;
+    return codes.filter(
+      (country) =>
+        country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+        country.code.includes(countrySearch)
+    );
+  }, [codes, countrySearch]);
 
   // Find the "New" stage or use the first available stage
   const findDefaultStage = () => {
@@ -250,6 +261,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
           ...form.formState.defaultValues,
           leadStatus: defaultStageName,
         });
+        setCountrySearch("");
+        setSelectedCode("+91");
         onClose();
 
         // Call the callback with the API response data
@@ -285,6 +298,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
       ...form.formState.defaultValues,
       leadStatus: defaultStageName,
     });
+    setCountrySearch("");
+    setSelectedCode("+91");
     onClose();
   };
 
@@ -398,11 +413,32 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({
                           {loading ? (
                             <SelectItem value="loading">Loading...</SelectItem>
                           ) : (
-                            codes.map((c) => (
-                              <SelectItem key={c.code} value={c.code}>
-                                {c.name} ({c.code})
-                              </SelectItem>
-                            ))
+                            <>
+                              <div className="px-2 py-1">
+                                <Input
+                                  placeholder="Search countries..."
+                                  value={countrySearch}
+                                  onChange={(e) => setCountrySearch(e.target.value)}
+                                  className="h-8"
+                                />
+                              </div>
+                              {filteredCodes.length > 0 ? (
+                                filteredCodes.slice(0, 50).map((c, index) => (
+                                  <SelectItem key={`${c.code}-${index}`} value={c.code}>
+                                    {c.name} ({c.code})
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="no-results" disabled>
+                                  No countries found
+                                </SelectItem>
+                              )}
+                              {filteredCodes.length > 50 && (
+                                <SelectItem value="more-results" disabled>
+                                  {filteredCodes.length - 50} more results... (refine search)
+                                </SelectItem>
+                              )}
+                            </>
                           )}
                         </SelectContent>
                       </Select>

@@ -460,8 +460,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                           <SelectValue placeholder="+91" />
                         </SelectTrigger>
                         <SelectContent className="w-[240px]">
-                          {countryCodes.map((code) => (
-                            <SelectItem key={code.code} value={code.code}>
+                          {countryCodes.map((code, index) => (
+                            <SelectItem key={`${code.code}-${index}`} value={code.code}>
                               {code.code} &nbsp; {code.name}
                             </SelectItem>
                           ))}
