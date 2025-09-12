@@ -189,12 +189,12 @@ export const AddTaskModal = ({
     byWeekDay: [1, 2, 3, 4, 5], // Default to weekdays (Mon-Fri)
   });
   const getStoredUserData = (): StoredUserData | null => {
-  if (typeof window !== 'undefined') {
-    const userData = localStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
-  }
-  return null;
-};
+    if (typeof window !== 'undefined') {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    }
+    return null;
+  };
 
   const [originalFormData, setOriginalFormData] =
     useState<CreateTaskRequest | null>(null);
@@ -217,134 +217,134 @@ export const AddTaskModal = ({
     { value: "YEARLY", label: "Yearly" },
   ];
 
-const weekDays = [
-  { value: 0, label: "Sunday", short: "SU", rrule: RRule.SU },
-  { value: 1, label: "Monday", short: "MO", rrule: RRule.MO },
-  { value: 2, label: "Tuesday", short: "TU", rrule: RRule.TU },
-  { value: 3, label: "Wednesday", short: "WE", rrule: RRule.WE },
-  { value: 4, label: "Thursday", short: "TH", rrule: RRule.TH },
-  { value: 5, label: "Friday", short: "FR", rrule: RRule.FR },
-  { value: 6, label: "Saturday", short: "SA", rrule: RRule.SA },
-];
+  const weekDays = [
+    { value: 0, label: "Sunday", short: "SU", rrule: RRule.SU },
+    { value: 1, label: "Monday", short: "MO", rrule: RRule.MO },
+    { value: 2, label: "Tuesday", short: "TU", rrule: RRule.TU },
+    { value: 3, label: "Wednesday", short: "WE", rrule: RRule.WE },
+    { value: 4, label: "Thursday", short: "TH", rrule: RRule.TH },
+    { value: 5, label: "Friday", short: "FR", rrule: RRule.FR },
+    { value: 6, label: "Saturday", short: "SA", rrule: RRule.SA },
+  ];
 
   // Frequency mapping function
- const getFrequencyConstant = (frequency: string): Frequency => {
-  switch (frequency) {
-    case "DAILY":
-      return RRule.DAILY;
-    case "WEEKLY":
-      return RRule.WEEKLY;
-    case "MONTHLY":
-      return RRule.MONTHLY;
-    case "YEARLY":
-      return RRule.YEARLY;
-    default:
-      return RRule.WEEKLY;
-  }
-};
-
- const parseRRuleString = (rruleString: string): Partial<RecurrenceRule> => {
-  try {
-    // Add RRULE: prefix if it's missing
-    const fullRruleString = rruleString.startsWith('RRULE:') ? rruleString : `RRULE:${rruleString}`;
-    
-    const rule = rrulestr(fullRruleString);
-    const options = rule.options;
-    
-    const result: Partial<RecurrenceRule> = {
-      frequency: getFrequencyName(options.freq),
-      interval: options.interval || 1,
-    };
-
-    // Parse weekdays
-    if (options.byweekday) {
-      result.byWeekDay = options.byweekday.map((day: any) => {
-        if (typeof day === 'number') return day;
-        return day.weekday;
-      });
+  const getFrequencyConstant = (frequency: string): Frequency => {
+    switch (frequency) {
+      case "DAILY":
+        return RRule.DAILY;
+      case "WEEKLY":
+        return RRule.WEEKLY;
+      case "MONTHLY":
+        return RRule.MONTHLY;
+      case "YEARLY":
+        return RRule.YEARLY;
+      default:
+        return RRule.WEEKLY;
     }
+  };
 
-    // Parse month days
-    if (options.bymonthday) {
-      result.byMonthDay = Array.isArray(options.bymonthday) 
-        ? options.bymonthday 
-        : [options.bymonthday];
+  const parseRRuleString = (rruleString: string): Partial<RecurrenceRule> => {
+    try {
+      // Add RRULE: prefix if it's missing
+      const fullRruleString = rruleString.startsWith('RRULE:') ? rruleString : `RRULE:${rruleString}`;
+
+      const rule = rrulestr(fullRruleString);
+      const options = rule.options;
+
+      const result: Partial<RecurrenceRule> = {
+        frequency: getFrequencyName(options.freq),
+        interval: options.interval || 1,
+      };
+
+      // Parse weekdays
+      if (options.byweekday) {
+        result.byWeekDay = options.byweekday.map((day: any) => {
+          if (typeof day === 'number') return day;
+          return day.weekday;
+        });
+      }
+
+      // Parse month days
+      if (options.bymonthday) {
+        result.byMonthDay = Array.isArray(options.bymonthday)
+          ? options.bymonthday
+          : [options.bymonthday];
+      }
+
+      // Check if weekends are excluded (no Saturday/Sunday in byweekday)
+      if (options.byweekday) {
+        const hasWeekend = options.byweekday.some((day: any) => {
+          const dayNum = typeof day === 'number' ? day : day.weekday;
+          return dayNum === 0 || dayNum === 6; // Sunday or Saturday
+        });
+        result.excludeWeekends = !hasWeekend;
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error parsing RRule string:", error);
+      return {};
     }
-
-    // Check if weekends are excluded (no Saturday/Sunday in byweekday)
-    if (options.byweekday) {
-      const hasWeekend = options.byweekday.some((day: any) => {
-        const dayNum = typeof day === 'number' ? day : day.weekday;
-        return dayNum === 0 || dayNum === 6; // Sunday or Saturday
-      });
-      result.excludeWeekends = !hasWeekend;
-    }
-
-    return result;
-  } catch (error) {
-    console.error("Error parsing RRule string:", error);
-    return {};
-  }
-};
+  };
 
   // Add this function to parse RRule string back to your format
- useEffect(() => {
-  if (isOpen && editingTask) {
-    console.log("Edit Modal Opened - FormData:", formData);
-  }
-}, [isOpen, editingTask, formData]);
+  useEffect(() => {
+    if (isOpen && editingTask) {
+      console.log("Edit Modal Opened - FormData:", formData);
+    }
+  }, [isOpen, editingTask, formData]);
 
   // Helper function to get frequency name from RRule constant
- const getFrequencyName = (freq: Frequency): RecurrenceRule['frequency'] => {
-  switch (freq) {
-    case RRule.DAILY:
-      return "DAILY";
-    case RRule.WEEKLY:
-      return "WEEKLY";
-    case RRule.MONTHLY:
-      return "MONTHLY";
-    case RRule.YEARLY:
-      return "YEARLY";
-    default:
-      return "WEEKLY";
-  }
-};
+  const getFrequencyName = (freq: Frequency): RecurrenceRule['frequency'] => {
+    switch (freq) {
+      case RRule.DAILY:
+        return "DAILY";
+      case RRule.WEEKLY:
+        return "WEEKLY";
+      case RRule.MONTHLY:
+        return "MONTHLY";
+      case RRule.YEARLY:
+        return "YEARLY";
+      default:
+        return "WEEKLY";
+    }
+  };
 
   const hasPreSelectedStage = useMemo(() => {
     return !editingTask && preSelectedStageId && preSelectedStageId > 0;
   }, [editingTask, preSelectedStageId]);
-const getMinStartDate = useCallback(() => {
-  // For new tasks, use current time but allow some flexibility
-  if (!editingTask) {
-    return undefined; // Remove strict current time restriction for new tasks
-  }
-  
-  // For edit tasks, allow more flexibility unless actively changing start date
-  return undefined; // Remove all restrictions to allow users to pick any time
-}, [editingTask, dirtyFields, touchedFields]);
+  const getMinStartDate = useCallback(() => {
+    // For new tasks, use current time but allow some flexibility
+    if (!editingTask) {
+      return undefined; // Remove strict current time restriction for new tasks
+    }
+
+    // For edit tasks, allow more flexibility unless actively changing start date
+    return undefined; // Remove all restrictions to allow users to pick any time
+  }, [editingTask, dirtyFields, touchedFields]);
 
   // Get minimum end date (start date + 1 day)
-const getMinEndDate = useCallback(() => {
-  if (!formData.startDate) return undefined; // Remove restriction if no start date
-  
-  try {
-    const startDate = new Date(formData.startDate);
-    // Allow same day if time is later, more flexible approach
-    const sameDay = new Date(startDate);
-    sameDay.setHours(startDate.getHours() + 1); // Minimum 1 hour later
-    
-    const year = sameDay.getFullYear();
-    const month = String(sameDay.getMonth() + 1).padStart(2, "0");
-    const day = String(sameDay.getDate()).padStart(2, "0");
-    const hours = String(sameDay.getHours()).padStart(2, "0");
-    const minutes = String(sameDay.getMinutes()).padStart(2, "0");
-    
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  } catch (error) {
-    console.error("Error calculating min end date:", error);
-    return undefined; // Don't restrict on error
-  }
-}, [formData.startDate]);
+  const getMinEndDate = useCallback(() => {
+    if (!formData.startDate) return undefined; // Remove restriction if no start date
+
+    try {
+      const startDate = new Date(formData.startDate);
+      // Allow same day if time is later, more flexible approach
+      const sameDay = new Date(startDate);
+      sameDay.setHours(startDate.getHours() + 1); // Minimum 1 hour later
+
+      const year = sameDay.getFullYear();
+      const month = String(sameDay.getMonth() + 1).padStart(2, "0");
+      const day = String(sameDay.getDate()).padStart(2, "0");
+      const hours = String(sameDay.getHours()).padStart(2, "0");
+      const minutes = String(sameDay.getMinutes()).padStart(2, "0");
+
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (error) {
+      console.error("Error calculating min end date:", error);
+      return undefined; // Don't restrict on error
+    }
+  }, [formData.startDate]);
   const areValuesEqual = (original: any, current: any): boolean => {
     if (original === current) return true;
     if (original instanceof Date && typeof current === "string") {
@@ -359,137 +359,137 @@ const getMinEndDate = useCallback(() => {
   };
 
   // Validate individual field
-const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad: boolean = false): string => {
-  // Don't validate on initial load unless it's an edit with existing data
-  if (isInitialLoad && !editingTask) {
-    return "";
-  }
-
-  const isRequiredField = ["subject", "description", "taskStageId", "assignee", "approverId", "estimatedHours", "startDate", "endDate"].includes(field);
-  const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
-  
-  // For edit mode, only validate if field is dirty OR if it's a required field that's empty
-  if (editingTask && !dirtyFields.has(field) && field !== "description") {
-    // Still validate required fields even if not dirty
-    if (isRequiredField && isEmpty) {
-      // Skip validation for non-dirty fields in edit mode unless they're empty required fields
-    } else {
+  const validateField = (field: keyof CreateTaskRequest, value: any, isInitialLoad: boolean = false): string => {
+    // Don't validate on initial load unless it's an edit with existing data
+    if (isInitialLoad && !editingTask) {
       return "";
     }
-  }
 
-  switch (field) {
-    case "subject":
-      if (!value?.trim()) return "Subject is required";
-      break;
-    case "description":
-      if (!value?.trim()) return "Description is required";
-      break;
-    case "taskStageId":
-      if (!value || value === 0) return "Please select a stage";
-      break;
-    case "assignee":
-      if (!value?.trim()) return "Please select an assignee";
-      // Check if assignee and approver are the same - use current form values
-      const currentApproverId = formData.approverId;
-      if (value && currentApproverId && value === currentApproverId) {
-        return "Assignee and approver cannot be the same person";
+    const isRequiredField = ["subject", "description", "taskStageId", "assignee", "approverId", "estimatedHours", "startDate", "endDate"].includes(field);
+    const isEmpty = !value || (typeof value === "string" && !value.trim()) || value === 0;
+
+    // For edit mode, only validate if field is dirty OR if it's a required field that's empty
+    if (editingTask && !dirtyFields.has(field) && field !== "description") {
+      // Still validate required fields even if not dirty
+      if (isRequiredField && isEmpty) {
+        // Skip validation for non-dirty fields in edit mode unless they're empty required fields
+      } else {
+        return "";
       }
-      break;
-    case "approverId":
-      if (!value?.trim()) return "Please select an approver";
-      // Check if approver and assignee are the same - use current form values
-      const currentAssigneeId = formData.assignee;
-      if (value && currentAssigneeId && value === currentAssigneeId) {
-        return "Approver and assignee cannot be the same person";
-      }
-      break;
-    case "estimatedHours":
-      if (!value || value <= 0) return "Estimated hours must be greater than 0";
-      break;
-    case "startDate":
-      if (!value) return "Start date is required";
-      
-      // More flexible start date validation
-      if (!editingTask || dirtyFields.has("startDate")) {
-        const startDate = new Date(value);
-        const now = new Date();
-        // Allow past dates with a warning instead of strict validation
-        // Only enforce future dates for new tasks
-        if (!editingTask && startDate < now) {
-          return "Start date should be in the future for new tasks";
+    }
+
+    switch (field) {
+      case "subject":
+        if (!value?.trim()) return "Subject is required";
+        break;
+      case "description":
+        if (!value?.trim()) return "Description is required";
+        break;
+      case "taskStageId":
+        if (!value || value === 0) return "Please select a stage";
+        break;
+      case "assignee":
+        if (!value?.trim()) return "Please select an assignee";
+        // Check if assignee and approver are the same - use current form values
+        const currentApproverId = formData.approverId;
+        if (value && currentApproverId && value === currentApproverId) {
+          return "Assignee and approver cannot be the same person";
         }
-      }
-      break;
-    case "endDate":
-      if (!value) return "End date is required";
-      if (value && formData.startDate) {
-        const startDate = new Date(formData.startDate);
-        const endDate = new Date(value);
-        
-        // More flexible end date validation
-        if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
-          // Only validate if end date is actually being changed
-          if (!touchedFields.has("endDate")) {
-            break;
+        break;
+      case "approverId":
+        if (!value?.trim()) return "Please select an approver";
+        // Check if approver and assignee are the same - use current form values
+        const currentAssigneeId = formData.assignee;
+        if (value && currentAssigneeId && value === currentAssigneeId) {
+          return "Approver and assignee cannot be the same person";
+        }
+        break;
+      case "estimatedHours":
+        if (!value || value <= 0) return "Estimated hours must be greater than 0";
+        break;
+      case "startDate":
+        if (!value) return "Start date is required";
+
+        // More flexible start date validation
+        if (!editingTask || dirtyFields.has("startDate")) {
+          const startDate = new Date(value);
+          const now = new Date();
+          // Allow past dates with a warning instead of strict validation
+          // Only enforce future dates for new tasks
+          if (!editingTask && startDate < now) {
+            return "Start date should be in the future for new tasks";
           }
         }
-        
-        // Allow same day end date if time is later, or next day
-        if (endDate <= startDate) {
-          return "End date must be after start date";
+        break;
+      case "endDate":
+        if (!value) return "End date is required";
+        if (value && formData.startDate) {
+          const startDate = new Date(formData.startDate);
+          const endDate = new Date(value);
+
+          // More flexible end date validation
+          if (editingTask && !dirtyFields.has("startDate") && !dirtyFields.has("endDate")) {
+            // Only validate if end date is actually being changed
+            if (!touchedFields.has("endDate")) {
+              break;
+            }
+          }
+
+          // Allow same day end date if time is later, or next day
+          if (endDate <= startDate) {
+            return "End date must be after start date";
+          }
         }
-      }
-      break;
-    default:
-      return "";
-  }
-  return "";
-};
-const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string => {
-  const options: Partial<RRuleOptions> = {
-    freq: getFrequencyConstant(rule.frequency),
-    interval: rule.interval,
+        break;
+      default:
+        return "";
+    }
+    return "";
+  };
+  const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string => {
+    const options: Partial<RRuleOptions> = {
+      freq: getFrequencyConstant(rule.frequency),
+      interval: rule.interval,
+    };
+
+    // Set byweekday if provided (for WEEKLY frequency)
+    if (rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
+      options.byweekday = rule.byWeekDay.map(day => weekDays[day].rrule);
+    }
+
+    // Set bymonthday if provided (for MONTHLY frequency)
+    if (rule.frequency === "MONTHLY" && rule.byMonthDay && rule.byMonthDay.length > 0) {
+      options.bymonthday = rule.byMonthDay;
+    }
+
+    // Handle exclude weekends - we need to modify the byweekday instead of using exrule
+    if (rule.excludeWeekends && rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
+      // Filter out weekends (Saturday = 6, Sunday = 0)
+      const weekdaysOnly = rule.byWeekDay.filter(day => day !== 0 && day !== 6);
+      options.byweekday = weekdaysOnly.map(day => weekDays[day].rrule);
+    }
+
+    const rrule = new RRule(options);
+
+    // Get the string and remove the RRULE: prefix if it exists
+    let rruleString = rrule.toString();
+    if (rruleString.startsWith('RRULE:')) {
+      rruleString = rruleString.substring(6); // Remove "RRULE:" prefix
+    }
+
+    return rruleString;
   };
 
-  // Set byweekday if provided (for WEEKLY frequency)
-  if (rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
-    options.byweekday = rule.byWeekDay.map(day => weekDays[day].rrule);
-  }
+  const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
+    if (!reviewerId || !users || users.length === 0) {
+      // Get current user from localStorage as default
+      const currentUser = getStoredUserData();
+      return currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Select reviewer";
+    }
 
-  // Set bymonthday if provided (for MONTHLY frequency)
-  if (rule.frequency === "MONTHLY" && rule.byMonthDay && rule.byMonthDay.length > 0) {
-    options.bymonthday = rule.byMonthDay;
-  }
-
-  // Handle exclude weekends - we need to modify the byweekday instead of using exrule
-  if (rule.excludeWeekends && rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
-    // Filter out weekends (Saturday = 6, Sunday = 0)
-    const weekdaysOnly = rule.byWeekDay.filter(day => day !== 0 && day !== 6);
-    options.byweekday = weekdaysOnly.map(day => weekDays[day].rrule);
-  }
-
-  const rrule = new RRule(options);
-  
-  // Get the string and remove the RRULE: prefix if it exists
-  let rruleString = rrule.toString();
-  if (rruleString.startsWith('RRULE:')) {
-    rruleString = rruleString.substring(6); // Remove "RRULE:" prefix
-  }
-  
-  return rruleString;
-};
-
-const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
-  if (!reviewerId || !users || users.length === 0) {
-    // Get current user from localStorage as default
-    const currentUser = getStoredUserData();
-    return currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Select reviewer";
-  }
-  
-  const reviewer = users.find(user => user.userId === reviewerId);
-  return reviewer ? `${reviewer.firstName} ${reviewer.lastName}` : "Select reviewer";
-};
+    const reviewer = users.find(user => user.userId === reviewerId);
+    return reviewer ? `${reviewer.firstName} ${reviewer.lastName}` : "Select reviewer";
+  };
   // Validate comment field
   const validateComment = (): string => {
     if (editingTask && stageChanged && !comment.trim()) {
@@ -499,75 +499,75 @@ const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
   };
 
   // Update form field with validation
- const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
-  setFormData((prev) => ({ ...prev, [field]: value }));
+  const updateFormField = (field: keyof CreateTaskRequest, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
-  // Always validate the current field if it has been touched or we're in edit mode
-  if (touchedFields.has(field) || editingTask) {
-    const error = validateField(field, value);
-    setValidationErrors(prev => ({
-      ...prev,
-      [field]: error
-    }));
-  }
-
-  // Special handling for assignee/approver cross-validation
-  if (field === "assignee" || field === "approverId") {
-    const otherField = field === "assignee" ? "approverId" : "assignee";
-    const otherValue = field === "assignee" ? formData.approverId : formData.assignee;
-    
-    // Always validate both fields when either changes
-    const currentFieldError = validateField(field, value);
-    const otherFieldError = validateField(otherField, otherValue);
-    
-    setValidationErrors(prev => ({
-      ...prev,
-      [field]: currentFieldError,
-      [otherField]: otherFieldError
-    }));
-  }
-
-  // Handle dirty fields tracking for edit mode
-  if (originalFormData && editingTask) {
-    const originalValue = originalFormData[field];
-    const newDirtyFields = new Set(dirtyFields);
-
-    if (areValuesEqual(originalValue, value)) {
-      newDirtyFields.delete(field);
-    } else {
-      newDirtyFields.add(field);
+    // Always validate the current field if it has been touched or we're in edit mode
+    if (touchedFields.has(field) || editingTask) {
+      const error = validateField(field, value);
+      setValidationErrors(prev => ({
+        ...prev,
+        [field]: error
+      }));
     }
-    setDirtyFields(newDirtyFields);
-  }
-};
+
+    // Special handling for assignee/approver cross-validation
+    if (field === "assignee" || field === "approverId") {
+      const otherField = field === "assignee" ? "approverId" : "assignee";
+      const otherValue = field === "assignee" ? formData.approverId : formData.assignee;
+
+      // Always validate both fields when either changes
+      const currentFieldError = validateField(field, value);
+      const otherFieldError = validateField(otherField, otherValue);
+
+      setValidationErrors(prev => ({
+        ...prev,
+        [field]: currentFieldError,
+        [otherField]: otherFieldError
+      }));
+    }
+
+    // Handle dirty fields tracking for edit mode
+    if (originalFormData && editingTask) {
+      const originalValue = originalFormData[field];
+      const newDirtyFields = new Set(dirtyFields);
+
+      if (areValuesEqual(originalValue, value)) {
+        newDirtyFields.delete(field);
+      } else {
+        newDirtyFields.add(field);
+      }
+      setDirtyFields(newDirtyFields);
+    }
+  };
   // Handle description change with validation
   const handleDescriptionChange = (value: string) => {
     updateFormField("description", value);
   };
-const handleFieldBlur = (field: keyof CreateTaskRequest) => {
-  setTouchedFields(prev => new Set(prev).add(field));
-  
-  // Always validate when field loses focus
-  const error = validateField(field, formData[field]);
-  setValidationErrors(prev => ({
-    ...prev,
-    [field]: error
-  }));
+  const handleFieldBlur = (field: keyof CreateTaskRequest) => {
+    setTouchedFields(prev => new Set(prev).add(field));
 
-  // For assignee/approver, also validate the other field
-  if (field === "assignee" || field === "approverId") {
-    const otherField = field === "assignee" ? "approverId" : "assignee";
-    const otherError = validateField(otherField, formData[otherField]);
+    // Always validate when field loses focus
+    const error = validateField(field, formData[field]);
     setValidationErrors(prev => ({
       ...prev,
-      [otherField]: otherError
+      [field]: error
     }));
-  }
-};
+
+    // For assignee/approver, also validate the other field
+    if (field === "assignee" || field === "approverId") {
+      const otherField = field === "assignee" ? "approverId" : "assignee";
+      const otherError = validateField(otherField, formData[otherField]);
+      setValidationErrors(prev => ({
+        ...prev,
+        [otherField]: otherError
+      }));
+    }
+  };
   // Handle comment change with validation
   const handleCommentChange = (value: string) => {
     setComment(value);
-    
+
     // Validate comment if stage changed
     if (stageChanged) {
       const error = validateComment();
@@ -577,15 +577,15 @@ const handleFieldBlur = (field: keyof CreateTaskRequest) => {
       }));
     }
   };
-const getApproverDisplayName = (approverId: string, users: User[]): string => {
-  if (!approverId || !users || users.length === 0) {
-    const currentUser = getStoredUserData();
-    return currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Select approver";
-  }
-  
-  const approver = users.find(user => user.userId === approverId);
-  return approver ? `${approver.firstName} ${approver.lastName}` : "Select approver";
-};
+  const getApproverDisplayName = (approverId: string, users: User[]): string => {
+    if (!approverId || !users || users.length === 0) {
+      const currentUser = getStoredUserData();
+      return currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Select approver";
+    }
+
+    const approver = users.find(user => user.userId === approverId);
+    return approver ? `${approver.firstName} ${approver.lastName}` : "Select approver";
+  };
 
   const getLocalISOString = (date: Date): string => {
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -599,31 +599,31 @@ const getApproverDisplayName = (approverId: string, users: User[]): string => {
   };
 
   const getAdjustedCurrentTime = (): Date => {
-  const now = new Date();
-  // Add 5 minutes to current time
-  now.setMinutes(now.getMinutes() + 5);
-  // Set seconds and milliseconds to 0 for cleaner time values
-  now.setSeconds(0);
-  now.setMilliseconds(0);
-  return now;
-};
+    const now = new Date();
+    // Add 5 minutes to current time
+    now.setMinutes(now.getMinutes() + 5);
+    // Set seconds and milliseconds to 0 for cleaner time values
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+    return now;
+  };
 
-const getCurrentDateTime = () => {
-  const now = new Date();
-  // Round to nearest 5 minutes for better UX
-  const minutes = Math.ceil(now.getMinutes() / 5) * 5;
-  now.setMinutes(minutes);
-  now.setSeconds(0);
-  now.setMilliseconds(0);
-  
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutesStr = String(now.getMinutes()).padStart(2, "0");
-  
-  return `${year}-${month}-${day}T${hours}:${minutesStr}`;
-};
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    // Round to nearest 5 minutes for better UX
+    const minutes = Math.ceil(now.getMinutes() / 5) * 5;
+    now.setMinutes(minutes);
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutesStr = String(now.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutesStr}`;
+  };
 
   const stageChanged = useMemo(() => {
     if (!editingTask || !originalFormData) return false;
@@ -631,20 +631,20 @@ const getCurrentDateTime = () => {
   }, [editingTask, formData.taskStageId, originalFormData]);
 
   // Check if all mandatory fields are filled for new tasks
- const isMandatoryFieldsFilled = useMemo(() => {
-  if (editingTask) return true;
-  
-  return (
-    formData.subject.trim() !== "" &&
-    formData.description.trim() !== "" &&
-    formData.taskStageId > 0 &&
-    formData.approverId.trim() !== "" && // Changed from reviewer
-    formData.assignee.trim() !== "" &&
-    formData.assignee !== formData.approverId && // Updated field name
-    formData.endDate.trim() !== "" &&
-    (formData.estimatedHours ?? 0) > 0
-  );
-}, [editingTask, formData]);
+  const isMandatoryFieldsFilled = useMemo(() => {
+    if (editingTask) return true;
+
+    return (
+      formData.subject.trim() !== "" &&
+      formData.description.trim() !== "" &&
+      formData.taskStageId > 0 &&
+      formData.approverId.trim() !== "" && // Changed from reviewer
+      formData.assignee.trim() !== "" &&
+      formData.assignee !== formData.approverId && // Updated field name
+      formData.endDate.trim() !== "" &&
+      (formData.estimatedHours ?? 0) > 0
+    );
+  }, [editingTask, formData]);
 
   // Check if form is submittable
   const canSubmit = useMemo(() => {
@@ -657,72 +657,72 @@ const getCurrentDateTime = () => {
     }
   }, [editingTask, dirtyFields.size, stageChanged, comment, isMandatoryFieldsFilled]);
 
-useEffect(() => {
-  if (!isOpen) {
-    setOriginalFormData(null);
-    setDirtyFields(new Set());
-    setComment("");
-    setValidationErrors({});
-    setTouchedFields(new Set());
-    setShowRecurrence(false);
-    return;
-  }
-
-  if (editingTask) {
-    // Add debugging logs
-    console.log("Editing task approver:", editingTask.approver);
-    console.log("Available users:", users);
-    
-    const initialData: CreateTaskRequest = {
-      subject: editingTask.subject || "",
-      description: editingTask.description || "",
-      priority: editingTask.priority || "LOW",
-      taskStageId: editingTask.taskStageId || 0,
-      startDate: editingTask.startDate || new Date().toISOString(),
-      endDate: editingTask.endDate || "",
-      approverId: editingTask.approver?.id || "", // This should match user.userId in users array
-      assignee: editingTask.assignee?.id || "",
-      acceptanceCriteria: editingTask.acceptanceInfo?.acceptanceCriteria || "", // Fixed: was acceptanceCriteria
-      graceHours: editingTask.graceHours ?? 0,
-      estimatedHours: editingTask.estimatedHours ?? 0,
-      isRecurring: editingTask.isRecurring || false,
-      recurrenceRule: editingTask.recurrenceRule,
-    };
-    
-    console.log("Setting approverId to:", initialData.approverId);
-    
-    setFormData(initialData);
-    setOriginalFormData(initialData);
-    setDirtyFields(new Set());
-    setComment("");
-    setTouchedFields(new Set());
-    
-    // Validate all fields for edit mode
-    const initialErrors: Record<string, string> = {};
-    Object.keys(initialData).forEach(field => {
-      const error = validateField(field as keyof CreateTaskRequest, initialData[field as keyof CreateTaskRequest], true);
-      if (error) {
-        initialErrors[field] = error;
-      }
-    });
-    setValidationErrors(initialErrors);
-    
-    // Handle recurrence display
-    if (editingTask.isRecurring && editingTask.recurrenceRule) {
-      setShowRecurrence(true);
-      const parsedRule = parseRRuleString(editingTask.recurrenceRule);
-      setRecurrenceRule({
-        ...recurrenceRule,
-        ...parsedRule,
-      });
+  useEffect(() => {
+    if (!isOpen) {
+      setOriginalFormData(null);
+      setDirtyFields(new Set());
+      setComment("");
+      setValidationErrors({});
+      setTouchedFields(new Set());
+      setShowRecurrence(false);
+      return;
     }
-  } else {
+
+    if (editingTask) {
+      // Add debugging logs
+      console.log("Editing task approver:", editingTask.approver);
+      console.log("Available users:", users);
+
+      const initialData: CreateTaskRequest = {
+        subject: editingTask.subject || "",
+        description: editingTask.description || "",
+        priority: editingTask.priority || "LOW",
+        taskStageId: editingTask.taskStageId || 0,
+        startDate: editingTask.startDate || new Date().toISOString(),
+        endDate: editingTask.endDate || "",
+        approverId: editingTask.approver?.id || "", // This should match user.userId in users array
+        assignee: editingTask.assignee?.id || "",
+        acceptanceCriteria: editingTask.acceptanceInfo?.acceptanceCriteria || "", // Fixed: was acceptanceCriteria
+        graceHours: editingTask.graceHours ?? 0,
+        estimatedHours: editingTask.estimatedHours ?? 0,
+        isRecurring: editingTask.isRecurring || false,
+        recurrenceRule: editingTask.recurrenceRule,
+      };
+
+      console.log("Setting approverId to:", initialData.approverId);
+
+      setFormData(initialData);
+      setOriginalFormData(initialData);
+      setDirtyFields(new Set());
+      setComment("");
+      setTouchedFields(new Set());
+
+      // Validate all fields for edit mode
+      const initialErrors: Record<string, string> = {};
+      Object.keys(initialData).forEach(field => {
+        const error = validateField(field as keyof CreateTaskRequest, initialData[field as keyof CreateTaskRequest], true);
+        if (error) {
+          initialErrors[field] = error;
+        }
+      });
+      setValidationErrors(initialErrors);
+
+      // Handle recurrence display
+      if (editingTask.isRecurring && editingTask.recurrenceRule) {
+        setShowRecurrence(true);
+        const parsedRule = parseRRuleString(editingTask.recurrenceRule);
+        setRecurrenceRule({
+          ...recurrenceRule,
+          ...parsedRule,
+        });
+      }
+    } else {
       const adjustedTime = getAdjustedCurrentTime();
-      
-      const defaultStageId = stages.length > 0 
-        ? stages[0].id 
+
+      const defaultStageId = stages.length > 0
+        ? stages[0].id
         : preSelectedStageId || 0;
-      
+
       const currentUser = getStoredUserData();
       const defaultApprover = currentUser?.id || "";
 
@@ -783,7 +783,7 @@ useEffect(() => {
   }, [isOpen, toast]);
 
   // Validate all fields before submission
-   const validateForm = (): boolean => {
+  const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
     if (editingTask) {
@@ -791,14 +791,14 @@ useEffect(() => {
       const requiredFields: (keyof CreateTaskRequest)[] = [
         "subject", "description", "taskStageId", "assignee", "approverId", "estimatedHours", "startDate", "endDate"
       ];
-      
+
       requiredFields.forEach(field => {
         const error = validateField(field, formData[field]);
         if (error) {
           errors[field] = error;
         }
       });
-      
+
       // Also validate dirty fields that aren't required
       dirtyFields.forEach(field => {
         if (!requiredFields.includes(field)) {
@@ -834,157 +834,157 @@ useEffect(() => {
     return Object.keys(errors).length === 0;
   };
 
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!validateForm()) {
-    const firstError = Object.values(validationErrors)[0];
-    if (firstError) {
-      toast({
-        title: "Validation Error",
-        description: firstError,
-        variant: "destructive",
-      });
-    }
-    return;
-  }
-
-  try {
-    const taskData: CreateTaskRequest | Partial<UpdateTaskRequest> = {
-      subject: formData.subject,
-      description: formData.description,
-      priority: formData.priority,
-      taskStageId: formData.taskStageId,
-      startDate: formData.startDate,
-      endDate: formData.endDate,
-      assignee: formData.assignee,
-      approverId: formData.approverId, // Changed from reviewer
-      acceptanceCriteria: formData.acceptanceCriteria,
-      graceHours: formData.graceHours,
-      estimatedHours: formData.estimatedHours,
-      isRecurring: showRecurrence, // Set based on recurrence toggle
-    };
-    
-    if (showRecurrence) {
-      // Generate RRule string and set it directly
-      const rruleString = convertToRRuleString(recurrenceRule, formData.startDate);
-      taskData.recurrenceRule = rruleString; // Now a string, not an object
-      
-      console.log("RRule String:", rruleString);
-    }
-
-    if (editingTask) {
-      if (dirtyFields.size === 0 && !(stageChanged && comment.trim())) {
+    if (!validateForm()) {
+      const firstError = Object.values(validationErrors)[0];
+      if (firstError) {
         toast({
-          title: "No Changes",
-          description: "No changes were made to the task.",
-          variant: "default",
+          title: "Validation Error",
+          description: firstError,
+          variant: "destructive",
         });
-        onClose();
-        return;
       }
-
-      const updatePayload: Partial<UpdateTaskRequest> = {};
-      dirtyFields.forEach((field) => {
-        if (field === "endDate" && formData[field] === "") {
-          (updatePayload as any)[field] = null;
-        } else {
-          (updatePayload as any)[field] = formData[field];
-        }
-      });
-
-      // Add recurrence fields if changed
-      if (showRecurrence) {
-        updatePayload.isRecurring = true;
-        updatePayload.recurrenceRule = convertToRRuleString(recurrenceRule, formData.startDate);
-      } else if (editingTask.isRecurring) {
-        // If recurrence was turned off
-        updatePayload.isRecurring = false;
-        updatePayload.recurrenceRule = undefined;
-      }
-
-      if (comment.trim()) {
-        updatePayload.comment = comment.trim();
-      }
-
-      onSubmit(updatePayload, true);
-    } else {
-      console.log("Complete task data to be sent to backend:", taskData);
-      onSubmit(taskData, false);
-    }
-
-    onClose();
-  } catch (error) {
-    console.error("Error submitting task:", error);
-    toast({
-      title: "Error",
-      description: "Failed to save task. Please try again.",
-      variant: "destructive",
-    });
-  }
-}
-const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
-  try {
-    if (!value) {
-      updateFormField(field, "");
-      setOpenDateTimeField(null);
       return;
     }
 
-    // Parse the datetime-local value and create ISO string without timezone conversion
-    const [datePart, timePart] = value.split('T');
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hours, minutes] = timePart.split(':').map(Number);
-    
-    // Create ISO string directly without timezone conversion
-    // Format: YYYY-MM-DDTHH:mm:ss.000Z (but preserving local time as if it were UTC)
-    const isoString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`;
-    
-    updateFormField(field, isoString);
-    
-    setTimeout(() => {
-      setOpenDateTimeField(null);
-    }, 100);
-  } catch (error) {
-    console.error("Error handling datetime change:", error);
-  }
-};
+    try {
+      const taskData: CreateTaskRequest | Partial<UpdateTaskRequest> = {
+        subject: formData.subject,
+        description: formData.description,
+        priority: formData.priority,
+        taskStageId: formData.taskStageId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        assignee: formData.assignee,
+        approverId: formData.approverId, // Changed from reviewer
+        acceptanceCriteria: formData.acceptanceCriteria,
+        graceHours: formData.graceHours,
+        estimatedHours: formData.estimatedHours,
+        isRecurring: showRecurrence, // Set based on recurrence toggle
+      };
 
-const formatDateTimeForInput = (dateString: string) => {
-  if (!dateString) return "";
-  try {
-    // Parse ISO string directly without timezone conversion
-    // Input format: "2025-09-10T16:30:00.000Z"
-    // Output format: "2025-09-10T16:30"
-    
-    if (dateString.includes('T') && dateString.includes('Z')) {
-      // Remove the Z and milliseconds, then extract date and time parts
-      const cleanedString = dateString.replace('.000Z', '').replace('Z', '');
-      const [datePart, timePart] = cleanedString.split('T');
-      
-      if (datePart && timePart) {
-        // Extract hours and minutes only (ignore seconds)
-        const [hours, minutes] = timePart.split(':');
-        return `${datePart}T${hours}:${minutes}`;
+      if (showRecurrence) {
+        // Generate RRule string and set it directly
+        const rruleString = convertToRRuleString(recurrenceRule, formData.startDate);
+        taskData.recurrenceRule = rruleString; // Now a string, not an object
+
+        console.log("RRule String:", rruleString);
       }
+
+      if (editingTask) {
+        if (dirtyFields.size === 0 && !(stageChanged && comment.trim())) {
+          toast({
+            title: "No Changes",
+            description: "No changes were made to the task.",
+            variant: "default",
+          });
+          onClose();
+          return;
+        }
+
+        const updatePayload: Partial<UpdateTaskRequest> = {};
+        dirtyFields.forEach((field) => {
+          if (field === "endDate" && formData[field] === "") {
+            (updatePayload as any)[field] = null;
+          } else {
+            (updatePayload as any)[field] = formData[field];
+          }
+        });
+
+        // Add recurrence fields if changed
+        if (showRecurrence) {
+          updatePayload.isRecurring = true;
+          updatePayload.recurrenceRule = convertToRRuleString(recurrenceRule, formData.startDate);
+        } else if (editingTask.isRecurring) {
+          // If recurrence was turned off
+          updatePayload.isRecurring = false;
+          updatePayload.recurrenceRule = undefined;
+        }
+
+        if (comment.trim()) {
+          updatePayload.comment = comment.trim();
+        }
+
+        onSubmit(updatePayload, true);
+      } else {
+        console.log("Complete task data to be sent to backend:", taskData);
+        onSubmit(taskData, false);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error("Error submitting task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save task. Please try again.",
+        variant: "destructive",
+      });
     }
-    
-    // Fallback: use Date parsing (may have timezone issues but better than nothing)
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  } catch (error) {
-    console.error("Error formatting datetime:", error);
-    return "";
   }
-};
+  const handleDateTimeChange = (value: string, field: "startDate" | "endDate") => {
+    try {
+      if (!value) {
+        updateFormField(field, "");
+        setOpenDateTimeField(null);
+        return;
+      }
+
+      // Parse the datetime-local value and create ISO string without timezone conversion
+      const [datePart, timePart] = value.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+
+      // Create ISO string directly without timezone conversion
+      // Format: YYYY-MM-DDTHH:mm:ss.000Z (but preserving local time as if it were UTC)
+      const isoString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`;
+
+      updateFormField(field, isoString);
+
+      setTimeout(() => {
+        setOpenDateTimeField(null);
+      }, 100);
+    } catch (error) {
+      console.error("Error handling datetime change:", error);
+    }
+  };
+
+  const formatDateTimeForInput = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      // Parse ISO string directly without timezone conversion
+      // Input format: "2025-09-10T16:30:00.000Z"
+      // Output format: "2025-09-10T16:30"
+
+      if (dateString.includes('T') && dateString.includes('Z')) {
+        // Remove the Z and milliseconds, then extract date and time parts
+        const cleanedString = dateString.replace('.000Z', '').replace('Z', '');
+        const [datePart, timePart] = cleanedString.split('T');
+
+        if (datePart && timePart) {
+          // Extract hours and minutes only (ignore seconds)
+          const [hours, minutes] = timePart.split(':');
+          return `${datePart}T${hours}:${minutes}`;
+        }
+      }
+
+      // Fallback: use Date parsing (may have timezone issues but better than nothing)
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (error) {
+      console.error("Error formatting datetime:", error);
+      return "";
+    }
+  };
   const getPreSelectedStageName = () => {
     if (preSelectedStageId && stages.length > 0) {
       const selectedStage = stages.find(
@@ -1001,7 +1001,7 @@ const formatDateTimeForInput = (dateString: string) => {
         ...prev,
         [field]: value
       };
-      
+
       // If exclude weekends is toggled, automatically update the days
       if (field === "excludeWeekends") {
         if (value === true) {
@@ -1012,28 +1012,28 @@ const formatDateTimeForInput = (dateString: string) => {
           newRule.byWeekDay = [0, 1, 2, 3, 4, 5, 6];
         }
       }
-      
+
       return newRule;
     });
   };
 
   const toggleWeekDay = (dayValue: number) => {
     const currentDays = recurrenceRule.byWeekDay || [];
-    let newDays;
-    
+    let newDays: number[];
+
     if (currentDays.includes(dayValue)) {
       newDays = currentDays.filter(d => d !== dayValue);
     } else {
       newDays = [...currentDays, dayValue];
     }
-    
+
     // Sort days to maintain order (Sun, Mon, Tue, Wed, etc.)
     newDays.sort((a, b) => a - b);
-    
+
     // Update excludeWeekends based on selected days
     const hasWeekends = newDays.includes(0) || newDays.includes(6); // Sunday or Saturday
     const excludeWeekends = !hasWeekends;
-    
+
     setRecurrenceRule(prev => ({
       ...prev,
       byWeekDay: newDays,
@@ -1153,7 +1153,7 @@ const formatDateTimeForInput = (dateString: string) => {
                 <p className="text-red-500 text-xs mt-1">{validationErrors.priority}</p>
               )}
             </div>
-          
+
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">
                 Stage {!editingTask && <span className="text-red-500">*</span>}
@@ -1238,11 +1238,11 @@ const formatDateTimeForInput = (dateString: string) => {
                   Recurrence
                 </Label>
               </div>
-               <Switch
-    checked={showRecurrence}
-    onCheckedChange={toggleRecurrence}
-    className="data-[state=checked]:bg-brand-primary"
-  />
+              <Switch
+                checked={showRecurrence}
+                onCheckedChange={toggleRecurrence}
+                className="data-[state=checked]:bg-brand-primary"
+              />
             </div>
 
             {showRecurrence && (
@@ -1292,11 +1292,10 @@ const formatDateTimeForInput = (dateString: string) => {
                             variant={isSelected ? "default" : "outline"}
                             size="sm"
                             onClick={() => toggleWeekDay(day.value)}
-                            className={`h-10 px-3 relative flex items-center gap-1 transition-all duration-200 ${
-                              isSelected 
-                                ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-primary/90" 
+                            className={`h-10 px-3 relative flex items-center gap-1 transition-all duration-200 ${isSelected
+                                ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-primary/90"
                                 : "hover:bg-gray-50 border-gray-200 text-gray-700"
-                            }`}
+                              }`}
                           >
                             {isSelected && (
                               <Check size={14} className="text-white" />
@@ -1328,8 +1327,8 @@ const formatDateTimeForInput = (dateString: string) => {
                     </Label>
                   </div>
                   <p className="text-xs text-gray-500 ml-6">
-                    {recurrenceRule.excludeWeekends 
-                      ? "Only weekdays (Mon-Fri) will be selected automatically" 
+                    {recurrenceRule.excludeWeekends
+                      ? "Only weekdays (Mon-Fri) will be selected automatically"
                       : "All days including weekends can be selected"
                     }
                   </p>
@@ -1366,41 +1365,41 @@ const formatDateTimeForInput = (dateString: string) => {
           )}
 
           {/* Fixed Dates with Time Picker - Auto-close functionality */}
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div className="space-y-2">
-  <Label className="text-sm font-medium text-foreground">
-    Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
-  </Label>
-  <input
-    type="datetime-local"
-    value={formatDateTimeForInput(formData.startDate)}
-    onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
-    onBlur={() => handleFieldBlur("startDate")}
-    className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
-    min={editingTask ? undefined : getCurrentDateTime()} // Only restrict for new tasks
-  />
-  {validationErrors.startDate && (
-    <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
-  )}
-</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Start Date & Time {!editingTask && <span className="text-red-500">*</span>}
+              </Label>
+              <input
+                type="datetime-local"
+                value={formatDateTimeForInput(formData.startDate)}
+                onChange={(e) => handleDateTimeChange(e.target.value, "startDate")}
+                onBlur={() => handleFieldBlur("startDate")}
+                className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.startDate ? "border-red-500" : "border-gray-200"}`}
+                min={editingTask ? undefined : getCurrentDateTime()} // Only restrict for new tasks
+              />
+              {validationErrors.startDate && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.startDate}</p>
+              )}
+            </div>
 
-<div className="space-y-2">
-  <Label className="text-sm font-medium text-foreground">
-    End Date & Time {!editingTask && <span className="text-red-500">*</span>}
-  </Label>
-  <input
-    type="datetime-local"
-    value={formatDateTimeForInput(formData.endDate)}
-    onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
-    onBlur={() => handleFieldBlur("endDate")}
-    className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
-    min={formData.startDate ? formatDateTimeForInput(formData.startDate) : undefined}
-  />
-  {validationErrors.endDate && (
-    <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
-  )}
-</div>
-        </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                End Date & Time {!editingTask && <span className="text-red-500">*</span>}
+              </Label>
+              <input
+                type="datetime-local"
+                value={formatDateTimeForInput(formData.endDate)}
+                onChange={(e) => handleDateTimeChange(e.target.value, "endDate")}
+                onBlur={() => handleFieldBlur("endDate")}
+                className={`w-full h-10 rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-gray-400 ${validationErrors.endDate ? "border-red-500" : "border-gray-200"}`}
+                min={formData.startDate ? formatDateTimeForInput(formData.startDate) : undefined}
+              />
+              {validationErrors.endDate && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.endDate}</p>
+              )}
+            </div>
+          </div>
 
           {/* Grace Hours and Estimated Hours */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1413,9 +1412,9 @@ const formatDateTimeForInput = (dateString: string) => {
                 )}
               </Label>
               <Input
-   
+
                 min="0"
-            
+
                 value={formData.estimatedHours || 0}
                 onChange={(e) => updateFormField("estimatedHours", parseFloat(e.target.value) || 0)}
                 onBlur={() => setTouchedFields(prev => new Set(prev).add("estimatedHours"))}
@@ -1435,9 +1434,9 @@ const formatDateTimeForInput = (dateString: string) => {
                 )}
               </Label>
               <Input
-            
+
                 min="0"
-         
+
                 value={formData.graceHours || 0}
                 onChange={(e) => updateFormField("graceHours", parseFloat(e.target.value) || 0)}
                 onBlur={() => setTouchedFields(prev => new Set(prev).add("graceHours"))}
@@ -1447,105 +1446,105 @@ const formatDateTimeForInput = (dateString: string) => {
             </div>
           </div>
 
-   {/* Assignee and Reviewer */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              Assignee {!editingTask && <span className="text-red-500">*</span>}
-              {dirtyFields.has("assignee") && (
-                <span className="text-blue-600 text-xs ml-1">• Modified</span>
+          {/* Assignee and Reviewer */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Assignee {!editingTask && <span className="text-red-500">*</span>}
+                {dirtyFields.has("assignee") && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
+              </Label>
+              <Select
+                value={formData.assignee}
+                onValueChange={(value) => updateFormField("assignee", value)}
+                onOpenChange={(open) => {
+                  // Trigger validation when dropdown closes if a value was selected
+                  if (!open && formData.assignee) {
+                    handleFieldBlur("assignee");
+                  }
+                }}
+              >
+                <SelectTrigger
+                  className={validationErrors.assignee ? "border-red-500" : ""}
+                  onBlur={() => handleFieldBlur("assignee")}
+                >
+                  <SelectValue placeholder="Select Assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users && users.length > 0 ? (
+                    users.map((user) => (
+                      <SelectItem key={user.userId} value={user.userId}>
+                        {user.firstName} {user.lastName}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>
+                      No users available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {validationErrors.assignee && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.assignee}</p>
               )}
-            </Label>
-           <Select
-  value={formData.assignee}
-  onValueChange={(value) => updateFormField("assignee", value)}
-  onOpenChange={(open) => {
-    // Trigger validation when dropdown closes if a value was selected
-    if (!open && formData.assignee) {
-      handleFieldBlur("assignee");
-    }
-  }}
->
-  <SelectTrigger 
-    className={validationErrors.assignee ? "border-red-500" : ""}
-    onBlur={() => handleFieldBlur("assignee")}
-  >
-    <SelectValue placeholder="Select Assignee" />
-  </SelectTrigger>
-  <SelectContent>
-    {users && users.length > 0 ? (
-      users.map((user) => (
-        <SelectItem key={user.userId} value={user.userId}>
-          {user.firstName} {user.lastName}
-        </SelectItem>
-      ))
-    ) : (
-      <SelectItem value="" disabled>
-        No users available
-      </SelectItem>
-    )}
-  </SelectContent>
-</Select>
-            {validationErrors.assignee && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.assignee}</p>
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              Approver {!editingTask && <span className="text-red-500">*</span>}
-              {dirtyFields.has("approverId") && (
-                <span className="text-blue-600 text-xs ml-1">• Modified</span>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Approver {!editingTask && <span className="text-red-500">*</span>}
+                {dirtyFields.has("approverId") && (
+                  <span className="text-blue-600 text-xs ml-1">• Modified</span>
+                )}
+              </Label>
+              <Select
+                value={formData.approverId}
+                onValueChange={(value) => {
+                  console.log("Approver changed to:", value);
+                  updateFormField("approverId", value);
+                }}
+                onOpenChange={(open) => {
+                  if (!open && formData.approverId) {
+                    handleFieldBlur("approverId");
+                  }
+                }}
+              >
+                <SelectTrigger
+                  className={validationErrors.approverId ? "border-red-500" : ""}
+                  onBlur={() => handleFieldBlur("approverId")}
+                >
+                  <SelectValue placeholder="Select Approver">
+                    {/* Add this to show the selected value clearly */}
+                    {formData.approverId && users.length > 0 ?
+                      users.find(user => user.userId === formData.approverId)?.firstName + " " +
+                      users.find(user => user.userId === formData.approverId)?.lastName || "Unknown User"
+                      : "Select Approver"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {users && users.length > 0 ? (
+                    users.map((user) => {
+                      console.log("User in dropdown:", user.userId, user.firstName, user.lastName);
+                      return (
+                        <SelectItem key={user.userId} value={user.userId}>
+                          {user.firstName} {user.lastName}
+                        </SelectItem>
+                      );
+                    })
+                  ) : (
+                    <SelectItem value="" disabled>
+                      No users available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+
+              {validationErrors.approverId && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.approverId}</p>
               )}
-            </Label>
-       <Select
-  value={formData.approverId}
-  onValueChange={(value) => {
-    console.log("Approver changed to:", value);
-    updateFormField("approverId", value);
-  }}
-  onOpenChange={(open) => {
-    if (!open && formData.approverId) {
-      handleFieldBlur("approverId");
-    }
-  }}
->
-  <SelectTrigger 
-    className={validationErrors.approverId ? "border-red-500" : ""}
-    onBlur={() => handleFieldBlur("approverId")}
-  >
-    <SelectValue placeholder="Select Approver">
-      {/* Add this to show the selected value clearly */}
-      {formData.approverId && users.length > 0 ? 
-        users.find(user => user.userId === formData.approverId)?.firstName + " " + 
-        users.find(user => user.userId === formData.approverId)?.lastName || "Unknown User"
-        : "Select Approver"
-      }
-    </SelectValue>
-  </SelectTrigger>
-  <SelectContent>
-    {users && users.length > 0 ? (
-      users.map((user) => {
-        console.log("User in dropdown:", user.userId, user.firstName, user.lastName);
-        return (
-          <SelectItem key={user.userId} value={user.userId}>
-            {user.firstName} {user.lastName}
-          </SelectItem>
-        );
-      })
-    ) : (
-      <SelectItem value="" disabled>
-        No users available
-      </SelectItem>
-    )}
-  </SelectContent>
-</Select>
-
-            {validationErrors.approverId && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.approverId}</p>
-            )}
+            </div>
           </div>
-        </div>
 
           {/* Description - Fixed with unique id */}
           <div className="space-y-2">
@@ -1555,12 +1554,12 @@ const formatDateTimeForInput = (dateString: string) => {
                 <span className="text-blue-600 text-xs ml-1">• Modified</span>
               )}
             </Label>
-            <div 
+            <div
               className={`border rounded-md ${validationErrors.description ? "border-red-500" : "border-gray-200"}`}
               onBlur={() => setTouchedFields(prev => new Set(prev).add("description"))}
             >
               <RichTextEditor
-               id={`description-editor-${isOpen ? 'open' : 'closed'}`}
+                id={`description-editor-${isOpen ? 'open' : 'closed'}`}
                 value={formData.description}
                 onChange={handleDescriptionChange}
                 placeholder="Enter Description"
@@ -1581,7 +1580,7 @@ const formatDateTimeForInput = (dateString: string) => {
               )}
             </Label>
             <RichTextEditor
-            id={`acceptance-criteria-editor-${isOpen ? 'open' : 'closed'}`}
+              id={`acceptance-criteria-editor-${isOpen ? 'open' : 'closed'}`}
               value={formData.acceptanceCriteria || ""}
               onChange={(value) => updateFormField("acceptanceCriteria", value)}
               placeholder="Start typing your acceptance criteria..."
@@ -1596,8 +1595,8 @@ const formatDateTimeForInput = (dateString: string) => {
             </Button>
             <Button
               type="submit"
-              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${(isLoading || !canSubmit) ? "btn-disabled opacity-60 hover:bg-brand-primary" 
-        : "hover:bg-brand-primary/90 cursor-pointer"} `}
+              className={`bg-brand-primary text-text-white hover:bg-brand-primary/90 ${(isLoading || !canSubmit) ? "btn-disabled opacity-60 hover:bg-brand-primary"
+                : "hover:bg-brand-primary/90 cursor-pointer"} `}
               disabled={isLoading || !canSubmit}
             >
               {isLoading ? "Loading..." : editingTask ? "Update" : "Submit"}
