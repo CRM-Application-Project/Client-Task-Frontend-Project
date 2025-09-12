@@ -82,7 +82,7 @@ class NotificationService {
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/notification/${notificationId}/mark-read`, {
+      const response = await fetch(`${BASE_URL}/notification/${notificationId}/mark-read`, {
         method: 'POST',
         credentials: 'include',
         headers: this.getAuthHeaders(),
