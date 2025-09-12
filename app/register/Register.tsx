@@ -206,6 +206,15 @@ const SuccessModal = () => (
           Your account has been created successfully.
         </p>
       </div>
+      
+      {/* OK Button */}
+      <button
+        onClick={() => setShowSuccessModal(false)}
+        style={{ backgroundColor: '#636363', color: '#ffffff' }}
+        className="px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+      >
+        OK
+      </button>
     </div>
   </div>
 );
