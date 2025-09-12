@@ -1,7 +1,8 @@
-// useNotifications.ts - Optimized version
+// useNotifications.ts - Optimized version with global manager
 "use client";
-import { cleanupNotifications, generateFCMToken, getDetailedDeviceType, getNotificationPermission, handleAppStartup, initTokenRefreshHandler, subscribeToMessages } from '@/app/firebase';
+import { cleanupNotifications, generateFCMToken, getDetailedDeviceType, getNotificationPermission, handleAppStartup, initTokenRefreshHandler, subscribeToMessages, setUserEnablingNotifications } from '@/app/firebase';
 import { NotificationResponse, notificationService } from '@/app/services/notificationService';
+import { notificationManager } from '@/lib/notificationManager';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface NotificationData {
@@ -57,9 +58,17 @@ export function useNotifications(): UseNotificationsReturn {
   const tokenRefreshInitialized = useRef(false);
   const messageSubscribed = useRef(false);
   const tokenSetupComplete = useRef(false);
+  const fetchInProgress = useRef(false);
+  const notificationsInitialized = useRef(false);
 
   // Function to fetch notifications from backend
   const fetchNotifications = useCallback(async () => {
+    // Prevent concurrent fetch requests
+    if (fetchInProgress.current) {
+      console.log('🔄 Fetch already in progress, skipping...');
+      return;
+    }
+
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
@@ -77,6 +86,19 @@ export function useNotifications(): UseNotificationsReturn {
       setIsLoading(false);
       return;
     }
+
+    // Check if notifications were fetched recently (within 1 minute)
+    const lastFetchTime = localStorage.getItem('lastNotificationFetch');
+    if (lastFetchTime) {
+      const timeSinceLastFetch = Date.now() - parseInt(lastFetchTime);
+      if (timeSinceLastFetch < 60000) { // 1 minute cooldown
+        console.log('📝 Notifications fetched recently, skipping...');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    fetchInProgress.current = true;
 
     try {
       setIsLoading(true);
@@ -96,6 +118,9 @@ export function useNotifications(): UseNotificationsReturn {
         
         // Store in localStorage for offline access
         localStorage.setItem('notifications', JSON.stringify(mappedNotifications));
+        localStorage.setItem('lastNotificationFetch', Date.now().toString());
+        
+        console.log('✅ Notifications fetched successfully');
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -113,13 +138,23 @@ export function useNotifications(): UseNotificationsReturn {
       }
     } finally {
       setIsLoading(false);
+      fetchInProgress.current = false;
     }
   }, []);
 
   // Initialize device type and app startup
   useEffect(() => {
+    // Prevent multiple initializations
+    if (notificationsInitialized.current) {
+      console.log('🔄 Notifications already initialized, skipping...');
+      return;
+    }
+
     const initNotifications = async () => {
       try {
+        // Ensure global notification manager is initialized first
+        await notificationManager.ensureInitialized();
+        
         // Set device type
         const detectedDeviceType = getDetailedDeviceType();
         setDeviceType(detectedDeviceType);
@@ -140,14 +175,18 @@ export function useNotifications(): UseNotificationsReturn {
 
         const userId = localStorage.getItem('userId');
         
-        // Fetch notifications regardless of token status
-        await fetchNotifications();
+        // Fetch notifications only once during initialization
+        if (userId) {
+          await fetchNotifications();
+        }
 
         // Initialize token refresh handler if permission is granted and user is logged in
         if (currentPermission === 'granted' && userId && !tokenRefreshInitialized.current) {
           initTokenRefreshHandler(detectedDeviceType);
           tokenRefreshInitialized.current = true;
         }
+
+        notificationsInitialized.current = true;
 
       } catch (error) {
         console.error('Error initializing notifications:', error);
@@ -157,7 +196,7 @@ export function useNotifications(): UseNotificationsReturn {
     };
 
     initNotifications();
-  }, [fetchNotifications]);
+  }, []); // Remove fetchNotifications dependency to prevent re-initialization
 
   // Subscribe to foreground messages when permission is granted
   useEffect(() => {
@@ -182,10 +221,13 @@ export function useNotifications(): UseNotificationsReturn {
         
         setUnreadCount(prev => prev + 1);
         
-        // Refresh from backend to sync with server state
-        setTimeout(() => {
-          fetchNotifications();
-        }, 1000);
+        // Only refresh from backend if we haven't fetched recently
+        const lastFetchTime = localStorage.getItem('lastNotificationFetch');
+        if (!lastFetchTime || (Date.now() - parseInt(lastFetchTime)) > 30000) { // 30 seconds cooldown
+          setTimeout(() => {
+            fetchNotifications();
+          }, 2000);
+        }
       };
 
       subscribeToMessages(handleMessage);
@@ -208,10 +250,17 @@ export function useNotifications(): UseNotificationsReturn {
       const timeSinceLastSend = Date.now() - parseInt(lastSentTime);
       if (timeSinceLastSend < 300000) { // 5 minutes
         console.log('🔄 Notifications already enabled recently');
+        // Still fetch notifications if not fetched recently
+        const lastFetchTime = localStorage.getItem('lastNotificationFetch');
+        if (!lastFetchTime || (Date.now() - parseInt(lastFetchTime)) > 60000) {
+          await fetchNotifications();
+        }
         return { success: true, message: 'Notifications already enabled' };
       }
     }
 
+    // Set flag to prevent concurrent token refresh
+    setUserEnablingNotifications(true);
     setIsLoading(true);
     
     try {
@@ -260,6 +309,7 @@ export function useNotifications(): UseNotificationsReturn {
       };
     } finally {
       setIsLoading(false);
+      setUserEnablingNotifications(false); // Clear flag
     }
   }, [deviceType, fetchNotifications]);
 
@@ -274,6 +324,8 @@ export function useNotifications(): UseNotificationsReturn {
       return { success: false, message: 'Notification permission not granted' };
     }
 
+    // Set flag to prevent concurrent token refresh
+    setUserEnablingNotifications(true);
     setIsLoading(true);
     tokenSetupComplete.current = false;
     
@@ -311,6 +363,7 @@ export function useNotifications(): UseNotificationsReturn {
       };
     } finally {
       setIsLoading(false);
+      setUserEnablingNotifications(false); // Clear flag
     }
   }, [deviceType, permission, fetchNotifications]);
 
@@ -397,17 +450,21 @@ export function useNotifications(): UseNotificationsReturn {
     });
   }, []);
 
-  // Auto-refresh notifications periodically when user is logged in
+  // Auto-refresh notifications periodically when user is logged in (reduced frequency)
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (!userId) return;
 
     const interval = setInterval(() => {
-      fetchNotifications();
-    }, 5 * 60 * 1000); // Refresh every 5 minutes
+      // Only auto-fetch if we haven't fetched recently
+      const lastFetchTime = localStorage.getItem('lastNotificationFetch');
+      if (!lastFetchTime || (Date.now() - parseInt(lastFetchTime)) > 4 * 60 * 1000) { // 4 minutes
+        fetchNotifications();
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
 
     return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  }, []); // Remove fetchNotifications dependency
 
   // Cleanup on unmount or logout
   useEffect(() => {
@@ -417,6 +474,8 @@ export function useNotifications(): UseNotificationsReturn {
 
     const handleLogout = () => {
       cleanupNotifications();
+      notificationManager.reset();
+      notificationService.resetLocks(); // Reset API locks
       setNotifications([]);
       setUnreadCount(0);
       setFcmToken(null);
@@ -424,6 +483,10 @@ export function useNotifications(): UseNotificationsReturn {
       tokenRefreshInitialized.current = false;
       messageSubscribed.current = false;
       tokenSetupComplete.current = false;
+      notificationsInitialized.current = false;
+      fetchInProgress.current = false;
+      // Clear fetch timestamps
+      localStorage.removeItem('lastNotificationFetch');
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);

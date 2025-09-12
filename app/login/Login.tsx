@@ -862,40 +862,20 @@ const handleLogin = async (e: React.FormEvent) => {
         duration: 5000,
       });
 
-      // FIXED FCM Token Setup - Better sequencing and error handling
+      // MINIMAL notification setup - just ensure global manager is ready
+      // The useNotifications hook in dashboard will handle everything else
       const setupNotifications = async () => {
         try {
-          console.log('🔔 Setting up notifications after successful login...');
+          console.log('🔔 Ensuring notification manager is ready after login...');
           
-          // Initialize token refresh handler first (this manages all token operations)
-          const cleanup = initTokenRefreshHandler("WEB");
-          window.fcmCleanup = cleanup;
+          const { notificationManager } = await import('@/lib/notificationManager');
+          await notificationManager.ensureInitialized();
           
-          // Check if notifications are supported and get permission status
-          const permission = getNotificationPermission();
-          
-          if (permission === 'granted') {
-            console.log('🔔 Notification permission already granted, setting up token...');
-            
-            // Generate and save FCM token - this will be handled by the refresh handler
-            // We don't need to manually call generateFCMToken here as the refresh handler will do it
-            // Just trigger a token check after a short delay
-            setTimeout(() => {
-              // The token refresh handler will automatically generate and send the token
-              console.log('✅ FCM notification setup initiated');
-            }, 2000);
-            
-          } else if (permission === 'default') {
-            // Permission not yet requested - will be handled when user enables notifications
-            console.log('🔔 Notification permission not yet requested - will be handled on user action');
-          } else {
-            // Permission denied
-            console.log('❌ Notification permission denied');
-          }
+          console.log('✅ Notification manager ready - dashboard will handle the rest');
           
         } catch (fcmError) {
           // FCM errors are non-critical for login flow
-          console.error('❌ FCM setup error (non-critical):', fcmError);
+          console.error('❌ Notification manager setup error (non-critical):', fcmError);
         }
       };
 
