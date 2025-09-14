@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 import { logoutUser } from "@/app/services/data.service";
-import { useNotifications } from "@/hooks/useNotificationsGlobal";
+import { useNotifications } from "@/hooks/useNotificationsGlobal"; // Use the FIXED hook
 
 interface UserData {
   firstName: string;
@@ -22,7 +22,6 @@ const getPageTitle = (pathname: string): string => {
 
   const lastSegment = pathSegments[pathSegments.length - 1];
 
-  // Custom mapping for specific routes
   const pageTitles: Record<string, string> = {
     leads: "Leads",
     tasks: "Tasks",
@@ -33,7 +32,6 @@ const getPageTitle = (pathname: string): string => {
     settings: "Settings",
   };
 
-  // Return the mapped title or capitalize the segment
   return (
     pageTitles[lastSegment] ||
     lastSegment.charAt(0).toUpperCase() +
@@ -81,7 +79,7 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Use the notifications hook
+  // CRITICAL: Use only ONE instance of the hook
   const {
     notifications,
     unreadCount,
@@ -126,7 +124,7 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       return;
     }
 
-    // Check if notifications were recently enabled to prevent spam
+    // Simple cooldown check
     const lastEnabledTime = localStorage.getItem('lastNotificationEnabled');
     if (lastEnabledTime) {
       const timeSinceLastEnabled = Date.now() - parseInt(lastEnabledTime);
@@ -178,7 +176,7 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   const handleRefreshNotifications = async () => {
-    // Prevent rapid refresh requests
+    // Simple cooldown to prevent spam
     const lastRefreshTime = localStorage.getItem('lastNotificationRefresh');
     if (lastRefreshTime) {
       const timeSinceLastRefresh = Date.now() - parseInt(lastRefreshTime);
@@ -289,12 +287,20 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
         ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl", "user", "notifications"].forEach((k) =>
           localStorage.removeItem(k)
         );
+        
+        // Dispatch logout event to cleanup notifications
+        window.dispatchEvent(new CustomEvent('user-logout'));
+        
         router.push("/");
       } else {
         console.error("Logout API failed:", response.message);
         ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl", "user", "notifications"].forEach((k) =>
           localStorage.removeItem(k)
         );
+        
+        // Dispatch logout event
+        window.dispatchEvent(new CustomEvent('user-logout'));
+        
         router.push("/");
       }
     } catch (error) {
@@ -302,6 +308,10 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       ["currentUser", "userModules", "authToken", "refreshToken", "tenantToken", "logoUrl", "user", "notifications"].forEach((k) =>
         localStorage.removeItem(k)
       );
+      
+      // Dispatch logout event
+      window.dispatchEvent(new CustomEvent('user-logout'));
+      
       router.push("/");
     }
   }, [router]);

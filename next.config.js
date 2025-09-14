@@ -12,6 +12,18 @@ const nextConfig = {
     // Enable type checking during build
     ignoreBuildErrors: false,
   },
+  images: {
+    domains: ['s2chrms.s3.amazonaws.com'],
+    // Alternatively, you can use remotePatterns for more control:
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 's2chrms.s3.amazonaws.com',
+        port: '',
+        pathname: '/crm-logos/images/**',
+      },
+    ],
+  },
 }
 
 module.exports = nextConfig
