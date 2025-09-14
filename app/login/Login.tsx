@@ -31,7 +31,8 @@ import {
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/hooks/userSlice";
 import { z } from "zod";
-import { generateFCMToken, getNotificationPermission, initTokenRefreshHandler, preRegisterServiceWorker } from "../firebase";
+import { generateFCMToken, getDetailedDeviceType, getNotificationPermission, initTokenRefreshHandler, preRegisterServiceWorker } from "../firebase";
+import { notificationService } from "../services/notificationService";
 
 
 // -------------------- Validation Constants --------------------
@@ -778,6 +779,7 @@ export default function LoginPage() {
 
   // -------------------- Login Submit (Optimized) --------------------
 // Fixed Login handleLogin function - only the relevant part
+// Fixed handleLogin function with proper FCM token handling
 const handleLogin = async (e: React.FormEvent) => {
   e.preventDefault();
 
@@ -862,25 +864,49 @@ const handleLogin = async (e: React.FormEvent) => {
         duration: 5000,
       });
 
-      // MINIMAL notification setup - just ensure global manager is ready
-      // The useNotifications hook in dashboard will handle everything else
-      const setupNotifications = async () => {
-        try {
-          console.log('🔔 Ensuring notification manager is ready after login...');
+      // ========== FCM TOKEN HANDLING - FIXED PART ==========
+      try {
+        // Check if notifications are supported and get permission status
+        const permission = getNotificationPermission();
+        
+        if (permission === 'granted') {
+          console.log('🔔 Notifications already granted, generating FCM token...');
           
-          const { notificationManager } = await import('@/lib/notificationManager');
-          await notificationManager.ensureInitialized();
+          // Generate FCM token
+          const deviceType = getDetailedDeviceType();
+          const tokenResult = await generateFCMToken(deviceType);
           
-          console.log('✅ Notification manager ready - dashboard will handle the rest');
+          if (tokenResult.success && tokenResult.token) {
+            console.log('✅ FCM token generated successfully');
+            
+            // Save token to backend using the notification service
+            const saveResult = await notificationService.saveFCMToken(tokenResult.token, deviceType);
+            
+            if (saveResult.success) {
+              console.log('✅ FCM token saved to backend successfully');
+            } else {
+              console.warn('⚠️ Failed to save FCM token to backend:', saveResult.message);
+            }
+          } else {
+            console.warn('⚠️ Failed to generate FCM token:', tokenResult.message);
+          }
           
-        } catch (fcmError) {
-          // FCM errors are non-critical for login flow
-          console.error('❌ Notification manager setup error (non-critical):', fcmError);
+          // Initialize the token refresh handler
+          initTokenRefreshHandler(deviceType);
+          
+        } else if (permission === 'default') {
+          // Permission not yet requested - will be handled by notification component later
+          console.log('📝 Notification permission not yet requested');
+        } else {
+          // Permission denied
+          console.log('❌ Notification permission denied');
         }
-      };
-
-      // Run notification setup asynchronously without blocking navigation
-      setupNotifications();
+        
+      } catch (fcmError) {
+        // Don't block login if FCM setup fails
+        console.warn('⚠️ FCM setup failed (non-critical):', fcmError);
+      }
+      // ========== END FCM TOKEN HANDLING ==========
 
       // Determine redirect path
       let redirectPath = "/not-found";
