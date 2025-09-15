@@ -118,69 +118,98 @@ const ChangeAssignModal: React.FC<ChangeAssignModalProps> = ({
     }
   }, [lead, assignees, form]);
 
-  const onSubmit = async (data: FormData) => {
-    if (!lead) return;
+ const onSubmit = async (data: FormData) => {
+  if (!lead) return;
 
-    // Check if this is a temporary lead ID
-    if (lead.leadId.startsWith('temp-')) {
+  // Check if this is a temporary lead ID
+  if (lead.leadId.startsWith('temp-')) {
+    toast({
+      title: "Cannot Transfer",
+      description: "Please wait for the lead to be fully created before transferring",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const selectedAssignee = assignees.find((a) => a.id === data.transferToId);
+  if (!selectedAssignee) {
+    toast({
+      title: "Error",
+      description: "Selected assignee not found",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const response = await leadTransfer({
+      leadId: lead.leadId,
+      transferTo: selectedAssignee.label,
+    });
+
+    if (response.isSuccess) {
       toast({
-        title: "Cannot Transfer",
-        description: "Please wait for the lead to be fully created before transferring",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const selectedAssignee = assignees.find((a) => a.id === data.transferToId);
-    if (!selectedAssignee) {
-      toast({
-        title: "Error",
-        description: "Selected assignee not found",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const response = await leadTransfer({
-        leadId: lead.leadId,
-        transferTo: selectedAssignee.label,
+        title: "Success",
+        description: "Lead has been transferred successfully",
+        variant: "default",
       });
 
-      if (response.isSuccess) {
-        toast({
-          title: "Success",
-          description: "Lead has been transferred successfully",
-          variant: "default",
-        });
-
-        // Call the parent with both ID and label
-        onChangeAssign(
-          lead.leadId,
-          selectedAssignee.id,
-          selectedAssignee.label
-        );
-        onClose();
-      } else {
-        toast({
-          title: "Error",
-          description: response.message || "Failed to transfer lead",
-          variant: "destructive",
-        });
+      // Call the parent with both ID and label
+      onChangeAssign(
+        lead.leadId,
+        selectedAssignee.id,
+        selectedAssignee.label
+      );
+      onClose();
+    } else {
+      // Enhanced error handling for different response scenarios
+      let errorMessage = response.message || "Failed to transfer lead";
+      
+      // Check for specific error patterns
+      if (response.message?.includes("not found") || response.message?.includes("does not exist")) {
+        errorMessage = "The lead or assignee could not be found. Please refresh and try again.";
+      } else if (response.message?.includes("permission") || response.message?.includes("access")) {
+        errorMessage = "You don't have permission to transfer this lead.";
       }
-    } catch (error) {
-      console.error("Error transferring lead:", error);
+
       toast({
-        title: "Error",
-        description: "An unexpected error occurred while transferring the lead",
+        title: "Transfer Failed",
+        description: errorMessage,
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (error: any) {
+    console.error("Error transferring lead:", error);
+    
+    let errorMessage = "An unexpected error occurred while transferring the lead";
+    
+    // Handle different error types
+    if (error.response?.data?.errorMessage) {
+      // Use the server's error message from your API response format
+      errorMessage = error.response.data.errorMessage;
+    } else if (error.response?.data?.message) {
+      // Fallback for different error response formats
+      errorMessage = error.response.data.message;
+    } else if (error.message?.includes("Network Error")) {
+      errorMessage = "Network connection failed. Please check your internet connection.";
+    } else if (error.code === "ECONNABORTED") {
+      errorMessage = "Request timeout. Please try again.";
+    } else if (error.message) {
+      // Use the error message if available
+      errorMessage = error.message;
+    }
+
+    toast({
+      title: "Error",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleClose = () => {
     form.reset();
