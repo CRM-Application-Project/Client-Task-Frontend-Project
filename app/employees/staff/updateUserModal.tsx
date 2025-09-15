@@ -89,15 +89,18 @@ export const UpdateStaffModal = ({
     return matchingRoleScope ? `${matchingRoleScope.role}-${matchingRoleScope.scope}` : userRole;
   };
 
- useEffect(() => {
+useEffect(() => {
   if (user && roleScopes.length > 0) {
+    // Find the first scope for the user's role
+    const foundScope = roleScopes.find(rs => rs.role === user.userRole)?.scope || "";
+
     const userData = {
       firstName: user.firstName,
       lastName: user.lastName,
       emailAddress: user.emailAddress,
       contactNumber: user.contactNumber,
       userRole: user.userRole,
-      userScope: user.userScope || "", // <-- add this
+      userScope: foundScope, // <-- use found scope if userScope is missing
       dateOfBirth: user.dateOfBirth,
       dateOfJoin: user.dateOfJoin || "",
       departmentId: user.departmentId,

@@ -206,33 +206,54 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg bg-white">
-        <DialogHeader>
-          <DialogTitle className="flex items-start gap-4 pb-4 border-b">
-            <Avatar className="h-14 w-14">
-              <AvatarFallback className="bg-blue-50 text-blue-600 font-medium">
-                {getInitials(lead.customerName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {lead.customerName}
-              </h2>
-              {shouldDisplay(lead.companyName) && (
-                <p className="text-sm text-gray-600">{lead.companyName}</p>
-              )}
-              <div className="flex gap-2 pt-1 flex-wrap">
-                <Badge className={`${getStatusColor(lead.leadStatus)} border`}>
-                  {lead.leadStatus.replace("_", " ")}
-                </Badge>
-                <Badge
-                  className={`${getPriorityColor(lead.leadPriority)} border`}
-                >
-                  {lead.leadPriority}
-                </Badge>
-              </div>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+        <div className="bg-white rounded-lg shadow-sm border mb-6 p-6">
+  <div className="flex items-center justify-between">
+    
+    {/* Left section - Avatar and Name */}
+    <div className="flex items-center space-x-4">
+      <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-semibold">
+        {getInitials(lead.customerName)}
+      </div>
+      
+      <div>
+        <h3 className="text-xl font-semibold text-gray-900">
+          {lead.customerName}
+        </h3>
+        {shouldDisplay(lead.companyName) && (
+          <p className="text-sm text-gray-600">
+            {lead.companyName}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {/* Right section - All details in horizontal layout */}
+    <div className="flex items-center space-x-6">
+      
+      {/* Lead Status */}
+      <div className="text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          Status
+        </span>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(lead.leadStatus)}`}>
+          {lead.leadStatus.replace("_", " ")}
+        </span>
+      </div>
+
+      {/* Lead Priority */}
+      <div className="text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          Priority
+        </span>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(lead.leadPriority)}`}>
+          {lead.leadPriority}
+        </span>
+      </div>
+
+    </div>
+    
+  </div>
+</div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-2">
           {/* Left Card - Lead Information */}
