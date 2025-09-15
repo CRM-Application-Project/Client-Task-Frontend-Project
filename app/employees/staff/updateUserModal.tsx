@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   User,
   updateUser,
@@ -42,6 +42,7 @@ export const UpdateStaffModal = ({
     emailAddress: "",
     contactNumber: "",
     userRole: "",
+    userScope: "",
     dateOfBirth: "",
     dateOfJoin: "",
     departmentId: 0,
@@ -55,6 +56,7 @@ export const UpdateStaffModal = ({
     contactNumber: "",
     userRole: "",
     dateOfBirth: "",
+     userScope: "", 
     dateOfJoin: "",
     departmentId: 0,
     isActive: true,
@@ -76,25 +78,37 @@ export const UpdateStaffModal = ({
     departmentId?: string;
   }>({});
 
-  useEffect(() => {
-    if (user) {
-      const userData = {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailAddress: user.emailAddress,
-        contactNumber: user.contactNumber,
-        userRole: user.userRole,
-        dateOfBirth: user.dateOfBirth,
-        dateOfJoin: user.dateOfJoin || "",
-        departmentId: user.departmentId,
-        isActive: user.isActive,
-      };
+  // Helper function to find the matching role-scope combination
+  const findMatchingRoleScope = (userRole: string) => {
+    return roleScopes.find(rs => rs.role === userRole);
+  };
 
-      setInitialData(userData);
-      setFormData(userData);
-      setIsFormDirty(false);
-    }
-  }, [user]);
+  // Helper function to get the display value for the select
+  const getRoleDisplayValue = (userRole: string) => {
+    const matchingRoleScope = findMatchingRoleScope(userRole);
+    return matchingRoleScope ? `${matchingRoleScope.role}-${matchingRoleScope.scope}` : userRole;
+  };
+
+ useEffect(() => {
+  if (user && roleScopes.length > 0) {
+    const userData = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      emailAddress: user.emailAddress,
+      contactNumber: user.contactNumber,
+      userRole: user.userRole,
+      userScope: user.userScope || "", // <-- add this
+      dateOfBirth: user.dateOfBirth,
+      dateOfJoin: user.dateOfJoin || "",
+      departmentId: user.departmentId,
+      isActive: user.isActive,
+    };
+
+    setInitialData(userData);
+    setFormData(userData);
+    setIsFormDirty(false);
+  }
+}, [user, roleScopes]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -145,6 +159,13 @@ export const UpdateStaffModal = ({
     };
     fetchRoleScopes();
   }, []);
+// derive the full value that matches one of the <SelectItem> values
+const selectedRoleScopeValue = React.useMemo(() => {
+  if (!formData.userRole || !formData.userScope || roleScopes.length === 0) return "";
+  return `${formData.userRole}-${formData.userScope}`;
+}, [formData.userRole, formData.userScope, roleScopes]);
+
+
 
   // Check if form is dirty whenever formData changes
   useEffect(() => {
@@ -182,8 +203,6 @@ export const UpdateStaffModal = ({
     }
   }, [isOpen]);
 
-  
-
   const handleDateChange = (
     fieldName: string,
     date: Dayjs | null,
@@ -212,18 +231,28 @@ export const UpdateStaffModal = ({
     }
   };
 
-const handleContactNumberChange = (
-  e: React.ChangeEvent<HTMLInputElement>
-) => {
-  const value = e.target.value.replace(/\D/g, "");
-  setFormData({ ...formData, contactNumber: value });
+  const handleContactNumberChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value.replace(/\D/g, "");
+    setFormData({ ...formData, contactNumber: value });
 
-  // Validate contact number field
-  setFieldErrors(prev => ({
-    ...prev,
-    contactNumber: !value.trim() ? 'This field is required' : undefined
-  }));
-};
+    // Validate contact number field
+    setFieldErrors(prev => ({
+      ...prev,
+      contactNumber: !value.trim() ? 'This field is required' : undefined
+    }));
+  };
+
+  // Handle role change - extract just the role part for backend
+  const handleRoleChange = (value: string) => {
+    // Value comes as "ROLE-SCOPE", we need to extract just the role
+    const role = value.split('-')[0];
+    setFormData({ 
+      ...formData, 
+      userRole: role 
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +273,7 @@ const handleContactNumberChange = (
       if (!formData.emailAddress?.trim()) {
         errors.emailAddress = 'This field is required';
       }
+     
       if (!formData.contactNumber) {
         errors.contactNumber = 'This field is required';
       }
@@ -258,14 +288,47 @@ const handleContactNumberChange = (
       }
 
       // Create an object with only the changed fields
-      const changedData: UpdateUserPayload = (
-        Object.keys(formData) as Array<keyof typeof formData>
-      ).reduce((acc, key) => {
-        if (formData[key] !== initialData[key]) {
-          acc[key] = formData[key] as any;
-        }
-        return acc;
-      }, {} as UpdateUserPayload);
+      const changedData: UpdateUserPayload = {};
+      
+      // Only include fields that have actually changed
+      if (formData.firstName !== initialData.firstName) {
+        changedData.firstName = formData.firstName;
+      }
+      if (formData.lastName !== initialData.lastName) {
+        changedData.lastName = formData.lastName;
+      }
+      if (formData.emailAddress !== initialData.emailAddress) {
+        changedData.emailAddress = formData.emailAddress;
+      }
+      if (formData.contactNumber !== initialData.contactNumber) {
+        changedData.contactNumber = formData.contactNumber;
+      }
+       if (formData.userRole !== initialData.userRole) {
+  changedData.userRole = formData.userRole;
+}
+      if (formData.dateOfBirth !== initialData.dateOfBirth) {
+        changedData.dateOfBirth = formData.dateOfBirth;
+      }
+      if (formData.dateOfJoin !== initialData.dateOfJoin) {
+        changedData.dateOfJoin = formData.dateOfJoin;
+      }
+      if (formData.departmentId !== initialData.departmentId) {
+        changedData.departmentId = formData.departmentId;
+      }
+      if (formData.isActive !== initialData.isActive) {
+        changedData.isActive = formData.isActive;
+      }
+
+      // Check if there are any changes
+      if (Object.keys(changedData).length === 0) {
+        toast({
+          title: "No Changes",
+          description: "No changes were made to update",
+        });
+        return;
+      }
+
+      console.log("Sending only changed data:", changedData);
 
       const response = await updateUser(user.userId, changedData);
       if (response.isSuccess) {
@@ -426,22 +489,22 @@ const handleContactNumberChange = (
 
                 {/* Contact */}
                <div className="sm:col-span-2 space-y-2">
-  <Label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">Contact Number *</Label>
-  <Input
-    type="tel"
-    id="contactNumber"
-    name="contactNumber"
-    placeholder="Enter contact number"
-    value={formData.contactNumber}
-    onChange={handleContactNumberChange}
-    maxLength={10}
-    minLength={10}
-    className={fieldErrors.contactNumber ? 'border-red-500' : ''}
-  />
-  {fieldErrors.contactNumber && (
-    <p className="mt-1 text-sm text-red-600">{fieldErrors.contactNumber}</p>
-  )}
-</div>
+                  <Label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">Contact Number *</Label>
+                  <Input
+                    type="tel"
+                    id="contactNumber"
+                    name="contactNumber"
+                    placeholder="Enter contact number"
+                    value={formData.contactNumber}
+                    onChange={handleContactNumberChange}
+                    maxLength={10}
+                    minLength={10}
+                    className={fieldErrors.contactNumber ? 'border-red-500' : ''}
+                  />
+                  {fieldErrors.contactNumber && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.contactNumber}</p>
+                  )}
+                </div>
 
                 {/* Date of Birth */}
                 <div>
@@ -514,28 +577,33 @@ const handleContactNumberChange = (
                 {/* Role */}
                 <div>
                   <Label className="block text-sm font-medium text-gray-600 mb-1">User Role</Label>
-                  <Select
-                    value={formData.userRole}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, userRole: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleScopes.map((role) => (
-                        <SelectItem key={role.role} value={role.role}>
-                          <span className="text-md font-normal">
-                            {formatText(role.role)}{" "}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {formatText(role.scope)}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+         <Select
+  value={selectedRoleScopeValue || undefined}
+  onValueChange={(value) => {
+    const [role, scope] = value.split("-");
+    setFormData(prev => ({
+      ...prev,
+      userRole: role,
+      userScope: scope,
+    }));
+  }}
+>
+  <SelectTrigger>
+    <SelectValue placeholder="Select role" />
+  </SelectTrigger>
+  <SelectContent>
+    {roleScopes.map((rs) => (
+      <SelectItem
+        key={`${rs.role}-${rs.scope}`}
+        value={`${rs.role}-${rs.scope}`}
+      >
+        {rs.role} – {rs.scope}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+
                 </div>
 
                 {/* Active */}
