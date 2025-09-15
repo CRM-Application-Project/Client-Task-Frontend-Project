@@ -56,7 +56,7 @@ export const UpdateStaffModal = ({
     contactNumber: "",
     userRole: "",
     dateOfBirth: "",
-     userScope: "", 
+    userScope: "", 
     dateOfJoin: "",
     departmentId: 0,
     isActive: true,
@@ -78,37 +78,12 @@ export const UpdateStaffModal = ({
     departmentId?: string;
   }>({});
 
-  // Helper function to find the matching role-scope combination
-  const findMatchingRoleScope = (userRole: string) => {
-    return roleScopes.find(rs => rs.role === userRole);
-  };
-
-  // Helper function to get the display value for the select
-  const getRoleDisplayValue = (userRole: string) => {
-    const matchingRoleScope = findMatchingRoleScope(userRole);
-    return matchingRoleScope ? `${matchingRoleScope.role}-${matchingRoleScope.scope}` : userRole;
-  };
-
- useEffect(() => {
-  if (user && roleScopes.length > 0) {
-    const userData = {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      emailAddress: user.emailAddress,
-      contactNumber: user.contactNumber,
-      userRole: user.userRole,
-      userScope: user.userScope || "", // <-- add this
-      dateOfBirth: user.dateOfBirth,
-      dateOfJoin: user.dateOfJoin || "",
-      departmentId: user.departmentId,
-      isActive: user.isActive,
-    };
-
-    setInitialData(userData);
-    setFormData(userData);
-    setIsFormDirty(false);
-  }
-}, [user, roleScopes]);
+  // Debug logs to see what data we're working with
+  useEffect(() => {
+    console.log("DEBUG - User data:", user);
+    console.log("DEBUG - Role scopes:", roleScopes);
+    console.log("DEBUG - Form data:", formData);
+  }, [user, roleScopes, formData]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -140,6 +115,7 @@ export const UpdateStaffModal = ({
       try {
         const res = await getRoleScopeDropdown();
         if (res.isSuccess) {
+          console.log("DEBUG - Fetched role scopes:", res.data);
           setRoleScopes(res.data);
         } else {
           toast({
@@ -159,13 +135,70 @@ export const UpdateStaffModal = ({
     };
     fetchRoleScopes();
   }, []);
-// derive the full value that matches one of the <SelectItem> values
-const selectedRoleScopeValue = React.useMemo(() => {
-  if (!formData.userRole || !formData.userScope || roleScopes.length === 0) return "";
-  return `${formData.userRole}-${formData.userScope}`;
-}, [formData.userRole, formData.userScope, roleScopes]);
 
+  // Set initial data when modal opens and user is available
+  useEffect(() => {
+    if (user && isOpen) {
+      console.log("DEBUG - Setting initial data for user:", user.userRole);
+      
+      const userData = {
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        emailAddress: user.emailAddress || "",
+        contactNumber: user.contactNumber || "",
+        userRole: user.userRole || "",
+        userScope: user.userScope || "",
+        dateOfBirth: user.dateOfBirth || "",
+        dateOfJoin: user.dateOfJoin || "",
+        departmentId: user.departmentId || 0,
+        isActive: user.isActive ?? true,
+      };
 
+      console.log("DEBUG - Setting userData:", userData);
+      setInitialData(userData);
+      setFormData(userData);
+      setIsFormDirty(false);
+    }
+  }, [user, isOpen]);
+
+  // Update scope when roleScopes are loaded
+  useEffect(() => {
+    if (user && roleScopes.length > 0 && formData.userRole && !formData.userScope) {
+      const matchingRoleScope = roleScopes.find(rs => rs.role === user.userRole);
+      if (matchingRoleScope) {
+        console.log("DEBUG - Found matching role-scope after loading:", matchingRoleScope);
+        setFormData(prev => ({
+          ...prev,
+          userScope: matchingRoleScope.scope
+        }));
+        setInitialData(prev => ({
+          ...prev,
+          userScope: matchingRoleScope.scope
+        }));
+      }
+    }
+  }, [roleScopes, user, formData.userRole, formData.userScope]);
+
+  // Get the display value for the role select based on backend role
+  const getCurrentRoleValue = () => {
+    if (!formData.userRole && !user?.userRole) return "";
+    
+    const roleToMatch = formData.userRole || user?.userRole;
+    
+    // Find matching role-scope combination from available options
+    const exactMatch = roleScopes.find(rs => rs.role === roleToMatch);
+    if (exactMatch) {
+      const value = `${exactMatch.role}-${exactMatch.scope}`;
+      console.log("DEBUG - Found exact match for role:", roleToMatch, "returning:", value);
+      return value;
+    }
+    
+    console.log("DEBUG - No match found for role:", roleToMatch);
+    return "";
+  };
+
+  const currentRoleValue = getCurrentRoleValue();
+  console.log("DEBUG - Current role value for select:", currentRoleValue);
 
   // Check if form is dirty whenever formData changes
   useEffect(() => {
@@ -244,14 +277,16 @@ const selectedRoleScopeValue = React.useMemo(() => {
     }));
   };
 
-  // Handle role change - extract just the role part for backend
   const handleRoleChange = (value: string) => {
-    // Value comes as "ROLE-SCOPE", we need to extract just the role
-    const role = value.split('-')[0];
-    setFormData({ 
-      ...formData, 
-      userRole: role 
-    });
+    console.log("DEBUG - Role change selected:", value);
+    const [role, scope] = value.split("-");
+    console.log("DEBUG - Parsed role:", role, "scope:", scope);
+    
+    setFormData(prev => ({
+      ...prev,
+      userRole: role,
+      userScope: scope,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -303,9 +338,9 @@ const selectedRoleScopeValue = React.useMemo(() => {
       if (formData.contactNumber !== initialData.contactNumber) {
         changedData.contactNumber = formData.contactNumber;
       }
-       if (formData.userRole !== initialData.userRole) {
-  changedData.userRole = formData.userRole;
-}
+      if (formData.userRole !== initialData.userRole) {
+        changedData.userRole = formData.userRole;
+      }
       if (formData.dateOfBirth !== initialData.dateOfBirth) {
         changedData.dateOfBirth = formData.dateOfBirth;
       }
@@ -413,6 +448,8 @@ const selectedRoleScopeValue = React.useMemo(() => {
               </div>
             )}
 
+            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* First Name */}
@@ -488,7 +525,7 @@ const selectedRoleScopeValue = React.useMemo(() => {
                 </div>
 
                 {/* Contact */}
-               <div className="sm:col-span-2 space-y-2">
+                <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">Contact Number *</Label>
                   <Input
                     type="tel"
@@ -577,33 +614,33 @@ const selectedRoleScopeValue = React.useMemo(() => {
                 {/* Role */}
                 <div>
                   <Label className="block text-sm font-medium text-gray-600 mb-1">User Role</Label>
-         <Select
-  value={selectedRoleScopeValue || undefined}
-  onValueChange={(value) => {
-    const [role, scope] = value.split("-");
-    setFormData(prev => ({
-      ...prev,
-      userRole: role,
-      userScope: scope,
-    }));
-  }}
->
-  <SelectTrigger>
-    <SelectValue placeholder="Select role" />
-  </SelectTrigger>
-  <SelectContent>
-    {roleScopes.map((rs) => (
-      <SelectItem
-        key={`${rs.role}-${rs.scope}`}
-        value={`${rs.role}-${rs.scope}`}
-      >
-        {rs.role} – {rs.scope}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-
-
+                  <Select
+                    value={currentRoleValue || undefined}
+                    onValueChange={handleRoleChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roleScopes.length === 0 && (
+                        <SelectItem value="loading" disabled>
+                          Loading roles...
+                        </SelectItem>
+                      )}
+                      {roleScopes.map((rs) => {
+                        const value = `${rs.role}-${rs.scope}`;
+                        console.log("DEBUG - Rendering option:", value);
+                        return (
+                          <SelectItem
+                            key={value}
+                            value={value}
+                          >
+                            {rs.role} – {rs.scope}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Active */}
