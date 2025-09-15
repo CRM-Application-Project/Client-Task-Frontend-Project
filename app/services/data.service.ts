@@ -414,6 +414,7 @@ export interface User {
   dateOfBirth: string;
   dateOfJoin: string;
   userRole: string;
+  userScope: string;
   departmentId: number;
   departmentName: string;
   isActive: boolean;
