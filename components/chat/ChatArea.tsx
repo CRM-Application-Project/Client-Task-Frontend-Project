@@ -1,70 +1,65 @@
 "use client";
-import { useState } from "react";
-import { Send, Paperclip, Smile, MoreVertical, Hash, MessageCircle, Users, Phone, Video, Info } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Chat } from "@/lib/data";
 import { MessageList } from "./MessageList";
-
+import { useChat, Message } from "@/hooks/useChat";
+import UserAvatar from "./UserAvatar";
+import EmojiPicker from "./EmojiPicker";
 
 interface ChatAreaProps {
   chat: Chat;
 }
 
-export interface Message {
-  id: string;
-  content: string;
-  sender: string;
-  timestamp: string;
-  type: "sent" | "received";
-  reactions?: { emoji: string; count: number }[];
-  replyTo?: string;
-}
-
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    content: "Hey everyone! How's the progress on the new chat module?",
-    sender: "Alice Johnson",
-    timestamp: "10:30 AM",
-    type: "received",
-  },
-  {
-    id: "2", 
-    content: "It's looking great! We've implemented most of the core features. The gray theme is really clean.",
-    sender: "You",
-    timestamp: "10:32 AM", 
-    type: "sent",
-  },
-  {
-    id: "3",
-    content: "Awesome! Can't wait to see the mention feature in action. @Carol what do you think about the current design?",
-    sender: "Bob Smith",
-    timestamp: "10:35 AM",
-    type: "received",
-    reactions: [{ emoji: "👍", count: 2 }],
-  },
-  {
-    id: "4",
-    content: "The design looks very polished! Love the Figma-inspired aesthetic. The gray palette gives it a professional feel.",
-    sender: "Carol White",
-    timestamp: "10:40 AM",
-    type: "received",
-  }
-];
-
 export const ChatArea = ({ chat }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
-  const [messages] = useState<Message[]>(mockMessages);
+  const [isTyping, setIsTyping] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const { 
+    messages, 
+    sendMessage, 
+    loadMessages,
+    addMessageReaction,
+    removeMessageReaction,
+    editMessageContent,
+    deleteMessageById,
+    currentUserId
+  } = useChat();
 
-  const handleSendMessage = () => {
+  const chatMessages = messages[chat.id] || [];
+
+  // Load messages when chat changes
+  useEffect(() => {
+    if (chat.id) {
+      loadMessages(chat.id);
+    }
+  }, [chat.id, loadMessages]);
+
+  const handleSendMessage = async () => {
     if (message.trim()) {
-      // Here you would typically send the message to your backend
-      console.log("Sending message:", message);
-      setMessage("");
+      const content = message.trim();
+      const mentions = extractMentions(content);
+      
+      try {
+        await sendMessage(chat.id, content, mentions, replyTo?.id);
+        setMessage("");
+        setReplyTo(null);
+        
+        // Auto-resize textarea
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+      } catch (err) {
+        console.error('Error sending message:', err);
+      }
     }
   };
+  
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -73,82 +68,212 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     }
   };
 
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    
+    // Typing indicator (simplified)
+    setIsTyping(e.target.value.length > 0);
+  };
+
+  const extractMentions = (text: string): string[] => {
+    const mentionRegex = /@(\w+)/g;
+    const mentions: string[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const user = chat.participants.find((p) =>
+        p.name.toLowerCase().includes(match![1].toLowerCase())
+      );
+      if (user) {
+        mentions.push(user.id);
+      }
+    }
+    return mentions;
+  };
+
+  const handleReaction = async (messageId: string, emoji: string, action: 'add' | 'remove') => {
+    try {
+      if (action === 'add') {
+        await addMessageReaction(messageId, emoji);
+      } else {
+        await removeMessageReaction(messageId, emoji);
+      }
+    } catch (err) {
+      console.error('Error handling reaction:', err);
+    }
+  };
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    try {
+      await editMessageContent(messageId, newContent);
+    } catch (err) {
+      console.error('Error editing message:', err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      await deleteMessageById(messageId);
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    }
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyTo(message);
+    textareaRef.current?.focus();
+  };
+
+  const cancelReply = () => {
+    setReplyTo(null);
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+    textareaRef.current?.focus();
+  };
+
+  const getLastSeenText = () => {
+    if (chat.type === 'private') {
+      const participant = chat.participants[0];
+      if (participant?.status === 'online') {
+        return 'online';
+      }
+      return 'last seen recently';
+    }
+    return `${chat.participants.length} participants`;
+  };
+
   return (
-    <>
-      {/* Chat Header */}
-     <div className="bg-gray-200 border-b border-gray-300 p-4 flex items-center justify-between">
+    <div className="flex flex-col h-screen bg-gray-50 relative">
+      {/* Chat Header - Fixed */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-3">
           {chat.type === 'private' ? (
-            <img
+            <UserAvatar
               src={chat.participants[0]?.avatar}
               alt={chat.name}
-              className="w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+              size="lg"
+              status={chat.participants[0]?.status}
+              showStatus={true}
             />
           ) : (
-            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center">
-              <Users size={18} className="text-gray-200" />
+            <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center">
+              <Users size={18} className="text-white" />
             </div>
           )}
           <div>
             <h2 className="font-semibold text-gray-800">{chat.name}</h2>
-            {chat.type === 'private' ? (
-              <p className="text-sm text-gray-600 capitalize">
-                {chat.participants[0]?.status || 'offline'}
-              </p>
-            ) : (
-              <p className="text-sm text-gray-600">
-                {chat.participants.length} participants
-              </p>
-            )}
+            <p className="text-sm text-gray-600">
+              {isTyping ? 'typing...' : getLastSeenText()}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-300 rounded-lg transition-colors">
+          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
             <Phone size={18} />
           </button>
-          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-300 rounded-lg transition-colors">
+          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
             <Video size={18} />
           </button>
-          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-300 rounded-lg transition-colors">
+          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
             <Info size={18} />
           </button>
         </div>
       </div>
 
-      {/* Messages */}
-      <MessageList messages={messages} />
+      {/* Messages Area - Scrollable */}
+      <div className="flex-1 overflow-hidden">
+        <MessageList 
+          messages={chatMessages}
+          currentUserId={currentUserId}
+          onReaction={handleReaction}
+          onReply={handleReply}
+          onEdit={handleEditMessage}
+          onDelete={handleDeleteMessage}
+        />
+      </div>
 
-      {/* Message Input */}
-      <div className="bg-card border-t border-chat-border p-4">
+      {/* Reply Preview - Fixed above input */}
+      {replyTo && (
+        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-12 bg-green-500 rounded"></div>
+              <div className="flex-1">
+                <p className="text-xs text-green-600 font-medium">
+                  Replying to {replyTo.sender.label}
+                </p>
+                <p className="text-sm text-gray-800 truncate max-w-xs">{replyTo.content}</p>
+              </div>
+            </div>
+            <button
+              onClick={cancelReply}
+              className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Message Input - Fixed at bottom */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-sm">
         <div className="flex items-end gap-3">
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
-            <Paperclip className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full flex-shrink-0"
+          >
+            <Paperclip className="h-5 w-5" />
           </Button>
           
           <div className="flex-1 relative">
             <Textarea
-              placeholder={`Message ${chat.name}...`}
+              ref={textareaRef}
+              placeholder={`Type a message`}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={handleTextareaChange}
               onKeyPress={handleKeyPress}
-              className="min-h-[40px] max-h-32 resize-none bg-input border-chat-border"
+              className="min-h-[24px] max-h-[80px] resize-none bg-gray-100 border-gray-200 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 text-gray-800 placeholder-gray-500 rounded-full px-4 py-3 pr-12"
+              style={{ paddingRight: '48px' }}
             />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 p-2 rounded-full"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <Smile className="h-5 w-5" />
+            </Button>
           </div>
-          
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
-            <Smile className="h-4 w-4" />
-          </Button>
           
           <Button 
             onClick={handleSendMessage}
             disabled={!message.trim()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[48px] min-h-[48px] flex-shrink-0"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-5 w-5" />
           </Button>
         </div>
       </div>
-    </>
+
+      {/* Emoji Picker - Absolute positioning */}
+      {showEmojiPicker && (
+        <div className="absolute bottom-20 right-4 z-50">
+          <EmojiPicker
+            onEmojiSelect={handleEmojiSelect}
+            onClose={() => setShowEmojiPicker(false)}
+          />
+        </div>
+      )}
+    </div>
   );
 };

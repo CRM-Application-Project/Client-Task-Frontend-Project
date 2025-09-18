@@ -476,3 +476,61 @@ export interface Chat {
   };
   unreadCount: number;
 }
+// Updated data types to match API structure
+export interface User {
+  id: string;
+  name: string;
+  avatar?: string;
+  status: 'online' | 'offline' | 'away';
+}
+
+export interface Chat {
+  id: string;
+  name: string;
+  type: 'private' | 'group';
+  participants: User[];
+  lastMessage: {
+    content: string;
+    timestamp: Date;
+    senderId: string;
+  };
+  unreadCount: number;
+}
+
+// Additional interfaces for better type safety
+export interface ApiUser {
+  id: string;
+  label: string;
+}
+
+export interface ApiChat {
+  id: number;
+  name: string;
+  description: string;
+  unReadMessageCount: number;
+  conversationType: string;
+  participants: Array<{
+    id: string;
+    label: string;
+    conversationRole: "ADMIN" | "MEMBER";
+  }>;
+  messageResponses: any;
+}
+
+export interface ApiMessage {
+  id: number;
+  parentId: number | null;
+  conversationId: number;
+  content: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    label: string;
+  };
+  replyCount: number;
+  mentions: string[];
+  reactions: any[];
+  attachments: any | null;
+  deletable: boolean;
+  updatable: boolean;
+}
