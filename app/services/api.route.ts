@@ -1,3 +1,5 @@
+import { putRequest } from "./httpServices";
+
 export const API_CONSTANTS = {
   USER: {
     REGISTER: "/register",
@@ -111,5 +113,35 @@ DELETE_DISCUSSION: (discussionId: number | string) =>
   },
   CHAT_MODULE: {
     GET_CHAT_LIST: "/conversation/",
+     START: "/conversation/",
+    SOFT_DELETE: (conversationId: string | number) =>
+      `/conversation/${conversationId}`,
+    ADD_PARTICIPANTS: (conversationId: string | number) =>
+      `/conversation/${conversationId}/participants`,
+    DELETE_PARTICIPANTS: (conversationId: string | number) =>
+      `/conversation/${conversationId}/participants`,
+
+    CHANGE_ROLE: (conversationId: string | number) =>
+      `/conversation/${conversationId}`,
+
+     MESSAGE: {
+    ADD: "/message/",
+    FILTER: (conversationId: string | number, parentId?: string | number, searchTerm?: string) =>
+      `/message/?conversationId=${conversationId}${
+        parentId ? `&parentId=${parentId}` : ""
+      }${searchTerm ? `&searchTerm=${searchTerm}` : ""}`,
+    REPLY: (messageId: string | number) => `/message/${messageId}/reply`,
+    EDIT: (messageId: string | number) => `/message/${messageId}`,
+    GET: (messageId: string | number) => `/message/${messageId}`,
+    DELETE: (messageId: string | number) => `/message/${messageId}`,
+    REACT: (messageId: string | number) => `/message/${messageId}/reaction`,
+    REMOVE_REACTION: (messageId: string | number) =>
+      `/message/${messageId}/reaction`,
+    RECEIPTS: (messageId: string | number) =>
+      `/message/${messageId}/receipts`,
+    UPDATE_RECEIPT: "/message/receipt",
+  },
   },
 };
+
+
