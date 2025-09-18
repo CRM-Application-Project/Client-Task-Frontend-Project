@@ -1553,3 +1553,31 @@ export const logoutUser = async (): Promise<LogoutResponse> => {
   return res as LogoutResponse;
 };
 
+
+export interface ChatParticipant {
+  id: string;
+  label: string;
+  conversationRole: string;
+}
+
+export interface Chat {
+  id: number;
+  name: string;
+  description: string;
+  unReadMessageCount: number;
+  conversationType: string;
+  participants: ChatParticipant[];
+  messageResponses: any; // can refine later if needed
+}
+
+export interface GetChatListResponse {
+  isSuccess: boolean;
+  message: string;
+  data: Chat[];
+}
+
+export const getChatList = async (): Promise<GetChatListResponse> => {
+  const res = await getRequest(API_CONSTANTS.CHAT_MODULE.GET_CHAT_LIST);
+  return res as GetChatListResponse;
+};
+

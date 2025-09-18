@@ -109,4 +109,7 @@ DELETE_DISCUSSION: (discussionId: number | string) =>
       TASKS_OVERVIEW:
       "/task/dashboard/overview?startDate={startDate}&endDate={endDate}",
   },
+  CHAT_MODULE: {
+    GET_CHAT_LIST: "/conversation/",
+  },
 };

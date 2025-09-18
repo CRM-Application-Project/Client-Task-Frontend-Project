@@ -15,6 +15,7 @@ import {
   User,
   KeyRound,
   BarChart3,
+  MessageCircle,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
@@ -35,6 +36,7 @@ const NAVIGATION: NavItem[] = [
   { name: "Dashboard", icon: BarChart3, href: "/dashboard", moduleName: "Dashboard" },
   { name: "Leads", icon: Users, href: "/leads", moduleName: "Leads" },
   { name: "Tasks", icon: CheckSquare, href: "/tasks", moduleName: "Task" },
+  { name: "Conversation", icon: MessageCircle, href: "/chat-module", moduleName: "Chat" },
   {
     name: "Employees",
     icon: UserCheck,
