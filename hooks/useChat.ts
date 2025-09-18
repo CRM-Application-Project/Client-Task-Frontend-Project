@@ -178,6 +178,7 @@ export const useChat = () => {
       timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       type: 'sent',
       mentions,
+      parentId,
       status: 'sending'
       
     };
@@ -189,18 +190,28 @@ export const useChat = () => {
     }));
 
     try {
-      const response = await addMessage({
-        conversationId: parseInt(chatId),
-        content,
-        mentions,
-        parentId: parentId ? parseInt(parentId) : undefined
-      });
+      let response;
+      
+      // Use replyToMessage API if parentId is provided, otherwise use addMessage
+      if (parentId) {
+        response = await replyToMessageService(parentId, {
+          conversationId: parseInt(chatId),
+          content,
+          mentions
+        });
+      } else {
+        response = await addMessage({
+          conversationId: parseInt(chatId),
+          content,
+          mentions
+        });
+      }
 
       if (response.isSuccess) {
         const realMessage: Message = {
           id: response.data.id.toString(),
           content: response.data.content,
-            createdAt: new Date().toISOString(),
+          createdAt: response.data.createdAt,
           sender:{
             id: currentUserId,
             label: currentUserName
@@ -212,6 +223,7 @@ export const useChat = () => {
           }),
           type: 'sent',
           reactions: [],
+          parentId: parentId || response.data.parentId?.toString(),
           mentions: response.data.mentions,
           deletable: response.data.deletable,
           updatable: response.data.updatable,
@@ -259,50 +271,6 @@ export const useChat = () => {
       }));
     }
   }, [currentUserId]);
-
-  // Reply to a message
-// In your useChat hook, replace the replyToMessage function:
-const replyToMessage = useCallback(async (messageId: string, chatId: string, content: string, mentions?: string[]) => {
-  try {
-    const response = await replyToMessageService(messageId, { // Renamed to avoid conflict
-      conversationId: parseInt(chatId),
-      content,
-      mentions
-    });
-
-    if (response.isSuccess) {
-      const newMessage: Message = {
-        id: response.data.id.toString(),
-        content: response.data.content,
-        sender: {
-            id: currentUserId,
-            label: currentUserName
-        },
-        createdAt: response.data.createdAt,
-        senderId: currentUserId,
-        timestamp: new Date(response.data.createdAt).toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }),
-        type: 'sent',
-        reactions: [],
-        parentId: messageId,
-        mentions: response.data.mentions,
-        deletable: response.data.deletable,
-        updatable: response.data.updatable,
-        status: 'sent'
-      };
-
-      setMessages(prev => ({
-        ...prev,
-        [chatId]: [...(prev[chatId] || []), newMessage]
-      }));
-    }
-  } catch (err) {
-    console.error('Error replying to message:', err);
-    throw err;
-  }
-}, [currentUserId]);
 
   // Create a new chat/conversation
   const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
@@ -567,7 +535,6 @@ const replyToMessage = useCallback(async (messageId: string, chatId: string, con
     loadChats,
     loadMessages,
     sendMessage,
-    replyToMessage,
     createChat,
     deleteChat,
     searchChats,

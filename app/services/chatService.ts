@@ -328,9 +328,13 @@ export const removeSpecificReaction = async (
   return res;
 };
 export interface MessageReceipt {
+    messageId:      number;
+
   userId: string;
-  label: string;
-  readAt: string;
+  userName: string;
+ status: string;
+ updatedAt: string;
+ 
   // Add other receipt properties as needed
 }
 

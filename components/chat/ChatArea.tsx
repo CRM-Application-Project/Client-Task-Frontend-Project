@@ -8,6 +8,8 @@ import { MessageList } from "./MessageList";
 import { useChat, Message } from "@/hooks/useChat";
 import UserAvatar from "./UserAvatar";
 import EmojiPicker from "./EmojiPicker";
+import { MessageInfoPopup } from "./MessageInfoPopup";
+import GroupInfoModal from "./GroupInfoModal";
 
 interface ChatAreaProps {
   chat: Chat;
@@ -18,6 +20,9 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   const [isTyping, setIsTyping] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showMessageInfo, setShowMessageInfo] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const { 
@@ -28,7 +33,11 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     removeMessageReaction,
     editMessageContent,
     deleteMessageById,
-    currentUserId
+    currentUserId,
+    getMessageReceiptsById,
+    users,
+    addChatParticipants,
+    removeChatParticipants
   } = useChat();
 
   const chatMessages = messages[chat.id] || [];
@@ -129,6 +138,44 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     textareaRef.current?.focus();
   };
 
+  const handleMessageInfo = (messageId: string) => {
+    const message = chatMessages.find(m => m.id === messageId);
+    if (message) {
+      setSelectedMessage(message);
+      setShowMessageInfo(true);
+    }
+  };
+
+  const closeMessageInfo = () => {
+    setShowMessageInfo(false);
+    setSelectedMessage(null);
+  };
+
+  const handleAddMembers = async (chatId: string, userIds: string[]) => {
+    try {
+      await addChatParticipants(chatId, userIds);
+    } catch (err) {
+      console.error('Error adding members:', err);
+      throw err;
+    }
+  };
+
+  const handleRemoveMember = async (chatId: string, userId: string) => {
+    try {
+      await removeChatParticipants(chatId, [userId]);
+    } catch (err) {
+      console.error('Error removing member:', err);
+      throw err;
+    }
+  };
+
+  const handleInfoClick = () => {
+    if (chat.type === 'group') {
+      setShowGroupInfo(true);
+    }
+    // For private chats, you could show user profile or other info
+  };
+
   const cancelReply = () => {
     setReplyTo(null);
   };
@@ -183,7 +230,10 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
             <Video size={18} />
           </button>
-          <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
+          <button 
+            onClick={handleInfoClick}
+            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors"
+          >
             <Info size={18} />
           </button>
         </div>
@@ -198,6 +248,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           onReply={handleReply}
           onEdit={handleEditMessage}
           onDelete={handleDeleteMessage}
+          onMessageInfo={handleMessageInfo}
         />
       </div>
 
@@ -273,6 +324,30 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
             onClose={() => setShowEmojiPicker(false)}
           />
         </div>
+      )}
+
+      {/* Message Info Popup */}
+      {showMessageInfo && selectedMessage && (
+        <MessageInfoPopup
+          messageId={selectedMessage.id}
+          messageContent={selectedMessage.content}
+          timestamp={selectedMessage.timestamp}
+          isOpen={showMessageInfo}
+          onClose={closeMessageInfo}
+          onGetReceipts={getMessageReceiptsById}
+        />
+      )}
+
+      {/* Group Info Modal */}
+      {showGroupInfo && chat.type === 'group' && (
+        <GroupInfoModal
+          chat={chat}
+          users={users}
+          currentUserId={currentUserId}
+          onAddMembers={handleAddMembers}
+          onRemoveMember={handleRemoveMember}
+          onClose={() => setShowGroupInfo(false)}
+        />
       )}
     </div>
   );

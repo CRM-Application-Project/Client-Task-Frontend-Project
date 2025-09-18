@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Reply, Smile, Edit3, Trash2, Check, CheckCheck, Clock, Plus, Minus } from "lucide-react";
+import { MoreVertical, Reply, Smile, Edit3, Trash2, Check, CheckCheck, Clock, Plus, Minus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Message } from "@/hooks/useChat";
-import { getMessageReceipts } from "@/app/services/chatService";
 
 // Mock Message type for demo
 
@@ -72,18 +71,6 @@ export const MessageList = ({
     setEditingMessage(null);
     setEditContent("");
   };
-const handleMessageInfo = async (messageId: string) => {
-  try {
-    // Call your receipt API here
-    const receipt = await getMessageReceipts(messageId);
-    // You can display the receipt info in a modal, toast, or console
-    console.log('Receipt info:', receipt);
-    // Optionally, set state to show receipt info in a modal
-  } catch (error) {
-    console.error('Failed to fetch receipt info:', error);
-    // Optionally, show an error toast or message
-  }
-};
   const handleReactionClick = (messageId: string, emoji: string) => {
     const message = messages.find(m => m.id === messageId);
     const existingReaction = message?.reactions?.find(r => r.emoji === emoji);
@@ -168,6 +155,7 @@ const handleMessageInfo = async (messageId: string) => {
       id: '1',
       content: 'Hey there! How are you doing?',
       timestamp: '10:30',
+      createdAt: new Date().toISOString(),
       sender: { id: 'other1', label: 'Alice' },
       senderId: 'other1',
       type: 'received',
@@ -179,6 +167,7 @@ const handleMessageInfo = async (messageId: string) => {
       id: '2',
       content: 'I\'m doing great! Just working on this chat component.',
       timestamp: '10:32',
+      createdAt: new Date().toISOString(),
       sender: { id: 'current', label: 'You' },
       senderId: 'current',
       type: 'sent',
@@ -231,6 +220,18 @@ const handleMessageInfo = async (messageId: string) => {
       status: 'read',
       updatable: true,
       deletable: true
+    },
+    {
+      id: '7',
+      content: 'Perfect! That\'s exactly what I was hoping for.',
+      timestamp: '10:38',
+      createdAt: new Date().toISOString(),
+      sender: { id: 'other1', label: 'Alice' },
+      senderId: 'other1',
+      type: 'received',
+      parentId: '6', // Reply to message 6
+      updatable: false,
+      deletable: false
     }
   ] : messages;
 
@@ -311,14 +312,23 @@ const handleMessageInfo = async (messageId: string) => {
                       </div>
                     )}
 
-                    {/* Replied Message Preview */}
+                    {/* Replied Message Preview - WhatsApp style */}
                     {repliedMessage && (
                       <div className={cn(
-                        "ml-2 px-3 py-2 border-l-4 bg-white rounded-r-lg text-xs shadow-sm",
-                        isOwn ? "border-green-400" : "border-gray-400"
+                        "mx-2 px-3 py-2 border-l-4 bg-gray-100 rounded-r-lg text-xs shadow-sm max-w-full",
+                        isOwn 
+                          ? "border-green-400 bg-green-50" 
+                          : "border-blue-400 bg-blue-50"
                       )}>
-                        <p className="font-medium text-gray-700">{repliedMessage.sender.label}</p>
-                        <p className="text-gray-600 truncate">{repliedMessage.content}</p>
+                        <p className={cn(
+                          "font-medium text-xs mb-1",
+                          isOwn ? "text-green-600" : "text-blue-600"
+                        )}>
+                          {repliedMessage.sender.id === effectiveCurrentUserId ? 'You' : repliedMessage.sender.label}
+                        </p>
+                        <p className="text-gray-700 text-xs leading-tight line-clamp-2 break-words">
+                          {repliedMessage.content}
+                        </p>
                       </div>
                     )}
                     
@@ -447,7 +457,7 @@ const handleMessageInfo = async (messageId: string) => {
                                 }}
                                 className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                               >
-                                <CheckCheck size={14} />
+                                <Info size={14} />
                                 Message Info
                               </button>
                             </div>
@@ -651,7 +661,21 @@ export default function MessageListDemo() {
   };
 
   const handleReply = (message: Message) => {
-    console.log('Replying to:', message);
+    const replyMessage: Message = {
+      id: `reply-${Date.now()}`,
+      content: `This is a reply to "${message.content.substring(0, 30)}..."`,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
+      sender: { id: currentUserId, label: 'You' },
+      senderId: currentUserId,
+      type: 'sent',
+      status: 'sent',
+      parentId: message.id,
+      updatable: true,
+      deletable: true
+    };
+    
+    setMessages(prev => [...prev, replyMessage]);
   };
 
   const handleEdit = (messageId: string, newContent: string) => {
