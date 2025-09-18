@@ -430,3 +430,49 @@ export interface TaskDiscussionReactionResponse {
     createdAt: string;
   };
 }
+
+
+export interface User {
+  id: string;
+  name: string;
+  avatar?: string; // Made optional to handle cases where no avatar is provided
+  status: 'online' | 'offline' | 'away';
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  timestamp: Date;
+  replyTo?: string;
+  mentions?: string[];
+  reactions?: Reaction[];
+  edited?: boolean;
+  fileAttachment?: FileAttachment;
+}
+
+export interface Reaction {
+  emoji: string;
+  users: string[];
+  count: number;
+}
+
+export interface FileAttachment {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+}
+
+export interface Chat {
+  id: string;
+  name: string;
+  type: 'private' | 'group';
+  participants: User[];
+  lastMessage: {
+    content: string;
+    timestamp: Date;
+    senderId: string;
+  };
+  unreadCount: number;
+}

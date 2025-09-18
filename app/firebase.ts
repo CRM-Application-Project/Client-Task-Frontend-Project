@@ -1,6 +1,6 @@
 "use client";
 import { initializeApp } from "firebase/app";
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 import { notificationService } from "./services/notificationService";
 
 const firebaseConfig = {
@@ -14,7 +14,26 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const messaging = getMessaging(app);
+
+// Initialize messaging only in browser environment
+let messaging: Messaging | null = null;
+
+function getMessagingInstance(): Messaging | null {
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    if (!messaging) {
+      try {
+        messaging = getMessaging(app);
+      } catch (error) {
+        console.warn('Failed to initialize Firebase messaging:', error);
+        messaging = null;
+      }
+    }
+    return messaging;
+  }
+  return null;
+}
+
+export { getMessagingInstance };
 
 // Global state management
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
@@ -155,8 +174,14 @@ async function checkAndRefreshToken(): Promise<void> {
     }
     
     // Get current token from Firebase
+    const messagingInstance = getMessagingInstance();
+    if (!messagingInstance) {
+      console.log('Firebase messaging not available');
+      return;
+    }
+    
     const swRegistration = await getServiceWorkerRegistration();
-    const currentToken = await getToken(messaging, {
+    const currentToken = await getToken(messagingInstance, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swRegistration || undefined,
     });
@@ -206,10 +231,15 @@ export async function generateFCMToken(deviceType?: string): Promise<{ success: 
       return { success: false, message: 'Permission denied' };
     }
 
+    const messagingInstance = getMessagingInstance();
+    if (!messagingInstance) {
+      return { success: false, message: 'Firebase messaging not available' };
+    }
+
     const swRegistration = await getServiceWorkerRegistration();
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const fcmToken = await getToken(messaging, {
+    const fcmToken = await getToken(messagingInstance, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swRegistration || undefined,
     });
@@ -371,7 +401,13 @@ export function cleanupNotifications(): void {
 
 // Function to handle foreground messages
 export function subscribeToMessages(onMessageReceived?: (payload: any) => void): void {
-  onMessage(messaging, (payload) => {
+  const messagingInstance = getMessagingInstance();
+  if (!messagingInstance) {
+    console.warn('Firebase messaging not available for message subscription');
+    return;
+  }
+  
+  onMessage(messagingInstance, (payload) => {
     console.log("📩 Foreground message:", payload);
     
     if (onMessageReceived) {
