@@ -1,8 +1,10 @@
 "use client"
 import React, { useState } from 'react';
-import { ChatArea } from '../../components/chat/ChatArea';
-import { Chat } from '@/lib/data';
+
+
 import Sidebar from '../../components/chat/Sidebar';
+import { Chat } from '../services/chatService';
+import { ChatArea } from '@/components/chat/ChatArea';
 
 const ChatModule: React.FC = () => {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);

@@ -3,13 +3,14 @@ import { useState, useEffect, useRef } from "react";
 import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Chat } from "@/lib/data";
+
 import { MessageList } from "./MessageList";
 import { useChat, Message } from "@/hooks/useChat";
 import UserAvatar from "./UserAvatar";
 import EmojiPicker from "./EmojiPicker";
 import { MessageInfoPopup } from "./MessageInfoPopup";
 import GroupInfoModal from "./GroupInfoModal";
+import { Chat } from "@/app/services/chatService";
 
 interface ChatAreaProps {
   chat: Chat;
@@ -17,6 +18,7 @@ interface ChatAreaProps {
 
 export const ChatArea = ({ chat }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
+  const [currentChat, setCurrentChat] = useState<Chat>(chat);
   const [isTyping, setIsTyping] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -29,6 +31,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     messages, 
     sendMessage, 
     loadMessages,
+    subscribeToConversation,
     addMessageReaction,
     removeMessageReaction,
     editMessageContent,
@@ -36,19 +39,42 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     currentUserId,
     getMessageReceiptsById,
     users,
+    chats,
     addChatParticipants,
     removeChatParticipants,
     changeParticipantRoleInGroup
   } = useChat();
 
-  const chatMessages = messages[chat.id] || [];
+  const chatMessages = messages[currentChat.id] || [];
+
+  // Keep local currentChat in sync with prop
+  useEffect(() => {
+    setCurrentChat(chat);
+  }, [chat]);
+
+  // Also sync with global chats if they update (ensures latest server state)
+  useEffect(() => {
+    const updated = chats.find(c => String(c.id) === String(currentChat.id));
+    if (updated) {
+      setCurrentChat(updated);
+    }
+  }, [chats, currentChat.id]);
 
   // Load messages when chat changes
   useEffect(() => {
-    if (chat.id) {
-      loadMessages(chat.id);
+    if (currentChat.id) {
+      loadMessages(String(currentChat.id));
     }
-  }, [chat.id, loadMessages]);
+  }, [currentChat.id, loadMessages]);
+
+  // Realtime subscription via Firebase for this conversation
+  useEffect(() => {
+    if (!currentChat.id) return;
+    const unsubscribe = subscribeToConversation(String(currentChat.id));
+    return () => {
+      try { unsubscribe && unsubscribe(); } catch {}
+    };
+  }, [currentChat.id, subscribeToConversation]);
 
   const handleSendMessage = async () => {
     if (message.trim()) {
@@ -56,7 +82,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       const mentions = extractMentions(content);
       
       try {
-        await sendMessage(chat.id, content, mentions, replyTo?.id);
+        await sendMessage(String(chat.id), content, mentions, replyTo?.id);
         setMessage("");
         setReplyTo(null);
         
@@ -96,8 +122,8 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     let match: RegExpExecArray | null;
 
     while ((match = mentionRegex.exec(text)) !== null) {
-      const user = chat.participants.find((p) =>
-        p.name.toLowerCase().includes(match![1].toLowerCase())
+      const user = currentChat.participants.find((p) =>
+        p.label.toLowerCase().includes(match![1].toLowerCase())
       );
       if (user) {
         mentions.push(user.id);
@@ -111,22 +137,23 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       const message = chatMessages.find(m => m.id === messageId);
       if (!message) return;
       
-      // Check if the current user already has a reaction on this message
+      // Check if the current user already has any reaction on this message
       const userReaction = message.reactions?.find(reaction => 
-        reaction.users.includes(currentUserId)
+        reaction.users && reaction.users.includes(currentUserId)
       );
       
       if (userReaction) {
-        // If user already has a reaction, remove it first
-        await removeMessageReaction(messageId, userReaction.emoji);
-        
-        // If the user is clicking the same emoji again, just remove it (toggle off)
+        // If user is clicking the same emoji they already reacted with, remove it (toggle off)
         if (userReaction.emoji === emoji) {
-          return; // We already removed it above
+          await removeMessageReaction(messageId, userReaction.emoji);
+          return;
+        } else {
+          // If user is clicking a different emoji, remove the old one first
+          await removeMessageReaction(messageId, userReaction.emoji);
         }
       }
       
-      // Add the new reaction (this will replace the previous one)
+      // Add the new reaction
       await addMessageReaction(messageId, emoji);
       
     } catch (err) {
@@ -201,10 +228,11 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   };
 
   const handleInfoClick = () => {
-    if (chat.type === 'group') {
+console.log(chat.conversationType.toLowerCase());
+    if (chat.conversationType.toLowerCase() === 'group') {
       setShowGroupInfo(true);
     }
-    // For private chats, you could show user profile or other info
+    
   };
 
   const cancelReply = () => {
@@ -218,14 +246,13 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   };
 
   const getLastSeenText = () => {
-    if (chat.type === 'private') {
-      const participant = chat.participants[0];
-      if (participant?.status === 'online') {
-        return 'online';
-      }
+    if (currentChat.conversationType === 'private') {
+      const participant = currentChat.participants[0];
+      // If 'status' does not exist, you may need to remove or replace this check.
+      // For now, just return a placeholder or use another property if available.
       return 'last seen recently';
     }
-    return `${chat.participants.length} participants`;
+    return `${currentChat.participants.length} participants`;
   };
 
   return (
@@ -233,12 +260,12 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       {/* Chat Header - Fixed */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-3">
-          {chat.type === 'private' ? (
+          {currentChat.conversationType === 'private' ? (
             <UserAvatar
-              src={chat.participants[0]?.avatar}
-              alt={chat.name}
+              src={currentChat.participants[0]?.avatar}
+              alt={currentChat.name}
               size="lg"
-              status={chat.participants[0]?.status}
+              status={currentChat.participants[0]?.status}
               showStatus={true}
             />
           ) : (
@@ -247,7 +274,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
             </div>
           )}
           <div>
-            <h2 className="font-semibold text-gray-800">{chat.name}</h2>
+            <h2 className="font-semibold text-gray-800">{currentChat.name}</h2>
             <p className="text-sm text-gray-600">
               {isTyping ? 'typing...' : getLastSeenText()}
             </p>
@@ -275,7 +302,9 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
         <MessageList 
           messages={chatMessages}
           currentUserId={currentUserId}
-          onReaction={handleReaction}
+          onReaction={(messageId: string, emoji: string) => {
+            handleReaction(messageId, emoji);
+          }}
           onReply={handleReply}
           onEdit={handleEditMessage}
           onDelete={handleDeleteMessage}
@@ -377,15 +406,33 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       )}
 
       {/* Group Info Modal - Now includes all participant management functions */}
-      {showGroupInfo && chat.type === 'group' && (
+      {showGroupInfo && (currentChat.conversationType?.toString().toLowerCase() === 'group') && (
         <GroupInfoModal
-          chat={chat}
+          chat={currentChat}
           users={users}
           currentUserId={currentUserId}
           onAddMembers={handleAddMembers}
           onRemoveMember={handleRemoveMember}
           onChangeRole={handleChangeRole}
           onClose={() => setShowGroupInfo(false)}
+          onConversationRefetched={(updated) => {
+            setCurrentChat(prev => ({
+              ...prev,
+              name: updated.name ?? prev.name,
+              description: updated.description ?? prev.description,
+              conversationType: updated.conversationType ?? prev.conversationType,
+              participants: (updated.participants || []).map((p: any) => ({
+                id: p.id,
+                label: p.label,
+                conversationRole: p.conversationRole,
+                status: (p as any).status || 'offline',
+                avatar: (p as any).avatar
+              })),
+              unReadMessageCount: (updated as any).unReadMessageCount ?? prev.unReadMessageCount,
+              messageResponses: (updated as any).messageResponses ?? prev.messageResponses,
+              lastMessage: prev.lastMessage
+            }));
+          }}
         />
       )}
     </div>

@@ -4,7 +4,10 @@ import { deleteRequest, getRequest, postRequest, putRequest } from "./httpServic
 export interface ChatParticipant {
   id: string;
   label: string;
-  conversationRole: "ADMIN" | "MEMBER"; // or other roles as needed
+  conversationRole: "ADMIN" | "MEMBER"; 
+  status:"online" | "offline" | "away";
+  avatar?: string;
+  // or other roles as needed
 }
 export interface Chat {
   id: number;
@@ -14,6 +17,11 @@ export interface Chat {
   conversationType: string;
   participants: ChatParticipant[];
   messageResponses: any;
+  lastMessage?: {
+    content: string;
+    timestamp: string | Date;
+    senderId: string;
+  };
 }
 
 export interface GetChatListResponse {

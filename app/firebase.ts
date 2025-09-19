@@ -1,11 +1,13 @@
 "use client";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
+import { getDatabase, Database } from "firebase/database";
 import { notificationService } from "./services/notificationService";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAmHw8W1-CFjkZEBPChYScfWHAot-OeLJk",
   authDomain: "client-task-management-6ef15.firebaseapp.com",
+  databaseURL: "https://client-task-management-6ef15-default-rtdb.firebaseio.com",
   projectId: "client-task-management-6ef15",
   storageBucket: "client-task-management-6ef15.firebasestorage.app",
   messagingSenderId: "776364891906",
@@ -14,6 +16,24 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Initialize database
+let database: Database | null = null;
+
+function getDatabaseInstance(): Database | null {
+  if (typeof window !== 'undefined') {
+    if (!database) {
+      try {
+        database = getDatabase(app);
+      } catch (error) {
+        console.warn('Failed to initialize Firebase database:', error);
+        database = null;
+      }
+    }
+    return database;
+  }
+  return null;
+}
 
 // Initialize messaging only in browser environment
 let messaging: Messaging | null = null;
@@ -33,7 +53,7 @@ function getMessagingInstance(): Messaging | null {
   return null;
 }
 
-export { getMessagingInstance };
+export { getMessagingInstance, getDatabaseInstance };
 
 // Global state management
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;

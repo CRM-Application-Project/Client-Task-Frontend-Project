@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus, UserMinus } from 'lucide-react';
-import { Chat, User } from '@/lib/data';
+import {  User } from '@/lib/data';
 import UserAvatar from './UserAvatar';
+import { Chat } from '@/app/services/chatService';
 
 interface GroupModalProps {
   mode: 'create' | 'edit';
@@ -14,7 +15,18 @@ interface GroupModalProps {
 
 const GroupModal: React.FC<GroupModalProps> = ({ mode, chat, users, onSave, onClose }) => {
   const [groupName, setGroupName] = useState(chat?.name || '');
-  const [selectedUsers, setSelectedUsers] = useState<User[]>(chat?.participants || []);
+const [selectedUsers, setSelectedUsers] = useState<User[]>(
+  chat?.participants
+    ? chat.participants.map(p => ({
+        id: p.id,
+        name: p.label, // label -> name
+        label: p.label, // add label
+        avatar: p.avatar,
+        status: p.status,
+        conversationRole: p.conversationRole || "MEMBER", // add conversationRole, default to "MEMBER"
+      }))
+    : []
+);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>(users);
 const currentUserId =localStorage.getItem('userId');

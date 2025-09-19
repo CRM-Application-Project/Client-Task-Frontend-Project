@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MessageCircle, Users, MoreVertical, Edit3, Trash2 } from 'lucide-react';
 import GroupModal from './GroupModal';
-import { Chat, User } from '@/lib/data';
+import {  User } from '@/lib/data';
 import UserSearch from './UserSearch';
 import UserAvatar from './UserAvatar';
 import { useChat } from '@/hooks/useChat';
+import { Chat, ChatParticipant } from '@/app/services/chatService';
 
 interface SidebarProps {
   selectedChat: Chat | null;
@@ -71,8 +72,8 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
   const handleDeleteChat = async (chatId: string) => {
     try {
       await deleteChat(chatId);
-      if (selectedChat?.id === chatId) {
-        const remainingChats = chats.filter(c => c.id !== chatId);
+      if (String(selectedChat?.id) === String(chatId)) {
+        const remainingChats = chats.filter(c => String(c.id) !== String(chatId));
         onChatSelect(remainingChats[0] || null);
       }
     } catch (err) {
@@ -81,17 +82,17 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
     setShowChatOptions(null);
   };
 
-  const handleNewChat = async (user: User) => {
+  const handleNewChat = async (user: ChatParticipant) => {
     const existingChat = chats.find((chat: Chat) => 
-      chat.type === 'private' && 
-      chat.participants.some((p: User) => p.id === user.id)
+      chat.conversationType === 'private' && 
+      chat.participants.some((p:ChatParticipant) => p.id === user.id)
     );
 
     if (existingChat) {
       onChatSelect(existingChat);
     } else {
       try {
-        const newChat = await createChat(user.name, [user.id], false);
+        const newChat = await createChat(user.label, [user.id], false);
         if (newChat) {
           onChatSelect(newChat);
         }

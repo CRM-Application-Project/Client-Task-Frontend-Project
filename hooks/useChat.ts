@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ApiMessage, Chat, User } from '@/lib/data';
+import { ApiMessage,  User } from '@/lib/data';
 import { getAssignDropdown, getChatList } from '@/app/services/data.service';
 import { 
   addMessage, 
@@ -16,8 +16,10 @@ import {
    replyToMessage as replyToMessageService,
   getMessage,
   getMessageReceipts,
-  updateMessageReceipt
+  updateMessageReceipt,
+  Chat
 } from '@/app/services/chatService';
+import { firebaseChatService, FirebaseMessage, ChatNotifications } from '@/app/services/FirebaseChatService';
 
 export interface Message {
   id: string;
@@ -53,8 +55,10 @@ export const useChat = () => {
   const [messages, setMessages] = useState<{ [chatId: string]: Message[] }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const userid=localStorage.getItem('userId');
   const [currentUserId] = useState('UR-ID239604'); // Get from auth context in real app
   const [currentUserName] = useState('John Doe'); // Get from auth context in real app
+  const [notifications, setNotifications] = useState<ChatNotifications>({});
 
   // Load initial data
   const loadChats = useCallback(async () => {
@@ -68,21 +72,25 @@ export const useChat = () => {
       ]);
 
       if (chatResponse.isSuccess) {
-        const transformedChats: Chat[] = chatResponse.data.map(apiChat => ({
-          id: apiChat.id.toString(),
+         const transformedChats: Chat[] = chatResponse.data.map(apiChat => ({
+          id: apiChat.id,
           name: apiChat.name,
-          type: apiChat.conversationType.toLowerCase() === 'group' ? 'group' : 'private',
+          description: apiChat.description || '',
+          conversationType: apiChat.conversationType,
           participants: apiChat.participants.map(participant => ({
             id: participant.id,
             name: participant.label,
-            status: 'offline' as const
+            label: participant.label,
+            status: 'offline' as const,
+            conversationRole: participant.conversationRole === 'ADMIN' ? 'ADMIN' : 'MEMBER'
           })),
+          unReadMessageCount: apiChat.unReadMessageCount,
+          messageResponses: apiChat.messageResponses || [],
           lastMessage: {
             content: apiChat.description || '',
             timestamp: new Date(),
             senderId: ''
-          },
-          unreadCount: apiChat.unReadMessageCount
+          }
         }));
         setChats(transformedChats);
       }
@@ -92,7 +100,9 @@ export const useChat = () => {
           .filter(apiUser => apiUser.id !== currentUserId) // Exclude current user
           .map(apiUser => ({
             id: apiUser.id,
-            name: apiUser.label,
+            label: apiUser.label,
+            name: apiUser.label, // Assuming label is the name, adjust if needed
+            conversationRole: 'MEMBER', // Default to MEMBER as AssignDropdown does not have conversationRole
             status: 'offline' as const
           }));
         setUsers(transformedUsers);
@@ -151,12 +161,7 @@ export const useChat = () => {
         .filter((msg: ApiMessage) => msg.sender.id !== currentUserId)
         .map((msg: ApiMessage) => msg.id);
         
-      if (messageIds.length > 0) {
-        await updateMessageReceipt({
-          messageIds,
-          status: 'READ'
-        });
-      }
+      
     }
   } catch (err) {
     console.error('Error loading messages:', err);
@@ -237,7 +242,7 @@ export const useChat = () => {
 
         // Update chat's last message
         setChats(prev => prev.map(chat => 
-          chat.id === chatId 
+          chat.id.toString() === chatId 
             ? { ...chat, lastMessage: { content, timestamp: new Date(), senderId: currentUserId } }
             : chat
         ));
@@ -245,11 +250,6 @@ export const useChat = () => {
         // Update receipt to delivered after a short delay
         setTimeout(async () => {
           try {
-            await updateMessageReceipt({
-              messageIds: [response.data.id],
-              status: 'DELIVERED'
-            });
-            
             setMessages(prevMessages => ({
               ...prevMessages,
               [chatId]: prevMessages[chatId].map(msg => 
@@ -284,22 +284,26 @@ export const useChat = () => {
 
       if (response.isSuccess) {
         const newChat: Chat = {
-          id: response.data.id.toString(),
+          id: response.data.id,
           name: response.data.name,
-          type: isGroup ? 'group' : 'private',
+          description: response.data.description || '',
+          conversationType: isGroup ? 'group' : 'private',
           participants: response.data.participants
             .filter(p => p.id !== currentUserId) // Exclude current user from display
             .map(p => ({
               id: p.id,
               name: p.label,
-              status: 'offline' as const
+              label: p.label,
+              status: 'offline' as const,
+              conversationRole: p.conversationRole
             })),
           lastMessage: {
             content: '',
             timestamp: new Date(),
             senderId: ''
           },
-          unreadCount: 0
+          unReadMessageCount: 0,
+          messageResponses: response.data.messageResponses || []
         };
 
         setChats(prev => [newChat, ...prev]);
@@ -341,12 +345,56 @@ export const useChat = () => {
     return activeChats;
   }, [chats, users]);
 
+  // Subscribe to Firebase notifications for realtime unread counts
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubscribe = firebaseChatService.subscribeToUserNotifications(currentUserId, (updates) => {
+      setNotifications(updates);
+      // Merge unread counts into chats list
+      setChats(prev => prev.map(chat => {
+        const unread = firebaseChatService.getConversationUnreadCount(updates, String(chat.id));
+        return { ...chat, unReadMessageCount: unread } as Chat;
+      }));
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [currentUserId]);
+
+  // Expose a subscription to conversation messages via Firebase
+  const subscribeToConversation = useCallback((conversationId: string) => {
+    const unsubscribe = firebaseChatService.subscribeToConversationMessages(conversationId, (firebaseMessages: FirebaseMessage[]) => {
+      // Map Firebase messages to UI Message model
+      const transformed: Message[] = firebaseMessages.map((fm) => ({
+        id: fm.id?.toString() || Math.random().toString(),
+        content: fm.content || '',
+        sender: {
+          id: fm.senderId || '',
+          label: fm.senderId === currentUserId ? 'You' : fm.senderId
+        },
+        createdAt: fm.createdAt || fm.timestamp,
+        senderId: fm.senderId || '',
+        timestamp: new Date(fm.createdAt || fm.timestamp || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        type: (fm.senderId === currentUserId ? 'sent' : 'received'),
+        reactions: (fm.reactions || []).map((r: any) => ({ emoji: r?.reaction || r?.emoji, count: 1, users: [] })),
+        parentId: fm.parentId,
+        mentions: fm.mentions,
+        deletable: false,
+        updatable: false,
+        status: fm.senderId === currentUserId ? 'read' : undefined,
+      }));
+
+      setMessages(prev => ({ ...prev, [conversationId]: transformed }));
+    });
+    return unsubscribe;
+  }, [currentUserId]);
+
   // Delete a chat
   const deleteChat = useCallback(async (chatId: string) => {
     try {
       const response = await softDeleteConversation(chatId);
       if (response.isSuccess) {
-        setChats(prev => prev.filter(chat => chat.id !== chatId));
+        setChats(prev => prev.filter(chat => chat.id.toString() !== chatId));
         setMessages(prev => {
           const newMessages = { ...prev };
           delete newMessages[chatId];
@@ -409,7 +457,7 @@ export const useChat = () => {
             newMessages[chatId] = newMessages[chatId].map(msg => {
               if (msg.id === messageId) {
                 const existingReaction = msg.reactions?.find(r => r.emoji === emoji);
-                if (existingReaction) {
+                if (existingReaction && !existingReaction.users.includes(currentUserId)) {
                   return {
                     ...msg,
                     reactions: msg.reactions?.map(r => 
@@ -418,7 +466,7 @@ export const useChat = () => {
                         : r
                     )
                   };
-                } else {
+                } else if (!existingReaction) {
                   return {
                     ...msg,
                     reactions: [
@@ -532,6 +580,7 @@ export const useChat = () => {
     error,
     currentUserId,
     currentUserName,
+    notifications,
     loadChats,
     loadMessages,
     sendMessage,
@@ -546,5 +595,6 @@ export const useChat = () => {
     editMessageContent,
     deleteMessageById,
     getMessageReceiptsById,
+    subscribeToConversation,
   };
 };
