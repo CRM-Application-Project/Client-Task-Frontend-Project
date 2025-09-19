@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ChatArea } from "./ChatArea";
 import Sidebar from "./Sidebar";
-import { Chat, User } from "@/lib/data";
+import { User } from "@/lib/data";
+import { Chat } from "@/app/services/chatService";
 
 const mockUsers: User[] = [
   {
@@ -49,52 +50,123 @@ const mockUsers: User[] = [
 
 const mockChats: Chat[] = [
   {
-    id: "1",
+    id: 1,
     name: "Alice Johnson",
-    type: "private",
+    description: "Private chat with Alice Johnson",
+    unReadMessageCount: 2,
+    conversationType: "PRIVATE",
+    participants: [{
+      id: "user1",
+      label: "Alice Johnson",
+      conversationRole: "MEMBER",
+      status: "online",
+      avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+    }],
+    messageResponses: [],
     lastMessage: {
       content: "Hey, how's the new design coming along?",
       timestamp: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
       senderId: "user1"
-    },
-    unreadCount: 2,
-    participants: [mockUsers[0]]
+    }
   },
   {
-    id: "2", 
+    id: 2, 
     name: "Design Team",
-    type: "group",
+    description: "Group chat for design team discussions",
+    unReadMessageCount: 0,
+    conversationType: "GROUP",
+    participants: [
+      {
+        id: "user2",
+        label: "Bob Smith",
+        conversationRole: "MEMBER",
+        status: "offline",
+        avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      },
+      {
+        id: "user1",
+        label: "Alice Johnson",
+        conversationRole: "MEMBER",
+        status: "online",
+        avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      },
+      {
+        id: "user3",
+        label: "Carol White",
+        conversationRole: "ADMIN",
+        status: "online",
+        avatar: "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      },
+      {
+        id: "user4",
+        label: "David Brown",
+        conversationRole: "MEMBER",
+        status: "away",
+        avatar: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      }
+    ],
+    messageResponses: [],
     lastMessage: {
       content: "Let's review the wireframes tomorrow",
       timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
       senderId: "user2"
-    },
-    unreadCount: 0,
-    participants: [mockUsers[1], mockUsers[0], mockUsers[2], mockUsers[3]]
+    }
   },
   {
-    id: "3",
+    id: 3,
     name: "Project Alpha",
-    type: "group", 
+    description: "Group chat for Project Alpha discussions",
+    unReadMessageCount: 1,
+    conversationType: "GROUP", 
+    participants: [
+      {
+        id: "user3",
+        label: "Carol White",
+        conversationRole: "ADMIN",
+        status: "online",
+        avatar: "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      },
+      {
+        id: "user5",
+        label: "Emma Wilson",
+        conversationRole: "MEMBER",
+        status: "online",
+        avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      },
+      {
+        id: "user6",
+        label: "John Smith",
+        conversationRole: "MEMBER",
+        status: "away",
+        avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+      }
+    ],
+    messageResponses: [],
     lastMessage: {
       content: "Updated the requirements doc",
       timestamp: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
       senderId: "user3"
-    },
-    unreadCount: 1,
-    participants: [mockUsers[2], mockUsers[4], mockUsers[5]]
+    }
   },
   {
-    id: "4",
+    id: 4,
     name: "Emma Wilson",
-    type: "private",
+    description: "Private chat with Emma Wilson",
+    unReadMessageCount: 0,
+    conversationType: "PRIVATE",
+    participants: [{
+      id: "user5",
+      label: "Emma Wilson",
+      conversationRole: "MEMBER",
+      status: "online",
+      avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop"
+    }],
+    messageResponses: [],
     lastMessage: {
       content: "Thanks for the feedback!",
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
       senderId: "user5"
-    },
-    unreadCount: 0,
-    participants: [mockUsers[4]]
+    }
   },
 ];
 

@@ -414,6 +414,10 @@ class NotificationState {
     }
   }
 
+  isDestroyedState(): boolean {
+    return this.isDestroyed;
+  }
+
   destroy() {
     console.log('Destroying notification state...');
     this.isDestroyed = true;
@@ -453,7 +457,7 @@ export function useNotifications(): UseNotificationsReturn {
 
   useEffect(() => {
     // Get or create global instance
-    if (!globalNotificationState || globalNotificationState.isDestroyed) {
+    if (!globalNotificationState || globalNotificationState.isDestroyedState()) {
       globalNotificationState = NotificationState.getInstance();
       stateRef.current = globalNotificationState;
     }

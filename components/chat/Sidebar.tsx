@@ -112,7 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
     }
   };
 
-  const handleGroupSave = async (groupData: { name: string; participants: User[] }) => {
+  const handleGroupSave = async (groupData: { name: string; participants: ChatParticipant[] }) => {
     try {
       if (groupModalMode === 'create') {
         const participantIds = groupData.participants.map(p => p.id);

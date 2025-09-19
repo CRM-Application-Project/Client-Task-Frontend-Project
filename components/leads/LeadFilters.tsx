@@ -112,7 +112,7 @@ export const LeadFilters = ({
   // Only sync local filters with props filters on initial mount
   useEffect(() => {
     setLocalFilters(filters);
-  }, []); // Remove filters dependency to prevent sync loops
+  }, [filters]); // Add filters dependency back
 
   // Fetch assignees only once
   // No dependencies to prevent re-fetching

@@ -1,19 +1,18 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
-import { User } from '@/lib/data';
 import UserAvatar from './UserAvatar';
 import { ChatParticipant } from '@/app/services/chatService';
 
 interface UserSearchProps {
-  users: User[];
-  onUserSelect: (user: User) => void;
+  users: ChatParticipant[];
+  onUserSelect: (user: ChatParticipant) => void;
   onClose: () => void;
 }
 
 const UserSearch: React.FC<UserSearchProps> = ({ users, onUserSelect, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredUsers, setFilteredUsers] = useState<User[]>(users);
+  const [filteredUsers, setFilteredUsers] = useState<ChatParticipant[]>(users);
 
   // 🟢 get current user id from localStorage (or your auth context)
   const currentUserId = localStorage.getItem('userId');
@@ -72,13 +71,13 @@ const UserSearch: React.FC<UserSearchProps> = ({ users, onUserSelect, onClose })
                 >
                   <UserAvatar
                     src={user.avatar}
-                    alt={user.name}
+                    alt={user.label}
                     size="lg"
                     status={user.status}
                     showStatus={true}
                   />
                   <div className="flex-1 text-left">
-                    <h4 className="font-medium text-gray-800">{user.name}</h4>
+                    <h4 className="font-medium text-gray-800">{user.label}</h4>
                     <p className="text-sm text-gray-600 capitalize">{user.status || 'offline'}</p>
                   </div>
                 </button>

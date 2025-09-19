@@ -1,46 +1,36 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus, UserMinus } from 'lucide-react';
-import {  User } from '@/lib/data';
 import UserAvatar from './UserAvatar';
-import { Chat } from '@/app/services/chatService';
+import { Chat, ChatParticipant } from '@/app/services/chatService';
 
 interface GroupModalProps {
   mode: 'create' | 'edit';
   chat?: Chat | null;
-  users: User[];
-  onSave: (groupData: { name: string; participants: User[] }) => void;
+  users: ChatParticipant[];
+  onSave: (groupData: { name: string; participants: ChatParticipant[] }) => void;
   onClose: () => void;
 }
 
 const GroupModal: React.FC<GroupModalProps> = ({ mode, chat, users, onSave, onClose }) => {
   const [groupName, setGroupName] = useState(chat?.name || '');
-const [selectedUsers, setSelectedUsers] = useState<User[]>(
-  chat?.participants
-    ? chat.participants.map(p => ({
-        id: p.id,
-        name: p.label, // label -> name
-        label: p.label, // add label
-        avatar: p.avatar,
-        status: p.status,
-        conversationRole: p.conversationRole || "MEMBER", // add conversationRole, default to "MEMBER"
-      }))
-    : []
+const [selectedUsers, setSelectedUsers] = useState<ChatParticipant[]>(
+  chat?.participants || []
 );
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredUsers, setFilteredUsers] = useState<User[]>(users);
+  const [filteredUsers, setFilteredUsers] = useState<ChatParticipant[]>(users);
 const currentUserId =localStorage.getItem('userId');
  useEffect(() => {
   const filtered = users.filter(user =>
     user.id !== currentUserId &&                                  // ⬅️ skip yourself
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    user.label.toLowerCase().includes(searchQuery.toLowerCase()) &&
     !selectedUsers.some(selected => selected.id === user.id)
   );
   setFilteredUsers(filtered);
 }, [searchQuery, users, selectedUsers, currentUserId]);
 
 
-  const handleUserToggle = (user: User, action: 'add' | 'remove') => {
+  const handleUserToggle = (user: ChatParticipant, action: 'add' | 'remove') => {
     if (action === 'add') {
       setSelectedUsers(prev => [...prev, user]);
     } else {
@@ -102,10 +92,10 @@ const currentUserId =localStorage.getItem('userId');
                   <div key={user.id} className="flex items-center gap-2 bg-gray-300 rounded-full px-3 py-1">
                     <UserAvatar
                       src={user.avatar}
-                      alt={user.name}
+                      alt={user.label}
                       size="sm"
                     />
-                    <span className="text-sm text-gray-800">{user.name}</span>
+                    <span className="text-sm text-gray-800">{user.label}</span>
                     <button
                       onClick={() => handleUserToggle(user, 'remove')}
                       className="text-gray-500 hover:text-red-600 ml-1"
@@ -154,13 +144,13 @@ const currentUserId =localStorage.getItem('userId');
                     >
                       <UserAvatar
                         src={user.avatar}
-                        alt={user.name}
+                        alt={user.label}
                         size="md"
                         status={user.status}
                         showStatus={true}
                       />
                       <div className="flex-1 text-left">
-                        <h4 className="text-sm font-medium text-gray-800">{user.name}</h4>
+                        <h4 className="text-sm font-medium text-gray-800">{user.label}</h4>
                         <p className="text-xs text-gray-600 capitalize">{user.status}</p>
                       </div>
                       <UserPlus size={16} className="text-gray-500" />

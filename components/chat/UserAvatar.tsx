@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import Image from 'next/image';
 import { User } from 'lucide-react';
 
 interface UserAvatarProps {
@@ -48,9 +49,11 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   return (
     <div className={`relative ${className}`}>
       {src ? (
-        <img
+        <Image
           src={src}
           alt={alt}
+          width={size === 'sm' ? 24 : size === 'md' ? 32 : size === 'lg' ? 40 : 48}
+          height={size === 'sm' ? 24 : size === 'md' ? 32 : size === 'lg' ? 40 : 48}
           className={`${sizeClass} rounded-full object-cover border-2 border-gray-300`}
         />
       ) : (

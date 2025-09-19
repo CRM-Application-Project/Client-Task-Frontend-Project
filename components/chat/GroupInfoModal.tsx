@@ -4,19 +4,9 @@ import { X, Search, UserPlus, UserMinus, Crown, Users, MoreVertical } from 'luci
 import { Chat, ChatParticipant, getChatList } from '@/app/services/chatService';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock types based on your code structure
-interface User {
-  id: string;
-  name: string;
-  avatar?: string;
-  status: 'online' | 'offline' | 'away';
-}
-
-
-
 interface GroupInfoModalProps {
   chat: Chat;
-  users: User[];
+  users: ChatParticipant[];
   currentUserId: string;
   onAddMembers: (chatId: string, userIds: string[]) => Promise<void>;
   onRemoveMember: (chatId: string, userId: string) => Promise<void>;
@@ -81,8 +71,8 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   const [activeTab, setActiveTab] = useState<'members' | 'add'>('members');
   const [participants, setParticipants] = useState<ChatParticipant[]>(chat.participants || []);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<ChatParticipant[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<ChatParticipant[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null);
   const [isChangingRole, setIsChangingRole] = useState<string | null>(null);
@@ -138,7 +128,7 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     const availableUsers = users.filter(user => !participantIds.includes(user.id));
     
     const filtered = availableUsers.filter(user =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase())
+      user.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredUsers(filtered);
   }, [searchQuery, users, participants]);
@@ -149,7 +139,7 @@ const {toast} = useToast();
     return participant.id === actualCurrentUserId ? 'You' : base;
   };
 
-  const handleUserSelect = (user: User) => {
+  const handleUserSelect = (user: ChatParticipant) => {
     setSelectedUsers(prev => {
       const isSelected = prev.some(u => u.id === user.id);
       if (isSelected) {
@@ -187,9 +177,7 @@ const {toast} = useToast();
       // Optimistically update local participants
       const newParticipants: ChatParticipant[] = selectedUsers.map(user => ({
         id: user.id,
-        label: user.name,
-        // @ts-ignore maintain name if used elsewhere
-        name: user.name,
+        label: user.label,
         status: user.status as any,
         avatar: user.avatar,
         conversationRole: 'MEMBER'
@@ -497,7 +485,7 @@ const {toast} = useToast();
                         key={user.id}
                         className="inline-flex items-center gap-1 bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full"
                       >
-                        {user.name}
+                        {user.label}
                         <button
                           onClick={() => handleUserSelect(user)}
                           className="text-gray-600 hover:text-gray-800"
@@ -535,13 +523,13 @@ const {toast} = useToast();
                         >
                           <UserAvatar
                             src={user.avatar}
-                            alt={user.name}
+                            alt={user.label}
                             size="sm"
                             status={user.status}
                             showStatus={true}
                           />
                           <div className="flex-1 text-left">
-                            <h4 className="text-sm font-medium text-gray-800">{user.name}</h4>
+                            <h4 className="text-sm font-medium text-gray-800">{user.label}</h4>
                             <p className="text-xs text-gray-600 capitalize">{user.status}</p>
                           </div>
                           {isSelected ? (

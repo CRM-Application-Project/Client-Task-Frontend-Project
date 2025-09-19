@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiMessage, User } from '@/lib/data';
+import { ChatParticipant } from '@/app/services/chatService';
 import { getAssignDropdown, getChatList } from '@/app/services/data.service';
 import { 
   addMessage, 
@@ -51,7 +52,7 @@ export interface Message {
 
 export const useChat = () => {
   const [chats, setChats] = useState<Chat[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<ChatParticipant[]>([]);
   const [messages, setMessages] = useState<{ [chatId: string]: Message[] }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,14 +138,14 @@ export const useChat = () => {
 
       if (userResponse.isSuccess) {
         console.log(`[useChat] Loaded ${userResponse.data.length} users`);
-        const transformedUsers: User[] = userResponse.data
+        const transformedUsers: ChatParticipant[] = userResponse.data
           .filter(apiUser => apiUser.id !== currentUserId)
           .map(apiUser => ({
             id: apiUser.id,
             label: apiUser.label,
-            name: apiUser.label,
-            conversationRole: 'MEMBER',
-            status: 'offline' as const
+            conversationRole: 'MEMBER' as const,
+            status: 'offline' as const,
+            avatar: undefined
           }));
         setUsers(transformedUsers);
       }
@@ -554,14 +555,14 @@ export const useChat = () => {
     
     if (activeChats.length === 0 && query.trim()) {
       const matchingUsers = users.filter(user =>
-        user.name.toLowerCase().includes(query.toLowerCase())
+        user.label.toLowerCase().includes(query.toLowerCase())
       );
       
       console.log(`[useChat] Found ${matchingUsers.length} matching users for potential chats`);
       
       return matchingUsers.map(user => ({
         id: `potential-${user.id}`,
-        name: user.name,
+        name: user.label,
         type: 'private' as const,
         participants: [user],
         lastMessage: {

@@ -169,7 +169,7 @@ export function DashboardSidebar({
       const children = item.children?.filter((c) => can(c.moduleName, "view")) || [];
       return can(item.moduleName, "view") || children.length > 0;
     });
-  }, [modules, ready, can, userRole]);
+  }, [can, userRole]);
 
   const getChildren = useCallback(
     (item: NavItem) => item.children?.filter((c) => can(c.moduleName, "view")) || [],
@@ -208,7 +208,7 @@ export function DashboardSidebar({
 
       return Array.from(new Set(next));
     });
-  }, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams]);
+  }, [pathname, filteredNav, getChildren, manuallyCollapsed, searchParams, cleanPath]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => {

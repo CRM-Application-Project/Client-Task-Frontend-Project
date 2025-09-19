@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -58,9 +59,11 @@ export default function LoginPreview({
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           {companyLogo && (
-            <img 
+            <Image 
               src={companyLogo} 
               alt="Logo" 
+              width={32}
+              height={32}
               className="h-8 w-8 object-contain rounded"
             />
           )}
@@ -84,10 +87,11 @@ export default function LoginPreview({
         {/* Left Side - Image (Matching your login page) */}
         <div className="w-1/2 relative hidden lg:block">
           <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50">
-            <img
+            <Image
               src="/login.jpeg"
               alt="CRM Background"
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           </div>
           <div className="absolute inset-0 bg-primary/10" />
@@ -100,9 +104,11 @@ export default function LoginPreview({
             <div className="text-center space-y-4">
               <div className="flex items-center justify-center mb-4">
                 {companyLogo && (
-                  <img 
+                  <Image 
                     src={companyLogo} 
                     alt="Company Logo" 
+                    width={64}
+                    height={64}
                     className="h-16 w-16 object-contain rounded-lg"
                   />
                 )}

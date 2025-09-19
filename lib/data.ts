@@ -432,13 +432,6 @@ export interface TaskDiscussionReactionResponse {
 }
 
 
-export interface User {
-   id: string;
-  label: string;
-  conversationRole: "ADMIN" | "MEMBER"; 
-  status:"online" | "offline" | "away";
-  avatar?: string;
-}
 
 export interface Message {
   id: string;

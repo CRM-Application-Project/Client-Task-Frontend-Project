@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -69,13 +69,7 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && lead) {
-      fetchLeadTracks();
-    }
-  }, [isOpen, lead]);
-
-  const fetchLeadTracks = async () => {
+  const fetchLeadTracks = useCallback(async () => {
     if (!lead) return;
 
     setLoading(true);
@@ -95,7 +89,13 @@ const ViewLeadModal: React.FC<ViewLeadModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [lead]);
+
+  useEffect(() => {
+    if (isOpen && lead) {
+      fetchLeadTracks();
+    }
+  }, [isOpen, lead, fetchLeadTracks]);
 
   if (!lead) return null;
 

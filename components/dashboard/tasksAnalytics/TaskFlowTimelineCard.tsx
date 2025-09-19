@@ -17,18 +17,14 @@ export default function TaskFlowTimelineCard({
   title = "Task Flow",
   description,
 }: TaskFlowTimelineCardProps) {
-  // Default data if none provided
-  const defaultValues = [40, 48, 35, 60, 40, 28, 20];
-  const defaultLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
   // Process the incoming data
   const values = useMemo(() => {
-    if (!data) return defaultValues;
+    if (!data) return [40, 48, 35, 60, 40, 28, 20];
     return Object.values(data);
   }, [data]);
 
   const labels = useMemo(() => {
-    if (!data) return defaultLabels;
+    if (!data) return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     return Object.keys(data);
   }, [data]);
 
@@ -130,7 +126,7 @@ export default function TaskFlowTimelineCard({
         label: labels[i],
         value: v,
       })),
-    [w, values, labels, maxY, minY]
+    [values, labels, toX, toY]
   );
 
   // Generate appropriate grid lines based on the data range
