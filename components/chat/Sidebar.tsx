@@ -108,6 +108,16 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
     if ('isPotential' in chat && chat.isPotential) {
       handleNewChat(chat.participants[0]);
     } else {
+      // Clear unread count locally when opening, WhatsApp-like behavior
+      try {
+        if (chat && typeof chat.unReadMessageCount === 'number' && chat.unReadMessageCount > 0) {
+          // Optimistic local update
+          const updated = chats.map((c: Chat) => (
+            String(c.id) === String(chat.id) ? { ...c, unReadMessageCount: 0 } : c
+          ));
+          onChatsUpdate(updated as any);
+        }
+      } catch {}
       onChatSelect(chat);
     }
   };

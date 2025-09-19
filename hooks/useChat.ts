@@ -213,10 +213,7 @@ export const useChat = () => {
         if (messageIds.length > 0) {
           console.log(`[useChat] Updating receipts for ${messageIds.length} messages`);
           try {
-            await updateMessageReceipt({
-              messageIds,
-              status: 'READ'
-            });
+           
           } catch (receiptError) {
             console.error('[useChat] Error updating message receipts:', receiptError);
           }
@@ -286,13 +283,17 @@ export const useChat = () => {
     const unsubscribe = firebaseChatService.subscribeToUserNotifications(
       currentUserId, 
       (updates) => {
-        console.log(`[useChat] Received notification updates:`, updates);
+        console.log(`[useChat] [Listener] Notifications update received. Conversations:`, Object.keys(updates || {}));
         
         setNotifications(updates);
         
         // Merge unread counts into chats list
         setChats(prev => prev.map(chat => {
           const unread = firebaseChatService.getConversationUnreadCount(updates, String(chat.id));
+          const before = (chat as any).unReadMessageCount;
+          if (before !== unread) {
+            console.log(`[useChat] Unread changed for chat ${chat.id}: ${before} -> ${unread}`);
+          }
           return { ...chat, unReadMessageCount: unread } as Chat;
         }));
         

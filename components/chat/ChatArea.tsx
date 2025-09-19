@@ -32,6 +32,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     sendMessage, 
     loadMessages,
     subscribeToConversation,
+    setActiveConversation,
     addMessageReaction,
     removeMessageReaction,
     editMessageContent,
@@ -70,11 +71,26 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   // Realtime subscription via Firebase for this conversation
   useEffect(() => {
     if (!currentChat.id) return;
+    // Mark this conversation as active for auto-read and notifications clearing
+    try { setActiveConversation(String(currentChat.id)); } catch {}
+    console.log('[ChatArea] Subscribing to Firebase conversation', String(currentChat.id));
     const unsubscribe = subscribeToConversation(String(currentChat.id));
     return () => {
+      console.log('[ChatArea] Unsubscribing from Firebase conversation', String(currentChat.id));
       try { unsubscribe && unsubscribe(); } catch {}
+      try { setActiveConversation(null as any); } catch {}
     };
   }, [currentChat.id, subscribeToConversation]);
+
+  // Also mark as read when window gains focus while this chat is open
+  useEffect(() => {
+    const onFocus = () => {
+      console.log('[ChatArea] window focus, set active conversation', String(currentChat.id));
+      try { setActiveConversation(String(currentChat.id)); } catch {}
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [currentChat.id, setActiveConversation]);
 
   const handleSendMessage = async () => {
     if (message.trim()) {
@@ -111,9 +127,6 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-    
-    // Typing indicator (simplified)
-    setIsTyping(e.target.value.length > 0);
   };
 
   const extractMentions = (text: string): string[] => {
@@ -283,9 +296,7 @@ console.log(chat.conversationType.toLowerCase());
           )}
           <div>
             <h2 className="font-semibold text-gray-800">{currentChat.name}</h2>
-            <p className="text-sm text-gray-600">
-              {isTyping ? 'typing...' : getLastSeenText()}
-            </p>
+            <p className="text-sm text-gray-600">{getLastSeenText()}</p>
           </div>
         </div>
 
