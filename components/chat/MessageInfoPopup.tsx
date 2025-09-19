@@ -64,7 +64,7 @@ export const MessageInfoPopup = ({
     const upper = (status || '').toUpperCase();
     if (upper === 'READ') return <CheckCheck size={16} className="text-blue-500" />;
     if (upper === 'DELIVERED') return <CheckCheck size={16} className="text-gray-500" />;
-    return <CheckCheck size={16} className="text-gray-400" />; // SENT or others
+    return <Check size={16} className="text-gray-400" />; // SENT -> single tick
   };
 
   const readReceipts = receipts.filter(r => (r as any).status?.toUpperCase() === 'READ');

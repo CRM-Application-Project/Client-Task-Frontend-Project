@@ -195,7 +195,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
                   <div className="flex items-center gap-3">
                     {/* Avatar or Group Icon */}
                     <div className="relative flex-shrink-0">
-                      {chat.type === 'private' ? (
+                      {(chat.conversationType?.toString().toLowerCase?.() === 'private') ? (
                         <UserAvatar
                           src={chat.participants[0]?.avatar}
                           alt={chat.name}
@@ -216,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
                         <div className="flex items-center gap-2">
                           {chat.lastMessage?.timestamp && !chat.isPotential && (
                             <span className="text-xs text-gray-500">
-                              {formatTime(chat.lastMessage.timestamp)}
+                              {formatTime(new Date(chat.lastMessage.timestamp))}
                             </span>
                           )}
                           {!chat.isPotential && (
@@ -236,13 +236,13 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
                         <p className="text-sm text-gray-600 truncate mt-1 flex-1">
                           {chat.isPotential ? 'Tap to start chatting' : (chat.lastMessage?.content || 'No messages yet')}
                         </p>
-                        {chat.unreadCount > 0 && (
+                        {chat.unReadMessageCount > 0 && (
                           <div className="bg-green-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
-                            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                            {chat.unReadMessageCount > 99 ? '99+' : chat.unReadMessageCount}
                           </div>
                         )}
                       </div>
-                      {chat.type === 'group' && !chat.isPotential && (
+                      {(chat.conversationType?.toString().toLowerCase?.() === 'group') && !chat.isPotential && (
                         <p className="text-xs text-gray-500 mt-1">
                           {chat.participants.length} participants
                         </p>

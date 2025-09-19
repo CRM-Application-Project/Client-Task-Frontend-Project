@@ -1,6 +1,6 @@
 "use client";
 import { getDatabaseInstance } from "@/app/firebase";
-import { ref, onValue, off, child, DataSnapshot } from "firebase/database";
+import { ref, onValue, off, child, DataSnapshot, set, remove } from "firebase/database";
 
 export interface FirebaseMessage {
   id: string;
@@ -30,6 +30,15 @@ class FirebaseChatService {
   private notificationListener: any = null;
   private messageCallbacks: Map<string, (messages: FirebaseMessage[]) => void> = new Map();
   private notificationCallbacks: Set<(notifications: ChatNotifications) => void> = new Set();
+  private currentUserId: string | null = null;
+
+  /**
+   * Initialize service with current user ID
+   */
+  initialize(userId: string): void {
+    this.currentUserId = userId;
+    console.log(`[FirebaseChat] Service initialized for user: ${userId}`);
+  }
 
   /**
    * Listen to messages in a specific conversation
@@ -39,9 +48,11 @@ class FirebaseChatService {
     onMessagesUpdate: (messages: FirebaseMessage[]) => void
   ): () => void {
     if (!this.database) {
-      console.warn('Firebase database not initialized');
+      console.warn('[FirebaseChat] Database not initialized');
       return () => {};
     }
+
+    console.log(`[FirebaseChat] Subscribing to conversation messages: ${conversationId}`);
 
     // Store callback for this conversation
     this.messageCallbacks.set(conversationId, onMessagesUpdate);
@@ -53,6 +64,11 @@ class FirebaseChatService {
     const listener = onValue(messagesRef, (snapshot: DataSnapshot) => {
       const data = snapshot.val();
       const messages: FirebaseMessage[] = [];
+
+      console.log(`[FirebaseChat] Received message update for conversation ${conversationId}:`, {
+        hasData: !!data,
+        messageCount: data ? Object.keys(data).length : 0
+      });
 
       if (data) {
         // Convert Firebase object to array and sort by timestamp
@@ -78,16 +94,23 @@ class FirebaseChatService {
           const timeB = new Date(b.createdAt || b.timestamp).getTime();
           return timeA - timeB;
         });
+
+        console.log(`[FirebaseChat] Processed ${messages.length} messages for conversation ${conversationId}`);
       }
 
       // Call the callback with updated messages
       onMessagesUpdate(messages);
+
+      // Auto-mark messages as read when conversation is active
+      this.markConversationAsRead(conversationId);
     }, (error) => {
-      console.error('Error listening to conversation messages:', error);
+      console.error(`[FirebaseChat] Error listening to conversation ${conversationId}:`, error);
     });
 
     // Store listener for cleanup
     this.conversationListeners.set(conversationId, listener);
+
+    console.log(`[FirebaseChat] Successfully subscribed to conversation ${conversationId}`);
 
     // Return unsubscribe function
     return () => this.unsubscribeFromConversationMessages(conversationId);
@@ -99,12 +122,15 @@ class FirebaseChatService {
   unsubscribeFromConversationMessages(conversationId: string): void {
     if (!this.database) return;
 
+    console.log(`[FirebaseChat] Unsubscribing from conversation ${conversationId}`);
+
     const listener = this.conversationListeners.get(conversationId);
     if (listener) {
       const messagesRef = ref(this.database, `conversations/${conversationId}/messages`);
       off(messagesRef, 'value', listener);
       this.conversationListeners.delete(conversationId);
       this.messageCallbacks.delete(conversationId);
+      console.log(`[FirebaseChat] Successfully unsubscribed from conversation ${conversationId}`);
     }
   }
 
@@ -116,9 +142,12 @@ class FirebaseChatService {
     onNotificationsUpdate: (notifications: ChatNotifications) => void
   ): () => void {
     if (!this.database) {
-      console.warn('Firebase database not initialized');
+      console.warn('[FirebaseChat] Database not initialized for notifications');
       return () => {};
     }
+
+    console.log(`[FirebaseChat] Subscribing to notifications for user: ${userId}`);
+    this.currentUserId = userId;
 
     // Store callback
     this.notificationCallbacks.add(onNotificationsUpdate);
@@ -131,6 +160,11 @@ class FirebaseChatService {
       const data = snapshot.val();
       const notifications: ChatNotifications = {};
 
+      console.log(`[FirebaseChat] Received notification update for user ${userId}:`, {
+        hasData: !!data,
+        conversationCount: data ? Object.keys(data).length : 0
+      });
+
       if (data) {
         // Convert Firebase object to our notification format
         Object.entries(data).forEach(([conversationId, notificationData]: [string, any]) => {
@@ -140,16 +174,22 @@ class FirebaseChatService {
               lastMessageId: notificationData.lastMessageId || '',
               timestamp: notificationData.timestamp || ''
             };
+
+            console.log(`[FirebaseChat] Conversation ${conversationId} unread count: ${notifications[conversationId].unreadCount}`);
           }
         });
       }
+
+      // Calculate total unread count
+      const totalUnread = this.getTotalUnreadCount(notifications);
+      console.log(`[FirebaseChat] Total unread count for user ${userId}: ${totalUnread}`);
 
       // Call all callbacks with updated notifications
       this.notificationCallbacks.forEach(callback => {
         callback(notifications);
       });
     }, (error) => {
-      console.error('Error listening to user notifications:', error);
+      console.error(`[FirebaseChat] Error listening to notifications for user ${userId}:`, error);
     });
 
     // Return unsubscribe function
@@ -162,58 +202,164 @@ class FirebaseChatService {
   unsubscribeFromUserNotifications(userId: string): void {
     if (!this.database || !this.notificationListener) return;
 
+    console.log(`[FirebaseChat] Unsubscribing from notifications for user: ${userId}`);
+
     const notificationsRef = ref(this.database, `user-notifications/${userId}`);
     off(notificationsRef, 'value', this.notificationListener);
     this.notificationListener = null;
     this.notificationCallbacks.clear();
+
+    console.log(`[FirebaseChat] Successfully unsubscribed from notifications for user: ${userId}`);
+  }
+
+  /**
+   * Mark conversation as read - This is the key method for WhatsApp-like behavior
+   */
+ async markConversationAsRead(conversationId: string): Promise<void> {
+  if (!this.database || !this.currentUserId) {
+    console.warn('[FirebaseChat] Cannot mark as read - missing database or user ID');
+    return;
+  }
+
+  try {
+    console.log(`[FirebaseChat] Marking conversation ${conversationId} as read for user ${this.currentUserId}`);
+
+    const notificationRef = ref(
+      this.database, 
+      `user-notifications/${this.currentUserId}/${conversationId}`
+    );
+
+    // Reset unread count to 0
+    await set(child(notificationRef, 'unreadCount'), 0);
+    
+    // Update timestamp to current time
+    await set(child(notificationRef, 'timestamp'), new Date().toISOString());
+
+    console.log(`[FirebaseChat] Successfully marked conversation ${conversationId} as read`);
+
+    // Optional: Call backend API to update read receipts
+    // Check if we're in a browser environment before making the fetch call
+    if (typeof window !== 'undefined') {
+      try {
+        // This would call your backend API to update message receipts
+        console.log(`[FirebaseChat] Calling backend API to update read receipts for conversation ${conversationId}`);
+        
+        // Example API call (uncomment and modify based on your API):
+        /*
+        await fetch('/api/chat/mark-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationId,
+            userId: this.currentUserId
+          })
+        });
+        */
+      } catch (apiError) {
+        console.error(`[FirebaseChat] Failed to call backend API for conversation ${conversationId}:`, apiError);
+      }
+    }
+
+  } catch (error) {
+    console.error(`[FirebaseChat] Failed to mark conversation ${conversationId} as read:`, error);
+  }
+}
+
+  /**
+   * Clear all notifications for a user (useful for logout)
+   */
+  async clearAllNotifications(userId: string): Promise<void> {
+    if (!this.database) {
+      console.warn('[FirebaseChat] Cannot clear notifications - database not initialized');
+      return;
+    }
+
+    try {
+      console.log(`[FirebaseChat] Clearing all notifications for user: ${userId}`);
+      
+      const userNotificationsRef = ref(this.database, `user-notifications/${userId}`);
+      await remove(userNotificationsRef);
+      
+      console.log(`[FirebaseChat] Successfully cleared all notifications for user: ${userId}`);
+    } catch (error) {
+      console.error(`[FirebaseChat] Failed to clear notifications for user ${userId}:`, error);
+    }
   }
 
   /**
    * Get total unread count across all conversations
    */
   getTotalUnreadCount(notifications: ChatNotifications): number {
-    return Object.values(notifications).reduce((total, notification) => {
+    const total = Object.values(notifications).reduce((total, notification) => {
       return total + (notification.unreadCount || 0);
     }, 0);
+
+    console.log(`[FirebaseChat] Calculated total unread count: ${total}`);
+    return total;
   }
 
   /**
    * Get unread count for a specific conversation
    */
   getConversationUnreadCount(notifications: ChatNotifications, conversationId: string): number {
-    return notifications[conversationId]?.unreadCount || 0;
+    const count = notifications[conversationId]?.unreadCount || 0;
+    console.log(`[FirebaseChat] Unread count for conversation ${conversationId}: ${count}`);
+    return count;
+  }
+
+  /**
+   * Check if user is active in a conversation (for auto-read functionality)
+   */
+  setUserActiveInConversation(conversationId: string, isActive: boolean): void {
+    console.log(`[FirebaseChat] User ${isActive ? 'active' : 'inactive'} in conversation: ${conversationId}`);
+    
+    if (isActive) {
+      // Mark as read when user becomes active in conversation
+      this.markConversationAsRead(conversationId);
+    }
+  }
+
+  /**
+   * Get conversation activity status
+   */
+  getConversationActivity(conversationId: string): boolean {
+    return this.conversationListeners.has(conversationId);
   }
 
   /**
    * Clear all listeners (cleanup function)
    */
   cleanup(): void {
+    console.log('[FirebaseChat] Starting cleanup...');
+
     // Unsubscribe from all conversation listeners
     this.conversationListeners.forEach((listener, conversationId) => {
       this.unsubscribeFromConversationMessages(conversationId);
     });
 
     // Unsubscribe from notifications
-    if (this.notificationListener) {
-      // We need user ID to unsubscribe properly, but we'll clear the listener anyway
-      this.notificationListener = null;
-      this.notificationCallbacks.clear();
+    if (this.notificationListener && this.currentUserId) {
+      this.unsubscribeFromUserNotifications(this.currentUserId);
     }
 
     this.conversationListeners.clear();
     this.messageCallbacks.clear();
+    this.currentUserId = null;
+
+    console.log('[FirebaseChat] Cleanup completed');
   }
 
   /**
-   * Mark conversation as read (this would typically call your API to reset unread count)
+   * Debug method to log current state
    */
-  markConversationAsRead(conversationId: string, userId: string): void {
-    // This should call your backend API to mark messages as read
-    // The backend would then update Firebase accordingly
-    console.log(`Marking conversation ${conversationId} as read for user ${userId}`);
-    
-    // You would implement this by calling your backend API:
-    // await markConversationAsReadAPI(conversationId, userId);
+  debugState(): void {
+    console.log('[FirebaseChat] Current State:', {
+      currentUserId: this.currentUserId,
+      activeConversations: Array.from(this.conversationListeners.keys()),
+      hasNotificationListener: !!this.notificationListener,
+      messageCallbacks: this.messageCallbacks.size,
+      notificationCallbacks: this.notificationCallbacks.size
+    });
   }
 }
 

@@ -183,7 +183,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     textareaRef.current?.focus();
   };
 
-  const handleMessageInfo = (messageId: string) => {
+ const handleMessageInfo = (messageId: string) => {
     const message = chatMessages.find(m => m.id === messageId);
     if (message) {
       setSelectedMessage(message);
@@ -238,7 +238,15 @@ console.log(chat.conversationType.toLowerCase());
   const cancelReply = () => {
     setReplyTo(null);
   };
-
+ const fetchMessageReceipts = async (messageId: string) => {
+    try {
+      const receipts = await getMessageReceiptsById(messageId);
+      return receipts || [];
+    } catch (error) {
+      console.error('Error fetching message receipts:', error);
+      return [];
+    }
+  };
   const handleEmojiSelect = (emoji: string) => {
     setMessage(prev => prev + emoji);
     setShowEmojiPicker(false);
@@ -260,7 +268,7 @@ console.log(chat.conversationType.toLowerCase());
       {/* Chat Header - Fixed */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-3">
-          {currentChat.conversationType === 'private' ? (
+          {currentChat.conversationType.toLowerCase() === 'private' ? (
             <UserAvatar
               src={currentChat.participants[0]?.avatar}
               alt={currentChat.name}
