@@ -1,8 +1,21 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { X, Search, UserPlus, UserMinus, Crown, Users, Settings } from 'lucide-react';
-import { Chat, User } from '@/lib/data';
-import UserAvatar from './UserAvatar';
+import { X, Search, UserPlus, UserMinus, Crown, Users, MoreVertical } from 'lucide-react';
+
+// Mock types based on your code structure
+interface User {
+  id: string;
+  name: string;
+  avatar?: string;
+  status: 'online' | 'offline' | 'away';
+}
+
+interface Chat {
+  id: string;
+  name: string;
+  type: 'private' | 'group';
+  participants: (User & { role?: 'ADMIN' | 'MEMBER' })[];
+}
 
 interface GroupInfoModalProps {
   chat: Chat;
@@ -10,8 +23,40 @@ interface GroupInfoModalProps {
   currentUserId: string;
   onAddMembers: (chatId: string, userIds: string[]) => Promise<void>;
   onRemoveMember: (chatId: string, userId: string) => Promise<void>;
+  onChangeRole: (chatId: string, userId: string, role: 'ADMIN' | 'MEMBER') => Promise<void>;
   onClose: () => void;
 }
+
+const UserAvatar = ({ src, alt, size, status, showStatus = false }: {
+  src?: string;
+  alt: string;
+  size: 'sm' | 'md' | 'lg';
+  status?: string;
+  showStatus?: boolean;
+}) => {
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-sm',
+    md: 'w-10 h-10 text-base',
+    lg: 'w-12 h-12 text-lg'
+  };
+
+  const statusColors = {
+    online: 'bg-green-500',
+    away: 'bg-yellow-500',
+    offline: 'bg-gray-400'
+  };
+
+  return (
+    <div className="relative flex-shrink-0">
+      <div className={`${sizeClasses[size]} bg-blue-500 rounded-full flex items-center justify-center text-white font-medium`}>
+        {alt.charAt(0).toUpperCase()}
+      </div>
+      {showStatus && status && (
+        <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 ${statusColors[status as keyof typeof statusColors]} rounded-full border-2 border-white`} />
+      )}
+    </div>
+  );
+};
 
 const GroupInfoModal: React.FC<GroupInfoModalProps> = ({ 
   chat, 
@@ -19,13 +64,27 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   currentUserId, 
   onAddMembers, 
   onRemoveMember, 
+  onChangeRole,
   onClose 
 }) => {
+  // Get current user ID from localStorage if available
+  const getCurrentUserId = () => {
+    try {
+      return localStorage.getItem('userId') || currentUserId;
+    } catch {
+      return currentUserId;
+    }
+  };
+  
+  const actualCurrentUserId = getCurrentUserId();
+
   const [activeTab, setActiveTab] = useState<'members' | 'add'>('members');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
+  const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null);
+  const [isChangingRole, setIsChangingRole] = useState<string | null>(null);
 
   // Filter users for adding (exclude current participants)
   useEffect(() => {
@@ -37,6 +96,11 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     );
     setFilteredUsers(filtered);
   }, [searchQuery, users, chat.participants]);
+
+  // Helper function to get display name
+  const getDisplayName = (participant: any) => {
+    return participant.id === actualCurrentUserId ? 'You' : participant.name;
+  };
 
   const handleUserSelect = (user: User) => {
     setSelectedUsers(prev => {
@@ -67,7 +131,7 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   };
 
   const handleRemoveMember = async (userId: string) => {
-    if (userId === currentUserId) return; // Can't remove yourself
+    if (userId === actualCurrentUserId) return; // Can't remove yourself
     
     try {
       await onRemoveMember(chat.id, userId);
@@ -76,15 +140,50 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     }
   };
 
+  const handleChangeRole = async (userId: string, newRole: 'ADMIN' | 'MEMBER') => {
+    if (userId === actualCurrentUserId) return; // Can't change your own role
+    
+    setIsChangingRole(userId);
+    try {
+      await onChangeRole(chat.id, userId, newRole);
+      setShowRoleMenu(null);
+    } catch (error) {
+      console.error('Error changing role:', error);
+    } finally {
+      setIsChangingRole(null);
+    }
+  };
+
   const isCurrentUserAdmin = () => {
-    // In a real app, you'd check the user's role in the chat
-    // For now, we'll assume the first participant is the admin
-    return chat.participants[0]?.id === currentUserId;
+    const currentUser = chat.participants.find(p => p.id === actualCurrentUserId);
+    return currentUser?.role === 'ADMIN' || chat.participants[0]?.id === actualCurrentUserId;
   };
 
   const canRemoveMember = (userId: string) => {
-    return isCurrentUserAdmin() && userId !== currentUserId;
+    return isCurrentUserAdmin() && userId !== actualCurrentUserId;
   };
+
+  const canChangeRole = (userId: string) => {
+    return isCurrentUserAdmin() && userId !== actualCurrentUserId;
+  };
+
+  const getParticipantRole = (participant: any) => {
+    // If role is explicitly set, use it; otherwise, assume first participant is admin
+    if (participant.role) {
+      return participant.role;
+    }
+    return chat.participants[0]?.id === participant.id ? 'ADMIN' : 'MEMBER';
+  };
+
+  // Sort participants: Admins first, then members
+  const sortedParticipants = [...chat.participants].sort((a, b) => {
+    const roleA = getParticipantRole(a);
+    const roleB = getParticipantRole(b);
+    
+    if (roleA === 'ADMIN' && roleB !== 'ADMIN') return -1;
+    if (roleB === 'ADMIN' && roleA !== 'ADMIN') return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -139,40 +238,105 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
           {activeTab === 'members' ? (
             /* Members List */
             <div className="p-4 space-y-2 overflow-y-auto h-full bg-gray-50">
-              {chat.participants.map((participant, index) => (
-                <div key={participant.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white bg-white border border-gray-100 shadow-sm">
-                  <UserAvatar
-                    src={participant.avatar}
-                    alt={participant.name}
-                    size="md"
-                    status={participant.status}
-                    showStatus={true}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-medium text-gray-800">{participant.name}</h4>
-                      {index === 0 && (
-                        <div title="Admin">
-                          <Crown size={14} className="text-yellow-500" />
-                        </div>
-                      )}
-                      {participant.id === currentUserId && (
-                        <span className="text-xs text-gray-500">(You)</span>
-                      )}
+              {sortedParticipants.map((participant) => {
+                const participantRole = getParticipantRole(participant);
+                const isAdmin = participantRole === 'ADMIN';
+                
+                return (
+                  <div key={participant.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white bg-white border border-gray-100 shadow-sm">
+                    <UserAvatar
+                      src={participant.avatar}
+                      alt={participant.name}
+                      size="md"
+                      status={participant.status}
+                      showStatus={true}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-gray-800">{getDisplayName(participant)}</h4>
+                        {isAdmin && (
+                          <div title="Admin">
+                            <Crown size={14} className="text-yellow-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-600 capitalize">{participant.status}</p>
+                        <span className="text-xs text-gray-500">•</span>
+                        <p className="text-xs text-gray-500">{isAdmin ? 'Admin' : 'Member'}</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-600 capitalize">{participant.status}</p>
+                    
+                    {/* Action Menu */}
+                    {canChangeRole(participant.id) && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowRoleMenu(showRoleMenu === participant.id ? null : participant.id)}
+                          className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
+                          disabled={isChangingRole === participant.id}
+                        >
+                          {isChangingRole === participant.id ? (
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                          ) : (
+                            <MoreVertical size={16} />
+                          )}
+                        </button>
+                        
+                        {/* Role Change Menu */}
+                        {showRoleMenu === participant.id && (
+                          <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[140px]">
+                            {!isAdmin && (
+                              <button
+                                onClick={() => handleChangeRole(participant.id, 'ADMIN')}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <Crown size={14} className="text-yellow-500" />
+                                Make Admin
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleChangeRole(participant.id, 'MEMBER')}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <Users size={14} />
+                                Make Member
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                if (confirm(`Remove ${getDisplayName(participant)} from the group?`)) {
+                                  handleRemoveMember(participant.id);
+                                }
+                                setShowRoleMenu(null);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <UserMinus size={14} />
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Simple remove button for non-admins */}
+                    {canRemoveMember(participant.id) && !canChangeRole(participant.id) && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remove ${getDisplayName(participant)} from the group?`)) {
+                            handleRemoveMember(participant.id);
+                          }
+                        }}
+                        className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
+                        title="Remove member"
+                      >
+                        <UserMinus size={16} />
+                      </button>
+                    )}
                   </div>
-                  {canRemoveMember(participant.id) && (
-                    <button
-                      onClick={() => handleRemoveMember(participant.id)}
-                      className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
-                      title="Remove member"
-                    >
-                      <UserMinus size={16} />
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             /* Add Members */
@@ -279,6 +443,14 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
           )}
         </div>
       </div>
+      
+      {/* Click outside to close role menu */}
+      {showRoleMenu && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setShowRoleMenu(null)}
+        />
+      )}
     </div>
   );
 };
