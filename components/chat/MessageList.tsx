@@ -10,7 +10,7 @@ import { Message } from "@/hooks/useChat";
 interface MessageListProps {
   messages: Message[];
   currentUserId: string;
-  onReaction: (messageId: string, emoji: string, action: 'add' | 'remove') => void;
+  onReaction: (messageId: string, emoji: string) => void;
   onReply: (message: Message) => void;
   onEdit: (messageId: string, newContent: string) => void;
   onDelete: (messageId: string) => void;
@@ -73,11 +73,8 @@ export const MessageList = ({
   };
 
   const handleReactionClick = (messageId: string, emoji: string) => {
-    const message = messages.find(m => m.id === messageId);
-    const existingReaction = message?.reactions?.find(r => r.emoji === emoji);
-    const userHasReacted = existingReaction?.users?.includes(currentUserId);
-    
-    onReaction(messageId, emoji, userHasReacted ? 'remove' : 'add');
+    // Simply call the parent handler - let ChatArea handle the WhatsApp-like logic
+    onReaction(messageId, emoji);
     setShowEmojiPicker(null);
     setShowAllEmojis(null);
   };
@@ -554,50 +551,94 @@ export default function MessageListDemo() {
   const [messages, setMessages] = useState<Message[]>([]);
   const currentUserId = 'current';
 
-  const handleReaction = (messageId: string, emoji: string, action: 'add' | 'remove') => {
+  const handleReaction = (messageId: string, emoji: string) => {
     setMessages(prev => prev.map(msg => {
       if (msg.id === messageId) {
         const reactions = msg.reactions || [];
-        const existingReactionIndex = reactions.findIndex(r => r.emoji === emoji);
         
-        if (existingReactionIndex >= 0) {
-          const existingReaction = reactions[existingReactionIndex];
-          const users = existingReaction.users || [];
+        // Check if user already has any reaction on this message
+        const userReactionIndex = reactions.findIndex(r => 
+          r.users && r.users.includes(currentUserId)
+        );
+        
+        if (userReactionIndex >= 0) {
+          const userReaction = reactions[userReactionIndex];
           
-          if (action === 'add' && !users.includes(currentUserId)) {
-            return {
-              ...msg,
-              reactions: reactions.map((r, i) => 
-                i === existingReactionIndex 
-                  ? { ...r, count: r.count + 1, users: [...users, currentUserId] }
-                  : r
-              )
-            };
-          } else if (action === 'remove' && users.includes(currentUserId)) {
-            const newUsers = users.filter(u => u !== currentUserId);
-            const newCount = existingReaction.count - 1;
+          // If user is clicking the same emoji they already reacted with, remove it (toggle off)
+          if (userReaction.emoji === emoji) {
+            const newUsers = userReaction.users.filter(u => u !== currentUserId);
+            const newCount = userReaction.count - 1;
             
             if (newCount === 0) {
               return {
                 ...msg,
-                reactions: reactions.filter((_, i) => i !== existingReactionIndex)
+                reactions: reactions.filter((_, i) => i !== userReactionIndex)
               };
             } else {
               return {
                 ...msg,
                 reactions: reactions.map((r, i) => 
-                  i === existingReactionIndex 
+                  i === userReactionIndex 
                     ? { ...r, count: newCount, users: newUsers }
                     : r
                 )
               };
             }
+          } else {
+            // User is clicking a different emoji, remove old reaction and add new one
+            let updatedReactions = [...reactions];
+            
+            // Remove old reaction
+            const oldReactionUsers = userReaction.users.filter(u => u !== currentUserId);
+            const oldReactionCount = userReaction.count - 1;
+            
+            if (oldReactionCount === 0) {
+              updatedReactions = updatedReactions.filter((_, i) => i !== userReactionIndex);
+            } else {
+              updatedReactions[userReactionIndex] = {
+                ...userReaction,
+                count: oldReactionCount,
+                users: oldReactionUsers
+              };
+            }
+            
+            // Add new reaction
+            const newReactionIndex = updatedReactions.findIndex(r => r.emoji === emoji);
+            if (newReactionIndex >= 0) {
+              // Emoji already exists, add user to it
+              updatedReactions[newReactionIndex] = {
+                ...updatedReactions[newReactionIndex],
+                count: updatedReactions[newReactionIndex].count + 1,
+                users: [...updatedReactions[newReactionIndex].users, currentUserId]
+              };
+            } else {
+              // Create new reaction
+              updatedReactions.push({ emoji, count: 1, users: [currentUserId] });
+            }
+            
+            return { ...msg, reactions: updatedReactions };
           }
-        } else if (action === 'add') {
-          return {
-            ...msg,
-            reactions: [...reactions, { emoji, count: 1, users: [currentUserId] }]
-          };
+        } else {
+          // User doesn't have any reaction, add new one
+          const existingReactionIndex = reactions.findIndex(r => r.emoji === emoji);
+          
+          if (existingReactionIndex >= 0) {
+            // Emoji already exists, add user to it
+            return {
+              ...msg,
+              reactions: reactions.map((r, i) => 
+                i === existingReactionIndex 
+                  ? { ...r, count: r.count + 1, users: [...r.users, currentUserId] }
+                  : r
+              )
+            };
+          } else {
+            // Create new reaction
+            return {
+              ...msg,
+              reactions: [...reactions, { emoji, count: 1, users: [currentUserId] }]
+            };
+          }
         }
       }
       return msg;

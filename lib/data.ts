@@ -433,10 +433,11 @@ export interface TaskDiscussionReactionResponse {
 
 
 export interface User {
-  id: string;
-  name: string;
-  avatar?: string; // Made optional to handle cases where no avatar is provided
-  status: 'online' | 'offline' | 'away';
+   id: string;
+  label: string;
+  conversationRole: "ADMIN" | "MEMBER"; 
+  status:"online" | "offline" | "away";
+  avatar?: string;
 }
 
 export interface Message {

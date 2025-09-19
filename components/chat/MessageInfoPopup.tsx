@@ -60,15 +60,16 @@ export const MessageInfoPopup = ({
     }
   };
 
-  const getStatusIcon = (readAt: string) => {
-    if (readAt) {
-      return <CheckCheck size={16} className="text-blue-500" />;
-    }
-    return <CheckCheck size={16} className="text-gray-400" />;
+  const getStatusIconByStatus = (status: string) => {
+    const upper = (status || '').toUpperCase();
+    if (upper === 'READ') return <CheckCheck size={16} className="text-blue-500" />;
+    if (upper === 'DELIVERED') return <CheckCheck size={16} className="text-gray-500" />;
+    return <CheckCheck size={16} className="text-gray-400" />; // SENT or others
   };
 
-  const readReceipts = receipts.filter(receipt => receipt.updatedAt);
-  const deliveredReceipts = receipts.filter(receipt => !receipt.updatedAt);
+  const readReceipts = receipts.filter(r => (r as any).status?.toUpperCase() === 'READ');
+  const deliveredReceipts = receipts.filter(r => (r as any).status?.toUpperCase() === 'DELIVERED');
+  const sentReceipts = receipts.filter(r => (r as any).status?.toUpperCase() === 'SENT');
 
   if (!isOpen) return null;
 
@@ -168,6 +169,38 @@ export const MessageInfoPopup = ({
                           </p>
                         </div>
                         <CheckCheck size={14} className="text-gray-400" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sent Receipts */}
+              {sentReceipts.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCheck size={16} className="text-gray-300" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Sent to {sentReceipts.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {sentReceipts.map((receipt, index) => (
+                      <div key={index} className="flex items-center gap-3 py-2">
+                        <UserAvatar
+                          src={undefined}
+                          alt={receipt.userName || 'User'}
+                          size="sm"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-800">
+                            {receipt.userName || `User ${receipt.userId}`}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            Sent
+                          </p>
+                        </div>
+                        <CheckCheck size={14} className="text-gray-300" />
                       </div>
                     ))}
                   </div>

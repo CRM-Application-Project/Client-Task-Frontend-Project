@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus, UserMinus, Crown, Users, MoreVertical } from 'lucide-react';
+import { Chat, ChatParticipant, getChatList } from '@/app/services/chatService';
+import { useToast } from '@/hooks/use-toast';
 
 // Mock types based on your code structure
 interface User {
@@ -10,12 +12,7 @@ interface User {
   status: 'online' | 'offline' | 'away';
 }
 
-interface Chat {
-  id: string;
-  name: string;
-  type: 'private' | 'group';
-  participants: (User & { role?: 'ADMIN' | 'MEMBER' })[];
-}
+
 
 interface GroupInfoModalProps {
   chat: Chat;
@@ -25,6 +22,7 @@ interface GroupInfoModalProps {
   onRemoveMember: (chatId: string, userId: string) => Promise<void>;
   onChangeRole: (chatId: string, userId: string, role: 'ADMIN' | 'MEMBER') => Promise<void>;
   onClose: () => void;
+  onConversationRefetched?: (updatedChat: Chat) => void;
 }
 
 const UserAvatar = ({ src, alt, size, status, showStatus = false }: {
@@ -34,6 +32,7 @@ const UserAvatar = ({ src, alt, size, status, showStatus = false }: {
   status?: string;
   showStatus?: boolean;
 }) => {
+  const { toast } = useToast();
   const sizeClasses = {
     sm: 'w-8 h-8 text-sm',
     md: 'w-10 h-10 text-base',
@@ -65,7 +64,8 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   onAddMembers, 
   onRemoveMember, 
   onChangeRole,
-  onClose 
+  onClose,
+  onConversationRefetched
 }) => {
   // Get current user ID from localStorage if available
   const getCurrentUserId = () => {
@@ -79,27 +79,74 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   const actualCurrentUserId = getCurrentUserId();
 
   const [activeTab, setActiveTab] = useState<'members' | 'add'>('members');
+  const [participants, setParticipants] = useState<ChatParticipant[]>(chat.participants || []);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null);
   const [isChangingRole, setIsChangingRole] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{[key: string]: 'top' | 'bottom'}>({});
+  const [menuCoords, setMenuCoords] = useState<{[key: string]: { top: number; left: number; placement: 'top' | 'bottom' }}>({});
+
+  // Function to calculate menu position
+  const calculateMenuPosition = (buttonElement: HTMLElement, userId: string) => {
+    const rect = buttonElement.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const menuHeight = 140; // Approximate height of the menu
+    const menuWidth = 160; // Approximate width of the menu
+
+    const spaceBelow = viewportHeight - rect.bottom;
+    const placement: 'top' | 'bottom' = spaceBelow >= menuHeight ? 'bottom' : 'top';
+
+    // Prefer aligning the menu's right edge to the button's right edge
+    let left = rect.right - menuWidth;
+    if (left < 8) left = 8; // keep inside viewport
+    if (left + menuWidth > viewportWidth - 8) left = viewportWidth - menuWidth - 8;
+
+    // Ensure the menu doesn't hug the very top; keep a comfortable offset
+    const minTopOffset = 24;
+    const topCandidate = placement === 'bottom' ? rect.bottom + 6 : rect.top - menuHeight - 6;
+    const top =
+  placement === 'bottom'
+    ? topCandidate + 2// push it a bit lower
+    : Math.max(minTopOffset, topCandidate + 2);
+
+
+    setMenuPosition(prev => ({ ...prev, [userId]: placement }));
+    setMenuCoords(prev => ({ ...prev, [userId]: { top, left, placement } }));
+  };
+
+  const handleMenuToggle = (participantId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (showRoleMenu === participantId) {
+      setShowRoleMenu(null);
+    } else {
+      calculateMenuPosition(event.currentTarget, participantId);
+      setShowRoleMenu(participantId);
+    }
+  };
+
+  // Keep local participants in sync if parent updates chat
+  useEffect(() => {
+    setParticipants(chat.participants || []);
+  }, [chat.id, chat.participants]);
 
   // Filter users for adding (exclude current participants)
   useEffect(() => {
-    const participantIds = chat.participants.map(p => p.id);
+    const participantIds = participants.map(p => p.id);
     const availableUsers = users.filter(user => !participantIds.includes(user.id));
     
     const filtered = availableUsers.filter(user =>
       user.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredUsers(filtered);
-  }, [searchQuery, users, chat.participants]);
-
+  }, [searchQuery, users, participants]);
+const {toast} = useToast();
   // Helper function to get display name
   const getDisplayName = (participant: any) => {
-    return participant.id === actualCurrentUserId ? 'You' : participant.name;
+    const base = participant.name || participant.label;
+    return participant.id === actualCurrentUserId ? 'You' : base;
   };
 
   const handleUserSelect = (user: User) => {
@@ -119,12 +166,46 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     setIsAddingMembers(true);
     try {
       const userIds = selectedUsers.map(user => user.id);
-      await onAddMembers(chat.id, userIds);
+      await onAddMembers(String(chat.id), userIds);
+      // Also refetch conversation to reflect server state
+      try {
+        const res = await getChatList();
+        if ((res as any).isSuccess) {
+          const updated = (res as any).data?.find((c: any) => c.id?.toString() === String(chat.id));
+          if (updated) {
+            setParticipants((updated.participants || []).map((p: any) => ({
+              id: p.id,
+              label: p.label,
+              conversationRole: p.conversationRole,
+              status: p.status || 'offline',
+              avatar: p.avatar
+            })));
+            onConversationRefetched?.(updated as Chat);
+          }
+        }
+      } catch {}
+      // Optimistically update local participants
+      const newParticipants: ChatParticipant[] = selectedUsers.map(user => ({
+        id: user.id,
+        label: user.name,
+        // @ts-ignore maintain name if used elsewhere
+        name: user.name,
+        status: user.status as any,
+        avatar: user.avatar,
+        conversationRole: 'MEMBER'
+      }));
+      setParticipants(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const merged = [...prev, ...newParticipants.filter(p => !existingIds.has(p.id))];
+        return merged;
+      });
       setSelectedUsers([]);
       setSearchQuery('');
       setActiveTab('members');
     } catch (error) {
       console.error('Error adding members:', error);
+      const message = (error as Error)?.message || 'Failed to add members';
+      toast({ title: 'Add members failed', description: message });
     } finally {
       setIsAddingMembers(false);
     }
@@ -134,9 +215,30 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     if (userId === actualCurrentUserId) return; // Can't remove yourself
     
     try {
-      await onRemoveMember(chat.id, userId);
+      await onRemoveMember(String(chat.id), userId);
+      // Optimistically update local participants
+      setParticipants(prev => prev.filter(p => p.id !== userId));
+      // Also refetch conversation to keep in sync with backend
+      try {
+        const res = await getChatList();
+        if ((res as any).isSuccess) {
+          const updated = (res as any).data?.find((c: any) => c.id?.toString() === String(chat.id));
+          if (updated) {
+            setParticipants((updated.participants || []).map((p: any) => ({
+              id: p.id,
+              label: p.label,
+              conversationRole: p.conversationRole,
+              status: p.status || 'offline',
+              avatar: p.avatar
+            })));
+            onConversationRefetched?.(updated as Chat);
+          }
+        }
+      } catch {}
     } catch (error) {
       console.error('Error removing member:', error);
+      const message = (error as Error)?.message || 'Failed to remove member';
+      toast({ title: 'Remove member failed', description: message });
     }
   };
 
@@ -145,18 +247,39 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     
     setIsChangingRole(userId);
     try {
-      await onChangeRole(chat.id, userId, newRole);
+      await onChangeRole(String(chat.id), userId, newRole);
       setShowRoleMenu(null);
+      // Optimistically update local participants
+      setParticipants(prev => prev.map(p => p.id === userId ? { ...p, conversationRole: newRole } : p));
+      // Also refetch conversation to get authoritative roles
+      try {
+        const res = await getChatList();
+        if ((res as any).isSuccess) {
+          const updated = (res as any).data?.find((c: any) => c.id?.toString() === String(chat.id));
+          if (updated) {
+            setParticipants((updated.participants || []).map((p: any) => ({
+              id: p.id,
+              label: p.label,
+              conversationRole: p.conversationRole,
+              status: p.status || 'offline',
+              avatar: p.avatar
+            })));
+            onConversationRefetched?.(updated as Chat);
+          }
+        }
+      } catch {}
     } catch (error) {
       console.error('Error changing role:', error);
+      const message = (error as Error)?.message || 'Failed to change role';
+      toast({ title: 'Change role failed', description: message });
     } finally {
       setIsChangingRole(null);
     }
   };
 
   const isCurrentUserAdmin = () => {
-    const currentUser = chat.participants.find(p => p.id === actualCurrentUserId);
-    return currentUser?.role === 'ADMIN' || chat.participants[0]?.id === actualCurrentUserId;
+    const currentUser = participants.find(p => p.id === actualCurrentUserId);
+    return currentUser?.conversationRole === 'ADMIN' || participants[0]?.id === actualCurrentUserId;
   };
 
   const canRemoveMember = (userId: string) => {
@@ -167,22 +290,24 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
     return isCurrentUserAdmin() && userId !== actualCurrentUserId;
   };
 
-  const getParticipantRole = (participant: any) => {
+  const getParticipantRole = (participant: ChatParticipant) => {
     // If role is explicitly set, use it; otherwise, assume first participant is admin
-    if (participant.role) {
-      return participant.role;
+    if (participant.conversationRole) {
+      return participant.conversationRole;
     }
-    return chat.participants[0]?.id === participant.id ? 'ADMIN' : 'MEMBER';
+    return participants[0]?.id === participant.id ? 'ADMIN' : 'MEMBER';
   };
 
   // Sort participants: Admins first, then members
-  const sortedParticipants = [...chat.participants].sort((a, b) => {
+  const sortedParticipants = [...participants].sort((a, b) => {
     const roleA = getParticipantRole(a);
     const roleB = getParticipantRole(b);
     
     if (roleA === 'ADMIN' && roleB !== 'ADMIN') return -1;
     if (roleB === 'ADMIN' && roleA !== 'ADMIN') return 1;
-    return a.name.localeCompare(b.name);
+    const aLabel = a.label || (a as any).name || '';
+    const bLabel = b.label || (b as any).name || '';
+    return aLabel.localeCompare(bLabel);
   });
 
   return (
@@ -246,7 +371,7 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
                   <div key={participant.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white bg-white border border-gray-100 shadow-sm">
                     <UserAvatar
                       src={participant.avatar}
-                      alt={participant.name}
+                      alt={participant.label || (participant as any).name}
                       size="md"
                       status={participant.status}
                       showStatus={true}
@@ -271,7 +396,7 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
                     {canChangeRole(participant.id) && (
                       <div className="relative">
                         <button
-                          onClick={() => setShowRoleMenu(showRoleMenu === participant.id ? null : participant.id)}
+                          onClick={(event) => handleMenuToggle(participant.id, event)}
                           className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
                           disabled={isChangingRole === participant.id}
                         >
@@ -282,9 +407,18 @@ const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
                           )}
                         </button>
                         
-                        {/* Role Change Menu */}
+                        {/* Role Change Menu (fixed to viewport to avoid scroll clipping) */}
                         {showRoleMenu === participant.id && (
-                          <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[140px]">
+                          <div
+                            className={
+                              `fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[100] min-w-[160px]`
+                            }
+                            style={{
+                              top: menuCoords[participant.id]?.top ?? 0,
+                              left: menuCoords[participant.id]?.left ?? 0
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {!isAdmin && (
                               <button
                                 onClick={() => handleChangeRole(participant.id, 'ADMIN')}

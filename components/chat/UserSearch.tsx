@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
 import { User } from '@/lib/data';
 import UserAvatar from './UserAvatar';
+import { ChatParticipant } from '@/app/services/chatService';
 
 interface UserSearchProps {
   users: User[];
@@ -21,7 +22,7 @@ const UserSearch: React.FC<UserSearchProps> = ({ users, onUserSelect, onClose })
     const filtered = users.filter(
       user =>
         user.id !== currentUserId && // 🚫 skip yourself
-        user.name.toLowerCase().includes(searchQuery.toLowerCase())
+        user.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredUsers(filtered);
   }, [searchQuery, users, currentUserId]);
