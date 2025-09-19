@@ -38,6 +38,15 @@ class FirebaseChatService {
   initialize(userId: string): void {
     this.currentUserId = userId;
     console.log(`[FirebaseChat] Service initialized for user: ${userId}`);
+    try {
+      if (!this.database) {
+        console.warn('[FirebaseChat] Database instance is null/undefined at initialize');
+      } else {
+        console.log('[FirebaseChat] Database instance OK');
+      }
+    } catch (e) {
+      console.error('[FirebaseChat] Error checking database instance:', e);
+    }
   }
 
   /**
@@ -58,17 +67,25 @@ class FirebaseChatService {
     this.messageCallbacks.set(conversationId, onMessagesUpdate);
 
     // Create reference to conversation messages
-    const messagesRef = ref(this.database, `conversations/${conversationId}/messages`);
+    const path = `conversations/${conversationId}/messages`;
+    const messagesRef = ref(this.database, path);
+    console.log('[FirebaseChat] Messages ref path:', path);
 
     // Create listener
     const listener = onValue(messagesRef, (snapshot: DataSnapshot) => {
       const data = snapshot.val();
       const messages: FirebaseMessage[] = [];
 
-      console.log(`[FirebaseChat] Received message update for conversation ${conversationId}:`, {
-        hasData: !!data,
-        messageCount: data ? Object.keys(data).length : 0
-      });
+      console.log(`[FirebaseChat] onValue fired for ${conversationId}. exists=${snapshot.exists()}`,
+        { key: snapshot.key, childrenCount: data ? Object.keys(data).length : 0 });
+      if (!data) {
+        console.log(`[FirebaseChat] No data under ${path} yet`);
+      } else {
+        try {
+          const ids = Object.keys(data);
+          console.log(`[FirebaseChat] Message keys for ${conversationId}:`, ids);
+        } catch {}
+      }
 
       if (data) {
         // Convert Firebase object to array and sort by timestamp
@@ -95,7 +112,14 @@ class FirebaseChatService {
           return timeA - timeB;
         });
 
-        console.log(`[FirebaseChat] Processed ${messages.length} messages for conversation ${conversationId}`);
+        if (messages.length > 0) {
+          const last = messages[messages.length - 1];
+          console.log(`[FirebaseChat] Processed ${messages.length} messages for ${conversationId}. Last:`, {
+            id: last.id, senderId: last.senderId, ts: last.timestamp
+          });
+        } else {
+          console.log(`[FirebaseChat] Processed 0 messages for ${conversationId}`);
+        }
       }
 
       // Call the callback with updated messages
@@ -153,17 +177,17 @@ class FirebaseChatService {
     this.notificationCallbacks.add(onNotificationsUpdate);
 
     // Create reference to user notifications
-    const notificationsRef = ref(this.database, `user-notifications/${userId}`);
+    const notifPath = `user-notifications/${userId}`;
+    const notificationsRef = ref(this.database, notifPath);
+    console.log('[FirebaseChat] Notifications ref path:', notifPath);
 
     // Create listener
     this.notificationListener = onValue(notificationsRef, (snapshot: DataSnapshot) => {
       const data = snapshot.val();
       const notifications: ChatNotifications = {};
 
-      console.log(`[FirebaseChat] Received notification update for user ${userId}:`, {
-        hasData: !!data,
-        conversationCount: data ? Object.keys(data).length : 0
-      });
+      console.log(`[FirebaseChat] onValue fired for notifications of ${userId}. exists=${snapshot.exists()}`,
+        { key: snapshot.key, convCount: data ? Object.keys(data).length : 0 });
 
       if (data) {
         // Convert Firebase object to our notification format
@@ -175,7 +199,7 @@ class FirebaseChatService {
               timestamp: notificationData.timestamp || ''
             };
 
-            console.log(`[FirebaseChat] Conversation ${conversationId} unread count: ${notifications[conversationId].unreadCount}`);
+            console.log(`[FirebaseChat] Notif conv=${conversationId} unread=${notifications[conversationId].unreadCount} lastMessageId=${notifications[conversationId].lastMessageId}`);
           }
         });
       }
@@ -230,10 +254,13 @@ class FirebaseChatService {
     );
 
     // Reset unread count to 0
+    console.log('[FirebaseChat] Writing unreadCount=0 at path:', `user-notifications/${this.currentUserId}/${conversationId}/unreadCount`);
     await set(child(notificationRef, 'unreadCount'), 0);
     
     // Update timestamp to current time
-    await set(child(notificationRef, 'timestamp'), new Date().toISOString());
+    const nowIso = new Date().toISOString();
+    console.log('[FirebaseChat] Writing timestamp at path:', `user-notifications/${this.currentUserId}/${conversationId}/timestamp`, nowIso);
+    await set(child(notificationRef, 'timestamp'), nowIso);
 
     console.log(`[FirebaseChat] Successfully marked conversation ${conversationId} as read`);
 
