@@ -94,23 +94,26 @@ export const MessageList = ({
   };
 
   const getDeliveryIcon = (status?: string, isOwn?: boolean) => {
-    if (!isOwn) return null;
-    
-    switch (status) {
-      case 'sending':
-        return <Clock size={12} className="text-gray-400" />;
-      case 'sent':
-        return <Check size={12} className="text-gray-400" />;
-      case 'delivered':
-        return <CheckCheck size={12} className="text-gray-400" />;
-      case 'read':
-        return <CheckCheck size={12} className="text-blue-500" />;
-      case 'failed':
-        return <span className="text-xs text-red-500">!</span>;
-      default:
-        return <Check size={12} className="text-gray-400" />;
-    }
-  };
+  if (!isOwn) return null;
+  
+  // Convert status to uppercase for case-insensitive comparison
+  const normalizedStatus = status?.toUpperCase();
+  
+  switch (normalizedStatus) {
+    case 'SENDING':
+      return <Clock size={12} className="text-gray-400" />;
+    case 'SENT':
+      return <Check size={12} className="text-gray-400" />;
+    case 'DELIVERED':
+      return <CheckCheck size={12} className="text-gray-400" />;
+    case 'READ':
+      return <CheckCheck size={12} className="text-blue-500" />;
+    case 'FAILED':
+      return <span className="text-xs text-red-500">!</span>;
+    default:
+      return <Check size={12} className="text-gray-400" />;
+  }
+};
 
   const findRepliedMessage = (parentId: string) => {
     return messages.find(m => m.id === parentId);
