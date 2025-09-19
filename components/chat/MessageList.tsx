@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Message } from "@/hooks/useChat";
 
-// Mock Message type for demo
+// Message type definition
 
 
 interface MessageListProps {
@@ -48,7 +48,7 @@ export const MessageList = ({
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (messagesEndRef.current && messages.length > 0) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
@@ -71,6 +71,7 @@ export const MessageList = ({
     setEditingMessage(null);
     setEditContent("");
   };
+
   const handleReactionClick = (messageId: string, emoji: string) => {
     const message = messages.find(m => m.id === messageId);
     const existingReaction = message?.reactions?.find(r => r.emoji === emoji);
@@ -137,6 +138,36 @@ export const MessageList = ({
     return relativePosition > 0.6;
   };
 
+  // If no messages, show empty state
+  if (messages.length === 0) {
+    return (
+      <div 
+        ref={messagesContainerRef}
+        className="h-full flex items-center justify-center bg-gray-50"
+        style={{ 
+          backgroundImage: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><defs><pattern id=\"grain\" width=\"100\" height=\"100\" patternUnits=\"userSpaceOnUse\"><circle cx=\"25\" cy=\"25\" r=\"1\" fill=\"%23e5e7eb\" opacity=\"0.5\"/><circle cx=\"75\" cy=\"75\" r=\"1\" fill=\"%23e5e7eb\" opacity=\"0.3\"/><circle cx=\"50\" cy=\"10\" r=\"0.5\" fill=\"%23e5e7eb\" opacity=\"0.4\"/></pattern></defs><rect width=\"100\" height=\"100\" fill=\"url(%23grain)\"/></svg>')"
+        }}
+      >
+        <div className="text-center text-gray-500 max-w-xs px-8">
+          <div className="mb-4">
+            <div className="w-20 h-20 mx-auto bg-gray-200 rounded-full flex items-center justify-center mb-4">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-gray-400">
+                <path d="M12 3C17.5 3 22 6.58 22 11C22 15.42 17.5 19 12 19C10.76 19 9.57 18.82 8.47 18.5L5 20L6.5 16.53C4.42 15.11 3 13.14 3 11C3 6.58 7.5 3 12 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          <p className="text-sm text-gray-400">
+            No messages here yet...
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Send a message to start the conversation
+          </p>
+        </div>
+        <div ref={messagesEndRef} />
+      </div>
+    );
+  }
+
   // Group messages by date
   const groupedMessages = messages.reduce((groups, message) => {
     const date = new Date().toDateString(); // For simplicity, showing all as today
@@ -148,93 +179,6 @@ export const MessageList = ({
   }, {} as Record<string, Message[]>);
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
-
-  // Demo messages if none provided
-  const demoMessages: Message[] = messages.length === 0 ? [
-    {
-      id: '1',
-      content: 'Hey there! How are you doing?',
-      timestamp: '10:30',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'other1', label: 'Alice' },
-      senderId: 'other1',
-      type: 'received',
-      reactions: [{ emoji: '👍', count: 2, users: ['user1'] }],
-      updatable: false,
-      deletable: false
-    },
-    {
-      id: '2',
-      content: 'I\'m doing great! Just working on this chat component.',
-      timestamp: '10:32',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'current', label: 'You' },
-      senderId: 'current',
-      type: 'sent',
-      status: 'read',
-      updatable: true,
-      deletable: true
-    },
-    {
-      id: '3',
-      content: 'That sounds interesting! What features are you implementing?',
-      timestamp: '10:33',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'other1', label: 'Alice' },
-      senderId: 'other1',
-      type: 'received',
-      updatable: false,
-      deletable: false
-    },
-    {
-      id: '4',
-      content: 'Working on message reactions, replies, editing, and making sure all menus are visible properly!',
-      timestamp: '10:35',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'current', label: 'You' },
-      senderId: 'current',
-      type: 'sent',
-      status: 'delivered',
-      updatable: true,
-      deletable: true
-    },
-    {
-      id: '5',
-      content: 'Awesome! The positioning of menus near the bottom was tricky, right?',
-      timestamp: '10:36',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'other1', label: 'Alice' },
-      senderId: 'other1',
-      type: 'received',
-      updatable: false,
-      deletable: false
-    },
-    {
-      id: '6',
-      content: 'Yes! But I think I\'ve got it figured out now. The menus should appear above when messages are near the bottom.',
-      timestamp: '10:37',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'current', label: 'You' },
-      senderId: 'current',
-      type: 'sent',
-      status: 'read',
-      updatable: true,
-      deletable: true
-    },
-    {
-      id: '7',
-      content: 'Perfect! That\'s exactly what I was hoping for.',
-      timestamp: '10:38',
-      createdAt: new Date().toISOString(),
-      sender: { id: 'other1', label: 'Alice' },
-      senderId: 'other1',
-      type: 'received',
-      parentId: '6', // Reply to message 6
-      updatable: false,
-      deletable: false
-    }
-  ] : messages;
-
   const effectiveCurrentUserId = currentUserId || 'current';
 
   return (
@@ -246,7 +190,7 @@ export const MessageList = ({
       }}
     >
       <div className="p-4 space-y-1 min-h-full">
-        {Object.entries(Object.keys(groupedMessages).length === 0 ? { [new Date().toDateString()]: demoMessages } : groupedMessages).map(([date, dateMessages]) => (
+        {Object.entries(groupedMessages).map(([date, dateMessages]) => (
           <div key={date}>
             {/* Date separator */}
             <div className="flex items-center justify-center my-4">
@@ -255,263 +199,225 @@ export const MessageList = ({
               </div>
             </div>
              
-           {[...dateMessages]
-  .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-  .map((message, index) => {
-              // Fix: Properly check if message is from current user
-              const isOwn = message.sender.id === effectiveCurrentUserId || message.sender.id === userId || message.type === 'sent';
-              const repliedMessage = message.parentId ? findRepliedMessage(message.parentId) : null;
-              const showAvatar = !isOwn && (index === 0 || dateMessages[index - 1]?.sender.id !== message.sender.id);
-              const showName = !isOwn && showAvatar;
-              const isExpanded = expandedReactions.has(message.id);
-              const visibleReactions = message.reactions?.slice(0, isExpanded ? undefined : 3) || [];
-              const hiddenReactionsCount = message.reactions ? Math.max(0, message.reactions.length - 3) : 0;
+            {[...dateMessages]
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              .map((message, index) => {
+                // Fix: Properly check if message is from current user
+                const isOwn = message.sender.id === effectiveCurrentUserId || message.sender.id === userId || message.type === 'sent';
+                const repliedMessage = message.parentId ? findRepliedMessage(message.parentId) : null;
+                const showAvatar = !isOwn && (index === 0 || dateMessages[index - 1]?.sender.id !== message.sender.id);
+                const showName = !isOwn && showAvatar;
+                const isExpanded = expandedReactions.has(message.id);
+                const visibleReactions = message.reactions?.slice(0, isExpanded ? undefined : 3) || [];
+                const hiddenReactionsCount = message.reactions ? Math.max(0, message.reactions.length - 3) : 0;
 
-              // Emoji picker logic
-              const isShowingAllEmojis = showAllEmojis === message.id;
-              const emojisToShow = isShowingAllEmojis ? EMOJI_REACTIONS : EMOJI_REACTIONS.slice(0, INITIAL_EMOJI_COUNT);
-              const hasMoreEmojis = EMOJI_REACTIONS.length > INITIAL_EMOJI_COUNT;
+                // Emoji picker logic
+                const isShowingAllEmojis = showAllEmojis === message.id;
+                const emojisToShow = isShowingAllEmojis ? EMOJI_REACTIONS : EMOJI_REACTIONS.slice(0, INITIAL_EMOJI_COUNT);
+                const hasMoreEmojis = EMOJI_REACTIONS.length > INITIAL_EMOJI_COUNT;
 
-              // Check if menu should appear above for this message
-              const menuAbove = shouldMenuAppearAbove(message.id);
+                // Check if menu should appear above for this message
+                const menuAbove = shouldMenuAppearAbove(message.id);
 
-              return (
-                <div
-                  key={message.id}
-                  ref={(el) => (messageRefs.current[message.id] = el)}
-                  className={cn(
-                    "group flex gap-2 mb-2 relative",
-                    isOwn ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {/* Avatar for received messages */}
-                  {!isOwn && (
-                    <div className="w-8 h-8 flex-shrink-0">
-                      {showAvatar ? (
-                        <UserAvatar
-                          src={undefined}
-                          alt={message.sender.label}
-                          size="sm"
-                        />
-                      ) : (
-                        <div className="w-8 h-8" /> // Spacer
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className={cn(
-                    "max-w-[70%] space-y-1",
-                    isOwn ? "items-end" : "items-start"
-                  )}>
-                    {/* Sender name for group chats */}
-                    {showName && (
-                      <div className="flex items-center gap-2 ml-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          {message.sender.label}
-                        </span>
-                      </div>
+                return (
+                  <div
+                    key={message.id}
+                    ref={(el) => (messageRefs.current[message.id] = el)}
+                    className={cn(
+                      "group flex gap-2 mb-2 relative",
+                      isOwn ? "justify-end" : "justify-start"
                     )}
-
-                    {/* Replied Message Preview - WhatsApp style */}
-                    {repliedMessage && (
-                      <div className={cn(
-                        "mx-2 px-3 py-2 border-l-4 bg-gray-100 rounded-r-lg text-xs shadow-sm max-w-full",
-                        isOwn 
-                          ? "border-green-400 bg-green-50" 
-                          : "border-blue-400 bg-blue-50"
-                      )}>
-                        <p className={cn(
-                          "font-medium text-xs mb-1",
-                          isOwn ? "text-green-600" : "text-blue-600"
-                        )}>
-                          {repliedMessage.sender.id === effectiveCurrentUserId ? 'You' : repliedMessage.sender.label}
-                        </p>
-                        <p className="text-gray-700 text-xs leading-tight line-clamp-2 break-words">
-                          {repliedMessage.content}
-                        </p>
+                  >
+                    {/* Avatar for received messages */}
+                    {!isOwn && (
+                      <div className="w-8 h-8 flex-shrink-0">
+                        {showAvatar ? (
+                          <UserAvatar
+                            src={undefined}
+                            alt={message.sender.label}
+                            size="sm"
+                          />
+                        ) : (
+                          <div className="w-8 h-8" /> // Spacer
+                        )}
                       </div>
                     )}
                     
-                    <div className="relative">
-                      {editingMessage === message.id ? (
-                        // Edit Mode
-                        <div className="bg-white rounded-lg p-3 shadow-sm border">
-                          <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full bg-transparent text-sm resize-none border-none outline-none min-w-[200px]"
-                            rows={Math.min(editContent.split('\n').length + 1, 5)}
-                          />
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => handleEditSave(message.id)}
-                              className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={handleEditCancel}
-                              className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                    <div className={cn(
+                      "max-w-[70%] space-y-1",
+                      isOwn ? "items-end" : "items-start"
+                    )}>
+                      {/* Sender name for group chats */}
+                      {showName && (
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {message.sender.label}
+                          </span>
                         </div>
-                      ) : (
-                        // Normal Message Display
+                      )}
+
+                      {/* Replied Message Preview - WhatsApp style */}
+                      {repliedMessage && (
                         <div className={cn(
-                          "relative rounded-lg px-3 py-2 shadow-sm max-w-sm",
+                          "mx-2 px-3 py-2 border-l-4 bg-gray-100 rounded-r-lg text-xs shadow-sm max-w-full",
                           isOwn 
-                            ? "bg-green-500 text-white rounded-br-sm"
-                            : "bg-white text-gray-800 rounded-bl-sm"
+                            ? "border-gray-400 bg-gray-50" 
+                            : "border-blue-400 bg-blue-50"
                         )}>
-                          <p className="text-sm whitespace-pre-wrap break-words leading-5">
-                            {message.content}
+                          <p className={cn(
+                            "font-medium text-xs mb-1",
+                            isOwn ? "text-gray-600" : "text-blue-600"
+                          )}>
+                            {repliedMessage.sender.id === effectiveCurrentUserId ? 'You' : repliedMessage.sender.label}
                           </p>
-                          
-                          {/* Message time and status */}
-                          <div className={cn(
-                            "flex items-center justify-end gap-1 mt-1",
-                            isOwn ? "text-green-100" : "text-gray-500"
-                          )}>
-                            <span className="text-xs">
-                              {formatTime(message.timestamp)}
-                            </span>
-                            {getDeliveryIcon(message.status, isOwn)}
+                          <p className="text-gray-700 text-xs leading-tight line-clamp-2 break-words">
+                            {repliedMessage.content}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="relative">
+                        {editingMessage === message.id ? (
+                          // Edit Mode
+                          <div className="bg-white rounded-lg p-3 shadow-sm border">
+                            <textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="w-full bg-transparent text-sm resize-none border-none outline-none min-w-[200px]"
+                              rows={Math.min(editContent.split('\n').length + 1, 5)}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => handleEditSave(message.id)}
+                                className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={handleEditCancel}
+                                className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                          
-                          {/* Message Actions - Show on hover with improved positioning */}
+                        ) : (
+                          // Normal Message Display
                           <div className={cn(
-                            "absolute flex items-center bg-white border border-gray-200 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10",
-                            isOwn ? "-left-20" : "-right-20",
-                            menuAbove ? "bottom-full mb-2" : "top-0 -mt-4"
+                            "relative rounded-lg px-3 py-2 shadow-sm max-w-sm",
+                            isOwn 
+                              ? "bg-gray-500 text-white rounded-br-sm"
+                              : "bg-white text-gray-800 rounded-bl-sm"
                           )}>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
-                              onClick={() => {
-                                setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
-                                setShowAllEmojis(null);
-                              }}
-                            >
-                              <Smile className="h-3 w-3 text-gray-600" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
-                              onClick={() => onReply(message)}
-                            >
-                              <Reply className="h-3 w-3 text-gray-600" />
-                            </Button>
-                            {isOwn && (
+                            <p className="text-sm whitespace-pre-wrap break-words leading-5">
+                              {message.content}
+                            </p>
+                            
+                            {/* Message time and status */}
+                            <div className={cn(
+                              "flex items-center justify-end gap-1 mt-1",
+                              isOwn ? "text-gray-100" : "text-gray-500"
+                            )}>
+                              <span className="text-xs">
+                                {formatTime(message.timestamp)}
+                              </span>
+                              {getDeliveryIcon(message.status, isOwn)}
+                            </div>
+                            
+                            {/* Message Actions - Show on hover with improved positioning */}
+                            <div className={cn(
+                              "absolute flex items-center bg-white border border-gray-200 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10",
+                              isOwn ? "-left-20" : "-right-20",
+                              menuAbove ? "bottom-full mb-2" : "top-0 -mt-4"
+                            )}>
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
-                                onClick={() => setShowActions(showActions === message.id ? null : message.id)}
+                                onClick={() => {
+                                  setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
+                                  setShowAllEmojis(null);
+                                }}
                               >
-                                <MoreVertical className="h-3 w-3 text-gray-600" />
+                                <Smile className="h-3 w-3 text-gray-600" />
                               </Button>
-                            )}
-                          </div>
-
-                          {/* More Actions Menu with improved positioning */}
-                          {showActions === message.id && isOwn && (
-                            <div className={cn(
-                              "absolute bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[150px]",
-                              menuAbove ? "bottom-full mb-2" : "top-full mt-1",
-                              isOwn ? "right-0" : "left-0"
-                            )}>
-                              {(message.updatable !== false) && (
-                                <button
-                                  onClick={() => handleEditStart(message)}
-                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                                onClick={() => onReply(message)}
+                              >
+                                <Reply className="h-3 w-3 text-gray-600" />
+                              </Button>
+                              {isOwn && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                                  onClick={() => setShowActions(showActions === message.id ? null : message.id)}
                                 >
-                                  <Edit3 size={14} />
-                                  Edit
-                                </button>
+                                  <MoreVertical className="h-3 w-3 text-gray-600" />
+                                </Button>
                               )}
-                              {(message.deletable !== false) && (
+                            </div>
+
+                            {/* More Actions Menu with improved positioning */}
+                            {showActions === message.id && isOwn && (
+                              <div className={cn(
+                                "absolute bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[150px]",
+                                menuAbove ? "bottom-full mb-2" : "top-full mt-1",
+                                isOwn ? "right-0" : "left-0"
+                              )}>
+                                {(message.updatable !== false) && (
+                                  <button
+                                    onClick={() => handleEditStart(message)}
+                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                  >
+                                    <Edit3 size={14} />
+                                    Edit
+                                  </button>
+                                )}
+                                {(message.deletable !== false) && (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm('Delete this message?')) {
+                                        onDelete(message.id);
+                                      }
+                                      setShowActions(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                                  >
+                                    <Trash2 size={14} />
+                                    Delete
+                                  </button>
+                                )}
+                                {/* Message Info Option */}
                                 <button
                                   onClick={() => {
-                                    if (confirm('Delete this message?')) {
-                                      onDelete(message.id);
+                                    if (onMessageInfo) {
+                                      onMessageInfo(message.id);
                                     }
                                     setShowActions(null);
                                   }}
-                                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <Trash2 size={14} />
-                                  Delete
+                                  <Info size={14} />
+                                  Message Info
                                 </button>
-                              )}
-                              {/* Message Info Option */}
-                              <button
-                                onClick={() => {
-                                  if (onMessageInfo) {
-                                    onMessageInfo(message.id);
-                                  }
-                                  setShowActions(null);
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                              >
-                                <Info size={14} />
-                                Message Info
-                              </button>
-                            </div>
-                          )}
+                              </div>
+                            )}
 
-                          {/* Emoji Picker with improved positioning */}
-                          {showEmojiPicker === message.id && (
-                            <div className={cn(
-                              "absolute bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-20 whitespace-nowrap",
-                              menuAbove ? "bottom-full mb-2" : "top-full mt-1",
-                              isOwn ? "right-0" : "left-0"
-                            )}>
-                              {!isShowingAllEmojis ? (
-                                // Show first 5 emojis in a single row with + button
-                                <div className="flex items-center gap-1 min-w-max">
-                                  {emojisToShow.map((emoji) => (
-                                    <button
-                                      key={emoji}
-                                      onClick={() => handleReactionClick(message.id, emoji)}
-                                      className="p-2 hover:bg-gray-100 rounded text-base transition-colors w-9 h-9 flex items-center justify-center flex-shrink-0"
-                                    >
-                                      {emoji}
-                                    </button>
-                                  ))}
-                                  
-                                  {/* Plus button to show more emojis */}
-                                  {hasMoreEmojis && (
-                                    <button
-                                      onClick={() => setShowAllEmojis(message.id)}
-                                      className="p-2 hover:bg-gray-100 rounded transition-colors w-9 h-9 flex items-center justify-center border border-gray-300 text-gray-600 flex-shrink-0"
-                                    >
-                                      <Plus size={14} />
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                // Show all emojis in horizontal rows
-                                <div className="space-y-1">
-                                  {/* First row - 6 emojis */}
-                                  <div className="flex items-center gap-1">
-                                    {EMOJI_REACTIONS.slice(0, 6).map((emoji) => (
-                                      <button
-                                        key={emoji}
-                                        onClick={() => handleReactionClick(message.id, emoji)}
-                                        className="p-2 hover:bg-gray-100 rounded text-base transition-colors w-9 h-9 flex items-center justify-center flex-shrink-0"
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  
-                                  {/* Second row - remaining emojis + minus button */}
-                                  <div className="flex items-center gap-1">
-                                    {EMOJI_REACTIONS.slice(6).map((emoji) => (
+                            {/* Emoji Picker with improved positioning */}
+                            {showEmojiPicker === message.id && (
+                              <div className={cn(
+                                "absolute bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-20 whitespace-nowrap",
+                                menuAbove ? "bottom-full mb-2" : "top-full mt-1",
+                                isOwn ? "right-0" : "left-0"
+                              )}>
+                                {!isShowingAllEmojis ? (
+                                  // Show first 5 emojis in a single row with + button
+                                  <div className="flex items-center gap-1 min-w-max">
+                                    {emojisToShow.map((emoji) => (
                                       <button
                                         key={emoji}
                                         onClick={() => handleReactionClick(message.id, emoji)}
@@ -521,69 +427,107 @@ export const MessageList = ({
                                       </button>
                                     ))}
                                     
-                                    {/* Minus button to show less emojis */}
-                                    <button
-                                      onClick={() => setShowAllEmojis(null)}
-                                      className="p-2 hover:bg-gray-100 rounded transition-colors w-9 h-9 flex items-center justify-center border border-gray-300 text-gray-600 flex-shrink-0"
-                                    >
-                                      <Minus size={14} />
-                                    </button>
+                                    {/* Plus button to show more emojis */}
+                                    {hasMoreEmojis && (
+                                      <button
+                                        onClick={() => setShowAllEmojis(message.id)}
+                                        className="p-2 hover:bg-gray-100 rounded transition-colors w-9 h-9 flex items-center justify-center border border-gray-300 text-gray-600 flex-shrink-0"
+                                      >
+                                        <Plus size={14} />
+                                      </button>
+                                    )}
                                   </div>
-                                </div>
+                                ) : (
+                                  // Show all emojis in horizontal rows
+                                  <div className="space-y-1">
+                                    {/* First row - 6 emojis */}
+                                    <div className="flex items-center gap-1">
+                                      {EMOJI_REACTIONS.slice(0, 6).map((emoji) => (
+                                        <button
+                                          key={emoji}
+                                          onClick={() => handleReactionClick(message.id, emoji)}
+                                          className="p-2 hover:bg-gray-100 rounded text-base transition-colors w-9 h-9 flex items-center justify-center flex-shrink-0"
+                                        >
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    
+                                    {/* Second row - remaining emojis + minus button */}
+                                    <div className="flex items-center gap-1">
+                                      {EMOJI_REACTIONS.slice(6).map((emoji) => (
+                                        <button
+                                          key={emoji}
+                                          onClick={() => handleReactionClick(message.id, emoji)}
+                                          className="p-2 hover:bg-gray-100 rounded text-base transition-colors w-9 h-9 flex items-center justify-center flex-shrink-0"
+                                        >
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                      
+                                      {/* Minus button to show less emojis */}
+                                      <button
+                                        onClick={() => setShowAllEmojis(null)}
+                                        className="p-2 hover:bg-gray-100 rounded transition-colors w-9 h-9 flex items-center justify-center border border-gray-300 text-gray-600 flex-shrink-0"
+                                      >
+                                        <Minus size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Reactions - Fixed positioning */}
+                      {visibleReactions.length > 0 && (
+                        <div className={cn(
+                          "flex gap-1 flex-wrap mt-1",
+                          isOwn ? "justify-end" : "justify-start"
+                        )}>
+                          {visibleReactions.map((reaction, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleReactionClick(message.id, reaction.emoji)}
+                              className={cn(
+                                "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors bg-white border shadow-sm",
+                                reaction.users?.includes(effectiveCurrentUserId)
+                                  ? "border-gray-500 text-gray-700"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
                               )}
-                            </div>
+                            >
+                              <span>{reaction.emoji}</span>
+                              <span>{reaction.count}</span>
+                            </button>
+                          ))}
+                          
+                          {/* Show + button if there are hidden reactions */}
+                          {!isExpanded && hiddenReactionsCount > 0 && (
+                            <button
+                              onClick={() => toggleExpandedReactions(message.id)}
+                              className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          )}
+                          
+                          {/* Show - button if expanded to collapse */}
+                          {isExpanded && (
+                            <button
+                              onClick={() => toggleExpandedReactions(message.id)}
+                              className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
+                            >
+                              <Minus size={12} />
+                            </button>
                           )}
                         </div>
                       )}
                     </div>
-                    
-                    {/* Reactions - Fixed positioning */}
-                    {visibleReactions.length > 0 && (
-                      <div className={cn(
-                        "flex gap-1 flex-wrap mt-1",
-                        isOwn ? "justify-end" : "justify-start"
-                      )}>
-                        {visibleReactions.map((reaction, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleReactionClick(message.id, reaction.emoji)}
-                            className={cn(
-                              "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors bg-white border shadow-sm",
-                              reaction.users?.includes(effectiveCurrentUserId)
-                                ? "border-green-500 text-green-700"
-                                : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                            )}
-                          >
-                            <span>{reaction.emoji}</span>
-                            <span>{reaction.count}</span>
-                          </button>
-                        ))}
-                        
-                        {/* Show + button if there are hidden reactions */}
-                        {!isExpanded && hiddenReactionsCount > 0 && (
-                          <button
-                            onClick={() => toggleExpandedReactions(message.id)}
-                            className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
-                          >
-                            <Plus size={12} />
-                          </button>
-                        )}
-                        
-                        {/* Show - button if expanded to collapse */}
-                        {isExpanded && (
-                          <button
-                            onClick={() => toggleExpandedReactions(message.id)}
-                            className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
-                          >
-                            <Minus size={12} />
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         ))}
         {/* Scroll anchor */}
@@ -692,10 +636,34 @@ export default function MessageListDemo() {
     console.log('Message info for:', messageId);
   };
 
+  // Add a test message function for demo purposes
+  const addTestMessage = () => {
+    const testMessage: Message = {
+      id: `msg-${Date.now()}`,
+      content: 'Hello! This is a test message.',
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
+      sender: { id: currentUserId, label: 'You' },
+      senderId: currentUserId,
+      type: 'sent',
+      status: 'sent',
+      updatable: true,
+      deletable: true
+    };
+    
+    setMessages(prev => [...prev, testMessage]);
+  };
+
   return (
     <div className="h-screen max-w-md mx-auto bg-white border border-gray-300 rounded-lg overflow-hidden">
-      <div className="bg-green-600 text-white p-4 text-center font-medium">
-        Chat Demo - Fixed Menu Positioning
+      <div className="bg-gray-600 text-white p-4 text-center font-medium flex items-center justify-between">
+        <span>Clean Chat Demo</span>
+        <button
+          onClick={addTestMessage}
+          className="px-3 py-1 bg-gray-700 hover:bg-gray-800 rounded text-xs transition-colors"
+        >
+          Add Test Message
+        </button>
       </div>
       <MessageList
         messages={messages}

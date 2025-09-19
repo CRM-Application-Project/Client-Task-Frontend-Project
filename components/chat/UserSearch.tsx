@@ -14,12 +14,17 @@ const UserSearch: React.FC<UserSearchProps> = ({ users, onUserSelect, onClose })
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>(users);
 
+  // 🟢 get current user id from localStorage (or your auth context)
+  const currentUserId = localStorage.getItem('userId');
+
   useEffect(() => {
-    const filtered = users.filter(user =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const filtered = users.filter(
+      user =>
+        user.id !== currentUserId && // 🚫 skip yourself
+        user.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredUsers(filtered);
-  }, [searchQuery, users]);
+  }, [searchQuery, users, currentUserId]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -17,14 +17,16 @@ const GroupModal: React.FC<GroupModalProps> = ({ mode, chat, users, onSave, onCl
   const [selectedUsers, setSelectedUsers] = useState<User[]>(chat?.participants || []);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>(users);
+const currentUserId =localStorage.getItem('userId');
+ useEffect(() => {
+  const filtered = users.filter(user =>
+    user.id !== currentUserId &&                                  // ⬅️ skip yourself
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    !selectedUsers.some(selected => selected.id === user.id)
+  );
+  setFilteredUsers(filtered);
+}, [searchQuery, users, selectedUsers, currentUserId]);
 
-  useEffect(() => {
-    const filtered = users.filter(user =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !selectedUsers.some(selected => selected.id === user.id)
-    );
-    setFilteredUsers(filtered);
-  }, [searchQuery, users, selectedUsers]);
 
   const handleUserToggle = (user: User, action: 'add' | 'remove') => {
     if (action === 'add') {

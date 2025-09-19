@@ -37,7 +37,8 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     getMessageReceiptsById,
     users,
     addChatParticipants,
-    removeChatParticipants
+    removeChatParticipants,
+    changeParticipantRoleInGroup
   } = useChat();
 
   const chatMessages = messages[chat.id] || [];
@@ -105,17 +106,34 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     return mentions;
   };
 
-  const handleReaction = async (messageId: string, emoji: string, action: 'add' | 'remove') => {
+  const handleReaction = async (messageId: string, emoji: string) => {
     try {
-      if (action === 'add') {
-        await addMessageReaction(messageId, emoji);
-      } else {
-        await removeMessageReaction(messageId, emoji);
+      const message = chatMessages.find(m => m.id === messageId);
+      if (!message) return;
+      
+      // Check if the current user already has a reaction on this message
+      const userReaction = message.reactions?.find(reaction => 
+        reaction.users.includes(currentUserId)
+      );
+      
+      if (userReaction) {
+        // If user already has a reaction, remove it first
+        await removeMessageReaction(messageId, userReaction.emoji);
+        
+        // If the user is clicking the same emoji again, just remove it (toggle off)
+        if (userReaction.emoji === emoji) {
+          return; // We already removed it above
+        }
       }
+      
+      // Add the new reaction (this will replace the previous one)
+      await addMessageReaction(messageId, emoji);
+      
     } catch (err) {
       console.error('Error handling reaction:', err);
     }
   };
+
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
     try {
@@ -151,9 +169,11 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     setSelectedMessage(null);
   };
 
+  // Participant management functions
   const handleAddMembers = async (chatId: string, userIds: string[]) => {
     try {
       await addChatParticipants(chatId, userIds);
+      console.log(`Successfully added ${userIds.length} members to chat ${chatId}`);
     } catch (err) {
       console.error('Error adding members:', err);
       throw err;
@@ -163,8 +183,19 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   const handleRemoveMember = async (chatId: string, userId: string) => {
     try {
       await removeChatParticipants(chatId, [userId]);
+      console.log(`Successfully removed member ${userId} from chat ${chatId}`);
     } catch (err) {
       console.error('Error removing member:', err);
+      throw err;
+    }
+  };
+
+  const handleChangeRole = async (chatId: string, userId: string, role: 'ADMIN' | 'MEMBER') => {
+    try {
+      await changeParticipantRoleInGroup(chatId, userId, role);
+      console.log(`Successfully changed role of user ${userId} to ${role} in chat ${chatId}`);
+    } catch (err) {
+      console.error('Error changing participant role:', err);
       throw err;
     }
   };
@@ -257,9 +288,9 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-1 h-12 bg-green-500 rounded"></div>
+              <div className="w-1 h-12 bg-gray-500 rounded"></div>
               <div className="flex-1">
-                <p className="text-xs text-green-600 font-medium">
+                <p className="text-xs text-gray-600 font-medium">
                   Replying to {replyTo.sender.label}
                 </p>
                 <p className="text-sm text-gray-800 truncate max-w-xs">{replyTo.content}</p>
@@ -276,44 +307,51 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       )}
 
       {/* Message Input - Fixed at bottom */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-sm">
-        <div className="flex items-end gap-3">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full flex-shrink-0"
-          >
+     <div className="w-full max-w-[80vw] mx-auto bg-gray-50">
+      {/* Chat messages area placeholder */}
+   
+
+      {/* Message Input - Exact replica */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-sm rounded-b-lg">
+        <div className="flex items-center gap-3">
+          {/* Attachment Button */}
+          <button className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2.5 rounded-full flex-shrink-0 transition-colors">
             <Paperclip className="h-5 w-5" />
-          </Button>
-          
+          </button>
+         
+          {/* Text Input Container */}
           <div className="flex-1 relative">
-            <Textarea
+            <textarea
               ref={textareaRef}
-              placeholder={`Type a message`}
+              placeholder="Type a message..."
               value={message}
               onChange={handleTextareaChange}
               onKeyPress={handleKeyPress}
-              className="min-h-[24px] max-h-[80px] resize-none bg-gray-100 border-gray-200 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 text-gray-800 placeholder-gray-500 rounded-full px-4 py-3 pr-12"
-              style={{ paddingRight: '48px' }}
+              className="min-h-[44px] max-h-[80px] resize-none bg-gray-50 border border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 text-gray-900 placeholder-gray-400 rounded-2xl px-4 py-3 pr-12 w-full outline-none transition-all duration-200 text-sm leading-5"
+              style={{ 
+                paddingRight: '48px'
+              }}
+              rows={1}
             />
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 p-2 rounded-full"
+            {/* Emoji Button */}
+            <button
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             >
-              <Smile className="h-5 w-5" />
-            </Button>
+              <Smile className="h-4 w-4" />
+            </button>
           </div>
-          
-          <Button 
+         
+          {/* Send Button */}
+          <button
             onClick={handleSendMessage}
             disabled={!message.trim()}
-            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[48px] min-h-[48px] flex-shrink-0"
+            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[44px] min-h-[44px] flex-shrink-0 transition-colors duration-200 flex items-center justify-center shadow-sm"
           >
-            <Send className="h-5 w-5" />
-          </Button>
+            <Send className="h-4 w-4 text-white" />
+          </button>
         </div>
+      </div>
       </div>
 
       {/* Emoji Picker - Absolute positioning */}
@@ -338,7 +376,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
         />
       )}
 
-      {/* Group Info Modal */}
+      {/* Group Info Modal - Now includes all participant management functions */}
       {showGroupInfo && chat.type === 'group' && (
         <GroupInfoModal
           chat={chat}
@@ -346,6 +384,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           currentUserId={currentUserId}
           onAddMembers={handleAddMembers}
           onRemoveMember={handleRemoveMember}
+          onChangeRole={handleChangeRole}
           onClose={() => setShowGroupInfo(false)}
         />
       )}
