@@ -1,6 +1,7 @@
 "use client";
 import { User } from '@/lib/data';
 import React, { useState, useRef, useEffect } from 'react';
+import { Smile } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 interface MentionInputProps {
@@ -9,6 +10,7 @@ interface MentionInputProps {
   onKeyPress: (e: React.KeyboardEvent) => void;
   users: User[];
   placeholder: string;
+  onEmojiClick?: () => void;
 }
 
 const MentionInput: React.FC<MentionInputProps> = ({
@@ -17,6 +19,7 @@ const MentionInput: React.FC<MentionInputProps> = ({
   onKeyPress,
   users,
   placeholder,
+  onEmojiClick,
 }) => {
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -96,9 +99,21 @@ const MentionInput: React.FC<MentionInputProps> = ({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={1}
-        className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent text-sm text-gray-800 placeholder-gray-500 resize-none"
-        style={{ minHeight: '40px', maxHeight: '120px' }}
+        className="min-h-[44px] max-h-[80px] resize-none bg-gray-50 border border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 text-gray-900 placeholder-gray-400 rounded-2xl px-4 py-3 pr-12 w-full outline-none transition-all duration-200 text-sm leading-5"
+        style={{ 
+          paddingRight: '48px'
+        }}
       />
+      
+      {/* Emoji Button */}
+      {onEmojiClick && (
+        <button
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors"
+          onClick={onEmojiClick}
+        >
+          <Smile className="h-4 w-4" />
+        </button>
+      )}
 
       {/* Mention dropdown */}
       {showMentions && filteredUsers.length > 0 && (
