@@ -18,7 +18,8 @@ import {
   getMessage,
   getMessageReceipts,
   updateMessageReceipt,
-  Chat
+  Chat,
+  MessageFileInfo
 } from '@/app/services/chatService';
 import { firebaseChatService, FirebaseMessage, ChatNotifications } from '@/app/services/FirebaseChatService';
 
@@ -48,6 +49,7 @@ export interface Message {
   deletable?: boolean;
   updatable?: boolean;
   status?: 'sending' | 'sent' | 'delivered' | 'read';
+  hasAttachments?: boolean; // New field to indicate if message has files
 }
 
 export const useChat = () => {
@@ -196,7 +198,8 @@ export const useChat = () => {
             mentions: apiMsg.mentions,
             deletable: apiMsg.deletable,
             updatable: apiMsg.updatable,
-            status: apiMsg.sender.id === currentUserId ? 'sent' : undefined
+            status: apiMsg.sender.id === currentUserId ? 'sent' : undefined,
+            hasAttachments: apiMsg.attachments && apiMsg.attachments.length > 0
           };
         });
         
@@ -351,6 +354,7 @@ export const useChat = () => {
           deletable: false,
           updatable: false,
           status: fm.senderId === currentUserId ? 'sent' : undefined,
+          hasAttachments: fm.attachments && fm.attachments.length > 0
         }));
 
         setMessages(prev => ({ ...prev, [conversationId]: transformed }));
@@ -376,8 +380,14 @@ export const useChat = () => {
     }
   }, []);
 
-  // Send a new message
-  const sendMessage = useCallback(async (chatId: string, content: string, mentions?: string[], parentId?: string) => {
+  // Send a new message (updated to handle file attachments)
+  const sendMessage = useCallback(async (
+    chatId: string, 
+    content: string, 
+    mentions?: string[], 
+    parentId?: string,
+    fileInfo?: MessageFileInfo[]
+  ) => {
     const tempId = `temp-${Date.now()}`;
     const tempMessage: Message = {
       id: tempId,
@@ -392,10 +402,18 @@ export const useChat = () => {
       type: 'sent',
       mentions,
       parentId,
-      status: 'sending'
+      status: 'sending',
+      hasAttachments: fileInfo && fileInfo.length > 0
     };
 
-    console.log(`[useChat] Sending message to chat ${chatId}:`, { content, mentions, parentId });
+    console.log(`[useChat] Sending message to chat ${chatId}:`, { 
+      content, 
+      mentions, 
+      parentId, 
+      fileInfo,
+      hasFiles: fileInfo && fileInfo.length > 0,
+      fileCount: fileInfo?.length || 0
+    });
 
     // Optimistically add message
     setMessages(prev => ({
@@ -407,17 +425,25 @@ export const useChat = () => {
       let response;
       
       if (parentId) {
-        response = await replyToMessageService(parentId, {
+        const replyPayload = {
           conversationId: parseInt(chatId),
           content,
-          mentions
-        });
+          mentions,
+          fileInfo // Include file info in reply payload
+        };
+        
+        console.log(`[useChat] Calling replyToMessageService with payload:`, replyPayload);
+        response = await replyToMessageService(parentId, replyPayload);
       } else {
-        response = await addMessage({
+        const messagePayload = {
           conversationId: parseInt(chatId),
           content,
-          mentions
-        });
+          mentions,
+          fileInfo // Include file info in message payload
+        };
+        
+        console.log(`[useChat] Calling addMessage with payload:`, messagePayload);
+        response = await addMessage(messagePayload);
       }
 
       if (response.isSuccess) {
@@ -442,7 +468,8 @@ export const useChat = () => {
           mentions: response.data.mentions,
           deletable: response.data.deletable,
           updatable: response.data.updatable,
-          status: 'sent'
+          status: 'sent',
+          hasAttachments: fileInfo && fileInfo.length > 0
         };
 
         setMessages(prev => ({
@@ -786,8 +813,6 @@ export const useChat = () => {
         notificationUnsubscriber.current();
       }
       
-      // Clean up Firebase service
-      firebaseChatService.cleanup();
     };
   }, []);
 

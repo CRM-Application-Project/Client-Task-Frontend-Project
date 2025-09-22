@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Reply, Smile, Edit3, Trash2, Check, CheckCheck, Clock, Plus, Minus, Info } from "lucide-react";
+import { MoreVertical, Reply, Smile, Edit3, Trash2, Check, CheckCheck, Clock, Plus, Minus, Info, Download, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Message } from "@/hooks/useChat";
-
-// Message type definition
-
 
 interface MessageListProps {
   messages: Message[];
@@ -15,6 +12,7 @@ interface MessageListProps {
   onEdit: (messageId: string, newContent: string) => void;
   onDelete: (messageId: string) => void;
   onMessageInfo?: (messageId: string) => void;
+  onDownloadFiles?: (messageId: string) => void;
 }
 
 // Simple UserAvatar component for demo
@@ -34,7 +32,8 @@ export const MessageList = ({
   onReply, 
   onEdit, 
   onDelete,
-  onMessageInfo
+  onMessageInfo,
+  onDownloadFiles
 }: MessageListProps) => {
   const [showActions, setShowActions] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
@@ -94,26 +93,26 @@ export const MessageList = ({
   };
 
   const getDeliveryIcon = (status?: string, isOwn?: boolean) => {
-  if (!isOwn) return null;
-  
-  // Convert status to uppercase for case-insensitive comparison
-  const normalizedStatus = status?.toUpperCase();
-  
-  switch (normalizedStatus) {
-    case 'SENDING':
-      return <Clock size={12} className="text-gray-400" />;
-    case 'SENT':
-      return <Check size={12} className="text-gray-400" />;
-    case 'DELIVERED':
-      return <CheckCheck size={12} className="text-gray-400" />;
-    case 'READ':
-      return <CheckCheck size={12} className="text-blue-500" />;
-    case 'FAILED':
-      return <span className="text-xs text-red-500">!</span>;
-    default:
-      return <Check size={12} className="text-gray-400" />;
-  }
-};
+    if (!isOwn) return null;
+    
+    // Convert status to uppercase for case-insensitive comparison
+    const normalizedStatus = status?.toUpperCase();
+    
+    switch (normalizedStatus) {
+      case 'SENDING':
+        return <Clock size={12} className="text-gray-400" />;
+      case 'SENT':
+        return <Check size={12} className="text-gray-400" />;
+      case 'DELIVERED':
+        return <CheckCheck size={12} className="text-gray-400" />;
+      case 'READ':
+        return <CheckCheck size={12} className="text-blue-500" />;
+      case 'FAILED':
+        return <span className="text-xs text-red-500">!</span>;
+      default:
+        return <Check size={12} className="text-gray-400" />;
+    }
+  };
 
   const findRepliedMessage = (parentId: string) => {
     return messages.find(m => m.id === parentId);
@@ -347,9 +346,45 @@ export const MessageList = ({
                               ? "bg-gray-500 text-white rounded-br-sm"
                               : "bg-white text-gray-800 rounded-bl-sm"
                           )}>
-                            <p className="text-sm whitespace-pre-wrap break-words leading-5">
-                              {message.content}
-                            </p>
+                            <div className="space-y-2">
+                              <p className="text-sm whitespace-pre-wrap break-words leading-5">
+                                {message.content}
+                              </p>
+                              
+                              {/* File attachment indicator */}
+                              {message.hasAttachments && (
+                                <div className={cn(
+                                  "flex items-center gap-2 p-2 rounded border-t",
+                                  isOwn 
+                                    ? "border-gray-400 bg-gray-600"
+                                    : "border-gray-200 bg-gray-50"
+                                )}>
+                                  <File size={16} className={cn(
+                                    isOwn ? "text-gray-200" : "text-gray-500"
+                                  )} />
+                                  <span className={cn(
+                                    "text-xs",
+                                    isOwn ? "text-gray-200" : "text-gray-600"
+                                  )}>
+                                    File attachment
+                                  </span>
+                                  {onDownloadFiles && (
+                                    <button
+                                      onClick={() => onDownloadFiles(message.id)}
+                                      className={cn(
+                                        "ml-auto p-1 rounded hover:bg-opacity-70",
+                                        isOwn 
+                                          ? "text-gray-200 hover:bg-gray-700"
+                                          : "text-gray-600 hover:bg-gray-200"
+                                      )}
+                                      title="Download files"
+                                    >
+                                      <Download size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                             
                             {/* Message time and status */}
                             <div className={cn(
@@ -387,6 +422,17 @@ export const MessageList = ({
                               >
                                 <Reply className="h-3 w-3 text-gray-600" />
                               </Button>
+                              {/* Download button for messages with attachments */}
+                              {message.hasAttachments && onDownloadFiles && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                                  onClick={() => onDownloadFiles(message.id)}
+                                >
+                                  <Download className="h-3 w-3 text-gray-600" />
+                                </Button>
+                              )}
                               {isOwn && (
                                 <Button 
                                   variant="ghost" 
@@ -586,176 +632,3 @@ export const MessageList = ({
     </div>
   );
 };
-
-// Demo component to show the MessageList in action
-export default function MessageListDemo() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const currentUserId = 'current';
-
-  const handleReaction = (messageId: string, emoji: string) => {
-    setMessages(prev => prev.map(msg => {
-      if (msg.id === messageId) {
-        const reactions = msg.reactions || [];
-        
-        // Check if user already has any reaction on this message
-        const userReactionIndex = reactions.findIndex(r => 
-          r.users && r.users.includes(currentUserId)
-        );
-        
-        if (userReactionIndex >= 0) {
-          const userReaction = reactions[userReactionIndex];
-          
-          // If user is clicking the same emoji they already reacted with, remove it (toggle off)
-          if (userReaction.emoji === emoji) {
-            const newUsers = userReaction.users.filter(u => u !== currentUserId);
-            const newCount = userReaction.count - 1;
-            
-            if (newCount === 0) {
-              return {
-                ...msg,
-                reactions: reactions.filter((_, i) => i !== userReactionIndex)
-              };
-            } else {
-              return {
-                ...msg,
-                reactions: reactions.map((r, i) => 
-                  i === userReactionIndex 
-                    ? { ...r, count: newCount, users: newUsers }
-                    : r
-                )
-              };
-            }
-          } else {
-            // User is clicking a different emoji, remove old reaction and add new one
-            let updatedReactions = [...reactions];
-            
-            // Remove old reaction
-            const oldReactionUsers = userReaction.users.filter(u => u !== currentUserId);
-            const oldReactionCount = userReaction.count - 1;
-            
-            if (oldReactionCount === 0) {
-              updatedReactions = updatedReactions.filter((_, i) => i !== userReactionIndex);
-            } else {
-              updatedReactions[userReactionIndex] = {
-                ...userReaction,
-                count: oldReactionCount,
-                users: oldReactionUsers
-              };
-            }
-            
-            // Add new reaction
-            const newReactionIndex = updatedReactions.findIndex(r => r.emoji === emoji);
-            if (newReactionIndex >= 0) {
-              // Emoji already exists, add user to it
-              updatedReactions[newReactionIndex] = {
-                ...updatedReactions[newReactionIndex],
-                count: updatedReactions[newReactionIndex].count + 1,
-                users: [...updatedReactions[newReactionIndex].users, currentUserId]
-              };
-            } else {
-              // Create new reaction
-              updatedReactions.push({ emoji, count: 1, users: [currentUserId] });
-            }
-            
-            return { ...msg, reactions: updatedReactions };
-          }
-        } else {
-          // User doesn't have any reaction, add new one
-          const existingReactionIndex = reactions.findIndex(r => r.emoji === emoji);
-          
-          if (existingReactionIndex >= 0) {
-            // Emoji already exists, add user to it
-            return {
-              ...msg,
-              reactions: reactions.map((r, i) => 
-                i === existingReactionIndex 
-                  ? { ...r, count: r.count + 1, users: [...r.users, currentUserId] }
-                  : r
-              )
-            };
-          } else {
-            // Create new reaction
-            return {
-              ...msg,
-              reactions: [...reactions, { emoji, count: 1, users: [currentUserId] }]
-            };
-          }
-        }
-      }
-      return msg;
-    }));
-  };
-
-  const handleReply = (message: Message) => {
-    const replyMessage: Message = {
-      id: `reply-${Date.now()}`,
-      content: `This is a reply to "${message.content.substring(0, 30)}..."`,
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      createdAt: new Date().toISOString(),
-      sender: { id: currentUserId, label: 'You' },
-      senderId: currentUserId,
-      type: 'sent',
-      status: 'sent',
-      parentId: message.id,
-      updatable: true,
-      deletable: true
-    };
-    
-    setMessages(prev => [...prev, replyMessage]);
-  };
-
-  const handleEdit = (messageId: string, newContent: string) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, content: newContent } : msg
-    ));
-  };
-
-  const handleDelete = (messageId: string) => {
-    setMessages(prev => prev.filter(msg => msg.id !== messageId));
-  };
-
-  const handleMessageInfo = (messageId: string) => {
-    console.log('Message info for:', messageId);
-  };
-
-  // Add a test message function for demo purposes
-  const addTestMessage = () => {
-    const testMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: 'Hello! This is a test message.',
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      createdAt: new Date().toISOString(),
-      sender: { id: currentUserId, label: 'You' },
-      senderId: currentUserId,
-      type: 'sent',
-      status: 'sent',
-      updatable: true,
-      deletable: true
-    };
-    
-    setMessages(prev => [...prev, testMessage]);
-  };
-
-  return (
-    <div className="h-screen max-w-md mx-auto bg-white border border-gray-300 rounded-lg overflow-hidden">
-      <div className="bg-gray-600 text-white p-4 text-center font-medium flex items-center justify-between">
-        <span>Clean Chat Demo</span>
-        <button
-          onClick={addTestMessage}
-          className="px-3 py-1 bg-gray-700 hover:bg-gray-800 rounded text-xs transition-colors"
-        >
-          Add Test Message
-        </button>
-      </div>
-      <MessageList
-        messages={messages}
-        currentUserId={currentUserId}
-        onReaction={handleReaction}
-        onReply={handleReply}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onMessageInfo={handleMessageInfo}
-      />
-    </div>
-  );
-}
