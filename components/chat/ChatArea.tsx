@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X, Download, File } from "lucide-react";
+import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X, Download, File, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -106,108 +106,127 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   }, [currentChat.id, setActiveConversation]);
 
   // Upload files to get upload URLs
-  const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
-    if (!files.length) return [];
+// Upload files to get upload URLs
+const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
+  if (!files.length) return [];
 
-    setIsUploadingFiles(true);
-    const uploadedFiles: MessageFileInfo[] = [];
+  setIsUploadingFiles(true);
+  const uploadedFiles: MessageFileInfo[] = [];
 
-    try {
-      // Step 1: Get upload URLs from API
-      const uploadPayload = {
-        conversationId: Number(currentChat.id),
-        files: files.map(f => ({
-          fileName: f.file.name,
-          fileType: f.file.type || 'application/octet-stream',
-          identifier: f.identifier
-        }))
-      };
+  try {
+    // Step 1: Get upload URLs from API
+    const uploadPayload = {
+      conversationId: Number(currentChat.id),
+      files: files.map(f => ({
+        fileName: f.file.name,
+        fileType: f.file.type || 'application/octet-stream',
+        identifier: f.identifier
+      }))
+    };
 
-      console.log('[ChatArea] Requesting upload URLs for files:', uploadPayload);
-      const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
+    console.log('[ChatArea] Requesting upload URLs for files:', uploadPayload);
+    const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
 
-      if (!uploadUrlResponse.isSuccess) {
-        throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
+    if (!uploadUrlResponse.isSuccess) {
+      throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
+    }
+
+    console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
+
+    // Step 2: Upload each file to its respective upload URL
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
+      
+      if (!uploadData) {
+        console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
+        continue;
       }
 
-      console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
+      // Update file status - use 'url' instead of 'uploadUrl'
+      setSelectedFiles(prev => prev.map(f => 
+        f.identifier === file.identifier 
+          ? { ...f, isUploading: true, uploadUrl: uploadData.url, downloadUrl: uploadData.url } // Use url for both
+          : f
+      ));
 
-      // Step 2: Upload each file to its respective upload URL
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
+      try {
+        console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.url}`);
         
-        if (!uploadData) {
-          console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
-          continue;
+        // Upload file using PUT request to the signed URL
+        const uploadResponse = await fetch(uploadData.url, {
+          method: 'PUT',
+          body: file.file,
+          headers: {
+            'Content-Type': file.file.type || 'application/octet-stream'
+          }
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
         }
+
+        console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
+
+        // Add to uploaded files list - include all necessary data from response
+        uploadedFiles.push({
+          fileName: uploadData.fileName,
+          fileType: file.file.type || 'application/octet-stream',
+          // Include any additional fields that might be needed by the backend
+          
+        });
 
         // Update file status
         setSelectedFiles(prev => prev.map(f => 
           f.identifier === file.identifier 
-            ? { ...f, isUploading: true, uploadUrl: uploadData.uploadUrl, downloadUrl: uploadData.downloadUrl }
+            ? { ...f, isUploading: false, uploadProgress: 100 }
             : f
         ));
 
-        try {
-          console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.uploadUrl}`);
-          
-          // Upload file using PUT request to the signed URL
-          const uploadResponse = await fetch(uploadData.uploadUrl, {
-            method: 'PUT',
-            body: file.file,
-            headers: {
-              'Content-Type': file.file.type || 'application/octet-stream'
-            }
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
-          }
-
-          console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
-
-          // Add to uploaded files list
-          uploadedFiles.push({
-            fileName: uploadData.fileName,
-            fileType: file.file.type || 'application/octet-stream'
-          });
-
-          // Update file status
-          setSelectedFiles(prev => prev.map(f => 
-            f.identifier === file.identifier 
-              ? { ...f, isUploading: false, uploadProgress: 100 }
-              : f
-          ));
-
-        } catch (uploadError) {
-          console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
-          
-          setSelectedFiles(prev => prev.map(f => 
-            f.identifier === file.identifier 
-              ? { ...f, isUploading: false, error: uploadError.message }
-              : f
-          ));
-        }
-      }
-
-    } catch (error) {
-      console.error('[ChatArea] Error in file upload process:', error);
-      
-      // Mark all files as failed
-      setSelectedFiles(prev => prev.map(f => ({ 
-        ...f, 
-        isUploading: false, 
-        error: error.message || 'Upload failed' 
-      })));
-    } finally {
-      setIsUploadingFiles(false);
+      }catch (uploadError) {
+  console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
+  
+  // Handle unknown type properly
+  const errorMessage = uploadError instanceof Error 
+    ? uploadError.message 
+    : 'Unknown upload error';
+  
+  setSelectedFiles(prev => prev.map(f => 
+    f.identifier === file.identifier 
+      ? { ...f, isUploading: false, error: errorMessage }
+      : f
+  ));
+}
     }
 
-    return uploadedFiles;
-  };
+  } catch (error) {
+  console.error('[ChatArea] Error in file upload process:', error);
+  
+  // Handle unknown type properly
+  const errorMessage = error instanceof Error 
+    ? error.message 
+    : 'Upload process failed';
+  
+  // Mark all files as failed
+  setSelectedFiles(prev => prev.map(f => ({ 
+    ...f, 
+    isUploading: false, 
+    error: errorMessage 
+  })));
+}finally {
+    setIsUploadingFiles(false);
+  }
+
+  return uploadedFiles;
+};
 
   const handleSendMessage = async () => {
+    // Prevent sending if files are still uploading
+    if (isUploadingFiles) {
+      console.log('[ChatArea] Cannot send message while files are uploading');
+      return;
+    }
+
     if (message.trim() || selectedFiles.length > 0) {
       const content = message.trim();
       const mentions = extractMentions(content);
@@ -224,7 +243,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           const failedUploads = selectedFiles.filter(f => f.error);
           if (failedUploads.length > 0) {
             console.error('[ChatArea] Some files failed to upload:', failedUploads);
-            // You might want to show an error message to the user here
+            alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
             return;
           }
           
@@ -558,6 +577,11 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           <div className="flex flex-col gap-2">
             <p className="text-xs text-gray-600 font-medium">
               Selected Files ({selectedFiles.length})
+              {isUploadingFiles && (
+                <span className="ml-2 text-blue-600 font-normal">
+                  - Uploading files...
+                </span>
+              )}
             </p>
             <div className="flex flex-wrap gap-2">
               {selectedFiles.map((fileInfo) => (
@@ -572,7 +596,10 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
                   {/* Upload status indicators */}
                   {fileInfo.isUploading && (
                     <div className="absolute inset-0 bg-blue-100 bg-opacity-75 flex items-center justify-center rounded-lg">
-                      <span className="text-xs text-blue-600">Uploading...</span>
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} className="text-blue-600 animate-pulse" />
+                        <span className="text-xs text-blue-600">Uploading...</span>
+                      </div>
                     </div>
                   )}
                   
@@ -684,7 +711,11 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
               disabled={(!message.trim() && selectedFiles.length === 0) || isUploadingFiles}
               className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[44px] min-h-[44px] flex-shrink-0 transition-colors duration-200 flex items-center justify-center shadow-sm"
             >
-              <Send className="h-4 w-4 text-white" />
+              {isUploadingFiles ? (
+                <Clock className="h-4 w-4 text-white animate-pulse" />
+              ) : (
+                <Send className="h-4 w-4 text-white" />
+              )}
             </button>
           </div>
         </div>
