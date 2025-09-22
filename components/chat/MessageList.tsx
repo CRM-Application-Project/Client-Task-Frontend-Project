@@ -354,7 +354,7 @@ export const MessageList = ({
                               {/* File attachment indicator */}
                               {message.hasAttachments && (
                                 <div className={cn(
-                                  "flex items-center gap-2 p-2 rounded border-t",
+                                  "flex items-center gap-2 p-2 rounded border-t mt-2",
                                   isOwn 
                                     ? "border-gray-400 bg-gray-600"
                                     : "border-gray-200 bg-gray-50"
@@ -363,16 +363,16 @@ export const MessageList = ({
                                     isOwn ? "text-gray-200" : "text-gray-500"
                                   )} />
                                   <span className={cn(
-                                    "text-xs",
+                                    "text-xs font-medium",
                                     isOwn ? "text-gray-200" : "text-gray-600"
                                   )}>
-                                    File attachment
+                                    📎 Files attached
                                   </span>
                                   {onDownloadFiles && (
                                     <button
                                       onClick={() => onDownloadFiles(message.id)}
                                       className={cn(
-                                        "ml-auto p-1 rounded hover:bg-opacity-70",
+                                        "ml-auto p-1 rounded hover:bg-opacity-70 transition-colors",
                                         isOwn 
                                           ? "text-gray-200 hover:bg-gray-700"
                                           : "text-gray-600 hover:bg-gray-200"

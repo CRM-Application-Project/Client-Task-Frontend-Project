@@ -8,6 +8,7 @@ export interface FirebaseMessage {
   senderId: string;
   timestamp: string;
   createdAt?: string;
+  attachments?: any[];
   type?: string;
   parentId?: string;
   mentions?: string[];

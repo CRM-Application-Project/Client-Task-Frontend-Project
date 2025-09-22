@@ -14,26 +14,33 @@ interface GroupModalProps {
 
 const GroupModal: React.FC<GroupModalProps> = ({ mode, chat, users, onSave, onClose }) => {
   const [groupName, setGroupName] = useState(chat?.name || '');
-const [selectedUsers, setSelectedUsers] = useState<ChatParticipant[]>(
-  chat?.participants || []
-);
+  const currentUserId = localStorage.getItem('userId');
+  
+  // Initialize selected users with current user in create mode
+  const [selectedUsers, setSelectedUsers] = useState<ChatParticipant[]>(
+    mode === 'create' 
+      ? users.filter(user => user.id === currentUserId) // Add yourself automatically
+      : chat?.participants || []
+  );
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<ChatParticipant[]>(users);
-const currentUserId =localStorage.getItem('userId');
- useEffect(() => {
-  const filtered = users.filter(user =>
-    user.id !== currentUserId &&                                  // ⬅️ skip yourself
-    user.label.toLowerCase().includes(searchQuery.toLowerCase()) &&
-    !selectedUsers.some(selected => selected.id === user.id)
-  );
-  setFilteredUsers(filtered);
-}, [searchQuery, users, selectedUsers, currentUserId]);
 
+  useEffect(() => {
+    const filtered = users.filter(user =>
+      user.id !== currentUserId && // Skip yourself in search results
+      user.label.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !selectedUsers.some(selected => selected.id === user.id)
+    );
+    setFilteredUsers(filtered);
+  }, [searchQuery, users, selectedUsers, currentUserId]);
 
   const handleUserToggle = (user: ChatParticipant, action: 'add' | 'remove') => {
     if (action === 'add') {
       setSelectedUsers(prev => [...prev, user]);
     } else {
+      // Prevent removing yourself from the group
+      if (user.id === currentUserId) return;
       setSelectedUsers(prev => prev.filter(u => u.id !== user.id));
     }
     setSearchQuery('');
@@ -96,12 +103,15 @@ const currentUserId =localStorage.getItem('userId');
                       size="sm"
                     />
                     <span className="text-sm text-gray-800">{user.label}</span>
-                    <button
-                      onClick={() => handleUserToggle(user, 'remove')}
-                      className="text-gray-500 hover:text-red-600 ml-1"
-                    >
-                      <UserMinus size={14} />
-                    </button>
+                    {/* Don't show remove button for yourself */}
+                    {user.id !== currentUserId && (
+                      <button
+                        onClick={() => handleUserToggle(user, 'remove')}
+                        className="text-gray-500 hover:text-red-600 ml-1"
+                      >
+                        <UserMinus size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

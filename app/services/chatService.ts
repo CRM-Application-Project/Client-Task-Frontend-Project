@@ -399,9 +399,12 @@ export interface UploadMessageUrlsResponse {
   isSuccess: boolean;
   message: string;
   data: {
+    docId: string | null;
+    type: string;
     fileName: string;
-    uploadUrl: string;
-    downloadUrl: string;
+    fileType: string;
+    url: string;
+    key: string;
     identifier: string;
   }[];
 }
