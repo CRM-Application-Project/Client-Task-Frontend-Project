@@ -219,74 +219,60 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     return uploadedFiles;
   };
 
- const handleSendMessage = async () => {
-  // Prevent sending if files are still uploading
-  if (isUploadingFiles) {
-    console.log('[ChatArea] Cannot send message while files are uploading');
-    return;
-  }
+  const handleSendMessage = async () => {
+    // Prevent sending if files are still uploading
+    if (isUploadingFiles) {
+      console.log('[ChatArea] Cannot send message while files are uploading');
+      return;
+    }
 
-  if (message.trim() || selectedFiles.length > 0) {
-    const content = message.trim();
-    const mentions = extractMentions(content);
-    
-    try {
-      let fileInfo: MessageFileInfo[] = [];
+    if (message.trim() || selectedFiles.length > 0) {
+      const content = message.trim();
+      const mentions = extractMentions(content);
       
-      // Upload files if any
-      if (selectedFiles.length > 0) {
-        console.log('[ChatArea] Uploading files before sending message...');
-        fileInfo = await uploadFilesToServer(selectedFiles);
+      try {
+        let fileInfo: MessageFileInfo[] = [];
         
-        // Check if any uploads failed
-        const failedUploads = selectedFiles.filter(f => f.error);
-        if (failedUploads.length > 0) {
-          console.error('[ChatArea] Some files failed to upload:', failedUploads);
-          alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
-          return;
+        // Upload files if any
+        if (selectedFiles.length > 0) {
+          console.log('[ChatArea] Uploading files before sending message...');
+          fileInfo = await uploadFilesToServer(selectedFiles);
+          
+          // Check if any uploads failed
+          const failedUploads = selectedFiles.filter(f => f.error);
+          if (failedUploads.length > 0) {
+            console.error('[ChatArea] Some files failed to upload:', failedUploads);
+            alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
+            return;
+          }
+          
+          console.log('[ChatArea] File info to pass to sendMessage:', fileInfo);
         }
         
-        console.log('[ChatArea] File info to pass to sendMessage:', fileInfo);
-      }
-      
-      // If replying to a message with attachments, include those attachments in the reply
-      let replyFileInfo = fileInfo;
-      if (replyTo && replyTo.hasAttachments && replyTo.attachments && replyTo.attachments.length > 0) {
-        // Convert MessageAttachment[] to MessageFileInfo[]
-        const replyToFileInfo: MessageFileInfo[] = replyTo.attachments.map(attachment => ({
-          fileName: attachment.fileName,
-          fileType: attachment.fileType
-        }));
+        // Send message with file info if files were uploaded
+        console.log('[ChatArea] Calling sendMessage with:', {
+          chatId: String(chat.id),
+          content,
+          mentions,
+          replyToId: replyTo?.id,
+          fileInfo
+        });
         
-        // Combine new files with reply-to files
-        replyFileInfo = [...fileInfo, ...replyToFileInfo];
-        console.log('[ChatArea] Including attachments from replied message:', replyToFileInfo);
+        await sendMessage(String(chat.id), content, mentions, replyTo?.id, fileInfo);
+        
+        setMessage("");
+        setReplyTo(null);
+        setSelectedFiles([]);
+        
+        // Auto-resize textarea
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+      } catch (err) {
+        console.error('[ChatArea] Error sending message:', err);
       }
-      
-      // Send message with file info
-      console.log('[ChatArea] Calling sendMessage with:', {
-        chatId: String(chat.id),
-        content,
-        mentions,
-        replyToId: replyTo?.id,
-        fileInfo: replyFileInfo
-      });
-      
-      await sendMessage(String(chat.id), content, mentions, replyTo?.id, replyFileInfo);
-      
-      setMessage("");
-      setReplyTo(null);
-      setSelectedFiles([]);
-      
-      // Auto-resize textarea
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-    } catch (err) {
-      console.error('[ChatArea] Error sending message:', err);
     }
-  }
-};
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

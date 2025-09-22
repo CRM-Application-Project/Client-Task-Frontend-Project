@@ -4,39 +4,47 @@ import Sidebar from '../../components/chat/Sidebar';
 import { Chat } from '../services/chatService';
 import { ChatArea } from '@/components/chat/ChatArea';
 
-const SELECTED_CHAT_KEY = 'selectedChatId';
+// In-memory storage for selected chat (Claude.ai artifacts compatible)
+let persistedChatId: string | null = null;
 
 const ChatModule: React.FC = () => {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [chatsLoaded, setChatsLoaded] = useState(false);
+  const [restorationAttempted, setRestorationAttempted] = useState(false);
 
-  // Function to restore selected chat from localStorage
+  // Function to restore selected chat from memory
   const restoreSelectedChat = useCallback((chatsArray: Chat[]) => {
-    const savedChatId = localStorage.getItem(SELECTED_CHAT_KEY);
-    console.log('Attempting to restore chat ID:', savedChatId);
+    if (restorationAttempted || chatsArray.length === 0) return false;
+    
+    console.log('Attempting to restore chat ID:', persistedChatId);
     console.log('Available chats:', chatsArray.map(c => ({ id: c.id, name: c.name })));
     
-    if (savedChatId && chatsArray.length > 0) {
-      const chat = chatsArray.find(c => String(c.id) === String(savedChatId));
+    if (persistedChatId) {
+      const chat = chatsArray.find(c => String(c.id) === String(persistedChatId));
       if (chat) {
         console.log('Successfully restored chat:', chat.name);
         setSelectedChat(chat);
+        setRestorationAttempted(true);
         return true;
       } else {
-        console.log('Saved chat not found, clearing localStorage');
-        localStorage.removeItem(SELECTED_CHAT_KEY);
+        console.log('Saved chat not found, clearing persisted data');
+        persistedChatId = null;
       }
     }
+    
+    setRestorationAttempted(true);
     return false;
-  }, []);
+  }, [restorationAttempted]);
 
-  // Save selected chat to localStorage
+  // Save selected chat to memory
   const saveSelectedChat = useCallback((chat: Chat | null) => {
     if (chat) {
-      localStorage.setItem(SELECTED_CHAT_KEY, String(chat.id));
+      persistedChatId = String(chat.id);
+      console.log('Saved chat to memory:', chat.id);
     } else {
-      localStorage.removeItem(SELECTED_CHAT_KEY);
+      persistedChatId = null;
+      console.log('Cleared chat from memory');
     }
   }, []);
 
@@ -55,7 +63,7 @@ const ChatModule: React.FC = () => {
     console.log('Chats updated, count:', updatedChats.length);
     setChats(updatedChats);
     
-    // Mark chats as loaded
+    // Mark chats as loaded only once
     if (!chatsLoaded) {
       setChatsLoaded(true);
     }
@@ -69,24 +77,26 @@ const ChatModule: React.FC = () => {
         // Selected chat was deleted, clear selection
         console.log('Selected chat was deleted, clearing selection');
         setSelectedChat(null);
-        localStorage.removeItem(SELECTED_CHAT_KEY);
+        persistedChatId = null;
+        setRestorationAttempted(true);
       }
-    } else if (!chatsLoaded) {
-      // Try to restore selected chat on first load
-      restoreSelectedChat(updatedChats);
     }
-  }, [selectedChat, chatsLoaded, restoreSelectedChat]);
+  }, [selectedChat, chatsLoaded]);
 
-  // Additional effect to handle restoration after chats are loaded
+  // Single effect to handle chat restoration after chats are loaded
   useEffect(() => {
-    if (chatsLoaded && chats.length > 0 && !selectedChat) {
-      const savedChatId = localStorage.getItem(SELECTED_CHAT_KEY);
-      if (savedChatId) {
-        console.log('Late restoration attempt for chat ID:', savedChatId);
-        restoreSelectedChat(chats);
-      }
+    if (chatsLoaded && chats.length > 0 && !selectedChat && !restorationAttempted) {
+      console.log('Attempting chat restoration after chats loaded');
+      restoreSelectedChat(chats);
     }
-  }, [chatsLoaded, chats, selectedChat, restoreSelectedChat]);
+  }, [chatsLoaded, chats, selectedChat, restorationAttempted, restoreSelectedChat]);
+
+  // Reset restoration flag when chats are cleared (e.g., logout/login)
+  useEffect(() => {
+    if (chats.length === 0 && restorationAttempted) {
+      setRestorationAttempted(false);
+    }
+  }, [chats.length, restorationAttempted]);
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -122,6 +132,9 @@ const ChatModule: React.FC = () => {
                   </div>
                   <h3 className="text-lg font-medium text-gray-800 mb-2">Welcome to Chat</h3>
                   <p className="text-gray-600">Select a conversation to start messaging</p>
+                  {restorationAttempted && (
+                    <p className="text-sm text-gray-500 mt-2">No previous chat to restore</p>
+                  )}
                 </>
               )}
             </div>

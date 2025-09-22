@@ -183,7 +183,7 @@ export const MessageList = ({
       case 'READ':
         return <CheckCheck size={12} className="text-blue-500" />;
       case 'FAILED':
-        return <span className="text-xs text-red-500">!</span>;
+        return <span className="text-xs text-gray-100">!</span>;
       default:
         return <Check size={12} className="text-gray-400" />;
     }
