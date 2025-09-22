@@ -168,15 +168,53 @@ export const MessageList = ({
     );
   }
 
-  // Group messages by date
+  // Group messages by date with proper WhatsApp-style date grouping
   const groupedMessages = messages.reduce((groups, message) => {
-    const date = new Date().toDateString(); // For simplicity, showing all as today
-    if (!groups[date]) {
-      groups[date] = [];
+    const messageDate = new Date(message.createdAt);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Reset time to compare only dates
+    const messageDateOnly = new Date(messageDate.getFullYear(), messageDate.getMonth(), messageDate.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    
+    let dateKey: string;
+    
+    if (messageDateOnly.getTime() === todayOnly.getTime()) {
+      dateKey = 'Today';
+    } else if (messageDateOnly.getTime() === yesterdayOnly.getTime()) {
+      dateKey = 'Yesterday';
+    } else {
+      // Format as "Friday, September 19" or similar
+      dateKey = messageDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        month: 'long', 
+        day: 'numeric' 
+      });
     }
-    groups[date].push(message);
+    
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+    groups[dateKey].push(message);
     return groups;
   }, {} as Record<string, Message[]>);
+
+  // Sort date groups chronologically - oldest dates first, newest dates last
+  const sortedDateGroups = Object.entries(groupedMessages).sort(([, messagesA], [, messagesB]) => {
+    // Get the oldest message from each group to determine the date order
+    const oldestA = messagesA.reduce((oldest, msg) => 
+      new Date(msg.createdAt) < new Date(oldest.createdAt) ? msg : oldest
+    );
+    const oldestB = messagesB.reduce((oldest, msg) => 
+      new Date(msg.createdAt) < new Date(oldest.createdAt) ? msg : oldest
+    );
+    
+    // Sort by the oldest message in each group (chronological order)
+    return new Date(oldestA.createdAt).getTime() - new Date(oldestB.createdAt).getTime();
+  });
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   const effectiveCurrentUserId = currentUserId || 'current';
@@ -186,16 +224,16 @@ export const MessageList = ({
       ref={messagesContainerRef}
       className="h-full overflow-y-auto bg-gray-50 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
       style={{ 
-        backgroundImage: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><defs><pattern id=\"grain\" width=\"100\" height=\"100\" patternUnits=\"userSpaceOnUse\"><circle cx=\"25\" cy=\"25\" r=\"1\" fill=\"%23e5e7eb\" opacity=\"0.5\"/><circle cx=\"75\" cy=\"75\" r=\"1\" fill=\"%23e5e7eb\" opacity=\"0.3\"/><circle cx=\"50\" cy=\"10\" r=\"0.5\" fill=\"%23e5e7eb\" opacity=\"0.4\"/></pattern></defs><rect width=\"100\" height=\"100\" fill=\"url(%23grain)\"/></svg>')"
+        backgroundImage: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><defs><pattern id=\"grain\" width=\"100\" height=\"100\" patternUnits=\"userSpaceOnUse\"><circle cx=\"25\" cy=\"25\" r=\"1\" fill=\"%23e5e7eb\" opacity=\"0.5\"/><circle cx=\"75\" cy=\"75\" r=\"1\" fill=\"%23e5e7eb\" opacity=\"0.3\"/><circle cx=\"50\" cy=\"10\" r=\"0.5\" fill=\"%23e5e7eb\" opacity=\"0.4\"/></circle></pattern></defs><rect width=\"100\" height=\"100\" fill=\"url(%23grain)\"/></svg>')"
       }}
     >
       <div className="p-4 space-y-1 min-h-full">
-        {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+        {sortedDateGroups.map(([date, dateMessages]) => (
           <div key={date}>
             {/* Date separator */}
             <div className="flex items-center justify-center my-4">
               <div className="bg-white shadow-sm rounded-lg px-3 py-1">
-                <span className="text-xs text-gray-600">Today</span>
+                <span className="text-xs text-gray-600">{date}</span>
               </div>
             </div>
              

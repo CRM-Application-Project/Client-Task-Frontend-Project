@@ -10,6 +10,7 @@ import UserAvatar from "./UserAvatar";
 import EmojiPicker from "./EmojiPicker";
 import { MessageInfoPopup } from "./MessageInfoPopup";
 import GroupInfoModal from "./GroupInfoModal";
+import MentionInput from "./MentionInput";
 import { Chat } from "@/app/services/chatService";
 
 interface ChatAreaProps {
@@ -25,7 +26,9 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   const [showMessageInfo, setShowMessageInfo] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { 
     messages, 
@@ -93,14 +96,24 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   }, [currentChat.id, setActiveConversation]);
 
   const handleSendMessage = async () => {
-    if (message.trim()) {
+    if (message.trim() || selectedFiles.length > 0) {
       const content = message.trim();
       const mentions = extractMentions(content);
       
       try {
+        // TODO: Handle file uploads here
+        // You'll need to modify your sendMessage function to handle files
+        // For now, just sending the text message
+        if (selectedFiles.length > 0) {
+          console.log('Files to upload:', selectedFiles);
+          // Add your file upload logic here
+          // await sendMessageWithFiles(String(chat.id), content, mentions, selectedFiles, replyTo?.id);
+        }
+        
         await sendMessage(String(chat.id), content, mentions, replyTo?.id);
         setMessage("");
         setReplyTo(null);
+        setSelectedFiles([]);
         
         // Auto-resize textarea
         if (textareaRef.current) {
@@ -111,7 +124,6 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       }
     }
   };
-  
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -127,6 +139,34 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  };
+
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+      console.log('Selected files:', files);
+    }
+    // Reset the input value so the same file can be selected again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const extractMentions = (text: string): string[] => {
@@ -174,7 +214,6 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     }
   };
 
-
   const handleEditMessage = async (messageId: string, newContent: string) => {
     try {
       await editMessageContent(messageId, newContent);
@@ -196,7 +235,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     textareaRef.current?.focus();
   };
 
- const handleMessageInfo = (messageId: string) => {
+  const handleMessageInfo = (messageId: string) => {
     const message = chatMessages.find(m => m.id === messageId);
     if (message) {
       setSelectedMessage(message);
@@ -241,17 +280,17 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   };
 
   const handleInfoClick = () => {
-console.log(chat.conversationType.toLowerCase());
+    console.log(chat.conversationType.toLowerCase());
     if (chat.conversationType.toLowerCase() === 'group') {
       setShowGroupInfo(true);
     }
-    
   };
 
   const cancelReply = () => {
     setReplyTo(null);
   };
- const fetchMessageReceipts = async (messageId: string) => {
+
+  const fetchMessageReceipts = async (messageId: string) => {
     try {
       const receipts = await getMessageReceiptsById(messageId);
       return receipts || [];
@@ -260,6 +299,7 @@ console.log(chat.conversationType.toLowerCase());
       return [];
     }
   };
+
   const handleEmojiSelect = (emoji: string) => {
     setMessage(prev => prev + emoji);
     setShowEmojiPicker(false);
@@ -278,6 +318,16 @@ console.log(chat.conversationType.toLowerCase());
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 relative">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFileChange}
+        className="hidden"
+        accept="*/*"
+      />
+
       {/* Chat Header - Fixed */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-3">
@@ -331,6 +381,34 @@ console.log(chat.conversationType.toLowerCase());
         />
       </div>
 
+      {/* Selected Files Preview */}
+      {selectedFiles.length > 0 && (
+        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-gray-600 font-medium">
+              Selected Files ({selectedFiles.length})
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {selectedFiles.map((file, index) => (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 text-sm"
+                >
+                  <span className="truncate max-w-xs">{file.name}</span>
+                  <span className="text-gray-500">({formatFileSize(file.size)})</span>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="text-gray-500 hover:text-red-500 ml-1"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reply Preview - Fixed above input */}
       {replyTo && (
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
@@ -355,51 +433,69 @@ console.log(chat.conversationType.toLowerCase());
       )}
 
       {/* Message Input - Fixed at bottom */}
-     <div className="w-full max-w-[80vw] mx-auto bg-gray-50">
-      {/* Chat messages area placeholder */}
-   
-
-      {/* Message Input - Exact replica */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-sm rounded-b-lg">
-        <div className="flex items-center gap-3">
-          {/* Attachment Button */}
-          <button className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2.5 rounded-full flex-shrink-0 transition-colors">
-            <Paperclip className="h-5 w-5" />
-          </button>
-         
-          {/* Text Input Container */}
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              placeholder="Type a message..."
-              value={message}
-              onChange={handleTextareaChange}
-              onKeyPress={handleKeyPress}
-              className="min-h-[44px] max-h-[80px] resize-none bg-gray-50 border border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 text-gray-900 placeholder-gray-400 rounded-2xl px-4 py-3 pr-12 w-full outline-none transition-all duration-200 text-sm leading-5"
-              style={{ 
-                paddingRight: '48px'
-              }}
-              rows={1}
-            />
-            {/* Emoji Button */}
-            <button
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+      <div className="w-full max-w-[80vw] mx-auto bg-gray-50">
+        {/* Message Input - Exact replica */}
+        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-sm rounded-b-lg">
+          <div className="flex items-center gap-3">
+            {/* Attachment Button */}
+            <button 
+              onClick={handleFileSelect}
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2.5 rounded-full flex-shrink-0 transition-colors"
             >
-              <Smile className="h-4 w-4" />
+              <Paperclip className="h-5 w-5" />
+            </button>
+           
+            {/* Text Input Container */}
+            <div className="flex-1 relative">
+              {currentChat.conversationType.toLowerCase() === 'group' ? (
+                <MentionInput
+                  value={message}
+                  onChange={setMessage}
+                  onKeyPress={handleKeyPress}
+                  users={currentChat.participants.map(p => ({
+                    id: p.id,
+                    name: p.label,
+                    avatar: p.avatar,
+                    status: p.status || 'offline'
+                  }))}
+                  placeholder="Type a message..."
+                  onEmojiClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                />
+              ) : (
+                <>
+                  <textarea
+                    ref={textareaRef}
+                    placeholder="Type a message..."
+                    value={message}
+                    onChange={handleTextareaChange}
+                    onKeyPress={handleKeyPress}
+                    className="min-h-[44px] max-h-[80px] resize-none bg-gray-50 border border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 text-gray-900 placeholder-gray-400 rounded-2xl px-4 py-3 pr-12 w-full outline-none transition-all duration-200 text-sm leading-5"
+                    style={{ 
+                      paddingRight: '48px'
+                    }}
+                    rows={1}
+                  />
+                  {/* Emoji Button */}
+                  <button
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  >
+                    <Smile className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+           
+            {/* Send Button */}
+            <button
+              onClick={handleSendMessage}
+              disabled={!message.trim() && selectedFiles.length === 0}
+              className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[44px] min-h-[44px] flex-shrink-0 transition-colors duration-200 flex items-center justify-center shadow-sm"
+            >
+              <Send className="h-4 w-4 text-white" />
             </button>
           </div>
-         
-          {/* Send Button */}
-          <button
-            onClick={handleSendMessage}
-            disabled={!message.trim()}
-            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[44px] min-h-[44px] flex-shrink-0 transition-colors duration-200 flex items-center justify-center shadow-sm"
-          >
-            <Send className="h-4 w-4 text-white" />
-          </button>
         </div>
-      </div>
       </div>
 
       {/* Emoji Picker - Absolute positioning */}
