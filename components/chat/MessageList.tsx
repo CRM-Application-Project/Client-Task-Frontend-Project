@@ -14,6 +14,7 @@ interface MessageListProps {
   onDelete: (messageId: string) => void;
   onMessageInfo?: (messageId: string) => void;
   onDownloadFiles?: (messageId: string) => void;
+  isGroupChat?: boolean; // Add this prop to determine if it's a group chat
 }
 
 // Simple UserAvatar component for demo
@@ -84,7 +85,6 @@ const parseMessageContent = (content: string) => {
   return elements;
 };
 
-
 // Attachment component to display individual attachments
 const AttachmentDisplay = ({ 
   attachment, 
@@ -152,7 +152,8 @@ export const MessageList = ({
   onEdit, 
   onDelete,
   onMessageInfo,
-  onDownloadFiles
+  onDownloadFiles,
+  isGroupChat = true // Changed default to true for testing - you can change this back to false
 }: MessageListProps) => {
   const [showActions, setShowActions] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
@@ -171,38 +172,58 @@ export const MessageList = ({
     }
   }, [messages]);
 
-// Show avatar only on the first message of a sequence
-// Show avatar only on the FIRST message of a sequence
-// Show avatar only on the first message of a sequence
-// Show avatar only on the first message of a sequence
-const shouldShowAvatar = (
-  currentMessage: Message,
-  previousMessage: Message | null
-): boolean => {
-  const isOwn = currentMessage.sender.id === effectiveCurrentUserId;
+  // Helper function to determine if avatar should be shown
+  const shouldShowAvatar = (
+    currentMessage: Message,
+    allMessages: Message[],
+    currentIndex: number,
+    isGroupChat: boolean
+  ): boolean => {
+    // Never show avatar in private chat
+    if (!isGroupChat) return false;
 
-  if (isOwn) return false;
+    const isOwn = currentMessage.sender.id === effectiveCurrentUserId || 
+                   currentMessage.sender.id === userId || 
+                   currentMessage.type === 'sent';
+    
+    // Never show avatar for own messages
+    if (isOwn) return false;
 
-  // Avatar only if there is no previous message 
-  // OR the previous message is from a different sender
-  // This ensures avatar is shown only for the first message in a sequence
-  return !previousMessage || previousMessage.sender.id !== currentMessage.sender.id;
-};
+    // For the first message overall, show avatar
+    if (currentIndex === 0) return true;
 
+    // Get the previous message chronologically
+    const previousMessage = allMessages[currentIndex - 1];
+    
+    // Show avatar if previous message is from a different sender
+    return previousMessage.sender.id !== currentMessage.sender.id;
+  };
 
+  // Helper function to determine if sender name should be shown
+  const shouldShowSenderName = (
+    currentMessage: Message,
+    allMessages: Message[],
+    currentIndex: number,
+    isGroupChat: boolean
+  ): boolean => {
+    // Never show name in private chat
+    if (!isGroupChat) return false;
 
-
-  // Helper function to determine if sender name should be shown (for group chats)
-  const shouldShowSenderName = (currentMessage: Message, previousMessage: Message | null): boolean => {
-    const isOwn = currentMessage.sender.id === effectiveCurrentUserId;
+    const isOwn = currentMessage.sender.id === effectiveCurrentUserId || 
+                   currentMessage.sender.id === userId || 
+                   currentMessage.type === 'sent';
     
     // Never show name for own messages
     if (isOwn) return false;
     
-    // Show name if previous message is from a different sender or doesn't exist
-    if (!previousMessage || previousMessage.sender.id !== currentMessage.sender.id) return true;
+    // For the first message overall, show name
+    if (currentIndex === 0) return true;
+
+    // Get the previous message chronologically
+    const previousMessage = allMessages[currentIndex - 1];
     
-    return false;
+    // Show name if previous message is from a different sender
+    return previousMessage.sender.id !== currentMessage.sender.id;
   };
 
   const handleEditStart = (message: Message) => {
@@ -316,8 +337,13 @@ const shouldShowAvatar = (
     );
   }
 
+  // Sort all messages chronologically first
+  const sortedMessages = [...messages].sort((a, b) => 
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
   // Group messages by date
-  const groupedMessages = messages.reduce((groups, message) => {
+  const groupedMessages = sortedMessages.reduce((groups, message) => {
     const messageDate = new Date(message.createdAt);
     const today = new Date();
     const yesterday = new Date(today);
@@ -381,229 +407,251 @@ const shouldShowAvatar = (
               </div>
             </div>
              
-            {[...dateMessages]
-              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-              .map((message, index) => {
-                const isOwn = message.sender.id === effectiveCurrentUserId || message.sender.id === userId || message.type === 'sent';
-                const repliedMessage = message.parentId ? findRepliedMessage(message.parentId) : null;
-                
-                // Get previous and next messages for sequence detection
-               const previousMessage = index > 0 ? dateMessages[index - 1] : null;
-const showAvatar = shouldShowAvatar(message, previousMessage);
+            {dateMessages.map((message) => {
+              const isOwn = message.sender.id === effectiveCurrentUserId || message.sender.id === userId || message.type === 'sent';
+              const repliedMessage = message.parentId ? findRepliedMessage(message.parentId) : null;
+              
+              // Find the global index of this message in sortedMessages
+              const globalIndex = sortedMessages.findIndex(m => m.id === message.id);
+              
+              // Determine if avatar and name should be shown based on global message order
+              const showAvatar = shouldShowAvatar(message, sortedMessages, globalIndex, isGroupChat);
+              const showName = shouldShowSenderName(message, sortedMessages, globalIndex, isGroupChat);
+              
+              const isExpanded = expandedReactions.has(message.id);
+              const visibleReactions = message.reactions?.slice(0, isExpanded ? undefined : 3) || [];
+              const hiddenReactionsCount = message.reactions ? Math.max(0, message.reactions.length - 3) : 0;
 
-                const nextMessage = index < dateMessages.length - 1 ? dateMessages[index + 1] : null;
-                
-                // Determine if avatar and name should be shown
-  
+              const isShowingAllEmojis = showAllEmojis === message.id;
+              const emojisToShow = isShowingAllEmojis ? EMOJI_REACTIONS : EMOJI_REACTIONS.slice(0, INITIAL_EMOJI_COUNT);
+              const hasMoreEmojis = EMOJI_REACTIONS.length > INITIAL_EMOJI_COUNT;
 
-                const showName = !isOwn && shouldShowSenderName(message, previousMessage);
-                
-                const isExpanded = expandedReactions.has(message.id);
-                const visibleReactions = message.reactions?.slice(0, isExpanded ? undefined : 3) || [];
-                const hiddenReactionsCount = message.reactions ? Math.max(0, message.reactions.length - 3) : 0;
+              const menuAbove = shouldMenuAppearAbove(message.id);
+              const hasAttachments = message.attachments && message.attachments.length > 0;
 
-                const isShowingAllEmojis = showAllEmojis === message.id;
-                const emojisToShow = isShowingAllEmojis ? EMOJI_REACTIONS : EMOJI_REACTIONS.slice(0, INITIAL_EMOJI_COUNT);
-                const hasMoreEmojis = EMOJI_REACTIONS.length > INITIAL_EMOJI_COUNT;
+              // Parse message content for mentions
+              const parsedContent = parseMessageContent(message.content);
 
-                const menuAbove = shouldMenuAppearAbove(message.id);
-                const hasAttachments = message.attachments && message.attachments.length > 0;
-
-                // Parse message content for mentions
-                const parsedContent = parseMessageContent(message.content);
-
-                return (
-                  <div
-                    key={message.id}
-                    ref={(el) => (messageRefs.current[message.id] = el)}
-                    className={cn(
-                      "group flex gap-2 mb-1 relative", // Reduced margin between consecutive messages
-                      isOwn ? "justify-end" : "justify-start"
+              return (
+                <div
+                  key={message.id}
+                  ref={(el) => (messageRefs.current[message.id] = el)}
+                  className={cn(
+                    "group flex gap-2 mb-1 relative", // Reduced margin between consecutive messages
+                    isOwn ? "justify-end" : "justify-start"
+                  )}
+                >
+                  {/* Avatar for received messages in group chats only */}
+                  {!isOwn && isGroupChat && (
+                    <div className="w-8 h-8 flex-shrink-0">
+                      {showAvatar ? (
+                        <UserAvatar
+                          src={undefined}
+                          alt={message.sender.label || message.sender.id}
+                          size="sm"
+                        />
+                      ) : (
+                        <div className="w-8 h-8" /> // Empty space for alignment
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className={cn(
+                    "max-w-[70%] space-y-1",
+                    isOwn ? "items-end" : "items-start"
+                  )}>
+                    {/* Sender name for group chats only */}
+                    {showName && isGroupChat && (
+                      <div className="flex items-center gap-2 ml-2 mb-1">
+                        <span className="text-xs font-medium text-gray-700">
+                          {message.sender.label || message.sender.id}
+                        </span>
+                        
+                      </div>
                     )}
-                  >
-                    {/* Avatar for received messages - only shown on first message of sequence */}
-                    {!isOwn && (
-                      <div className="w-8 h-8 flex-shrink-0">
-                        {showAvatar ? (
-                          <UserAvatar
-                            src={undefined}
-                            alt={message.sender.label}
-                            size="sm"
-                          />
-                        ) : (
-                          <div className="w-8 h-8" /> // Empty space for alignment
+
+                    {/* Replied Message Preview */}
+                    {repliedMessage && (
+                      <div className={cn(
+                        "mx-2 px-3 py-2 border-l-4 bg-gray-100 rounded-r-lg text-xs shadow-sm max-w-full",
+                        isOwn 
+                          ? "border-gray-400 bg-gray-50" 
+                          : "border-blue-400 bg-blue-50"
+                      )}>
+                        <p className={cn(
+                          "font-medium text-xs mb-1",
+                          isOwn ? "text-gray-600" : "text-blue-600"
+                        )}>
+                          {repliedMessage.sender.id === effectiveCurrentUserId ? 'You' : repliedMessage.sender.label}
+                        </p>
+                        <p className="text-gray-700 text-xs leading-tight line-clamp-2 break-words">
+                          {parseMessageContent(repliedMessage.content)}
+                        </p>
+                        {repliedMessage.hasAttachments && (
+                          <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                            <File size={10} />
+                            <span>📎 {repliedMessage.attachments?.length || 0} file(s)</span>
+                          </p>
                         )}
                       </div>
                     )}
                     
-                    <div className={cn(
-                      "max-w-[70%] space-y-1",
-                      isOwn ? "items-end" : "items-start"
-                    )}>
-                      {/* Sender name for group chats - only shown on first message of sequence */}
-                      {showName && (
-                        <div className="flex items-center gap-2 ml-2 mb-1">
-                          <span className="text-xs font-medium text-gray-700">
-                            {message.sender.label}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Replied Message Preview */}
-                      {repliedMessage && (
-                        <div className={cn(
-                          "mx-2 px-3 py-2 border-l-4 bg-gray-100 rounded-r-lg text-xs shadow-sm max-w-full",
-                          isOwn 
-                            ? "border-gray-400 bg-gray-50" 
-                            : "border-blue-400 bg-blue-50"
-                        )}>
-                          <p className={cn(
-                            "font-medium text-xs mb-1",
-                            isOwn ? "text-gray-600" : "text-blue-600"
-                          )}>
-                            {repliedMessage.sender.id === effectiveCurrentUserId ? 'You' : repliedMessage.sender.label}
-                          </p>
-                          <p className="text-gray-700 text-xs leading-tight line-clamp-2 break-words">
-                            {parseMessageContent(repliedMessage.content)}
-                          </p>
-                          {repliedMessage.hasAttachments && (
-                            <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
-                              <File size={10} />
-                              <span>📎 {repliedMessage.attachments?.length || 0} file(s)</span>
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div className="relative">
-                        {editingMessage === message.id ? (
-                          // Edit Mode
-                          <div className="bg-white rounded-lg p-3 shadow-sm border">
-                            <textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="w-full bg-transparent text-sm resize-none border-none outline-none min-w-[200px]"
-                              rows={Math.min(editContent.split('\n').length + 1, 5)}
-                            />
-                            <div className="flex gap-2 mt-2">
-                              <button
-                                onClick={() => handleEditSave(message.id)}
-                                className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={handleEditCancel}
-                                className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
-                              >
-                                Cancel
-                              </button>
-                            </div>
+                    <div className="relative">
+                      {editingMessage === message.id ? (
+                        // Edit Mode
+                        <div className="bg-white rounded-lg p-3 shadow-sm border">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full bg-transparent text-sm resize-none border-none outline-none min-w-[200px]"
+                            rows={Math.min(editContent.split('\n').length + 1, 5)}
+                          />
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => handleEditSave(message.id)}
+                              className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleEditCancel}
+                              className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                            >
+                              Cancel
+                            </button>
                           </div>
-                        ) : (
-                          // Normal Message Display - WhatsApp Style
-                          <div className={cn(
-                            "relative rounded-lg px-3 py-2 shadow-sm max-w-sm group",
-                            isOwn 
-                              ? "bg-gray-500 text-white rounded-br-sm"
-                              : "bg-white text-gray-800 rounded-bl-sm",
-                            // Adjust border radius for consecutive messages
-                            !isOwn && !showAvatar && "rounded-tl-none",
-                            isOwn && nextMessage?.sender.id === effectiveCurrentUserId && "rounded-br-none"
-                          )}>
-                            <div className="space-y-2">
-                              {/* Message content with mentions */}
-                              {message.content && (
-                                <p className="text-sm whitespace-pre-wrap break-words leading-5">
-                                  {parsedContent}
-                                </p>
-                              )}
-                              
-                              {/* Attachments Display */}
-                              {hasAttachments && (
-                                <div className="space-y-2 mt-2">
-                                  {message.attachments!.map((attachment, attachIndex) => (
-                                    <AttachmentDisplay
-                                      key={`${message.id}-attachment-${attachIndex}`}
-                                      attachment={attachment}
-                                      isOwn={isOwn}
-                                      onDownload={() => onDownloadFiles && onDownloadFiles(message.id)}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Legacy file attachment indicator */}
-                              {message.hasAttachments && (!message.attachments || message.attachments.length === 0) && (
-                                <div className={cn(
-                                  "flex items-center gap-2 p-2 rounded border-t mt-2",
-                                  isOwn 
-                                    ? "border-gray-400 bg-gray-600"
-                                    : "border-gray-200 bg-gray-50"
+                        </div>
+                      ) : (
+                        // Normal Message Display - WhatsApp Style
+                        <div className={cn(
+                          "relative rounded-lg px-3 py-2 shadow-sm max-w-sm group",
+                          isOwn 
+                            ? "bg-gray-500 text-white rounded-br-sm"
+                            : "bg-white text-gray-800 rounded-bl-sm",
+                          // Adjust border radius for consecutive messages
+                          !isOwn && !showAvatar && isGroupChat && "rounded-tl-none"
+                        )}>
+                          <div className="space-y-2">
+                            {/* Message content with mentions */}
+                            {message.content && (
+                              <p className="text-sm whitespace-pre-wrap break-words leading-5">
+                                {parsedContent}
+                              </p>
+                            )}
+                            
+                            {/* Attachments Display */}
+                            {hasAttachments && (
+                              <div className="space-y-2 mt-2">
+                                {message.attachments!.map((attachment, attachIndex) => (
+                                  <AttachmentDisplay
+                                    key={`${message.id}-attachment-${attachIndex}`}
+                                    attachment={attachment}
+                                    isOwn={isOwn}
+                                    onDownload={() => onDownloadFiles && onDownloadFiles(message.id)}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Legacy file attachment indicator */}
+                            {message.hasAttachments && (!message.attachments || message.attachments.length === 0) && (
+                              <div className={cn(
+                                "flex items-center gap-2 p-2 rounded border-t mt-2",
+                                isOwn 
+                                  ? "border-gray-400 bg-gray-600"
+                                  : "border-gray-200 bg-gray-50"
+                              )}>
+                                <File size={16} className={cn(
+                                  isOwn ? "text-gray-200" : "text-gray-500"
+                                )} />
+                                <span className={cn(
+                                  "text-xs font-medium",
+                                  isOwn ? "text-gray-200" : "text-gray-600"
                                 )}>
-                                  <File size={16} className={cn(
-                                    isOwn ? "text-gray-200" : "text-gray-500"
-                                  )} />
-                                  <span className={cn(
-                                    "text-xs font-medium",
-                                    isOwn ? "text-gray-200" : "text-gray-600"
-                                  )}>
-                                    📎 Files attached
-                                  </span>
-                                  {onDownloadFiles && (
+                                  📎 Files attached
+                                </span>
+                                {onDownloadFiles && (
+                                  <button
+                                    onClick={() => onDownloadFiles(message.id)}
+                                    className={cn(
+                                      "ml-auto p-1 rounded hover:bg-opacity-70 transition-colors",
+                                      isOwn 
+                                        ? "text-gray-200 hover:bg-gray-700"
+                                        : "text-gray-600 hover:bg-gray-200"
+                                    )}
+                                    title="Download files"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Message time and status */}
+                          <div className={cn(
+                            "flex items-center justify-end gap-1 mt-1",
+                            isOwn ? "text-gray-100" : "text-gray-500"
+                          )}>
+                            <span className="text-xs">
+                              {formatTime(message.timestamp)}
+                            </span>
+                            {getDeliveryIcon(message.status, isOwn)}
+                          </div>
+                          
+                          {/* WhatsApp-style Dropdown Button - Only appears on hover */}
+                          <button
+                            className={cn(
+                              "absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded-full",
+                              isOwn 
+                                ? "text-gray-500 hover:bg-gray-200 -left-6 top-1/2 transform -translate-y-1/2" 
+                                : "text-gray-500 hover:bg-gray-200 -right-6 top-1/2 transform -translate-y-1/2",
+                              showActions === message.id && "opacity-100"
+                            )}
+                            onClick={() => setShowActions(showActions === message.id ? null : message.id)}
+                          >
+                            <ChevronDown size={16} />
+                          </button>
+
+                          {/* Action Menu - WhatsApp Style */}
+                          {showActions === message.id && (
+                            <div className={cn(
+                              "absolute bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]",
+                              menuAbove ? "bottom-full mb-2" : "top-0 mt-1",
+                              isOwn ? "right-0" : "left-0"
+                            )}>
+                              {/* Emoji Reactions */}
+                              <div className="px-3 py-2 border-b border-gray-100">
+                                <div className="flex items-center gap-1">
+                                  {emojisToShow.map((emoji) => (
                                     <button
-                                      onClick={() => onDownloadFiles(message.id)}
-                                      className={cn(
-                                        "ml-auto p-1 rounded hover:bg-opacity-70 transition-colors",
-                                        isOwn 
-                                          ? "text-gray-200 hover:bg-gray-700"
-                                          : "text-gray-600 hover:bg-gray-200"
-                                      )}
-                                      title="Download files"
+                                      key={emoji}
+                                      onClick={() => handleReactionClick(message.id, emoji)}
+                                      className="p-2 hover:bg-gray-100 rounded text-base transition-colors flex-shrink-0"
                                     >
-                                      <Download size={14} />
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                  {hasMoreEmojis && !isShowingAllEmojis && (
+                                    <button
+                                      onClick={() => setShowAllEmojis(message.id)}
+                                      className="p-2 hover:bg-gray-100 rounded transition-colors text-gray-600 flex-shrink-0"
+                                    >
+                                      <Plus size={14} />
+                                    </button>
+                                  )}
+                                  {isShowingAllEmojis && (
+                                    <button
+                                      onClick={() => setShowAllEmojis(null)}
+                                      className="p-2 hover:bg-gray-100 rounded transition-colors text-gray-600 flex-shrink-0"
+                                    >
+                                      <Minus size={14} />
                                     </button>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                            
-                            {/* Message time and status */}
-                            <div className={cn(
-                              "flex items-center justify-end gap-1 mt-1",
-                              isOwn ? "text-gray-100" : "text-gray-500"
-                            )}>
-                              <span className="text-xs">
-                                {formatTime(message.timestamp)}
-                              </span>
-                              {getDeliveryIcon(message.status, isOwn)}
-                            </div>
-                            
-                            {/* WhatsApp-style Dropdown Button - Only appears on hover */}
-                            <button
-                              className={cn(
-                                "absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded-full",
-                                isOwn 
-                                  ? "text-gray-500 hover:bg-gray-200 -left-6 top-1/2 transform -translate-y-1/2" 
-                                  : "text-gray-500 hover:bg-gray-200 -right-6 top-1/2 transform -translate-y-1/2",
-                                showActions === message.id && "opacity-100"
-                              )}
-                              onClick={() => setShowActions(showActions === message.id ? null : message.id)}
-                            >
-                              <ChevronDown size={16} />
-                            </button>
-
-                            {/* Action Menu - WhatsApp Style */}
-                            {showActions === message.id && (
-                              <div className={cn(
-                                "absolute bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]",
-                                menuAbove ? "bottom-full mb-2" : "top-0 mt-1",
-                                isOwn ? "right-0" : "left-0"
-                              )}>
-                                {/* Emoji Reactions */}
-                                <div className="px-3 py-2 border-b border-gray-100">
-                                  <div className="flex items-center gap-1">
-                                    {emojisToShow.map((emoji) => (
+                                {isShowingAllEmojis && EMOJI_REACTIONS.length > INITIAL_EMOJI_COUNT && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    {EMOJI_REACTIONS.slice(INITIAL_EMOJI_COUNT).map((emoji) => (
                                       <button
                                         key={emoji}
                                         onClick={() => handleReactionClick(message.id, emoji)}
@@ -612,155 +660,127 @@ const showAvatar = shouldShowAvatar(message, previousMessage);
                                         {emoji}
                                       </button>
                                     ))}
-                                    {hasMoreEmojis && !isShowingAllEmojis && (
-                                      <button
-                                        onClick={() => setShowAllEmojis(message.id)}
-                                        className="p-2 hover:bg-gray-100 rounded transition-colors text-gray-600 flex-shrink-0"
-                                      >
-                                        <Plus size={14} />
-                                      </button>
-                                    )}
-                                    {isShowingAllEmojis && (
-                                      <button
-                                        onClick={() => setShowAllEmojis(null)}
-                                        className="p-2 hover:bg-gray-100 rounded transition-colors text-gray-600 flex-shrink-0"
-                                      >
-                                        <Minus size={14} />
-                                      </button>
-                                    )}
                                   </div>
-                                  {isShowingAllEmojis && EMOJI_REACTIONS.length > INITIAL_EMOJI_COUNT && (
-                                    <div className="flex items-center gap-1 mt-1">
-                                      {EMOJI_REACTIONS.slice(INITIAL_EMOJI_COUNT).map((emoji) => (
-                                        <button
-                                          key={emoji}
-                                          onClick={() => handleReactionClick(message.id, emoji)}
-                                          className="p-2 hover:bg-gray-100 rounded text-base transition-colors flex-shrink-0"
-                                        >
-                                          {emoji}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                )}
+                              </div>
 
-                                {/* Reply Option */}
+                              {/* Reply Option */}
+                              <button
+                                onClick={() => {
+                                  onReply(message);
+                                  setShowActions(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <Reply size={14} />
+                                Reply
+                              </button>
+
+                              {/* Download Option for attachments */}
+                              {message.hasAttachments && onDownloadFiles && (
                                 <button
                                   onClick={() => {
-                                    onReply(message);
+                                    onDownloadFiles(message.id);
                                     setShowActions(null);
                                   }}
                                   className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <Reply size={14} />
-                                  Reply
+                                  <Download size={14} />
+                                  Download Files
                                 </button>
+                              )}
 
-                                {/* Download Option for attachments */}
-                                {message.hasAttachments && onDownloadFiles && (
-                                  <button
-                                    onClick={() => {
-                                      onDownloadFiles(message.id);
-                                      setShowActions(null);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                  >
-                                    <Download size={14} />
-                                    Download Files
-                                  </button>
-                                )}
+                              {/* Edit Option (only for own messages) */}
+                              {isOwn && (message.updatable !== false) && (
+                                <button
+                                  onClick={() => handleEditStart(message)}
+                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                >
+                                  <Edit3 size={14} />
+                                  Edit
+                                </button>
+                              )}
 
-                                {/* Edit Option (only for own messages) */}
-                                {isOwn && (message.updatable !== false) && (
-                                  <button
-                                    onClick={() => handleEditStart(message)}
-                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                  >
-                                    <Edit3 size={14} />
-                                    Edit
-                                  </button>
-                                )}
-
-                                {/* Delete Option (only for own messages) */}
-                                {isOwn && (message.deletable !== false) && (
-                                  <button
-                                    onClick={() => {
-                                      if (confirm('Delete this message?')) {
-                                        onDelete(message.id);
-                                      }
-                                      setShowActions(null);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
-                                  >
-                                    <Trash2 size={14} />
-                                    Delete
-                                  </button>
-                                )}
-
-                                {/* Message Info Option */}
+                              {/* Delete Option (only for own messages) */}
+                              {isOwn && (message.deletable !== false) && (
                                 <button
                                   onClick={() => {
-                                    if (onMessageInfo) {
-                                      onMessageInfo(message.id);
+                                    if (confirm('Delete this message?')) {
+                                      onDelete(message.id);
                                     }
                                     setShowActions(null);
                                   }}
-                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
                                 >
-                                  <Info size={14} />
-                                  Message Info
+                                  <Trash2 size={14} />
+                                  Delete
                                 </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Reactions */}
-                      {visibleReactions.length > 0 && (
-                        <div className={cn(
-                          "flex gap-1 flex-wrap mt-1",
-                          isOwn ? "justify-end" : "justify-start"
-                        )}>
-                          {visibleReactions.map((reaction, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleReactionClick(message.id, reaction.emoji)}
-                              className={cn(
-                                "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors bg-white border shadow-sm",
-                                reaction.users?.includes(effectiveCurrentUserId)
-                                  ? "border-gray-500 text-gray-700"
-                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
                               )}
-                            >
-                              <span>{reaction.emoji}</span>
-                              <span>{reaction.count}</span>
-                            </button>
-                          ))}
-                          
-                          {!isExpanded && hiddenReactionsCount > 0 && (
-                            <button
-                              onClick={() => toggleExpandedReactions(message.id)}
-                              className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
-                            >
-                              <Plus size={12} />
-                            </button>
-                          )}
-                          
-                          {isExpanded && (
-                            <button
-                              onClick={() => toggleExpandedReactions(message.id)}
-                              className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
-                            >
-                              <Minus size={12} />
-                            </button>
+
+                              {/* Message Info Option */}
+                              <button
+                                onClick={() => {
+                                  if (onMessageInfo) {
+                                    onMessageInfo(message.id);
+                                  }
+                                  setShowActions(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <Info size={14} />
+                                Message Info
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
                     </div>
+                    
+                    {/* Reactions */}
+                    {visibleReactions.length > 0 && (
+                      <div className={cn(
+                        "flex gap-1 flex-wrap mt-1",
+                        isOwn ? "justify-end" : "justify-start"
+                      )}>
+                        {visibleReactions.map((reaction, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleReactionClick(message.id, reaction.emoji)}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors bg-white border shadow-sm",
+                              reaction.users?.includes(effectiveCurrentUserId)
+                                ? "border-gray-500 text-gray-700"
+                                : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                            )}
+                          >
+                            <span>{reaction.emoji}</span>
+                            <span>{reaction.count}</span>
+                          </button>
+                        ))}
+                        
+                        {!isExpanded && hiddenReactionsCount > 0 && (
+                          <button
+                            onClick={() => toggleExpandedReactions(message.id)}
+                            className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        )}
+                        
+                        {isExpanded && (
+                          <button
+                            onClick={() => toggleExpandedReactions(message.id)}
+                            className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200 text-xs hover:bg-gray-200"
+                          >
+                            <Minus size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
           </div>
         ))}
         <div ref={messagesEndRef} />
