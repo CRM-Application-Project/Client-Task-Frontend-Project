@@ -140,6 +140,10 @@ DELETE_DISCUSSION: (discussionId: number | string) =>
     RECEIPTS: (messageId: string | number) =>
       `/message/${messageId}/receipts`,
     UPDATE_RECEIPT: "/message/receipt",
+     UPLOAD_URLS: "/message/upload-urls",
+  DOWNLOAD_FILES: (messageId: string | number) =>
+    `/message/${messageId}/download-files`,
+
   },
   },
 };

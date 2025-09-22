@@ -42,7 +42,10 @@ export interface StartConversationResponse {
   message: string;
   data: Chat; // The created chat object
 }
-
+export interface MessageFileInfo {
+  fileName: string;
+  fileType: string;
+}
 // Service functions
 export const getChatList = async (): Promise<GetChatListResponse> => {
   const res = await getRequest(API_CONSTANTS.CHAT_MODULE.GET_CHAT_LIST);
@@ -159,7 +162,7 @@ export interface AddMessagePayload {
   content: string;
   mentions?: string[];
   parentId?: number;
-  // Add other optional fields as needed
+  fileInfo?: MessageFileInfo[]; // ✅ new field for attachments
 }
 
 // Service function for adding a message (remains the same)
@@ -221,7 +224,7 @@ export interface ReplyToMessagePayload {
   conversationId: number;
   content: string;
   mentions?: string[];
-  // parentId is not needed here since it's derived from the messageId in the URL
+  fileInfo?: MessageFileInfo[]; // ✅ new field for attachments
 }
 
 export interface ReplyToMessageResponse {
@@ -377,6 +380,87 @@ export const updateMessageReceipt = async (
 ): Promise<UpdateReceiptResponse> => {
   const url = API_CONSTANTS.CHAT_MODULE.MESSAGE.UPDATE_RECEIPT;
   const res = await putRequest<UpdateReceiptResponse>(url, payload);
+  return res;
+};
+
+// ---- Interfaces ----
+export interface UploadMessageFile {
+  fileName: string;
+  fileType: string;
+  identifier: string;
+}
+
+export interface UploadMessageUrlsPayload {
+  conversationId: number;
+  files: UploadMessageFile[];
+}
+
+export interface UploadMessageUrlsResponse {
+  isSuccess: boolean;
+  message: string;
+  data: {
+    fileName: string;
+    uploadUrl: string;
+    downloadUrl: string;
+    identifier: string;
+  }[];
+}
+
+
+// Utility function to append timestamp
+const withTimestamp = (fileName: string): string => {
+  const timestamp = Date.now();
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex === -1) {
+    // no extension
+    return `${fileName}_${timestamp}`;
+  }
+  const name = fileName.substring(0, dotIndex);
+  const ext = fileName.substring(dotIndex); // includes the dot
+  return `${name}_${timestamp}${ext}`;
+};
+
+// ---- Service function ----
+export const uploadMessageUrls = async (
+  payload: UploadMessageUrlsPayload
+): Promise<UploadMessageUrlsResponse> => {
+  const url = API_CONSTANTS.CHAT_MODULE.MESSAGE.UPLOAD_URLS;
+
+  // transform filenames before sending to API
+  const transformedPayload: UploadMessageUrlsPayload = {
+    ...payload,
+    files: payload.files.map((f) => ({
+      ...f,
+      fileName: withTimestamp(f.fileName),
+    })),
+  };
+
+  const res = await postRequest<UploadMessageUrlsResponse>(
+    url,
+    transformedPayload
+  );
+  return res;
+};
+// ---- Interfaces ----
+export interface DownloadFile {
+  fileName: string;
+  downloadUrl: string;
+  identifier: string;
+  fileType?: string;
+}
+
+export interface DownloadFilesResponse {
+  isSuccess: boolean;
+  message: string;
+  data: DownloadFile[];
+}
+
+// ---- Service function ----
+export const getDownloadFiles = async (
+  messageId: string | number
+): Promise<DownloadFilesResponse> => {
+  const url = API_CONSTANTS.CHAT_MODULE.MESSAGE.DOWNLOAD_FILES(messageId);
+  const res = await getRequest<DownloadFilesResponse>(url);
   return res;
 };
 

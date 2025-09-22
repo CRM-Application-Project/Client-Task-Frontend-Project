@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X } from "lucide-react";
+import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X, Download, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -11,10 +11,20 @@ import EmojiPicker from "./EmojiPicker";
 import { MessageInfoPopup } from "./MessageInfoPopup";
 import GroupInfoModal from "./GroupInfoModal";
 import MentionInput from "./MentionInput";
-import { Chat } from "@/app/services/chatService";
+import { Chat, uploadMessageUrls, getDownloadFiles, MessageFileInfo } from "@/app/services/chatService";
 
 interface ChatAreaProps {
   chat: Chat;
+}
+
+interface FileUploadInfo {
+  file: File;
+  uploadUrl?: string;
+  downloadUrl?: string;
+  identifier: string;
+  isUploading: boolean;
+  uploadProgress: number;
+  error?: string;
 }
 
 export const ChatArea = ({ chat }: ChatAreaProps) => {
@@ -26,7 +36,8 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   const [showMessageInfo, setShowMessageInfo] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<FileUploadInfo[]>([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -74,7 +85,6 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   // Realtime subscription via Firebase for this conversation
   useEffect(() => {
     if (!currentChat.id) return;
-    // Mark this conversation as active for auto-read and notifications clearing
     try { setActiveConversation(String(currentChat.id)); } catch {}
     console.log('[ChatArea] Subscribing to Firebase conversation', String(currentChat.id));
     const unsubscribe = subscribeToConversation(String(currentChat.id));
@@ -95,22 +105,143 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     return () => window.removeEventListener('focus', onFocus);
   }, [currentChat.id, setActiveConversation]);
 
+  // Upload files to get upload URLs
+  const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
+    if (!files.length) return [];
+
+    setIsUploadingFiles(true);
+    const uploadedFiles: MessageFileInfo[] = [];
+
+    try {
+      // Step 1: Get upload URLs from API
+      const uploadPayload = {
+        conversationId: Number(currentChat.id),
+        files: files.map(f => ({
+          fileName: f.file.name,
+          fileType: f.file.type || 'application/octet-stream',
+          identifier: f.identifier
+        }))
+      };
+
+      console.log('[ChatArea] Requesting upload URLs for files:', uploadPayload);
+      const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
+
+      if (!uploadUrlResponse.isSuccess) {
+        throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
+      }
+
+      console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
+
+      // Step 2: Upload each file to its respective upload URL
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
+        
+        if (!uploadData) {
+          console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
+          continue;
+        }
+
+        // Update file status
+        setSelectedFiles(prev => prev.map(f => 
+          f.identifier === file.identifier 
+            ? { ...f, isUploading: true, uploadUrl: uploadData.uploadUrl, downloadUrl: uploadData.downloadUrl }
+            : f
+        ));
+
+        try {
+          console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.uploadUrl}`);
+          
+          // Upload file using PUT request to the signed URL
+          const uploadResponse = await fetch(uploadData.uploadUrl, {
+            method: 'PUT',
+            body: file.file,
+            headers: {
+              'Content-Type': file.file.type || 'application/octet-stream'
+            }
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
+          }
+
+          console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
+
+          // Add to uploaded files list
+          uploadedFiles.push({
+            fileName: uploadData.fileName,
+            fileType: file.file.type || 'application/octet-stream'
+          });
+
+          // Update file status
+          setSelectedFiles(prev => prev.map(f => 
+            f.identifier === file.identifier 
+              ? { ...f, isUploading: false, uploadProgress: 100 }
+              : f
+          ));
+
+        } catch (uploadError) {
+          console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
+          
+          setSelectedFiles(prev => prev.map(f => 
+            f.identifier === file.identifier 
+              ? { ...f, isUploading: false, error: uploadError.message }
+              : f
+          ));
+        }
+      }
+
+    } catch (error) {
+      console.error('[ChatArea] Error in file upload process:', error);
+      
+      // Mark all files as failed
+      setSelectedFiles(prev => prev.map(f => ({ 
+        ...f, 
+        isUploading: false, 
+        error: error.message || 'Upload failed' 
+      })));
+    } finally {
+      setIsUploadingFiles(false);
+    }
+
+    return uploadedFiles;
+  };
+
   const handleSendMessage = async () => {
     if (message.trim() || selectedFiles.length > 0) {
       const content = message.trim();
       const mentions = extractMentions(content);
       
       try {
-        // TODO: Handle file uploads here
-        // You'll need to modify your sendMessage function to handle files
-        // For now, just sending the text message
+        let fileInfo: MessageFileInfo[] = [];
+        
+        // Upload files if any
         if (selectedFiles.length > 0) {
-          console.log('Files to upload:', selectedFiles);
-          // Add your file upload logic here
-          // await sendMessageWithFiles(String(chat.id), content, mentions, selectedFiles, replyTo?.id);
+          console.log('[ChatArea] Uploading files before sending message...');
+          fileInfo = await uploadFilesToServer(selectedFiles);
+          
+          // Check if any uploads failed
+          const failedUploads = selectedFiles.filter(f => f.error);
+          if (failedUploads.length > 0) {
+            console.error('[ChatArea] Some files failed to upload:', failedUploads);
+            // You might want to show an error message to the user here
+            return;
+          }
+          
+          console.log('[ChatArea] File info to pass to sendMessage:', fileInfo);
         }
         
-        await sendMessage(String(chat.id), content, mentions, replyTo?.id);
+        // Send message with file info if files were uploaded
+        console.log('[ChatArea] Calling sendMessage with:', {
+          chatId: String(chat.id),
+          content,
+          mentions,
+          replyToId: replyTo?.id,
+          fileInfo
+        });
+        
+        await sendMessage(String(chat.id), content, mentions, replyTo?.id, fileInfo);
+        
         setMessage("");
         setReplyTo(null);
         setSelectedFiles([]);
@@ -120,7 +251,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           textareaRef.current.style.height = 'auto';
         }
       } catch (err) {
-        console.error('Error sending message:', err);
+        console.error('[ChatArea] Error sending message:', err);
       }
     }
   };
@@ -148,17 +279,25 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
-      console.log('Selected files:', files);
+      const newFileInfos: FileUploadInfo[] = files.map(file => ({
+        file,
+        identifier: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        isUploading: false,
+        uploadProgress: 0
+      }));
+      
+      setSelectedFiles(prev => [...prev, ...newFileInfos]);
+      console.log('[ChatArea] Selected files:', newFileInfos);
     }
+    
     // Reset the input value so the same file can be selected again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  const removeFile = (identifier: string) => {
+    setSelectedFiles(prev => prev.filter(f => f.identifier !== identifier));
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -183,6 +322,39 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       }
     }
     return mentions;
+  };
+
+  // Download files for a message
+  const handleDownloadFiles = async (messageId: string) => {
+    try {
+      console.log(`[ChatArea] Downloading files for message: ${messageId}`);
+      const response = await getDownloadFiles(messageId);
+      
+      if (response.isSuccess && response.data.length > 0) {
+        console.log(`[ChatArea] Found ${response.data.length} files to download`);
+        
+        // Download each file
+        for (const file of response.data) {
+          try {
+            const link = document.createElement('a');
+            link.href = file.downloadUrl;
+            link.download = file.fileName;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            console.log(`[ChatArea] Downloaded file: ${file.fileName}`);
+          } catch (downloadError) {
+            console.error(`[ChatArea] Error downloading file ${file.fileName}:`, downloadError);
+          }
+        }
+      } else {
+        console.log(`[ChatArea] No files found for message: ${messageId}`);
+      }
+    } catch (error) {
+      console.error(`[ChatArea] Error getting download files for message ${messageId}:`, error);
+    }
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
@@ -309,8 +481,6 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   const getLastSeenText = () => {
     if (currentChat.conversationType === 'private') {
       const participant = currentChat.participants[0];
-      // If 'status' does not exist, you may need to remove or replace this check.
-      // For now, just return a placeholder or use another property if available.
       return 'last seen recently';
     }
     return `${currentChat.participants.length} participants`;
@@ -378,6 +548,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
           onEdit={handleEditMessage}
           onDelete={handleDeleteMessage}
           onMessageInfo={handleMessageInfo}
+          onDownloadFiles={handleDownloadFiles}
         />
       </div>
 
@@ -389,16 +560,32 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
               Selected Files ({selectedFiles.length})
             </p>
             <div className="flex flex-wrap gap-2">
-              {selectedFiles.map((file, index) => (
+              {selectedFiles.map((fileInfo) => (
                 <div
-                  key={`${file.name}-${index}`}
-                  className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 text-sm"
+                  key={fileInfo.identifier}
+                  className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 text-sm relative"
                 >
-                  <span className="truncate max-w-xs">{file.name}</span>
-                  <span className="text-gray-500">({formatFileSize(file.size)})</span>
+                  <File size={16} className="text-gray-500 flex-shrink-0" />
+                  <span className="truncate max-w-xs">{fileInfo.file.name}</span>
+                  <span className="text-gray-500">({formatFileSize(fileInfo.file.size)})</span>
+                  
+                  {/* Upload status indicators */}
+                  {fileInfo.isUploading && (
+                    <div className="absolute inset-0 bg-blue-100 bg-opacity-75 flex items-center justify-center rounded-lg">
+                      <span className="text-xs text-blue-600">Uploading...</span>
+                    </div>
+                  )}
+                  
+                  {fileInfo.error && (
+                    <div className="absolute inset-0 bg-red-100 bg-opacity-75 flex items-center justify-center rounded-lg">
+                      <span className="text-xs text-red-600">Failed</span>
+                    </div>
+                  )}
+                  
                   <button
-                    onClick={() => removeFile(index)}
-                    className="text-gray-500 hover:text-red-500 ml-1"
+                    onClick={() => removeFile(fileInfo.identifier)}
+                    className="text-gray-500 hover:text-red-500 ml-1 flex-shrink-0"
+                    disabled={fileInfo.isUploading}
                   >
                     <X size={14} />
                   </button>
@@ -440,7 +627,12 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
             {/* Attachment Button */}
             <button 
               onClick={handleFileSelect}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2.5 rounded-full flex-shrink-0 transition-colors"
+              disabled={isUploadingFiles}
+              className={`p-2.5 rounded-full flex-shrink-0 transition-colors ${
+                isUploadingFiles 
+                  ? 'text-gray-300 cursor-not-allowed' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
             >
               <Paperclip className="h-5 w-5" />
             </button>
@@ -489,7 +681,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
             {/* Send Button */}
             <button
               onClick={handleSendMessage}
-              disabled={!message.trim() && selectedFiles.length === 0}
+              disabled={(!message.trim() && selectedFiles.length === 0) || isUploadingFiles}
               className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed p-3 rounded-full min-w-[44px] min-h-[44px] flex-shrink-0 transition-colors duration-200 flex items-center justify-center shadow-sm"
             >
               <Send className="h-4 w-4 text-white" />
