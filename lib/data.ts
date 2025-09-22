@@ -510,7 +510,12 @@ export interface ApiChat {
   }>;
   messageResponses: any;
 }
-
+export interface MessageAttachment {
+  attachmentId: number;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+}
 export interface ApiMessage {
   id: number;
   parentId: number | null;

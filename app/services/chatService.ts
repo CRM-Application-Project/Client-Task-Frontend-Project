@@ -135,6 +135,12 @@ export interface MessageSender {
   id: string;
   label: string;
 }
+export interface MessageAttachment {
+  attachmentId: number;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+}
 
 export interface Message {
   id: number;
@@ -146,7 +152,7 @@ export interface Message {
   replyCount: number;
   mentions: string[];
   reactions: any[]; // Can refine later if needed
-  attachments: any | null; // Can refine later if needed
+  attachments: MessageAttachment[] | null;  // Can refine later if needed
   deletable: boolean;
   updatable: boolean;
 }
@@ -446,10 +452,13 @@ export const uploadMessageUrls = async (
 };
 // ---- Interfaces ----
 export interface DownloadFile {
+  docId: number;
+  type: string;
   fileName: string;
-  downloadUrl: string;
-  identifier: string;
-  fileType?: string;
+  fileType: string;
+  url: string;
+  key: string | null;
+  identifier: string | null;
 }
 
 export interface DownloadFilesResponse {

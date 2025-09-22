@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiMessage, User } from '@/lib/data';
-import { ChatParticipant } from '@/app/services/chatService';
+import { ChatParticipant, MessageAttachment } from '@/app/services/chatService';
 import { getAssignDropdown, getChatList } from '@/app/services/data.service';
 import { 
   addMessage, 
@@ -49,7 +49,8 @@ export interface Message {
   deletable?: boolean;
   updatable?: boolean;
   status?: 'sending' | 'sent' | 'delivered' | 'read';
-  hasAttachments?: boolean; // New field to indicate if message has files
+  hasAttachments?: boolean|null;
+  attachments?: MessageAttachment[]; // Added actual attachments array
 }
 
 export const useChat = () => {
@@ -159,6 +160,38 @@ export const useChat = () => {
     }
   }, [currentUserId]);
 
+  // Mark conversation as read
+  const markConversationAsRead = useCallback(async (conversationId: string) => {
+    if (!currentUserId) return;
+    
+    console.log(`[useChat] Marking conversation ${conversationId} as read`);
+    
+    try {
+      // Mark as read in Firebase
+      await firebaseChatService.markConversationAsRead(conversationId);
+      
+      // Update local state to reflect zero unread count
+      setChats(prev => prev.map(chat => 
+        chat.id.toString() === conversationId 
+          ? { ...chat, unReadMessageCount: 0 }
+          : chat
+      ));
+      
+      // Update notifications state
+      setNotifications(prev => ({
+        ...prev,
+        [conversationId]: {
+          ...prev[conversationId],
+          unreadCount: 0,
+          timestamp: new Date().toISOString()
+        }
+      }));
+      
+    } catch (error) {
+      console.error(`[useChat] Error marking conversation ${conversationId} as read:`, error);
+    }
+  }, [currentUserId]);
+
   // Load messages for a specific chat
   const loadMessages = useCallback(async (chatId: string) => {
     console.log(`[useChat] Loading messages for chat: ${chatId}`);
@@ -199,7 +232,8 @@ export const useChat = () => {
             deletable: apiMsg.deletable,
             updatable: apiMsg.updatable,
             status: apiMsg.sender.id === currentUserId ? 'sent' : undefined,
-            hasAttachments: apiMsg.attachments && apiMsg.attachments.length > 0
+            hasAttachments: apiMsg.attachments && apiMsg.attachments.length > 0,
+            attachments: apiMsg.attachments || [] // Include actual attachments array
           };
         });
         
@@ -209,14 +243,23 @@ export const useChat = () => {
         markConversationAsRead(chatId);
         
         // Update message receipts for received messages
-        const messageIds = response.data.content
+        const receivedMessageIds = response.data.content
           .filter((msg: ApiMessage) => msg.sender.id !== currentUserId)
           .map((msg: ApiMessage) => msg.id);
           
-        if (messageIds.length > 0) {
-          console.log(`[useChat] Updating receipts for ${messageIds.length} messages`);
+        if (receivedMessageIds.length > 0) {
+          console.log(`[useChat] Updating receipts to READ for ${receivedMessageIds.length} received messages`);
           try {
-           
+            const updateReceiptResponse = await updateMessageReceipt({
+              messageIds: receivedMessageIds,
+              status: "READ"
+            });
+            
+            if (updateReceiptResponse.isSuccess) {
+              console.log(`[useChat] Successfully updated receipt status to READ for ${receivedMessageIds.length} messages`);
+            } else {
+              console.error('[useChat] Failed to update message receipts:', updateReceiptResponse.message);
+            }
           } catch (receiptError) {
             console.error('[useChat] Error updating message receipts:', receiptError);
           }
@@ -225,39 +268,7 @@ export const useChat = () => {
     } catch (err) {
       console.error(`[useChat] Error loading messages for chat ${chatId}:`, err);
     }
-  }, [currentUserId]);
-
-  // Mark conversation as read
-  const markConversationAsRead = useCallback(async (conversationId: string) => {
-    if (!currentUserId) return;
-    
-    console.log(`[useChat] Marking conversation ${conversationId} as read`);
-    
-    try {
-      // Mark as read in Firebase
-      await firebaseChatService.markConversationAsRead(conversationId);
-      
-      // Update local state to reflect zero unread count
-      setChats(prev => prev.map(chat => 
-        chat.id.toString() === conversationId 
-          ? { ...chat, unReadMessageCount: 0 }
-          : chat
-      ));
-      
-      // Update notifications state
-      setNotifications(prev => ({
-        ...prev,
-        [conversationId]: {
-          ...prev[conversationId],
-          unreadCount: 0,
-          timestamp: new Date().toISOString()
-        }
-      }));
-      
-    } catch (error) {
-      console.error(`[useChat] Error marking conversation ${conversationId} as read:`, error);
-    }
-  }, [currentUserId]);
+  }, [currentUserId, markConversationAsRead]);
 
   // Set active conversation (for auto-mark-as-read)
   const setActiveConversation = useCallback((conversationId: string | null) => {
@@ -354,7 +365,8 @@ export const useChat = () => {
           deletable: false,
           updatable: false,
           status: fm.senderId === currentUserId ? 'sent' : undefined,
-          hasAttachments: fm.attachments && fm.attachments.length > 0
+          hasAttachments: fm.attachments && fm.attachments.length > 0,
+          attachments: fm.attachments || [] // Include actual attachments
         }));
 
         setMessages(prev => ({ ...prev, [conversationId]: transformed }));
@@ -381,123 +393,137 @@ export const useChat = () => {
   }, []);
 
   // Send a new message (updated to handle file attachments)
-  const sendMessage = useCallback(async (
-    chatId: string, 
-    content: string, 
-    mentions?: string[], 
-    parentId?: string,
-    fileInfo?: MessageFileInfo[]
-  ) => {
-    const tempId = `temp-${Date.now()}`;
-    const tempMessage: Message = {
-      id: tempId,
-      content,
-      sender: {
-        id: currentUserId,  
-        label: currentUserName
-      },
-      createdAt: new Date().toISOString(),
-      senderId: currentUserId,
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      type: 'sent',
-      mentions,
-      parentId,
-      status: 'sending',
-      hasAttachments: fileInfo && fileInfo.length > 0
-    };
+const sendMessage = useCallback(async (
+  chatId: string, 
+  content: string, 
+  mentions?: string[], 
+  parentId?: string,
+  fileInfo?: MessageFileInfo[]
+) => {
+  const tempId = `temp-${Date.now()}`;
+  const tempMessage: Message = {
+    id: tempId,
+    content,
+    sender: {
+      id: currentUserId,  
+      label: currentUserName
+    },
+    createdAt: new Date().toISOString(),
+    senderId: currentUserId,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    type: 'sent',
+    mentions,
+    parentId,
+    status: 'sending',
+    hasAttachments: fileInfo && fileInfo.length > 0,
+    attachments: fileInfo ? fileInfo.map((file, index) => ({
+      attachmentId: index,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      fileSize: 0
+    })) : []
+  };
 
-    console.log(`[useChat] Sending message to chat ${chatId}:`, { 
-      content, 
-      mentions, 
-      parentId, 
-      fileInfo,
-      hasFiles: fileInfo && fileInfo.length > 0,
-      fileCount: fileInfo?.length || 0
-    });
+  console.log(`[useChat] Sending message to chat ${chatId}:`, { 
+    content, 
+    mentions, 
+    parentId, 
+    fileInfo,
+    hasFiles: fileInfo && fileInfo.length > 0,
+    fileCount: fileInfo?.length || 0
+  });
 
-    // Optimistically add message
-    setMessages(prev => ({
-      ...prev,
-      [chatId]: [...(prev[chatId] || []), tempMessage]
-    }));
+  // Optimistically add message
+  setMessages(prev => ({
+    ...prev,
+    [chatId]: [...(prev[chatId] || []), tempMessage]
+  }));
 
-    try {
-      let response;
+  try {
+    let response;
+    
+    if (parentId) {
+      // For replies, ensure the payload structure matches what the API expects
+      const replyPayload = {
+        conversationId: parseInt(chatId),
+        content,
+        mentions: mentions || [],
+        // Make sure fileInfo is included and properly structured
+        fileInfo: fileInfo || [],
+        // Alternative naming in case API expects different property name:
+        // files: fileInfo || [],
+        // attachments: fileInfo || [],
+      };
       
-      if (parentId) {
-        const replyPayload = {
-          conversationId: parseInt(chatId),
-          content,
-          mentions,
-          fileInfo // Include file info in reply payload
-        };
-        
-        console.log(`[useChat] Calling replyToMessageService with payload:`, replyPayload);
-        response = await replyToMessageService(parentId, replyPayload);
-      } else {
-        const messagePayload = {
-          conversationId: parseInt(chatId),
-          content,
-          mentions,
-          fileInfo // Include file info in message payload
-        };
-        
-        console.log(`[useChat] Calling addMessage with payload:`, messagePayload);
-        response = await addMessage(messagePayload);
-      }
+      console.log(`[useChat] Calling replyToMessageService with payload:`, replyPayload);
+      console.log(`[useChat] FileInfo details:`, fileInfo);
+      
+      response = await replyToMessageService(parentId, replyPayload);
+    } else {
+      const messagePayload = {
+        conversationId: parseInt(chatId),
+        content,
+        mentions: mentions || [],
+        fileInfo: fileInfo || []
+      };
+      
+      console.log(`[useChat] Calling addMessage with payload:`, messagePayload);
+      response = await addMessage(messagePayload);
+    }
 
-      if (response.isSuccess) {
-        console.log(`[useChat] Message sent successfully:`, response.data);
-        
-        const realMessage: Message = {
-          id: response.data.id.toString(),
-          content: response.data.content,
-          createdAt: response.data.createdAt,
-          sender: {
-            id: currentUserId,
-            label: currentUserName
-          },
-          senderId: currentUserId,
-          timestamp: new Date(response.data.createdAt).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          type: 'sent',
-          reactions: [],
-          parentId: parentId || response.data.parentId?.toString(),
-          mentions: response.data.mentions,
-          deletable: response.data.deletable,
-          updatable: response.data.updatable,
-          status: 'sent',
-          hasAttachments: fileInfo && fileInfo.length > 0
-        };
+    if (response.isSuccess) {
+      console.log(`[useChat] Message sent successfully:`, response.data);
+      
+      const realMessage: Message = {
+        id: response.data.id.toString(),
+        content: response.data.content,
+        createdAt: response.data.createdAt,
+        sender: {
+          id: currentUserId,
+          label: currentUserName
+        },
+        senderId: currentUserId,
+        timestamp: new Date(response.data.createdAt).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        type: 'sent',
+        reactions: [],
+        parentId: parentId || response.data.parentId?.toString(),
+        mentions: response.data.mentions,
+        deletable: response.data.deletable,
+        updatable: response.data.updatable,
+        status: 'sent',
+        hasAttachments: response.data.attachments && response.data.attachments.length > 0,
+        attachments: response.data.attachments || []
+      };
 
-        setMessages(prev => ({
-          ...prev,
-          [chatId]: prev[chatId].map(msg => msg.id === tempId ? realMessage : msg)
-        }));
-
-        // Update chat's last message
-        setChats(prev => prev.map(chat => 
-          chat.id.toString() === chatId 
-            ? { ...chat, lastMessage: { content, timestamp: new Date(), senderId: currentUserId } }
-            : chat
-        ));
-
-      } else {
-        console.error('[useChat] Failed to send message:', response.message);
-        throw new Error(response.message);
-      }
-    } catch (err) {
-      console.error('[useChat] Error sending message:', err);
       setMessages(prev => ({
         ...prev,
-        [chatId]: prev[chatId].map(msg => 
-          msg.id === tempId ? { ...msg, status: 'failed' as any } : msg
-        )
+        [chatId]: prev[chatId].map(msg => msg.id === tempId ? realMessage : msg)
       }));
+
+      // Update chat's last message
+      setChats(prev => prev.map(chat => 
+        chat.id.toString() === chatId 
+          ? { ...chat, lastMessage: { content, timestamp: new Date(), senderId: currentUserId } }
+          : chat
+      ));
+
+    } else {
+      console.error('[useChat] Failed to send message:', response.message);
+      throw new Error(response.message);
     }
-  }, [currentUserId, currentUserName]);
+  } catch (err) {
+    console.error('[useChat] Error sending message:', err);
+    setMessages(prev => ({
+      ...prev,
+      [chatId]: prev[chatId].map(msg => 
+        msg.id === tempId ? { ...msg, status: 'failed' as any } : msg
+      )
+    }));
+  }
+}, [currentUserId, currentUserName]);
 
   // Create a new chat/conversation
   const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
