@@ -106,174 +106,187 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   }, [currentChat.id, setActiveConversation]);
 
   // Upload files to get upload URLs
-// Upload files to get upload URLs
-const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
-  if (!files.length) return [];
+  const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
+    if (!files.length) return [];
 
-  setIsUploadingFiles(true);
-  const uploadedFiles: MessageFileInfo[] = [];
+    setIsUploadingFiles(true);
+    const uploadedFiles: MessageFileInfo[] = [];
 
-  try {
-    // Step 1: Get upload URLs from API
-    const uploadPayload = {
-      conversationId: Number(currentChat.id),
-      files: files.map(f => ({
-        fileName: f.file.name,
-        fileType: f.file.type || 'application/octet-stream',
-        identifier: f.identifier
-      }))
-    };
+    try {
+      // Step 1: Get upload URLs from API
+      const uploadPayload = {
+        conversationId: Number(currentChat.id),
+        files: files.map(f => ({
+          fileName: f.file.name,
+          fileType: f.file.type || 'application/octet-stream',
+          identifier: f.identifier
+        }))
+      };
 
-    console.log('[ChatArea] Requesting upload URLs for files:', uploadPayload);
-    const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
+      console.log('[ChatArea] Requesting upload URLs for files:', uploadPayload);
+      const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
 
-    if (!uploadUrlResponse.isSuccess) {
-      throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
-    }
-
-    console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
-
-    // Step 2: Upload each file to its respective upload URL
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
-      
-      if (!uploadData) {
-        console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
-        continue;
+      if (!uploadUrlResponse.isSuccess) {
+        throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
       }
 
-      // Update file status - use 'url' instead of 'uploadUrl'
-      setSelectedFiles(prev => prev.map(f => 
-        f.identifier === file.identifier 
-          ? { ...f, isUploading: true, uploadUrl: uploadData.url, downloadUrl: uploadData.url } // Use url for both
-          : f
-      ));
+      console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
 
-      try {
-        console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.url}`);
+      // Step 2: Upload each file to its respective upload URL
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
         
-        // Upload file using PUT request to the signed URL
-        const uploadResponse = await fetch(uploadData.url, {
-          method: 'PUT',
-          body: file.file,
-          headers: {
-            'Content-Type': file.file.type || 'application/octet-stream'
-          }
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
+        if (!uploadData) {
+          console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
+          continue;
         }
 
-        console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
-
-        // Add to uploaded files list - include all necessary data from response
-        uploadedFiles.push({
-          fileName: uploadData.fileName,
-          fileType: file.file.type || 'application/octet-stream',
-          // Include any additional fields that might be needed by the backend
-          
-        });
-
-        // Update file status
+        // Update file status - use 'url' instead of 'uploadUrl'
         setSelectedFiles(prev => prev.map(f => 
           f.identifier === file.identifier 
-            ? { ...f, isUploading: false, uploadProgress: 100 }
+            ? { ...f, isUploading: true, uploadUrl: uploadData.url, downloadUrl: uploadData.url } // Use url for both
             : f
         ));
 
-      }catch (uploadError) {
-  console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
-  
-  // Handle unknown type properly
-  const errorMessage = uploadError instanceof Error 
-    ? uploadError.message 
-    : 'Unknown upload error';
-  
-  setSelectedFiles(prev => prev.map(f => 
-    f.identifier === file.identifier 
-      ? { ...f, isUploading: false, error: errorMessage }
-      : f
-  ));
-}
+        try {
+          console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.url}`);
+          
+          // Upload file using PUT request to the signed URL
+          const uploadResponse = await fetch(uploadData.url, {
+            method: 'PUT',
+            body: file.file,
+            headers: {
+              'Content-Type': file.file.type || 'application/octet-stream'
+            }
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
+          }
+
+          console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
+
+          // Add to uploaded files list - include all necessary data from response
+          uploadedFiles.push({
+            fileName: uploadData.fileName,
+            fileType: file.file.type || 'application/octet-stream',
+            // Include any additional fields that might be needed by the backend
+            
+          });
+
+          // Update file status
+          setSelectedFiles(prev => prev.map(f => 
+            f.identifier === file.identifier 
+              ? { ...f, isUploading: false, uploadProgress: 100 }
+              : f
+          ));
+
+        } catch (uploadError) {
+          console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
+          
+          // Handle unknown type properly
+          const errorMessage = uploadError instanceof Error 
+            ? uploadError.message 
+            : 'Unknown upload error';
+          
+          setSelectedFiles(prev => prev.map(f => 
+            f.identifier === file.identifier 
+              ? { ...f, isUploading: false, error: errorMessage }
+              : f
+          ));
+        }
+      }
+
+    } catch (error) {
+      console.error('[ChatArea] Error in file upload process:', error);
+      
+      // Handle unknown type properly
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Upload process failed';
+      
+      // Mark all files as failed
+      setSelectedFiles(prev => prev.map(f => ({ 
+        ...f, 
+        isUploading: false, 
+        error: errorMessage 
+      })));
+    } finally {
+      setIsUploadingFiles(false);
     }
 
-  } catch (error) {
-  console.error('[ChatArea] Error in file upload process:', error);
-  
-  // Handle unknown type properly
-  const errorMessage = error instanceof Error 
-    ? error.message 
-    : 'Upload process failed';
-  
-  // Mark all files as failed
-  setSelectedFiles(prev => prev.map(f => ({ 
-    ...f, 
-    isUploading: false, 
-    error: errorMessage 
-  })));
-}finally {
-    setIsUploadingFiles(false);
+    return uploadedFiles;
+  };
+
+ const handleSendMessage = async () => {
+  // Prevent sending if files are still uploading
+  if (isUploadingFiles) {
+    console.log('[ChatArea] Cannot send message while files are uploading');
+    return;
   }
 
-  return uploadedFiles;
-};
-
-  const handleSendMessage = async () => {
-    // Prevent sending if files are still uploading
-    if (isUploadingFiles) {
-      console.log('[ChatArea] Cannot send message while files are uploading');
-      return;
-    }
-
-    if (message.trim() || selectedFiles.length > 0) {
-      const content = message.trim();
-      const mentions = extractMentions(content);
+  if (message.trim() || selectedFiles.length > 0) {
+    const content = message.trim();
+    const mentions = extractMentions(content);
+    
+    try {
+      let fileInfo: MessageFileInfo[] = [];
       
-      try {
-        let fileInfo: MessageFileInfo[] = [];
+      // Upload files if any
+      if (selectedFiles.length > 0) {
+        console.log('[ChatArea] Uploading files before sending message...');
+        fileInfo = await uploadFilesToServer(selectedFiles);
         
-        // Upload files if any
-        if (selectedFiles.length > 0) {
-          console.log('[ChatArea] Uploading files before sending message...');
-          fileInfo = await uploadFilesToServer(selectedFiles);
-          
-          // Check if any uploads failed
-          const failedUploads = selectedFiles.filter(f => f.error);
-          if (failedUploads.length > 0) {
-            console.error('[ChatArea] Some files failed to upload:', failedUploads);
-            alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
-            return;
-          }
-          
-          console.log('[ChatArea] File info to pass to sendMessage:', fileInfo);
+        // Check if any uploads failed
+        const failedUploads = selectedFiles.filter(f => f.error);
+        if (failedUploads.length > 0) {
+          console.error('[ChatArea] Some files failed to upload:', failedUploads);
+          alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
+          return;
         }
         
-        // Send message with file info if files were uploaded
-        console.log('[ChatArea] Calling sendMessage with:', {
-          chatId: String(chat.id),
-          content,
-          mentions,
-          replyToId: replyTo?.id,
-          fileInfo
-        });
-        
-        await sendMessage(String(chat.id), content, mentions, replyTo?.id, fileInfo);
-        
-        setMessage("");
-        setReplyTo(null);
-        setSelectedFiles([]);
-        
-        // Auto-resize textarea
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-        }
-      } catch (err) {
-        console.error('[ChatArea] Error sending message:', err);
+        console.log('[ChatArea] File info to pass to sendMessage:', fileInfo);
       }
+      
+      // If replying to a message with attachments, include those attachments in the reply
+      let replyFileInfo = fileInfo;
+      if (replyTo && replyTo.hasAttachments && replyTo.attachments && replyTo.attachments.length > 0) {
+        // Convert MessageAttachment[] to MessageFileInfo[]
+        const replyToFileInfo: MessageFileInfo[] = replyTo.attachments.map(attachment => ({
+          fileName: attachment.fileName,
+          fileType: attachment.fileType
+        }));
+        
+        // Combine new files with reply-to files
+        replyFileInfo = [...fileInfo, ...replyToFileInfo];
+        console.log('[ChatArea] Including attachments from replied message:', replyToFileInfo);
+      }
+      
+      // Send message with file info
+      console.log('[ChatArea] Calling sendMessage with:', {
+        chatId: String(chat.id),
+        content,
+        mentions,
+        replyToId: replyTo?.id,
+        fileInfo: replyFileInfo
+      });
+      
+      await sendMessage(String(chat.id), content, mentions, replyTo?.id, replyFileInfo);
+      
+      setMessage("");
+      setReplyTo(null);
+      setSelectedFiles([]);
+      
+      // Auto-resize textarea
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    } catch (err) {
+      console.error('[ChatArea] Error sending message:', err);
     }
-  };
+  }
+};
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -343,7 +356,7 @@ const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFile
     return mentions;
   };
 
-  // Download files for a message
+  // Download files for a message - FIXED VERSION
   const handleDownloadFiles = async (messageId: string) => {
     try {
       console.log(`[ChatArea] Downloading files for message: ${messageId}`);
@@ -352,20 +365,38 @@ const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFile
       if (response.isSuccess && response.data.length > 0) {
         console.log(`[ChatArea] Found ${response.data.length} files to download`);
         
-        // Download each file
+        // Download each file using the downloadBlob function
         for (const file of response.data) {
           try {
+            // Fetch the file as a blob
+            const fileResponse = await fetch(file.url);
+            if (!fileResponse.ok) {
+              throw new Error(`Failed to fetch file: ${fileResponse.statusText}`);
+            }
+            
+            const blob = await fileResponse.blob();
+            
+            // Create a download link and trigger the download
             const link = document.createElement('a');
-            link.href = file.downloadUrl;
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            link.href = blobUrl;
             link.download = file.fileName;
-            link.target = '_blank';
+            link.style.display = 'none';
+            
             document.body.appendChild(link);
             link.click();
+            
+            // Clean up
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
             
             console.log(`[ChatArea] Downloaded file: ${file.fileName}`);
           } catch (downloadError) {
             console.error(`[ChatArea] Error downloading file ${file.fileName}:`, downloadError);
+            
+            // Fallback: Open in new tab if download fails
+            window.open(file.url, '_blank');
           }
         }
       } else {
@@ -373,6 +404,26 @@ const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFile
       }
     } catch (error) {
       console.error(`[ChatArea] Error getting download files for message ${messageId}:`, error);
+    }
+  };
+
+  // Alternative download function for direct download
+  const downloadFileDirectly = async (url: string, fileName: string) => {
+    try {
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.target = '_blank';
+      
+      // Some browsers need the link to be in the DOM to trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file directly:', error);
+      // Fallback: open in new tab
+      window.open(url, '_blank');
     }
   };
 

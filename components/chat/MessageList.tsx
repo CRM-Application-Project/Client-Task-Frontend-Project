@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Reply, Smile, Edit3, Trash2, Check, CheckCheck, Clock, Plus, Minus, Info, Download, File } from "lucide-react";
+import { MoreVertical, Reply, Smile, Edit3, Trash2, Check, CheckCheck, Clock, Plus, Minus, Info, Download, File, FileText, Image, Video, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Message } from "@/hooks/useChat";
+import { MessageAttachment } from "@/app/services/chatService";
 
 interface MessageListProps {
   messages: Message[];
@@ -19,6 +20,80 @@ interface MessageListProps {
 const UserAvatar = ({ src, alt, size }: { src?: string; alt: string; size: string }) => (
   <div className={`${size === 'sm' ? 'w-8 h-8' : 'w-10 h-10'} bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0`}>
     {alt.charAt(0).toUpperCase()}
+  </div>
+);
+
+// Helper function to get file icon based on file type
+const getFileIcon = (fileType: string) => {
+  if (fileType.startsWith('image/')) return <Image size={16} />;
+  if (fileType.startsWith('video/')) return <Video size={16} />;
+  if (fileType.startsWith('audio/')) return <Music size={16} />;
+  if (fileType.includes('pdf')) return <FileText size={16} />;
+  return <File size={16} />;
+};
+
+// Helper function to format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Attachment component to display individual attachments
+const AttachmentDisplay = ({ 
+  attachment, 
+  isOwn, 
+  onDownload 
+}: { 
+  attachment: MessageAttachment; 
+  isOwn: boolean;
+  onDownload?: () => void;
+}) => (
+  <div className={cn(
+    "flex items-center gap-3 p-3 rounded-lg border border-opacity-50 bg-opacity-50 hover:bg-opacity-70 transition-colors cursor-pointer group",
+    isOwn 
+      ? "border-gray-300 bg-gray-200 hover:bg-gray-300"
+      : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+  )}
+  onClick={onDownload}
+  >
+    <div className={cn(
+      "flex-shrink-0 p-2 rounded-lg",
+      isOwn ? "bg-gray-300 text-gray-600" : "bg-gray-100 text-gray-500"
+    )}>
+      {getFileIcon(attachment.fileType)}
+    </div>
+    
+    <div className="flex-1 min-w-0">
+      <p className={cn(
+        "text-sm font-medium truncate",
+        isOwn ? "text-gray-700" : "text-gray-800"
+      )}>
+        {attachment.fileName}
+      </p>
+      <div className="flex items-center gap-2 text-xs">
+        <span className={cn(isOwn ? "text-gray-500" : "text-gray-600")}>
+          {attachment.fileType}
+        </span>
+        {attachment.fileSize > 0 && (
+          <>
+            <span className={cn(isOwn ? "text-gray-400" : "text-gray-500")}>•</span>
+            <span className={cn(isOwn ? "text-gray-500" : "text-gray-600")}>
+              {formatFileSize(attachment.fileSize)}
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+    
+    <div className={cn(
+      "flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+      isOwn ? "text-gray-500" : "text-gray-600"
+    )}>
+      <Download size={14} />
+    </div>
   </div>
 );
 
@@ -256,6 +331,9 @@ export const MessageList = ({
                 // Check if menu should appear above for this message
                 const menuAbove = shouldMenuAppearAbove(message.id);
 
+                // Check for attachments
+                const hasAttachments = message.attachments && message.attachments.length > 0;
+
                 return (
                   <div
                     key={message.id}
@@ -310,6 +388,13 @@ export const MessageList = ({
                           <p className="text-gray-700 text-xs leading-tight line-clamp-2 break-words">
                             {repliedMessage.content}
                           </p>
+                          {/* Show if replied message has attachments */}
+                          {repliedMessage.hasAttachments && (
+                            <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                              <File size={10} />
+                              <span>📎 {repliedMessage.attachments?.length || 0} file(s)</span>
+                            </p>
+                          )}
                         </div>
                       )}
                       
@@ -347,12 +432,29 @@ export const MessageList = ({
                               : "bg-white text-gray-800 rounded-bl-sm"
                           )}>
                             <div className="space-y-2">
-                              <p className="text-sm whitespace-pre-wrap break-words leading-5">
-                                {message.content}
-                              </p>
+                              {/* Message content */}
+                              {message.content && (
+                                <p className="text-sm whitespace-pre-wrap break-words leading-5">
+                                  {message.content}
+                                </p>
+                              )}
                               
-                              {/* File attachment indicator */}
-                              {message.hasAttachments && (
+                              {/* Attachments Display */}
+                              {hasAttachments && (
+                                <div className="space-y-2 mt-2">
+                                  {message.attachments!.map((attachment, attachIndex) => (
+                                    <AttachmentDisplay
+                                      key={`${message.id}-attachment-${attachIndex}`}
+                                      attachment={attachment}
+                                      isOwn={isOwn}
+                                      onDownload={() => onDownloadFiles && onDownloadFiles(message.id)}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Legacy file attachment indicator (fallback) */}
+                              {message.hasAttachments && (!message.attachments || message.attachments.length === 0) && (
                                 <div className={cn(
                                   "flex items-center gap-2 p-2 rounded border-t mt-2",
                                   isOwn 
