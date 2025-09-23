@@ -9,45 +9,6 @@ import Sidebar from "./Sidebar";
 import { User } from "@/lib/data";
 import { Chat } from "@/app/services/chatService";
 
-const mockUsers: User[] = [
-  {
-    id: "user1",
-    name: "Alice Johnson",
-    avatar: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    status: "online"
-  },
-  {
-    id: "user2", 
-    name: "Bob Smith",
-    avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    status: "offline"
-  },
-  {
-    id: "user3",
-    name: "Carol White",
-    avatar: "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    status: "online"
-  },
-  {
-    id: "user4",
-    name: "David Brown",
-    avatar: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    status: "away"
-  },
-  {
-    id: "user5",
-    name: "Emma Wilson",
-    avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    status: "online"
-  },
-  {
-    id: "user6",
-    name: "John Smith",
-    avatar: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    status: "away"
-  }
-];
-
 const mockChats: Chat[] = [
   {
     id: 1,
@@ -268,7 +229,7 @@ export const ChatLayout = () => {
       <div className="flex-1 flex flex-col">
         {selectedChat ? (
           <ChatArea chat={selectedChat} />
-        ) : (
+        ) : ( 
           <WelcomeScreen />
         )}
       </div>

@@ -62,6 +62,10 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
 
   const chatMessages = messages[currentChat.id] || [];
 
+  useEffect(() => {
+    console.log("[ChatArea] Mounted for chat:", chat.id);
+  }, []);
+
   // Keep local currentChat in sync with prop
   useEffect(() => {
     setCurrentChat(chat);
@@ -84,6 +88,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
 
   // Realtime subscription via Firebase for this conversation
   useEffect(() => {
+    console.log("this is current chat id", currentChat.id);
     if (!currentChat.id) return;
     try { setActiveConversation(String(currentChat.id)); } catch {}
     console.log('[ChatArea] Subscribing to Firebase conversation', String(currentChat.id));
