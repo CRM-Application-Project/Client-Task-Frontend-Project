@@ -224,7 +224,7 @@ class FirebaseChatService {
     this.messageCallbacks.set(conversationId, onMessagesUpdate);
 
     // Create reference to conversation messages
-    const path = `conversations/${conversationId}/messages`;
+    const path = `conversations/${conversationId}/events`;
     const messagesRef = ref(this.database, path);
     console.log('[FirebaseChat] Messages ref path:', path);
 
