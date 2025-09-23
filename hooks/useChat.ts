@@ -48,9 +48,10 @@ export interface Message {
   mentions?: string[];
   deletable?: boolean;
   updatable?: boolean;
-  status?: 'sending' | 'sent' | 'delivered' | 'read';
+  status?: 'sending' | 'sent' | 'delivered' | 'read'| 'failed';
   hasAttachments?: boolean|null;
-  attachments?: MessageAttachment[]; // Added actual attachments array
+  attachments?: MessageAttachment[];
+   error?: string; // Added actual attachments array
 }
 
 export const useChat = () => {
@@ -391,132 +392,217 @@ export const useChat = () => {
       conversationUnsubscribers.current.delete(conversationId);
     }
   }, []);
-
-  // Send a new message (updated to handle file attachments)
-  const sendMessage = useCallback(async (
-    chatId: string, 
-    content: string, 
-    mentions?: string[], 
-    parentId?: string,
-    fileInfo?: MessageFileInfo[]
-  ) => {
-    const tempId = `temp-${Date.now()}`;
-    const tempMessage: Message = {
-      id: tempId,
-      content,
-      sender: {
-        id: currentUserId,  
-        label: currentUserName
-      },
-      createdAt: new Date().toISOString(),
-      senderId: currentUserId,
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      type: 'sent',
-      mentions,
-      parentId,
-      status: 'sending',
-      hasAttachments: fileInfo && fileInfo.length > 0,
-      attachments: fileInfo ? fileInfo.map((file, index) => ({
-        attachmentId: index,
-        fileName: file.fileName,
-        fileType: file.fileType,
-        fileSize: 0 // We don't have size info in temp message
-      })) : []
-    };
-
-    console.log(`[useChat] Sending message to chat ${chatId}:`, { 
-      content, 
-      mentions, 
-      parentId, 
-      fileInfo,
-      hasFiles: fileInfo && fileInfo.length > 0,
-      fileCount: fileInfo?.length || 0
+// Add this to your useChat hook to handle initial data sync
+useEffect(() => {
+  if (currentUserId && chats.length > 0) {
+    // Subscribe to all existing conversations
+    chats.forEach(chat => {
+      subscribeToConversation(chat.id.toString());
     });
+  }
+}, [chats, currentUserId, subscribeToConversation]);
+  // Send a new message (updated to handle file attachments)
+ const sendMessage = useCallback(async (
+  chatId: string, 
+  content: string, 
+  mentions?: string[], 
+  parentId?: string,
+  fileInfo?: MessageFileInfo[]
+) => {
+  const tempId = `temp-${Date.now()}`;
+  const tempMessage: Message = {
+    id: tempId,
+    content,
+    sender: {
+      id: currentUserId,  
+      label: currentUserName
+    },
+    createdAt: new Date().toISOString(),
+    senderId: currentUserId,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    type: 'sent',
+    mentions,
+    parentId,
+    status: 'sending',
+    hasAttachments: fileInfo && fileInfo.length > 0,
+    attachments: fileInfo ? fileInfo.map((file, index) => ({
+      attachmentId: index,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      fileSize: 0 // We don't have size info in temp message
+    })) : []
+  };
 
-    // Optimistically add message
-    setMessages(prev => ({
-      ...prev,
-      [chatId]: [...(prev[chatId] || []), tempMessage]
-    }));
+  console.log(`[useChat] Sending message to chat ${chatId}:`, { 
+    content, 
+    mentions, 
+    parentId, 
+    fileInfo,
+    hasFiles: fileInfo && fileInfo.length > 0,
+    fileCount: fileInfo?.length || 0
+  });
 
-    try {
-      let response;
-      
+  // Optimistically add message
+  setMessages(prev => ({
+    ...prev,
+    [chatId]: [...(prev[chatId] || []), tempMessage]
+  }));
+
+  // Retry logic configuration
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second base delay
+
+  const executeWithRetry = async <T>(operation: () => Promise<T>): Promise<T> => {
+    let lastError: Error;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[useChat] Attempt ${attempt}/${maxRetries} for sending message`);
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`[useChat] Attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          console.error(`[useChat] All ${maxRetries} attempts failed`);
+          throw lastError;
+        }
+        
+        // Exponential backoff with jitter
+        const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 500;
+        console.log(`[useChat] Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError!;
+  };
+
+  try {
+    let response;
+    
+    const sendOperation = async () => {
       if (parentId) {
         const replyPayload = {
           conversationId: parseInt(chatId),
           content,
           mentions,
-          fileInfo // Include file info in reply payload
+          fileInfo
         };
         
         console.log(`[useChat] Calling replyToMessageService with payload:`, replyPayload);
-        response = await replyToMessageService(parentId, replyPayload);
+        return await replyToMessageService(parentId, replyPayload);
       } else {
         const messagePayload = {
           conversationId: parseInt(chatId),
           content,
           mentions,
-          fileInfo // Include file info in message payload
+          fileInfo
         };
         
         console.log(`[useChat] Calling addMessage with payload:`, messagePayload);
-        response = await addMessage(messagePayload);
+        return await addMessage(messagePayload);
       }
+    };
 
-      if (response.isSuccess) {
-        console.log(`[useChat] Message sent successfully:`, response.data);
-        
-        const realMessage: Message = {
-          id: response.data.id.toString(),
-          content: response.data.content,
-          createdAt: response.data.createdAt,
-          sender: {
-            id: currentUserId,
-            label: currentUserName
-          },
-          senderId: currentUserId,
-          timestamp: new Date(response.data.createdAt).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          type: 'sent',
-          reactions: [],
-          parentId: parentId || response.data.parentId?.toString(),
-          mentions: response.data.mentions,
-          deletable: response.data.deletable,
-          updatable: response.data.updatable,
-          status: 'sent',
-          hasAttachments: response.data.attachments && response.data.attachments.length > 0,
-          attachments: response.data.attachments || [] // Include actual attachments from response
-        };
+    // Execute with retry logic
+    response = await executeWithRetry(sendOperation);
 
-        setMessages(prev => ({
-          ...prev,
-          [chatId]: prev[chatId].map(msg => msg.id === tempId ? realMessage : msg)
-        }));
+    if (response.isSuccess) {
+      console.log(`[useChat] Message sent successfully:`, response.data);
+      
+      const realMessage: Message = {
+        id: response.data.id.toString(),
+        content: response.data.content,
+        createdAt: response.data.createdAt,
+        sender: {
+          id: currentUserId,
+          label: currentUserName
+        },
+        senderId: currentUserId,
+        timestamp: new Date(response.data.createdAt).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        type: 'sent',
+        reactions: [],
+        parentId: parentId || response.data.parentId?.toString(),
+        mentions: response.data.mentions,
+        deletable: response.data.deletable,
+        updatable: response.data.updatable,
+        status: 'sent',
+        hasAttachments: response.data.attachments && response.data.attachments.length > 0,
+        attachments: response.data.attachments || []
+      };
 
-        // Update chat's last message
-        setChats(prev => prev.map(chat => 
-          chat.id.toString() === chatId 
-            ? { ...chat, lastMessage: { content, timestamp: new Date(), senderId: currentUserId } }
-            : chat
-        ));
-
-      } else {
-        console.error('[useChat] Failed to send message:', response.message);
-        throw new Error(response.message);
-      }
-    } catch (err) {
-      console.error('[useChat] Error sending message:', err);
+      // Update the temporary message with the real one
       setMessages(prev => ({
         ...prev,
         [chatId]: prev[chatId].map(msg => 
-          msg.id === tempId ? { ...msg, status: 'failed' as any } : msg
+          msg.id === tempId ? realMessage : msg
         )
       }));
+
+      // Update chat's last message for local state consistency
+      setChats(prev => prev.map(chat => 
+        chat.id.toString() === chatId 
+          ? { 
+              ...chat, 
+              lastMessage: { 
+                content, 
+                timestamp: new Date().toISOString(), 
+                senderId: currentUserId 
+              },
+              // Reset unread count since current user sent the message
+              unReadMessageCount: 0
+            }
+          : chat
+      ));
+
+      // Firebase will handle the real-time update via the listener
+      console.log(`[useChat] Message ${response.data.id} successfully processed`);
+
+    } else {
+      console.error('[useChat] API returned error:', response.message);
+      throw new Error(response.message || 'Failed to send message');
     }
-  }, [currentUserId, currentUserName]);
+
+  } catch (err) {
+    console.error('[useChat] Error sending message:', err);
+    
+    // Update message status to failed with proper error handling
+    setMessages(prev => {
+      const currentChatMessages = prev[chatId] || [];
+      const messageIndex = currentChatMessages.findIndex(msg => msg.id === tempId);
+      
+      if (messageIndex === -1) {
+        console.warn(`[useChat] Temporary message ${tempId} not found for update`);
+        return prev;
+      }
+      
+      const updatedMessages = [...currentChatMessages];
+      updatedMessages[messageIndex] = {
+        ...updatedMessages[messageIndex],
+        status: 'failed' as const,
+        // Store error information for potential retry functionality
+     error: err instanceof Error ? err.message : 'Unknown error'
+
+      };
+      
+      return {
+        ...prev,
+        [chatId]: updatedMessages
+      };
+    });
+
+    // Optional: Provide user feedback about the failure
+    // You could add a toast notification here
+    console.error(`[useChat] Message failed to send after ${maxRetries} attempts:`, err);
+    
+    // Re-throw the error if you want calling code to handle it
+    throw err;
+  }
+}, [currentUserId, currentUserName]);
 
   // Create a new chat/conversation
   const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
@@ -815,25 +901,28 @@ export const useChat = () => {
   }, []);
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      console.log('[useChat] Component unmounting, cleaning up Firebase listeners');
-      
-      // Unsubscribe from all conversations
-      conversationUnsubscribers.current.forEach((unsubscriber, conversationId) => {
-        console.log(`[useChat] Unsubscribing from conversation: ${conversationId}`);
-        unsubscriber();
-      });
-      conversationUnsubscribers.current.clear();
-      
-      // Unsubscribe from notifications
-      if (notificationUnsubscriber.current) {
-        console.log('[useChat] Unsubscribing from notifications');
-        notificationUnsubscriber.current();
-      }
-      
-    };
-  }, []);
+ // Enhanced cleanup in useChat
+useEffect(() => {
+  return () => {
+    console.log('[useChat] Cleaning up all listeners');
+    
+    // Unsubscribe from all conversations
+    conversationUnsubscribers.current.forEach((unsub, chatId) => {
+      console.log(`[useChat] Unsubscribing from conversation: ${chatId}`);
+      unsub();
+    });
+    conversationUnsubscribers.current.clear();
+    
+    // Unsubscribe from notifications
+    if (notificationUnsubscriber.current) {
+      notificationUnsubscriber.current();
+      notificationUnsubscriber.current = null;
+    }
+    
+    // Clear all Firebase listeners
+    firebaseChatService.cleanup();
+  };
+}, []);
 
   // Load chats on mount
   useEffect(() => {
