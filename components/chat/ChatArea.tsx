@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X, Download, File, Clock } from "lucide-react";
+import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X, Download, File, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -145,12 +145,21 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
         // Update file status - use 'url' instead of 'uploadUrl'
         setSelectedFiles(prev => prev.map(f => 
           f.identifier === file.identifier 
-            ? { ...f, isUploading: true, uploadUrl: uploadData.url, downloadUrl: uploadData.url } // Use url for both
+            ? { ...f, isUploading: true, uploadProgress: 10, uploadUrl: uploadData.url, downloadUrl: uploadData.url }
             : f
         ));
 
         try {
           console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.url}`);
+          
+          // Simulate progress updates
+          const progressInterval = setInterval(() => {
+            setSelectedFiles(prev => prev.map(f => 
+              f.identifier === file.identifier 
+                ? { ...f, uploadProgress: Math.min(f.uploadProgress + 20, 90) }
+                : f
+            ));
+          }, 200);
           
           // Upload file using PUT request to the signed URL
           const uploadResponse = await fetch(uploadData.url, {
@@ -161,21 +170,21 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
             }
           });
 
+          clearInterval(progressInterval);
+
           if (!uploadResponse.ok) {
             throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
           }
 
           console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
 
-          // Add to uploaded files list - include all necessary data from response
+          // Add to uploaded files list
           uploadedFiles.push({
             fileName: uploadData.fileName,
             fileType: file.file.type || 'application/octet-stream',
-            // Include any additional fields that might be needed by the backend
-            
           });
 
-          // Update file status
+          // Update file status to completed
           setSelectedFiles(prev => prev.map(f => 
             f.identifier === file.identifier 
               ? { ...f, isUploading: false, uploadProgress: 100 }
@@ -185,14 +194,13 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
         } catch (uploadError) {
           console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
           
-          // Handle unknown type properly
           const errorMessage = uploadError instanceof Error 
             ? uploadError.message 
             : 'Unknown upload error';
           
           setSelectedFiles(prev => prev.map(f => 
             f.identifier === file.identifier 
-              ? { ...f, isUploading: false, error: errorMessage }
+              ? { ...f, isUploading: false, uploadProgress: 0, error: errorMessage }
               : f
           ));
         }
@@ -201,7 +209,6 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     } catch (error) {
       console.error('[ChatArea] Error in file upload process:', error);
       
-      // Handle unknown type properly
       const errorMessage = error instanceof Error 
         ? error.message 
         : 'Upload process failed';
@@ -210,6 +217,7 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
       setSelectedFiles(prev => prev.map(f => ({ 
         ...f, 
         isUploading: false, 
+        uploadProgress: 0,
         error: errorMessage 
       })));
     } finally {
@@ -542,6 +550,13 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     return `${currentChat.participants.length} participants`;
   };
 
+  // Helper function to get overall upload progress
+  const getOverallProgress = () => {
+    if (selectedFiles.length === 0) return 0;
+    const totalProgress = selectedFiles.reduce((sum, file) => sum + file.uploadProgress, 0);
+    return Math.round(totalProgress / selectedFiles.length);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 relative">
       {/* Hidden file input */}
@@ -608,47 +623,87 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
         />
       </div>
 
-      {/* Selected Files Preview */}
+      {/* Selected Files Preview with Progress */}
       {selectedFiles.length > 0 && (
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-gray-600 font-medium">
-              Selected Files ({selectedFiles.length})
+          <div className="flex flex-col gap-3">
+            {/* Header with overall progress */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-600 font-medium">
+                Selected Files ({selectedFiles.length})
+              </p>
               {isUploadingFiles && (
-                <span className="ml-2 text-blue-600 font-normal">
-                  - Uploading files...
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-blue-600 font-medium">
+                    Uploading... {getOverallProgress()}%
+                  </span>
+                  <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                      style={{ width: `${getOverallProgress()}%` }}
+                    />
+                  </div>
+                </div>
               )}
-            </p>
-            <div className="flex flex-wrap gap-2">
+            </div>
+
+            {/* File list */}
+            <div className="flex flex-col gap-2">
               {selectedFiles.map((fileInfo) => (
                 <div
                   key={fileInfo.identifier}
-                  className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 text-sm relative"
+                  className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5 text-sm border border-gray-200"
                 >
-                  <File size={16} className="text-gray-500 flex-shrink-0" />
-                  <span className="truncate max-w-xs">{fileInfo.file.name}</span>
-                  <span className="text-gray-500">({formatFileSize(fileInfo.file.size)})</span>
-                  
-                  {/* Upload status indicators */}
-                  {fileInfo.isUploading && (
-                    <div className="absolute inset-0 bg-blue-100 bg-opacity-75 flex items-center justify-center rounded-lg">
-                      <div className="flex items-center gap-1">
-                        <Clock size={12} className="text-blue-600 animate-pulse" />
-                        <span className="text-xs text-blue-600">Uploading...</span>
+                  {/* File icon and info */}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <File size={16} className="text-gray-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium">{fileInfo.file.name}</span>
+                        <span className="text-gray-500 text-xs flex-shrink-0">
+                          ({formatFileSize(fileInfo.file.size)})
+                        </span>
                       </div>
+                      
+                      {/* Progress bar for individual file */}
+                      {fileInfo.isUploading && (
+                        <div className="mt-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                                style={{ width: `${fileInfo.uploadProgress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-blue-600 font-medium w-8 text-right">
+                              {fileInfo.uploadProgress}%
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Success state */}
+                      {!fileInfo.isUploading && fileInfo.uploadProgress === 100 && !fileInfo.error && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <CheckCircle size={12} className="text-green-600" />
+                          <span className="text-xs text-green-600">Upload complete</span>
+                        </div>
+                      )}
+                      
+                      {/* Error state */}
+                      {fileInfo.error && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <AlertCircle size={12} className="text-red-600" />
+                          <span className="text-xs text-red-600">Upload failed</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                   
-                  {fileInfo.error && (
-                    <div className="absolute inset-0 bg-red-100 bg-opacity-75 flex items-center justify-center rounded-lg">
-                      <span className="text-xs text-red-600">Failed</span>
-                    </div>
-                  )}
-                  
+                  {/* Remove button */}
                   <button
                     onClick={() => removeFile(fileInfo.identifier)}
-                    className="text-gray-500 hover:text-red-500 ml-1 flex-shrink-0"
+                    className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors flex-shrink-0"
                     disabled={fileInfo.isUploading}
                   >
                     <X size={14} />

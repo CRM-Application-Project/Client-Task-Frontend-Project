@@ -38,7 +38,7 @@ const mapBackendNotificationToFrontend = (backendNotification: NotificationRespo
     title: backendNotification.module || 'System Notification',
     body: backendNotification.notificationMessage,
     timestamp: Date.now(),
-    read: backendNotification.isNotificationRead,
+    read: backendNotification.notificationRead,
     module: backendNotification.module,
     data: {
       module: backendNotification.module,
@@ -197,7 +197,7 @@ class GlobalNotificationState {
       console.log('🔄 Fetching notifications globally...');
       const response = await notificationService.fetchAllNotifications();
       
-      if (response.success && response.data) {
+      if (response.isSuccess && response.data) {
         const mappedNotifications = response.data.map(mapBackendNotificationToFrontend);
         
         // Sort by timestamp (newest first)
