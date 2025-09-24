@@ -12,6 +12,7 @@ const ChatModule: React.FC = () => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [chatsLoaded, setChatsLoaded] = useState(false);
   const [restorationAttempted, setRestorationAttempted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Function to restore selected chat from memory
   const restoreSelectedChat = useCallback((chatsArray: Chat[]) => {
@@ -103,9 +104,12 @@ const ChatModule: React.FC = () => {
       {/* Fixed Sidebar */}
       <div className="flex-shrink-0">
         <Sidebar
+          chats={chats}
           selectedChat={selectedChat}
           onChatSelect={handleChatSelect}
           onChatsUpdate={handleChatsUpdate}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
       </div>
       

@@ -700,7 +700,7 @@ export const useChat = () => {
     };
 
     try {
-      let response;
+      let response: any;
       
       const sendOperation = async () => {
         if (parentId) {
