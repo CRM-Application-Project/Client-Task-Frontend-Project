@@ -641,6 +641,7 @@ useEffect(() => {
           onDelete={handleDeleteMessage}
           onMessageInfo={handleMessageInfo}
           onDownloadFiles={handleDownloadFiles}
+          isGroupChat={currentChat.conversationType?.toLowerCase() === 'group'}
         />
       </div>
 
