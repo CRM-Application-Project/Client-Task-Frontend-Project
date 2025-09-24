@@ -1,6 +1,10 @@
 # Use the official Node.js 20 Alpine image as base
 FROM node:20-alpine AS base
 
+# Ensure we're using Node.js 20
+RUN node --version
+RUN npm --version
+
 # Install dependencies only when needed
 FROM base AS deps
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
