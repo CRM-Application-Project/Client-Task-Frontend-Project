@@ -14,7 +14,7 @@ interface MessageListProps {
   onDelete: (messageId: string) => void;
   onMessageInfo?: (messageId: string) => void;
   onDownloadFiles?: (messageId: string) => void;
-  isGroupChat?: boolean; // Add this prop to determine if it's a group chat
+  isGroupChat?: boolean;
 }
 
 // Simple UserAvatar component for demo
@@ -153,7 +153,7 @@ export const MessageList = ({
   onDelete,
   onMessageInfo,
   onDownloadFiles,
-  isGroupChat = true // Changed default to true for testing - you can change this back to false
+  isGroupChat = false // Default to false for private chats
 }: MessageListProps) => {
   const [showActions, setShowActions] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
@@ -172,12 +172,11 @@ export const MessageList = ({
     }
   }, [messages]);
 
-  // Helper function to determine if avatar should be shown
+  // Helper function to determine if avatar should be shown (GROUP CHATS ONLY)
   const shouldShowAvatar = (
     currentMessage: Message,
     allMessages: Message[],
-    currentIndex: number,
-    isGroupChat: boolean
+    currentIndex: number
   ): boolean => {
     // Never show avatar in private chat
     if (!isGroupChat) return false;
@@ -199,12 +198,11 @@ export const MessageList = ({
     return previousMessage.sender.id !== currentMessage.sender.id;
   };
 
-  // Helper function to determine if sender name should be shown
+  // Helper function to determine if sender name should be shown (GROUP CHATS ONLY)
   const shouldShowSenderName = (
     currentMessage: Message,
     allMessages: Message[],
-    currentIndex: number,
-    isGroupChat: boolean
+    currentIndex: number
   ): boolean => {
     // Never show name in private chat
     if (!isGroupChat) return false;
@@ -414,9 +412,9 @@ export const MessageList = ({
               // Find the global index of this message in sortedMessages
               const globalIndex = sortedMessages.findIndex(m => m.id === message.id);
               
-              // Determine if avatar and name should be shown based on global message order
-              const showAvatar = shouldShowAvatar(message, sortedMessages, globalIndex, isGroupChat);
-              const showName = shouldShowSenderName(message, sortedMessages, globalIndex, isGroupChat);
+              // Determine if avatar and name should be shown (GROUP CHATS ONLY)
+              const showAvatar = isGroupChat ? shouldShowAvatar(message, sortedMessages, globalIndex) : false;
+              const showName = isGroupChat ? shouldShowSenderName(message, sortedMessages, globalIndex) : false;
               
               const isExpanded = expandedReactions.has(message.id);
               const visibleReactions = message.reactions?.slice(0, isExpanded ? undefined : 3) || [];
@@ -437,12 +435,14 @@ export const MessageList = ({
                   key={message.id}
                   ref={(el) => (messageRefs.current[message.id] = el)}
                   className={cn(
-                    "group flex gap-2 mb-1 relative", // Reduced margin between consecutive messages
-                    isOwn ? "justify-end" : "justify-start"
+                    "group flex gap-2 mb-1 relative",
+                    isOwn ? "justify-end" : "justify-start",
+                    // For private chats, we don't need the avatar space at all
+                    !isGroupChat && "gap-0"
                   )}
                 >
-                  {/* Avatar for received messages in group chats only */}
-                  {!isOwn && isGroupChat && (
+                  {/* Avatar for received messages in GROUP CHATS ONLY */}
+                  {isGroupChat && !isOwn && (
                     <div className="w-8 h-8 flex-shrink-0">
                       {showAvatar ? (
                         <UserAvatar
@@ -451,22 +451,23 @@ export const MessageList = ({
                           size="sm"
                         />
                       ) : (
-                        <div className="w-8 h-8" /> // Empty space for alignment
+                        <div className="w-8 h-8" /> // Empty space for alignment in group chats
                       )}
                     </div>
                   )}
                   
                   <div className={cn(
                     "max-w-[70%] space-y-1",
-                    isOwn ? "items-end" : "items-start"
+                    isOwn ? "items-end" : "items-start",
+                    // For private chats, adjust max width since we don't have avatars
+                    !isGroupChat && "max-w-[75%]"
                   )}>
-                    {/* Sender name for group chats only */}
-                    {showName && isGroupChat && (
+                    {/* Sender name for GROUP CHATS ONLY */}
+                    {showName && (
                       <div className="flex items-center gap-2 ml-2 mb-1">
                         <span className="text-xs font-medium text-gray-700">
                           {message.sender.label || message.sender.id}
                         </span>
-                        
                       </div>
                     )}
 
@@ -522,14 +523,17 @@ export const MessageList = ({
                           </div>
                         </div>
                       ) : (
-                        // Normal Message Display - WhatsApp Style
+                        // Normal Message Display
                         <div className={cn(
                           "relative rounded-lg px-3 py-2 shadow-sm max-w-sm group",
                           isOwn 
                             ? "bg-gray-500 text-white rounded-br-sm"
                             : "bg-white text-gray-800 rounded-bl-sm",
-                          // Adjust border radius for consecutive messages
-                          !isOwn && !showAvatar && isGroupChat && "rounded-tl-none"
+                          // Adjust border radius for consecutive messages in group chats
+                          isGroupChat && !isOwn && !showAvatar && "rounded-tl-none",
+                          // For private chats, use standard rounded corners
+                          !isGroupChat && isOwn && "rounded-br-md rounded-bl-md rounded-tl-md",
+                          !isGroupChat && !isOwn && "rounded-bl-md rounded-br-md rounded-tr-md"
                         )}>
                           <div className="space-y-2">
                             {/* Message content with mentions */}
