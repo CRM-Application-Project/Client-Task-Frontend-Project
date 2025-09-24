@@ -528,6 +528,7 @@ export interface ApiMessage {
   };
   replyCount: number;
   mentions: string[];
+  
   reactions: any[];
   attachments: any | null;
   deletable: boolean;

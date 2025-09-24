@@ -1,8 +1,7 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Search, MessageCircle, Users, MoreVertical, Edit3, Trash2 } from 'lucide-react';
 import GroupModal from './GroupModal';
-import {  User } from '@/lib/data';
 import UserSearch from './UserSearch';
 import UserAvatar from './UserAvatar';
 import { useChat } from '@/hooks/useChat';
@@ -10,20 +9,28 @@ import { Chat, ChatParticipant } from '@/app/services/chatService';
 
 interface SidebarProps {
   chats: Chat[];
+  users: ChatParticipant[];
   selectedChat: Chat | null;
   onChatSelect: (chat: Chat) => void;
-  onChatsUpdate: (chats: Chat[]) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  loading: boolean;
+  error: string | null;
+  totalUnreadCount: number;
+  activeConversationId: string | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   chats,
+  users,
   selectedChat, 
-  onChatSelect, 
-  onChatsUpdate,
+  onChatSelect,
   searchQuery,
-  onSearchChange  
+  onSearchChange,
+  loading,
+  error,
+  totalUnreadCount,
+  activeConversationId
 }) => {
 
   const [showUserSearch, setShowUserSearch] = useState(false);
@@ -33,20 +40,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [showChatOptions, setShowChatOptions] = useState<string | null>(null);
   
   const {
-    users,
-    loading,
-    error,
     createChat,
     deleteChat,
-    searchChats: searchChatsFromHook,
-    loadChats,
+    searchChats,
     currentUserId,
-    activeConversationId
+    loadMyConversations
   } = useChat();
 
   // Use searchChats function for filtering
   const filteredChats = searchQuery 
-    ? searchChatsFromHook(searchQuery) 
+    ? searchChats(searchQuery) 
     : chats;
 
   const formatTime = (date: Date | string) => {
@@ -81,11 +84,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleDeleteChat = async (chatId: string) => {
     try {
       await deleteChat(chatId);
-      // Chat will be automatically removed from UI via useChat hook
+      
+      // If the deleted chat was selected, clear selection
       if (String(selectedChat?.id) === String(chatId)) {
-        // Find next chat to select after deletion
         const remainingChats = chats.filter(c => String(c.id) !== String(chatId));
-        onChatSelect(remainingChats[0] || null);
+        if (remainingChats.length > 0) {
+          onChatSelect(remainingChats[0]);
+        } else {
+          onChatSelect(null as any);
+        }
       }
     } catch (err) {
       console.error('Failed to delete chat:', err);
@@ -93,37 +100,48 @@ const Sidebar: React.FC<SidebarProps> = ({
     setShowChatOptions(null);
   };
 
-  const handleNewChat = async (user: ChatParticipant) => {
-    // Check for existing private chat
-    const existingChat = chats.find((chat: Chat) => 
-      chat.conversationType === 'private' && 
-      chat.participants.some((p: ChatParticipant) => p.id === user.id)
-    );
+const handleNewChat = useCallback(async (user: ChatParticipant) => {
+  // Check for existing private chat more reliably
+  const existingChat = chats.find((chat: Chat) => 
+    chat.conversationType === 'private' && 
+    chat.participants.some((p: ChatParticipant) => p.id === user.id)
+  );
 
-    if (existingChat) {
-      onChatSelect(existingChat);
-    } else {
-      try {
-        const newChat = await createChat(user.label, [user.id], false);
-        if (newChat) {
-          // Chat will appear automatically via useChat's real-time updates
+  if (existingChat) {
+    console.log('[Sidebar] Existing chat found:', existingChat.id);
+    onChatSelect(existingChat);
+  } else {
+    try {
+      console.log('[Sidebar] Creating new chat with user:', user.id);
+      const newChat = await createChat(user.label, [user.id], false);
+      if (newChat) {
+        console.log('[Sidebar] New chat created:', newChat.id);
+        // Select the newly created chat after a brief delay to ensure state updates
+        setTimeout(() => {
           onChatSelect(newChat);
-        }
-      } catch (err) {
-        console.error('Failed to create chat:', err);
+        }, 100);
       }
+    } catch (err) {
+      console.error('Failed to create chat:', err);
     }
-    setShowUserSearch(false);
-  };
+  }
+  setShowUserSearch(false);
+}, [chats, createChat, onChatSelect]);
 
-  const handleChatSelect = (chat: Chat) => {
-    // If it's a potential chat (search result), create it first
-    if ('isPotential' in chat && chat.isPotential) {
-      handleNewChat(chat.participants[0]);
-    } else {
-      onChatSelect(chat);
-    }
-  };
+  const handleChatSelect = useCallback((chat: Chat) => {
+  console.log('[Sidebar] Chat selection triggered:', chat.id);
+  
+  // If it's a potential chat (search result), create it first
+  if ('isPotential' in chat && chat.isPotential) {
+    handleNewChat(chat.participants[0]);
+  } else {
+    // Pass the chat to parent component
+    onChatSelect(chat);
+  }
+}, [onChatSelect, handleNewChat]);
+
+// Modified handleNewChat function
+
 
   const handleGroupSave = async (groupData: { name: string; participants: ChatParticipant[] }) => {
     try {
@@ -131,12 +149,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         const participantIds = groupData.participants.map(p => p.id);
         const newGroup = await createChat(groupData.name, participantIds, true);
         if (newGroup) {
-          // Group will appear automatically via useChat's real-time updates
           onChatSelect(newGroup);
         }
       } else if (selectedChatForEdit) {
-        // Let real-time updates handle the changes
-        await loadChats();
+        // Refresh conversations after edit
+        await loadMyConversations();
       }
       setShowGroupModal(false);
     } catch (err) {
@@ -150,7 +167,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Header */}
         <div className="p-4 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-semibold text-gray-800">Chats</h1>
+            <h1 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+              Chats
+              {totalUnreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                </span>
+              )}
+            </h1>
           </div>
 
           {/* Search */}
@@ -174,12 +198,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Error State */}
-        {error && (
+        {error && !loading && (
           <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-red-600 text-center">
               <p>{error}</p>
               <button 
-                onClick={() => loadChats()}
+                onClick={() => loadMyConversations()}
                 className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
                 Retry
@@ -200,15 +224,14 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               filteredChats.map((chat: any) => {
-                // FIXED: Show unread count correctly based on active conversation
-                // Only show unread badge if:
-                // 1. There are unread messages (> 0)
-                // 2. This chat is NOT the currently active/selected conversation
-                // 3. The unread messages are from other users (not current user)
                 const chatId = String(chat.id);
                 const isActiveConversation = activeConversationId === chatId;
                 const isSelectedChat = selectedChat?.id?.toString() === chatId;
                 
+                // Show unread count only if:
+                // 1. There are unread messages
+                // 2. This is not the active conversation
+                // 3. This is not the selected chat
                 const shouldShowUnread = 
                   chat.unReadMessageCount > 0 && 
                   !isActiveConversation && 
@@ -218,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <div
                     key={chat.id}
                     className={`group p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors relative ${
-                      selectedChat?.id === chat.id ? 'bg-gray-100' : 'bg-white'
+                      isSelectedChat ? 'bg-gray-100' : 'bg-white'
                     } ${chat.isPotential ? 'border-l-4 border-l-green-500' : ''}`}
                     onClick={() => handleChatSelect(chat)}
                   >
@@ -264,9 +287,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-gray-600 truncate mt-1 flex-1">
-                            {chat.isPotential ? 'Tap to start chatting' : (chat.lastMessage?.content || 'No messages yet')}
+                            {chat.isPotential 
+                              ? 'Tap to start chatting' 
+                              : (chat.lastMessage?.content || 'No messages yet')
+                            }
                           </p>
-                          {/* FIXED: Show notification badge correctly */}
+                          {/* Show notification badge */}
                           {shouldShowUnread && (
                             <div className="bg-green-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 flex-shrink-0">
                               {chat.unReadMessageCount > 99 ? '99+' : chat.unReadMessageCount}
