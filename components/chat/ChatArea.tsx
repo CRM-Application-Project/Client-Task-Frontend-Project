@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Paperclip, Smile, MoreVertical, Users, Phone, Video, Info, X, Download, File, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,7 +57,8 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     chats,
     addChatParticipants,
     removeChatParticipants,
-    changeParticipantRoleInGroup
+    changeParticipantRoleInGroup,
+    activeConversationId,
   } = useChat();
 
   const chatMessages = messages[currentChat.id] || [];
@@ -87,29 +88,44 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   }, [currentChat.id, loadMessages]);
 
   // Realtime subscription via Firebase for this conversation
-  useEffect(() => {
-    console.log("this is current chat id", currentChat.id);
-    if (!currentChat.id) return;
-    try { setActiveConversation(String(currentChat.id)); } catch {}
-    console.log('[ChatArea] Subscribing to Firebase conversation', String(currentChat.id));
+// Add this useEffect in ChatArea component after the existing useEffects
+
+useEffect(() => {
+  if (currentChat.id && subscribeToConversation) {
+    console.log(`[ChatArea] Subscribing to real-time updates for chat: ${currentChat.id}`);
+    
     const unsubscribe = subscribeToConversation(String(currentChat.id));
+    
     return () => {
-      console.log('[ChatArea] Unsubscribing from Firebase conversation', String(currentChat.id));
-      try { unsubscribe && unsubscribe(); } catch {}
-      try { setActiveConversation(null as any); } catch {}
+      console.log(`[ChatArea] Unsubscribing from chat: ${currentChat.id}`);
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
-  }, [currentChat.id, subscribeToConversation]);
+  }
+}, [currentChat.id, subscribeToConversation]);
+// Add this debugging function in your ChatArea component
 
-  // Also mark as read when window gains focus while this chat is open
-  useEffect(() => {
-    const onFocus = () => {
-      console.log('[ChatArea] window focus, set active conversation', String(currentChat.id));
-      try { setActiveConversation(String(currentChat.id)); } catch {}
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [currentChat.id, setActiveConversation]);
+const debugFirebaseConnection = useCallback(() => {
+  console.log('[ChatArea] Debug Info:', {
+    currentChatId: currentChat.id,
+    hasMessages: chatMessages.length,
+    activeConversationId: activeConversationId,
+    currentUserId: currentUserId,
+    chatMessagesCount: chatMessages.length,
+    lastMessage: chatMessages[chatMessages.length - 1],
+    subscribeToConversation: !!subscribeToConversation
+  });
+}, [currentChat, chatMessages, activeConversationId, currentUserId, subscribeToConversation]);
 
+// Add a button in your ChatArea component to trigger debugging (temporary)
+// You can remove this after debugging
+useEffect(() => {
+  // Debug every 10 seconds
+  const interval = setInterval(debugFirebaseConnection, 10000);
+  return () => clearInterval(interval);
+}, [debugFirebaseConnection]);
+  
   // Upload files to get upload URLs
   const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
     if (!files.length) return [];

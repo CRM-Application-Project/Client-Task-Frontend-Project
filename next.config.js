@@ -13,7 +13,10 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    domains: ['s2chrms.s3.amazonaws.com'],
+    domains: [
+      's2chrms.s3.amazonaws.com',
+      'images.pexels.com' // Add this line
+    ],
     // Alternatively, you can use remotePatterns for more control:
     remotePatterns: [
       {
@@ -21,6 +24,12 @@ const nextConfig = {
         hostname: 's2chrms.s3.amazonaws.com',
         port: '',
         pathname: '/crm-logos/images/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com', // Add this pattern
+        port: '',
+        pathname: '/photos/**',
       },
     ],
   },

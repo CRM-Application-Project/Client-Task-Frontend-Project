@@ -1,5 +1,5 @@
 "use client";
-import { Bell, Menu, X, Check, RefreshCw } from "lucide-react";
+import { Bell, Menu, X, RefreshCw, Trash2, Archive, AlertCircle, CheckCircle, Info, Star } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -54,15 +54,64 @@ const formatNotificationTime = (timestamp: number) => {
   return `${days}d ago`;
 };
 
-// Helper function to get module icon/color
+// Enhanced module styling with icons and better colors
 const getModuleStyle = (module: string) => {
-  const moduleStyles: Record<string, { color: string; bgColor: string }> = {
-    'TASK': { color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    'LEAD': { color: 'text-green-600', bgColor: 'bg-green-50' },
-    'EMPLOYEE': { color: 'text-purple-600', bgColor: 'bg-purple-50' },
-    'SYSTEM': { color: 'text-gray-600', bgColor: 'bg-gray-50' },
-    'DEPARTMENT': { color: 'text-orange-600', bgColor: 'bg-orange-50' },
-    'DEFAULT': { color: 'text-gray-600', bgColor: 'bg-gray-50' }
+  const moduleStyles: Record<string, { 
+    color: string; 
+    bgColor: string; 
+    icon: React.ReactNode;
+    borderColor: string;
+    gradientFrom: string;
+    gradientTo: string;
+  }> = {
+    'TASK': { 
+      color: 'text-blue-700', 
+      bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', 
+      icon: <CheckCircle className="h-4 w-4" />,
+      borderColor: 'border-blue-200',
+      gradientFrom: 'from-blue-500',
+      gradientTo: 'to-blue-600'
+    },
+    'LEAD': { 
+      color: 'text-emerald-700', 
+      bgColor: 'bg-gradient-to-br from-emerald-50 to-emerald-100', 
+      icon: <Star className="h-4 w-4" />,
+      borderColor: 'border-emerald-200',
+      gradientFrom: 'from-emerald-500',
+      gradientTo: 'to-emerald-600'
+    },
+    'EMPLOYEE': { 
+      color: 'text-purple-700', 
+      bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100', 
+      icon: <Info className="h-4 w-4" />,
+      borderColor: 'border-purple-200',
+      gradientFrom: 'from-purple-500',
+      gradientTo: 'to-purple-600'
+    },
+    'SYSTEM': { 
+      color: 'text-orange-700', 
+      bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100', 
+      icon: <AlertCircle className="h-4 w-4" />,
+      borderColor: 'border-orange-200',
+      gradientFrom: 'from-orange-500',
+      gradientTo: 'to-orange-600'
+    },
+    'DEPARTMENT': { 
+      color: 'text-indigo-700', 
+      bgColor: 'bg-gradient-to-br from-indigo-50 to-indigo-100', 
+      icon: <Archive className="h-4 w-4" />,
+      borderColor: 'border-indigo-200',
+      gradientFrom: 'from-indigo-500',
+      gradientTo: 'to-indigo-600'
+    },
+    'DEFAULT': { 
+      color: 'text-gray-700', 
+      bgColor: 'bg-gradient-to-br from-gray-50 to-gray-100', 
+      icon: <Info className="h-4 w-4" />,
+      borderColor: 'border-gray-200',
+      gradientFrom: 'from-gray-500',
+      gradientTo: 'to-gray-600'
+    }
   };
   
   return moduleStyles[module?.toUpperCase()] || moduleStyles.DEFAULT;
@@ -79,28 +128,27 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // CRITICAL: Use only ONE instance of the hook
+  // CRITICAL: Use only ONE instance of the hook - removed markAsRead, markAllAsRead
   const {
     notifications,
     unreadCount,
     permission,
     isLoading: isNotificationsLoading,
     enableNotifications,
-    markAsRead,
-    markAllAsRead,
     clearAll,
     removeNotification,
     fetchNotifications
   } = useNotifications();
-useEffect(()=>{
-  console.log("Notifications updated:", notifications);
-})
+
+  useEffect(()=>{
+    console.log("Notifications updated:", notifications);
+  })
+  
   // Get the current page title
   const pageTitle = getPageTitle(pathname);
 
   // Display only first 8 notifications in dropdown, rest will be scrollable
-  const displayedNotifications = notifications.slice(0, 8);
-  const hasMoreNotifications = notifications.length > 8;
+  const displayedNotifications = notifications;
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -114,7 +162,9 @@ useEffect(()=>{
     }
     setIsUserLoading(false);
   }, []);
-const userId=localStorage.getItem("userId")
+
+  const userId=localStorage.getItem("userId")
+   
   const handleEnableNotifications = async () => {
     if (!userId) {
       await Swal.fire({
@@ -182,7 +232,7 @@ const userId=localStorage.getItem("userId")
     const lastRefreshTime = localStorage.getItem('lastNotificationRefresh');
     if (lastRefreshTime) {
       const timeSinceLastRefresh = Date.now() - parseInt(lastRefreshTime);
-      if (timeSinceLastRefresh < 10000) { // 10 seconds cooldown
+      if (timeSinceLastRefresh < 5000) { // 5 seconds cooldown
         return;
       }
     }
@@ -191,17 +241,15 @@ const userId=localStorage.getItem("userId")
     try {
       localStorage.setItem('lastNotificationRefresh', Date.now().toString());
       await fetchNotifications();
+      // Optional: Show success feedback
+      setTimeout(() => setIsRefreshing(false), 500); // Minimum feedback time
     } catch (error) {
       console.error('Error refreshing notifications:', error);
-    } finally {
       setIsRefreshing(false);
     }
   };
 
   const handleNotificationClick = (notification: any) => {
-    // Mark as read
-    markAsRead(notification.id);
-
     // Handle notification action based on module
     if (notification.module) {
       switch (notification.module.toLowerCase()) {
@@ -347,92 +395,104 @@ const userId=localStorage.getItem("userId")
       <div className="flex items-center gap-4">
         {/* Notification Bell */}
         <div className="relative">
-          <button 
-            onClick={() => {
-              if (permission === 'granted') {
-                setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
-              } else {
-                handleEnableNotifications();
-              }
-            }}
-            className="relative rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none disabled:opacity-50"
-            disabled={isEnablingNotifications || isNotificationsLoading}
-          >
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gray-600 text-xs text-white flex items-center justify-center font-medium">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
+    
+<button 
+  onClick={() => {
+    if (permission === 'granted') {
+      setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
+    } else {
+      handleEnableNotifications();
+    }
+  }}
+  className="relative rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none transition-all duration-200 hover:scale-105"
+  // REMOVE the disabled attribute entirely or fix the condition
+  style={{ cursor: (isEnablingNotifications || isNotificationsLoading) ? 'not-allowed' : 'pointer' }}
+>
+  <Bell className="h-5 w-5" />
+  {unreadCount > 0 && (
+    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-xs text-white flex items-center justify-center font-bold shadow-lg animate-pulse">
+      {unreadCount > 9 ? '9+' : unreadCount}
+    </span>
+  )}
+</button>
 
-          {/* Notification Dropdown */}
+          {/* Enhanced Notification Dropdown */}
           {isNotificationDropdownOpen && permission === 'granted' && (
-            <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[500px] overflow-hidden">
-              {/* Header */}
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900 text-lg">Notifications</h3>
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1 text-xs">
+            <div className="absolute right-0 mt-3 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 max-h-[600px] overflow-hidden backdrop-blur-sm">
+              {/* Enhanced Header with Gradient */}
+              <div className="sticky top-0 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-100 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+                      <Bell className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg">Notifications</h3>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {notifications.length === 0 ? 'All caught up!' : `${notifications.length} notification${notifications.length === 1 ? '' : 's'}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={handleRefreshNotifications}
                       disabled={isRefreshing}
-                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      title="Refresh"
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+                      title="Refresh notifications"
                     >
-                      <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllAsRead}
-                        className="text-green-600 hover:text-green-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-green-50 transition-colors"
-                        title="Mark all read"
-                      >
-                        <Check className="h-3 w-3" />
-                      </button>
-                    )}
                     {notifications.length > 0 && (
                       <button
                         onClick={clearAll}
-                        className="text-red-600 hover:text-red-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                        title="Clear all"
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                        title="Clear all notifications"
                       >
-                        <X className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
+                    <button
+                      onClick={handleCloseNotificationDropdown}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                      title="Close"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  {/* Close button */}
-                  <button
-                    onClick={handleCloseNotificationDropdown}
-                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors ml-2"
-                    title="Close"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
               
               {/* Loading State */}
               {isNotificationsLoading && (
-                <div className="p-6 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-gray-500 text-sm mt-3">Loading notifications...</p>
+                <div className="p-8 text-center">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500 mx-auto"></div>
+                    <div className="absolute inset-0 rounded-full h-12 w-12 border-4 border-transparent border-t-purple-500 mx-auto animate-spin" style={{animationDelay: '-0.15s'}}></div>
+                  </div>
+                  <p className="text-gray-600 text-sm mt-4 font-medium">Loading your notifications...</p>
                 </div>
               )}
               
-              {/* Notifications List */}
+              {/* Enhanced Notifications List */} 
               {!isNotificationsLoading && (
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[300px] overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="p-8 text-center">
-                      <Bell className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 text-base font-medium">No notifications yet</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        {`You'll see important updates here`}
+                      <div className="relative mb-6">
+                        <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto">
+                          <Bell className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                      <h4 className="text-gray-900 text-lg font-bold mb-2">All caught up!</h4>
+                      <p className="text-gray-500 text-sm leading-relaxed max-w-xs mx-auto">
+                        No new notifications right now. We'll let you know when something important happens.
                       </p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-gray-50">
                       {displayedNotifications.map((notification, index) => {
                         const moduleStyle = getModuleStyle(notification.module || 'DEFAULT');
                         
@@ -440,60 +500,57 @@ const userId=localStorage.getItem("userId")
                           <div
                             key={notification.id}
                             onClick={() => handleNotificationClick(notification)}
-                            className={`relative px-4 py-4 cursor-pointer hover:bg-gray-50 transition-colors group ${
-                              !notification.read ? `${moduleStyle.bgColor} border-l-4 border-l-current ${moduleStyle.color}` : ''
-                            }`}
+                            className={`relative px-4 py-3 cursor-pointer hover:bg-gray-50 transition-all duration-200 group hover:shadow-sm ${moduleStyle.bgColor}`}
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            {/* Notification Card */}
+                            <div className="flex items-start gap-3">
+                              {/* Icon */}
+                              <div className={`flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${moduleStyle.gradientFrom} ${moduleStyle.gradientTo} flex items-center justify-center text-white shadow-md`}>
+                                {moduleStyle.icon}
+                              </div>
+                              
+                              {/* Content */}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <p className="font-semibold text-gray-900 text-sm leading-tight">
+                                <div className="flex items-start justify-between gap-3 mb-1">
+                                  <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1">
                                     {notification.title}
-                                  </p>
+                                  </h4>
                                   {notification.module && (
-                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${moduleStyle.color} ${moduleStyle.bgColor} border`}>
+                                    <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-md font-medium ${moduleStyle.color} bg-white/80 ${moduleStyle.borderColor} border`}>
                                       {notification.module.toUpperCase()}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-3">
+                                
+                                <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-2">
                                   {notification.body}
                                 </p>
+                                
                                 <div className="flex items-center justify-between">
-                                  <p className="text-xs text-gray-400 font-medium">
+                                  <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                                    <svg className="w-1 h-1 fill-current" viewBox="0 0 4 4">
+                                      <circle cx="2" cy="2" r="2"/>
+                                    </svg>
                                     {formatNotificationTime(notification.timestamp)}
-                                  </p>
-                                  {!notification.read && (
-                                    <div className={`w-2 h-2 rounded-full ${moduleStyle.color.replace('text-', 'bg-')}`}></div>
-                                  )}
+                                  </span>
+                                  
+                                  {/* Remove button */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeNotification(notification.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all duration-200"
+                                    title="Remove notification"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
                                 </div>
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeNotification(notification.id);
-                                }}
-                                className="ml-2 p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-red-50"
-                                title="Remove notification"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
                             </div>
                           </div>
                         );
                       })}
-                      
-                      {/* Show more indicator */}
-                      {hasMoreNotifications && (
-                        <div className="px-4 py-3 bg-gray-50 text-center border-t border-gray-100">
-                          <p className="text-xs text-gray-500 font-medium">
-                            +{notifications.length - 8} more notifications
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Scroll up to see older notifications
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -501,42 +558,55 @@ const userId=localStorage.getItem("userId")
             </div>
           )}
 
-          {/* Permission Request Tooltip */}
+          {/* Enhanced Permission Request */}
           {isNotificationDropdownOpen && permission !== 'granted' && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-6">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <Bell className="h-6 w-6 text-gray-400" />
-                  <p className="font-semibold text-gray-900 text-lg">Enable Notifications</p>
+            <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+              <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8 text-center">
+                <div className="relative mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                    <Bell className="h-8 w-8 text-white" />
+                  </div>
+                  {permission === 'denied' && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                      <X className="h-4 w-4 text-white" />
+                    </div>
+                  )}
                 </div>
-                <p className="text-gray-600 mb-6 leading-relaxed">
+                
+                <h3 className="font-bold text-gray-900 text-xl mb-3">
+                  {permission === 'denied' ? 'Notifications Blocked' : 'Enable Notifications'}
+                </h3>
+                
+                <p className="text-gray-600 mb-6 leading-relaxed text-sm">
                   {permission === 'denied' 
-                    ? 'Notifications are blocked. Please enable them in your browser settings and refresh the page to get important updates.'
-                    : 'Get notified about important updates, new tasks, and messages instantly. Stay connected with your team and never miss important information.'
+                    ? 'Notifications are currently blocked in your browser. Please enable them in your browser settings and refresh the page to receive important updates.'
+                    : 'Stay in the loop! Get instant notifications for new tasks, messages, and important updates. Never miss what matters most to your work.'
                   }
                 </p>
+                
                 {permission !== 'denied' && (
                   <button
                     onClick={handleEnableNotifications}
                     disabled={isEnablingNotifications}
-                    className="w-full bg-brand-primary text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-brand-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-4 rounded-xl text-sm font-bold hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
                     {isEnablingNotifications ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Setting up...
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        Setting up notifications...
                       </>
                     ) : (
                       <>
-                        <Bell className="h-4 w-4" />
+                        <Bell className="h-5 w-5" />
                         Enable Notifications
                       </>
                     )}
                   </button>
                 )}
+                
                 <button
                   onClick={handleCloseNotificationDropdown}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
+                  className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-all duration-200"
                 >
                   <X className="h-4 w-4" />
                 </button>

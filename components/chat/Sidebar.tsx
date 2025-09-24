@@ -9,13 +9,23 @@ import { useChat } from '@/hooks/useChat';
 import { Chat, ChatParticipant } from '@/app/services/chatService';
 
 interface SidebarProps {
+  chats: Chat[];
   selectedChat: Chat | null;
   onChatSelect: (chat: Chat) => void;
   onChatsUpdate: (chats: Chat[]) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUpdate }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+const Sidebar: React.FC<SidebarProps> = ({ 
+  chats,
+  selectedChat, 
+  onChatSelect, 
+  onChatsUpdate,
+  searchQuery,
+  onSearchChange  
+}) => {
+
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit'>('create');
@@ -23,36 +33,38 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
   const [showChatOptions, setShowChatOptions] = useState<string | null>(null);
   
   const {
-    chats,
     users,
     loading,
     error,
     createChat,
     deleteChat,
-    searchChats,
-    loadChats
+    searchChats: searchChatsFromHook,
+    loadChats,
+    currentUserId,
+    activeConversationId
   } = useChat();
 
-  // Update parent component when chats change
-  useEffect(() => {
-    onChatsUpdate(chats);
-  }, [chats, onChatsUpdate]);
-
+  // REMOVED: The problematic useEffect that was causing chats to update from sidebar
+  // This was causing interference with the main chat state management
+  
   // Use searchChats function for filtering
-  const filteredChats = searchQuery ? searchChats(searchQuery) : chats;
+  const filteredChats = searchQuery 
+    ? searchChatsFromHook(searchQuery) 
+    : chats;
 
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
     const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const diffInHours = (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60);
     
     if (diffInHours < 1) {
       return 'now';
     } else if (diffInHours < 24) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     } else if (diffInHours < 168) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short' });
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
   };
 
@@ -72,7 +84,9 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
   const handleDeleteChat = async (chatId: string) => {
     try {
       await deleteChat(chatId);
+      // FIXED: Don't manually update chats here - let useChat handle it
       if (String(selectedChat?.id) === String(chatId)) {
+        // Find next chat to select after deletion
         const remainingChats = chats.filter(c => String(c.id) !== String(chatId));
         onChatSelect(remainingChats[0] || null);
       }
@@ -83,9 +97,10 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
   };
 
   const handleNewChat = async (user: ChatParticipant) => {
+    // Check for existing private chat
     const existingChat = chats.find((chat: Chat) => 
       chat.conversationType === 'private' && 
-      chat.participants.some((p:ChatParticipant) => p.id === user.id)
+      chat.participants.some((p: ChatParticipant) => p.id === user.id)
     );
 
     if (existingChat) {
@@ -94,6 +109,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
       try {
         const newChat = await createChat(user.label, [user.id], false);
         if (newChat) {
+          // FIXED: Chat will appear automatically via useChat's real-time updates
           onChatSelect(newChat);
         }
       } catch (err) {
@@ -108,16 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
     if ('isPotential' in chat && chat.isPotential) {
       handleNewChat(chat.participants[0]);
     } else {
-      // Clear unread count locally when opening, WhatsApp-like behavior
-      try {
-        if (chat && typeof chat.unReadMessageCount === 'number' && chat.unReadMessageCount > 0) {
-          // Optimistic local update
-          const updated = chats.map((c: Chat) => (
-            String(c.id) === String(chat.id) ? { ...c, unReadMessageCount: 0 } : c
-          ));
-          onChatsUpdate(updated as any);
-        }
-      } catch {}
+      // REMOVED: Manual unread count update - let useChat handle this
       onChatSelect(chat);
     }
   };
@@ -128,9 +135,11 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
         const participantIds = groupData.participants.map(p => p.id);
         const newGroup = await createChat(groupData.name, participantIds, true);
         if (newGroup) {
+          // FIXED: Group will appear automatically via useChat's real-time updates
           onChatSelect(newGroup);
         }
       } else if (selectedChatForEdit) {
+        // FIXED: Don't reload all chats, let real-time updates handle it
         await loadChats();
       }
       setShowGroupModal(false);
@@ -155,7 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
               type="text"
               placeholder="Search or start new chat"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white text-sm text-gray-800 placeholder-gray-500"
             />
           </div>
@@ -194,103 +203,110 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedChat, onChatSelect, onChatsUp
                 </div>
               </div>
             ) : (
-              filteredChats.map((chat: any) => (
-                <div
-                  key={chat.id}
-                  className={`group p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors relative ${
-                    selectedChat?.id === chat.id ? 'bg-gray-100' : 'bg-white'
-                  } ${chat.isPotential ? 'border-l-4 border-l-green-500' : ''}`}
-                  onClick={() => handleChatSelect(chat)}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Avatar or Group Icon */}
-                    <div className="relative flex-shrink-0">
-                      {(chat.conversationType?.toString().toLowerCase?.() === 'private') ? (
-                        <UserAvatar
-                          src={chat.participants[0]?.avatar}
-                          alt={chat.name}
-                          size="lg"
-                          status={chat.participants[0]?.status}
-                          showStatus={true}
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center">
-                          <Users size={20} className="text-white" />
-                        </div>
-                      )}
-                    </div>
+              filteredChats.map((chat: any) => {
+                // FIXED: Don't show unread count for active conversation or current user's messages
+              const shouldShowUnread = chat.unReadMessageCount > 0 && 
+  selectedChat?.id !== chat.id;
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-gray-900 truncate">{chat.name}</h3>
-                        <div className="flex items-center gap-2">
-                          {chat.lastMessage?.timestamp && !chat.isPotential && (
-                            <span className="text-xs text-gray-500">
-                              {formatTime(new Date(chat.lastMessage.timestamp))}
-                            </span>
-                          )}
-                          {!chat.isPotential && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowChatOptions(showChatOptions === chat.id ? null : chat.id);
-                              }}
-                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <MoreVertical size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-gray-600 truncate mt-1 flex-1">
-                          {chat.isPotential ? 'Tap to start chatting' : (chat.lastMessage?.content || 'No messages yet')}
-                        </p>
-                        {chat.unReadMessageCount > 0 && (
-                          <div className="bg-green-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
-                            {chat.unReadMessageCount > 99 ? '99+' : chat.unReadMessageCount}
+                return (
+                  <div
+                    key={chat.id}
+                    className={`group p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                      selectedChat?.id === chat.id ? 'bg-gray-100' : 'bg-white'
+                    } ${chat.isPotential ? 'border-l-4 border-l-green-500' : ''}`}
+                    onClick={() => handleChatSelect(chat)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Avatar or Group Icon */}
+                      <div className="relative flex-shrink-0">
+                        {(chat.conversationType?.toString().toLowerCase?.() === 'private') ? (
+                          <UserAvatar
+                            src={chat.participants[0]?.avatar}
+                            alt={chat.name}
+                            size="lg"
+                            status={chat.participants[0]?.status}
+                            showStatus={true}
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center">
+                            <Users size={20} className="text-white" />
                           </div>
                         )}
                       </div>
-                      {(chat.conversationType?.toString().toLowerCase?.() === 'group') && !chat.isPotential && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {chat.participants.length} participants
-                        </p>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Chat Options Dropdown */}
-                  {showChatOptions === chat.id && !chat.isPotential && (
-                    <div className="absolute right-4 top-16 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
-                      {chat.type === 'group' && (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-gray-900 truncate">{chat.name}</h3>
+                          <div className="flex items-center gap-2">
+                            {chat.lastMessage?.timestamp && !chat.isPotential && (
+                              <span className="text-xs text-gray-500">
+                                {formatTime(chat.lastMessage.timestamp)}
+                              </span>
+                            )}
+                            {!chat.isPotential && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowChatOptions(showChatOptions === chat.id ? null : chat.id);
+                                }}
+                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <MoreVertical size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-600 truncate mt-1 flex-1">
+                            {chat.isPotential ? 'Tap to start chatting' : (chat.lastMessage?.content || 'No messages yet')}
+                          </p>
+                          {/* FIXED: Only show unread badge when appropriate */}
+                          {shouldShowUnread && (
+                            <div className="bg-green-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+                              {chat.unReadMessageCount > 99 ? '99+' : chat.unReadMessageCount}
+                            </div>
+                          )}
+                        </div>
+                        {(chat.conversationType?.toString().toLowerCase?.() === 'group') && !chat.isPotential && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {chat.participants.length} participants
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Chat Options Dropdown */}
+                    {showChatOptions === chat.id && !chat.isPotential && (
+                      <div className="absolute right-4 top-16 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                        {chat.conversationType?.toString().toLowerCase?.() === 'group' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditGroup(chat);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Edit3 size={14} />
+                            Edit Group
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleEditGroup(chat);
+                            if (confirm('Are you sure you want to delete this chat?')) {
+                              handleDeleteChat(chat.id);
+                            }
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
                         >
-                          <Edit3 size={14} />
-                          Edit Group
+                          <Trash2 size={14} />
+                          Delete Chat
                         </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('Are you sure you want to delete this chat?')) {
-                            handleDeleteChat(chat.id);
-                          }
-                        }}
-                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
-                      >
-                        <Trash2 size={14} />
-                        Delete Chat
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}
