@@ -169,10 +169,11 @@ const host = headersList.get("host") ?? "";
     // Call verifyUser endpoint
     const verifyResponse = await verifyUser(subDomainName, "web");
     
-    if (verifyResponse.isSuccess && verifyResponse.data && verifyResponse.data.whiteLabelData) {
+    if (verifyResponse && verifyResponse.isSuccess && verifyResponse.data && verifyResponse.data.whiteLabelData) {
       themeCSS = generateThemeCSS(verifyResponse.data.whiteLabelData);
     } else {
       // Fallback to default theme if API call fails
+      console.log('Using default theme - API response:', verifyResponse);
       themeCSS = generateThemeCSS(null);
     }
   } catch (error) {
