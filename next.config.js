@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // output: 'standalone', // Removed to fix next start warning
+  output: 'standalone', // Enable standalone output for Docker
   experimental: {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
   },

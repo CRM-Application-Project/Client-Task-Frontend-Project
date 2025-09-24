@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiMessage, User } from '@/lib/data';
-import { ChatParticipant, MessageAttachment } from '@/app/services/chatService';
+import { ChatParticipant, MessageAttachment, AddMessageResponse, ReplyToMessageResponse } from '@/app/services/chatService';
 import { getAssignDropdown, getChatList } from '@/app/services/data.service';
 import { 
   addMessage, 
