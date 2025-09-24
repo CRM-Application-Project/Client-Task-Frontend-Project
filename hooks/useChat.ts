@@ -140,24 +140,30 @@ export const useChat = () => {
           };
         });
         
-        // FIXED: Update chats properly without losing existing data
+        // FIXED: Preserve existing real-time data while updating API data
         setChats(prevChats => {
-          // If no previous chats, just set the new ones
           if (prevChats.length === 0) {
             return transformedChats as any;
           }
           
-          // Otherwise, merge with existing chats, preserving real-time updates
           const updatedChats = transformedChats.map((newChat: any) => {
             const existingChat = prevChats.find(existing => existing.id.toString() === newChat.id.toString());
-            if (existingChat && existingChat.lastMessage && existingChat.lastMessage.timestamp) {
-              // Keep the existing last message if it's newer
-              const existingTime = new Date(existingChat.lastMessage.timestamp).getTime();
-              const newTime = newChat.lastMessage ? new Date(newChat.lastMessage.timestamp).getTime() : 0;
+            if (existingChat) {
+              // Keep real-time updates for last message and unread count
+              const existingTime = existingChat.lastMessage?.timestamp 
+                ? new Date(existingChat.lastMessage.timestamp).getTime() 
+                : 0;
+              const newTime = newChat.lastMessage 
+                ? new Date(newChat.lastMessage.timestamp).getTime() 
+                : 0;
               
-              if (existingTime > newTime) {
-                return { ...newChat, lastMessage: existingChat.lastMessage, unReadMessageCount: existingChat.unReadMessageCount };
-              }
+              return {
+                ...newChat,
+                // Keep newer last message
+                lastMessage: existingTime > newTime ? existingChat.lastMessage : newChat.lastMessage,
+                // Keep real-time unread count if it's higher
+                unReadMessageCount: Math.max(existingChat.unReadMessageCount || 0, newChat.unReadMessageCount || 0)
+              };
             }
             return newChat;
           });
@@ -187,20 +193,18 @@ export const useChat = () => {
     }
   }, [currentUserId]);
 
-  // FIXED: Mark conversation as read only if it's the currently active conversation
-  // This ensures notifications are cleared only when user is actually viewing the chat
+  // FIXED: Mark conversation as read only when it's active and viewed
   const markConversationAsRead = useCallback(async (conversationId: string) => {
-    if (!currentUserId || activeConversationId !== conversationId) {
-      // Don't mark as read if this conversation is not currently active
-      console.log(`[useChat] Not marking conversation ${conversationId} as read - not active conversation`);
+    if (!currentUserId) {
       return;
     }
     
-    console.log(`[useChat] Marking active conversation ${conversationId} as read`);
+    console.log(`[useChat] Marking conversation ${conversationId} as read`);
     
     try {
       await firebaseChatService.markConversationAsRead(conversationId);
       
+      // Update local state immediately
       setChats(prev => prev.map(chat => 
         chat.id.toString() === conversationId 
           ? { ...chat, unReadMessageCount: 0 }
@@ -219,16 +223,15 @@ export const useChat = () => {
     } catch (error) {
       console.error(`[useChat] Error marking conversation ${conversationId} as read:`, error);
     }
-  }, [currentUserId, activeConversationId]);
+  }, [currentUserId]);
 
-  // FIXED: Load messages without clearing existing ones unnecessarily
+  // Load messages function
   const loadMessages = useCallback(async (chatId: string) => {
     console.log(`[useChat] Loading messages for chat: ${chatId}`);
     
     // Don't reload if we already have messages for this chat
     if (messages[chatId] && messages[chatId].length > 0) {
       console.log(`[useChat] Messages already loaded for chat ${chatId}`);
-      markConversationAsRead(chatId);
       return;
     }
     
@@ -284,8 +287,6 @@ export const useChat = () => {
           [chatId]: transformedMessages 
         }));
         
-        markConversationAsRead(chatId);
-        
         // Update message receipts for received messages
         const receivedMessageIds = response.data.content
           .filter((msg: ApiMessage) => msg.sender.id !== currentUserId)
@@ -309,13 +310,14 @@ export const useChat = () => {
     } catch (err) {
       console.error(`[useChat] Error loading messages for chat ${chatId}:`, err);
     }
-  }, [currentUserId, markConversationAsRead, chats, messages]);
+  }, [currentUserId, chats, messages]);
 
   // FIXED: Set active conversation with proper state management
   const setActiveConversation = useCallback((conversationId: string | null) => {
     console.log(`[useChat] Setting active conversation: ${conversationId}`);
     
-    if (activeConversationId) {
+    // Clear previous active conversation
+    if (activeConversationId && activeConversationId !== conversationId) {
       firebaseChatService.setUserActiveInConversation(activeConversationId, false);
     }
     
@@ -323,11 +325,12 @@ export const useChat = () => {
     
     if (conversationId) {
       firebaseChatService.setUserActiveInConversation(conversationId, true);
+      // Mark as read when setting as active
       markConversationAsRead(conversationId);
     }
   }, [activeConversationId, markConversationAsRead]);
 
-  // FIXED: Subscribe to Firebase notifications with better chat updates
+  // FIXED: Improved notification subscription
   useEffect(() => {
     if (!currentUserId) return;
     
@@ -342,36 +345,45 @@ export const useChat = () => {
         
         setChats(prev => {
           const updatedChats = prev.map(chat => {
-            const unread = firebaseChatService.getConversationUnreadCount(updates, String(chat.id));
-            const notificationData = updates[String(chat.id)];
+            const chatId = String(chat.id);
+            const notificationData = updates[chatId];
             
-            if (notificationData && notificationData.lastMessage) {
-              const currentLastMessageTime = chat.lastMessage?.timestamp 
-                ? new Date(chat.lastMessage.timestamp).getTime() 
-                : 0;
-              const newMessageTime = new Date(notificationData.timestamp).getTime();
+            if (notificationData) {
+              const unreadCount = firebaseChatService.getConversationUnreadCount(updates, chatId);
               
-              if (newMessageTime > currentLastMessageTime) {
-                return { 
-                  ...chat, 
-                  // FIXED: Show unread count only if this conversation is NOT currently active
-                  unReadMessageCount: activeConversationId === String(chat.id) ? 0 : unread,
-                  lastMessage: {
+              // Update chat with new notification data
+              const updatedChat = { ...chat };
+              
+              // Update unread count - only clear if this is the active conversation
+              if (activeConversationId === chatId) {
+                updatedChat.unReadMessageCount = 0;
+              } else {
+                updatedChat.unReadMessageCount = Math.max(chat.unReadMessageCount || 0, unreadCount);
+              }
+              
+              // Update last message if newer
+              if (notificationData.lastMessage) {
+                const currentTime = chat.lastMessage?.timestamp 
+                  ? new Date(chat.lastMessage.timestamp).getTime() 
+                  : 0;
+                const newTime = new Date(notificationData.timestamp).getTime();
+                
+                if (newTime > currentTime) {
+                  updatedChat.lastMessage = {
                     content: notificationData.lastMessage.content,
                     timestamp: notificationData.lastMessage.timestamp,
                     senderId: notificationData.lastMessage.senderId
-                  }
-                };
+                  };
+                }
               }
+              
+              return updatedChat;
             }
             
-            return { 
-              ...chat, 
-              // FIXED: Show unread count only if this conversation is NOT currently active
-              unReadMessageCount: activeConversationId === String(chat.id) ? 0 : unread 
-            };
+            return chat;
           });
           
+          // Sort by last message time
           return updatedChats.sort((a, b) => {
             const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
             const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
@@ -389,7 +401,7 @@ export const useChat = () => {
     };
   }, [currentUserId, activeConversationId]);
 
-  // FIXED: Improved subscription with better message handling
+  // Subscribe to conversation messages
   const subscribeToConversation = useCallback((conversationId: string) => {
     if (conversationUnsubscribers.current.has(conversationId)) {
       return conversationUnsubscribers.current.get(conversationId)!;
@@ -410,21 +422,18 @@ export const useChat = () => {
         if (validFirebaseMessages.length > 0) {
           const latestMessage = validFirebaseMessages[validFirebaseMessages.length - 1];
           
+          // Update chat list with new message
           setChats(prevChats => {
-            const currentChat = prevChats.find(chat => chat.id.toString() === conversationId);
-            if (!currentChat) return prevChats;
-            
-            const currentLastMessageTime = currentChat.lastMessage?.timestamp 
-              ? new Date(currentChat.lastMessage.timestamp).getTime() 
-              : 0;
-            
-            const newMessageTime = latestMessage.createdAt 
-              ? new Date(latestMessage.createdAt).getTime() 
-              : new Date(latestMessage.timestamp || Date.now()).getTime();
-            
-            if (newMessageTime > currentLastMessageTime) {
-              return prevChats.map(chat => {
-                if (chat.id.toString() === conversationId) {
+            return prevChats.map(chat => {
+              if (chat.id.toString() === conversationId) {
+                const currentTime = chat.lastMessage?.timestamp 
+                  ? new Date(chat.lastMessage.timestamp).getTime() 
+                  : 0;
+                const newTime = latestMessage.createdAt 
+                  ? new Date(latestMessage.createdAt).getTime() 
+                  : new Date(latestMessage.timestamp || Date.now()).getTime();
+                
+                if (newTime > currentTime) {
                   const updatedChat = {
                     ...chat,
                     lastMessage: {
@@ -434,24 +443,20 @@ export const useChat = () => {
                     }
                   };
                   
-                  // FIXED: Only increment unread for other users' messages when chat is not active
+                  // FIXED: Only increment unread for messages from other users and when not actively viewing
                   if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
                     updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
-                  } else if (activeConversationId === conversationId) {
-                    updatedChat.unReadMessageCount = 0;
                   }
                   
                   return updatedChat;
                 }
-                return chat;
-              }).sort((a, b) => {
-                const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-                const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-                return timeB - timeA;
-              });
-            }
-            
-            return prevChats;
+              }
+              return chat;
+            }).sort((a, b) => {
+              const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+              const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+              return timeB - timeA;
+            });
           });
         }
 
@@ -577,7 +582,7 @@ export const useChat = () => {
     return unsubscribe;
   }, [currentUserId, activeConversationId, markConversationAsRead, chats, users]);
 
-  // Rest of the functions remain the same...
+  // Unsubscribe from conversation
   const unsubscribeFromConversation = useCallback((conversationId: string) => {
     const unsubscriber = conversationUnsubscribers.current.get(conversationId);
     if (unsubscriber) {
@@ -587,6 +592,7 @@ export const useChat = () => {
     }
   }, []);
 
+  // Cleanup temp messages
   const cleanupTempMessages = useCallback((conversationId: string) => {
     setMessages(prev => ({
       ...prev,
@@ -768,20 +774,29 @@ export const useChat = () => {
           }));
         }, 100);
 
-        // Update chat's last message
-        setChats(prev => prev.map(chat => 
-          chat.id.toString() === chatId 
-            ? { 
-                ...chat, 
-                lastMessage: { 
-                  content: trimmedContent, 
-                  timestamp: new Date().toISOString(), 
-                  senderId: currentUserId 
-                },
-                unReadMessageCount: 0
-              }
-            : chat
-        ));
+        // FIXED: Update chat's last message and ensure proper sorting
+        setChats(prev => {
+          const updatedChats = prev.map(chat => 
+            chat.id.toString() === chatId 
+              ? { 
+                  ...chat, 
+                  lastMessage: { 
+                    content: trimmedContent, 
+                    timestamp: new Date().toISOString(), 
+                    senderId: currentUserId 
+                  },
+                  unReadMessageCount: 0
+                }
+              : chat
+          );
+          
+          // Sort by last message time
+          return updatedChats.sort((a, b) => {
+            const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+            const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+            return timeB - timeA;
+          });
+        });
 
       } else {
         throw new Error(response.message || 'Failed to send message');
@@ -813,7 +828,7 @@ export const useChat = () => {
     }
   }, [currentUserId, currentUserName, isUploadingFiles]);
 
-  // FIXED: Create chat with automatic UI update
+  // FIXED: Create chat with immediate UI update and proper subscription
   const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
     console.log(`[useChat] Creating ${isGroup ? 'group' : 'private'} chat:`, { name, participants });
     
@@ -849,13 +864,24 @@ export const useChat = () => {
           messageResponses: response.data.messageResponses || []
         };
 
-        // FIXED: Add new chat to the top of the list immediately
-        setChats(prev => [newChat, ...prev]);
+        // FIXED: Add new chat immediately to UI
+        setChats(prev => {
+          // Check if chat already exists to prevent duplicates
+          const exists = prev.find(c => c.id.toString() === newChat.id.toString());
+          if (exists) {
+            return prev;
+          }
+          return [newChat, ...prev];
+        });
         
         // Subscribe to the new chat immediately
-        subscribeToConversation(response.data.id.toString());
+        setTimeout(() => {
+          subscribeToConversation(response.data.id.toString());
+        }, 100);
         
         return newChat;
+      } else {
+        throw new Error(response.message || 'Failed to create chat');
       }
     } catch (err) {
       console.error('[useChat] Error creating chat:', err);
@@ -871,23 +897,30 @@ export const useChat = () => {
       // Unsubscribe from Firebase first
       unsubscribeFromConversation(chatId);
       
+      // Remove from UI immediately for better UX
+      setChats(prev => prev.filter(chat => chat.id.toString() !== chatId));
+      setMessages(prev => {
+        const newMessages = { ...prev };
+        delete newMessages[chatId];
+        return newMessages;
+      });
+      
       const response = await softDeleteConversation(chatId);
       if (response.isSuccess) {
         console.log(`[useChat] Chat ${chatId} deleted successfully`);
-        
-        // FIXED: Remove from UI immediately
-        setChats(prev => prev.filter(chat => chat.id.toString() !== chatId));
-        setMessages(prev => {
-          const newMessages = { ...prev };
-          delete newMessages[chatId];
-          return newMessages;
-        });
+      } else {
+        // If API call failed, restore the chat
+        console.error(`[useChat] Failed to delete chat ${chatId}, restoring...`);
+        await loadChats(); // Reload to restore state
+        throw new Error(response.message || 'Failed to delete chat');
       }
     } catch (err) {
       console.error(`[useChat] Error deleting chat ${chatId}:`, err);
+      // Reload chats to restore correct state
+      await loadChats();
       throw err;
     }
-  }, [unsubscribeFromConversation]);
+  }, [unsubscribeFromConversation, loadChats]);
 
   // Search chats
   const searchChats = useCallback((query: string) => {
@@ -931,35 +964,39 @@ export const useChat = () => {
       const response = await addParticipants(chatId, { participants: participantIds });
       if (response.isSuccess) {
         console.log(`[useChat] Successfully added participants to chat ${chatId}`);
-        // FIXED: Reload chats to get updated participant list
+        // Reload chats to get updated participant list
         await loadChats();
+      } else {
+        throw new Error(response.message || 'Failed to add participants');
       }
     } catch (err) {
       console.error(`[useChat] Error adding participants to chat ${chatId}:`, err);
       throw err;
     }
   }, [loadChats]);
-const processPrivateChat = (chat:Chat, currentUserId:string) => {
-  if (chat.conversationType === 'private') {
-    // Find the other participant (not the current user)
-    const otherParticipant = chat.participants.find(p => p.id !== currentUserId);
-    
-    if (otherParticipant) {
-      // Set the chat name to the other participant's name
-      chat.name = otherParticipant.label  || `User ${otherParticipant.id}`;
+
+  const processPrivateChat = (chat: Chat, currentUserId: string) => {
+    if (chat.conversationType === 'private') {
+      // Find the other participant (not the current user)
+      const otherParticipant = chat.participants.find(p => p.id !== currentUserId);
+      
+      if (otherParticipant) {
+        // Set the chat name to the other participant's name
+        chat.name = otherParticipant.label || `User ${otherParticipant.id}`;
+      }
+      
+      // Ensure participant data is properly mapped
+      chat.participants = chat.participants.map(p => ({
+        id: p.id,
+        label: p.label || `User ${p.id}`,
+        avatar: p.avatar,
+        status: p.status || 'offline',
+        conversationRole: p.conversationRole
+      }));
     }
-    
-    // Ensure participant data is properly mapped
-    chat.participants = chat.participants.map(p => ({
-      id: p.id,
-      label: p.label ||  `User ${p.id}`,
-      avatar: p.avatar,
-      status: p.status || 'offline',
-      conversationRole: p.conversationRole
-    }));
-  }
-  return chat;
-};
+    return chat;
+  };
+
   // Remove participants from group
   const removeChatParticipants = useCallback(async (chatId: string, participantIds: string[]) => {
     console.log(`[useChat] Removing participants from chat ${chatId}:`, participantIds);
@@ -968,8 +1005,9 @@ const processPrivateChat = (chat:Chat, currentUserId:string) => {
       const response = await deleteParticipants(chatId, { participants: participantIds });
       if (response.isSuccess) {
         console.log(`[useChat] Successfully removed participants from chat ${chatId}`);
-        // FIXED: Reload chats to get updated participant list
         await loadChats();
+      } else {
+        throw new Error(response.message || 'Failed to remove participants');
       }
     } catch (err) {
       console.error(`[useChat] Error removing participants from chat ${chatId}:`, err);
@@ -986,6 +1024,8 @@ const processPrivateChat = (chat:Chat, currentUserId:string) => {
       if (response.isSuccess) {
         console.log(`[useChat] Successfully changed participant role in chat ${chatId}`);
         await loadChats();
+      } else {
+        throw new Error(response.message || 'Failed to change participant role');
       }
     } catch (err) {
       console.error(`[useChat] Error changing participant role in chat ${chatId}:`, err);
@@ -1032,6 +1072,8 @@ const processPrivateChat = (chat:Chat, currentUserId:string) => {
           });
           return newMessages;
         });
+      } else {
+        throw new Error(response.message || 'Failed to add reaction');
       }
     } catch (err) {
       console.error(`[useChat] Error adding reaction to message ${messageId}:`, err);
@@ -1065,6 +1107,8 @@ const processPrivateChat = (chat:Chat, currentUserId:string) => {
           });
           return newMessages;
         });
+      } else {
+        throw new Error(response.message || 'Failed to remove reaction');
       }
     } catch (err) {
       console.error(`[useChat] Error removing reaction from message ${messageId}:`, err);
@@ -1089,6 +1133,8 @@ const processPrivateChat = (chat:Chat, currentUserId:string) => {
           });
           return newMessages;
         });
+      } else {
+        throw new Error(response.message || 'Failed to edit message');
       }
     } catch (err) {
       console.error(`[useChat] Error editing message ${messageId}:`, err);
@@ -1111,6 +1157,8 @@ const processPrivateChat = (chat:Chat, currentUserId:string) => {
           });
           return newMessages;
         });
+      } else {
+        throw new Error(response.message || 'Failed to delete message');
       }
     } catch (err) {
       console.error(`[useChat] Error deleting message ${messageId}:`, err);
