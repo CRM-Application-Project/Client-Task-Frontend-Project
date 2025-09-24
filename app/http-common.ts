@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // export const BASE_URL = "http://localhost:8070/api/v1";
-export const BASE_URL = "https://devcrm.seabed2crest.com/api/v1";
+export const BASE_URL = "https://crm.seabed2crest.com/api/v1";
 
 
 const http = axios.create({
