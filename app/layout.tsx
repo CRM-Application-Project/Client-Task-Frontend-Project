@@ -13,12 +13,11 @@ async function verifyUser(
   subDomainName: string,
   deviceType: string = "web"
 ): Promise<any> {
-  const baseUrl = process.env.NODE_ENV === 'production' 
-    ? "https://crm.seabed2crest.com/api/v1/verify"
-    : "https://devcrm.seabed2crest.com/api/v1/verify";
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://devcrm.seabed2crest.com/api/v1";
+  const verifyUrl = `${baseUrl}/verify`;
 
   // Append query params
-  const url = `${baseUrl}?deviceType=${encodeURIComponent(deviceType)}&subDomainName=${encodeURIComponent(subDomainName)}`;
+  const url = `${verifyUrl}?deviceType=${encodeURIComponent(deviceType)}&subDomainName=${encodeURIComponent(subDomainName)}`;
 
   try {
     const res = await fetch(url, {
