@@ -22,7 +22,6 @@ import {
   MessageFileInfo
 } from '@/app/services/chatService';
 import { firebaseChatService, FirebaseMessage, ChatNotifications } from '@/app/services/FirebaseChatService';
-import { useDebounce } from './useDebounce';
 
 export interface Message {
   id: string;
@@ -60,27 +59,33 @@ export interface Message {
 }
 
 export const useChat = () => {
+  // Core state
   const [chats, setChats] = useState<Chat[]>([]);
   const [users, setUsers] = useState<ChatParticipant[]>([]);
   const [messages, setMessages] = useState<{ [chatId: string]: Message[] }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<ChatNotifications>({});
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   
-  const [locallyCreatedChats, setLocallyCreatedChats] = useState<Set<string>>(new Set());
-  const [locallyDeletedChats, setLocallyDeletedChats] = useState<Set<string>>(new Set());
-  const [isLoadingChats, setIsLoadingChats] = useState(false);
-  const [isCreatingChat, setIsCreatingChat] = useState(false);
-  const [isDeletingChat, setIsDeletingChat] = useState<Set<string>>(new Set());
-  
+  // User and conversation state
   const userid = (typeof window !== 'undefined') ? localStorage.getItem('userId') : null;
   const [currentUserId, setCurrentUserId] = useState<string>(userid || '');
   const [currentUserName] = useState('You');
-
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  
+  // Notification state
+  const [notifications, setNotifications] = useState<ChatNotifications>({});
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  
+  // Loading states
+  const [isLoadingChats, setIsLoadingChats] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState<Set<string>>(new Set());
+  
+  // Subscription management
+  const userNotificationUnsubscriber = useRef<(() => void) | null>(null);
   const conversationUnsubscribers = useRef<Map<string, () => void>>(new Map());
-  const notificationUnsubscriber = useRef<(() => void) | null>(null);
-const [loadingMessagesForChat, setLoadingMessagesForChat] = useState<Set<string>>(new Set());
+  
+  // Initialize Firebase service
   useEffect(() => {
     if (currentUserId) {
       console.log(`[useChat] Initializing Firebase service for user: ${currentUserId}`);
@@ -88,6 +93,7 @@ const [loadingMessagesForChat, setLoadingMessagesForChat] = useState<Set<string>
     }
   }, [currentUserId]);
 
+  // Update user ID from storage
   useEffect(() => {
     try {
       const id = (typeof window !== 'undefined') ? localStorage.getItem('userId') : null;
@@ -100,97 +106,16 @@ const [loadingMessagesForChat, setLoadingMessagesForChat] = useState<Set<string>
     }
   }, [currentUserId]);
 
-  const loadChats = useCallback(async () => {
-    if (isLoadingChats) {
-      console.log('[useChat] LoadChats already in progress, skipping...');
-      return;
-    }
+  // Load users from API
+  const loadUsers = useCallback(async () => {
+    if (isLoadingUsers) return;
     
-    console.log('[useChat] Loading chats and users...');
+    console.log('[useChat] Loading users...');
     try {
-      setIsLoadingChats(true);
-      setLoading(true);
+      setIsLoadingUsers(true);
       setError(null);
       
-      const [chatResponse, userResponse] = await Promise.all([
-        getChatList(),
-        getAssignDropdown()
-      ]);
-
-      if (chatResponse.isSuccess) {
-        console.log(`[useChat] Loaded ${chatResponse.data.length} chats`);
-        
-        const transformedChats = chatResponse.data
-          .filter((apiChat: any) => !locallyDeletedChats.has(apiChat.id.toString()))
-          .map((apiChat: any) => {
-            const participants = apiChat.participants || [];
-            const isPrivate = String(apiChat.conversationType).toUpperCase() === 'PRIVATE';
-            const other = participants.find((p: any) => p.id !== currentUserId);
-            const displayName = isPrivate ? (other?.label || apiChat.name) : apiChat.name;
-
-            return {
-              id: apiChat.id,
-              name: displayName,
-              description: apiChat.description || '',
-              conversationType: apiChat.conversationType,
-              participants: participants.map((participant: any) => ({
-                id: participant.id,
-                name: participant.label,
-                label: participant.label,
-                status: 'offline' as const,
-                conversationRole: participant.conversationRole === 'ADMIN' ? 'ADMIN' : 'MEMBER'
-              })),
-              unReadMessageCount: apiChat.unReadMessageCount,
-              messageResponses: apiChat.messageResponses || [],
-              lastMessage: apiChat.lastMessage
-                ? {
-                    content: apiChat.lastMessage.content,
-                    timestamp: apiChat.lastMessage.createdAt,
-                    senderId: apiChat.lastMessage.sender?.id || ''
-                  }
-                : undefined
-            };
-          });
-        
-        setChats(prevChats => {
-          const prevChatMap = new Map(prevChats.map(chat => [chat.id.toString(), chat]));
-          const newChatMap = new Map(transformedChats.map((chat: any) => [chat.id.toString(), chat]));
-          
-          const localChats = prevChats.filter(chat => 
-            locallyCreatedChats.has(chat.id.toString()) && !newChatMap.has(chat.id.toString())
-          );
-          
-          const mergedChats = transformedChats.map((newChat: any) => {
-            const existingChat = prevChatMap.get(newChat.id.toString());
-            if (existingChat) {
-              const existingTime = existingChat.lastMessage?.timestamp 
-                ? new Date(existingChat.lastMessage.timestamp).getTime() 
-                : 0;
-              const newTime = newChat.lastMessage 
-                ? new Date(newChat.lastMessage.timestamp).getTime() 
-                : 0;
-              
-              return {
-                ...newChat,
-                lastMessage: existingTime > newTime ? existingChat.lastMessage : newChat.lastMessage,
-                unReadMessageCount: activeConversationId === newChat.id.toString() 
-                  ? 0 
-                  : Math.max(existingChat.unReadMessageCount || 0, newChat.unReadMessageCount || 0)
-              };
-            }
-            return newChat;
-          });
-          
-          const finalChats = [...localChats, ...mergedChats];
-          
-          return finalChats.sort((a, b) => {
-            const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-            const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-            return timeB - timeA;
-          });
-        });
-      }
-
+      const userResponse = await getAssignDropdown();
       if (userResponse.isSuccess) {
         console.log(`[useChat] Loaded ${userResponse.data.length} users`);
         const transformedUsers: ChatParticipant[] = userResponse.data
@@ -203,524 +128,142 @@ const [loadingMessagesForChat, setLoadingMessagesForChat] = useState<Set<string>
             avatar: undefined
           }));
         setUsers(transformedUsers);
+      } else {
+        throw new Error(userResponse.message || 'Failed to load users');
       }
     } catch (err) {
-      console.error('[useChat] Error loading chat data:', err);
-      setError('Failed to load chat data. Please try again.');
+      console.error('[useChat] Error loading users:', err);
+      setError('Failed to load users. Please try again.');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [currentUserId, isLoadingUsers]);
+
+  // Load my conversations from API
+  const loadMyConversations = useCallback(async () => {
+    if (isLoadingChats) return;
+    
+    console.log('[useChat] Loading my conversations...');
+    try {
+      setIsLoadingChats(true);
+      setLoading(true);
+      setError(null);
+      
+      const chatResponse = await getChatList();
+      if (chatResponse.isSuccess) {
+        console.log(`[useChat] Loaded ${chatResponse.data.length} conversations`);
+        
+        const transformedChats = chatResponse.data.map((apiChat: any) => {
+          const participants = apiChat.participants || [];
+          const isPrivate = String(apiChat.conversationType).toUpperCase() === 'PRIVATE';
+          const other = participants.find((p: any) => p.id !== currentUserId);
+          const displayName = isPrivate ? (other?.label || apiChat.name) : apiChat.name;
+
+          return {
+            id: apiChat.id,
+            name: displayName,
+            description: apiChat.description || '',
+            conversationType: apiChat.conversationType,
+            participants: participants.map((participant: any) => ({
+              id: participant.id,
+              name: participant.label,
+              label: participant.label,
+              status: 'offline' as const,
+              conversationRole: participant.conversationRole === 'ADMIN' ? 'ADMIN' : 'MEMBER'
+            })),
+            unReadMessageCount: apiChat.unReadMessageCount,
+            messageResponses: apiChat.messageResponses || [],
+            lastMessage: apiChat.lastMessage
+              ? {
+                  content: apiChat.lastMessage.content,
+                  timestamp: apiChat.lastMessage.createdAt,
+                  senderId: apiChat.lastMessage.sender?.id || ''
+                }
+              : undefined
+          };
+        });
+        
+        setChats(transformedChats.sort((a, b) => {
+          const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+          const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+          return timeB - timeA;
+        }));
+        
+      } else {
+        throw new Error(chatResponse.message || 'Failed to load conversations');
+      }
+    } catch (err) {
+      console.error('[useChat] Error loading conversations:', err);
+      setError('Failed to load conversations. Please try again.');
     } finally {
       setIsLoadingChats(false);
       setLoading(false);
     }
-  }, [currentUserId, locallyDeletedChats, locallyCreatedChats, activeConversationId]);
+  }, [currentUserId, isLoadingChats]);
 
-  const markConversationAsRead = useCallback(async (conversationId: string) => {
-    if (!currentUserId) {
-      return;
-    }
-    
-    console.log(`[useChat] Marking conversation ${conversationId} as read`);
-    
-    try {
-      await firebaseChatService.markConversationAsRead(conversationId);
-      
-      setChats(prev => prev.map(chat => 
-        chat.id.toString() === conversationId 
-          ? { ...chat, unReadMessageCount: 0 }
-          : chat
-      ));
-      
-      setNotifications(prev => ({
-        ...prev,
-        [conversationId]: {
-          ...prev[conversationId],
-          unreadCount: 0,
-          timestamp: new Date().toISOString()
-        }
-      }));
-      
-    } catch (error) {
-      console.error(`[useChat] Error marking conversation ${conversationId} as read:`, error);
-    }
-  }, [currentUserId]);
-
-  const loadMessages = useCallback(async (chatId: string) => {
-  // Add this guard at the very beginning
-  if (!chatId || chatId === 'undefined' || chatId === 'null') {
-    return;
-  }
- if (loadingMessagesForChat.has(chatId)) {
-    return;
-  }
-  
-  setLoadingMessagesForChat(prev => new Set(prev).add(chatId));
-  console.log(`[useChat] Loading messages for chat: ${chatId}`);
-  
-  // Improved loading state check
-  const loadingKey = `loading-messages-${chatId}`;
-  if ((window as any)[loadingKey] || (messages[chatId] && messages[chatId].length > 0)) {
-    console.log(`[useChat] Messages already loaded or loading for chat ${chatId}, skipping...`);
-    return;
-  }
-  
-  try {
-    (window as any)[loadingKey] = true;
-    setLoading(true);
-    
-    const response = await filterMessages({ conversationId: parseInt(chatId) });
-    if (response.isSuccess) {
-        console.log(`[useChat] Loaded ${response.data.content.length} messages for chat ${chatId}`);
-        
-        const currentChat = chats.find(chat => chat.id.toString() === chatId);
-        
-        const transformedMessages: Message[] = response.data.content.map((apiMsg: ApiMessage) => {
-          const senderParticipant = currentChat?.participants.find(p => p.id === apiMsg.sender.id);
-          const senderLabel = senderParticipant?.label || 
-                             (apiMsg.sender.id === currentUserId ? 'You' : apiMsg.sender.label);
-
-          const transformedReactions = apiMsg.reactions?.map(apiReaction => ({
-            id: apiReaction.id?.toString(),
-            messageId: apiReaction.messageId?.toString(),
-            emoji: apiReaction.reaction || apiReaction.emoji,
-            count: 1,
-            users: [apiReaction.createdBy || ''],
-            reaction: apiReaction.reaction,
-            createdAt: apiReaction.createdAt,
-            senderId: apiReaction.createdBy,
-            senderName: apiReaction.createdBy === currentUserId ? 'You' : 
-                       (users.find(u => u.id === apiReaction.createdBy)?.label || 'Unknown')
-          })) || [];
-
-          return {
-            id: apiMsg.id.toString(),
-            content: apiMsg.content,
-            sender: {
-              id: apiMsg.sender.id,
-              label: senderLabel
-            },
-            senderId: apiMsg.sender.id,
-            createdAt: apiMsg.createdAt,
-            timestamp: new Date(apiMsg.createdAt).toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            }),
-            type: apiMsg.sender.id === currentUserId ? 'sent' : 'received',
-            reactions: transformedReactions,
-            parentId: apiMsg.parentId?.toString(),
-            mentions: apiMsg.mentions,
-            deletable: apiMsg.deletable,
-            updatable: apiMsg.updatable,
-            status: apiMsg.sender.id === currentUserId ? 'sent' : undefined,
-            hasAttachments: apiMsg.attachments && apiMsg.attachments.length > 0,
-            attachments: apiMsg.attachments || []
-          };
-        });
-        
-        setMessages(prev => ({ 
-          ...prev, 
-          [chatId]: transformedMessages 
-        }));
-        
-        const receivedMessageIds = response.data.content
-          .filter((msg: ApiMessage) => msg.sender.id !== currentUserId)
-          .map((msg: ApiMessage) => msg.id);
-          
-        if (receivedMessageIds.length > 0) {
-          try {
-            const updateReceiptResponse = await updateMessageReceipt({
-              messageIds: receivedMessageIds,
-              status: "READ"
-            });
-            
-            if (updateReceiptResponse.isSuccess) {
-              console.log(`[useChat] Successfully updated receipt status to read for ${receivedMessageIds.length} messages`);
-            }
-          } catch (receiptError) {
-            console.error('[useChat] Error updating message receipts:', receiptError);
-          }
-        }
-      }
-    } catch (err) {
-    console.error(`[useChat] Error loading messages for chat ${chatId}:`, err);
-  } finally {
-    setLoadingMessagesForChat(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(chatId);
-      return newSet;
-    });
-  }
-}, [currentUserId, chats, messages, users,loadingMessagesForChat]);
- const transformFirebaseMessage = useCallback((fm: FirebaseMessage, conversationId: string): Message => {
-    let senderLabel = 'Unknown User';
-    
-    const currentChat = chats.find(chat => chat.id.toString() === conversationId);
-    if (currentChat) {
-      const senderParticipant = currentChat.participants.find(p => p.id === fm.senderId);
-      if (senderParticipant) {
-        senderLabel = senderParticipant.label;
-      }
-    }
-    
-    if (senderLabel === 'Unknown User') {
-      for (const chat of chats) {
-        const participant = chat.participants.find(p => p.id === fm.senderId);
-        if (participant) {
-          senderLabel = participant.label;
-          break;
-        }
-      }
-    }
-    
-    if (senderLabel === 'Unknown User') {
-      const user = users.find(u => u.id === fm.senderId);
-      if (user) {
-        senderLabel = user.label;
-      }
-    }
-    
-    if (fm.senderId === currentUserId) {
-      senderLabel = 'You';
-    }
-    
-    if (senderLabel === 'Unknown User' && fm.senderId) {
-      senderLabel = fm.senderId;
-    }
-
-    const transformedReactions = (fm.reactions || []).map((r: any) => {
-      const reactionSenderId = r.senderId || r.userId || '';
-      let reactionSenderName = 'Unknown User';
-      
-      if (reactionSenderId === currentUserId) {
-        reactionSenderName = 'You';
-      } else if (currentChat) {
-        const reactionSender = currentChat.participants.find(p => p.id === reactionSenderId);
-        if (reactionSender) {
-          reactionSenderName = reactionSender.label;
-        }
-      }
-      
-      if (reactionSenderName === 'Unknown User') {
-        const user = users.find(u => u.id === reactionSenderId);
-        if (user) {
-          reactionSenderName = user.label;
-        }
-      }
-      
-      return { 
-        emoji: r.reaction || r.emoji, 
-        count: 1, 
-        users: [reactionSenderId],
-        senderId: reactionSenderId,
-        senderName: reactionSenderName,
-        createdAt: r.timestamp || r.createdAt,
-        reaction: r.reaction || r.emoji
-      };
-    });
-
-    return {
-      id: fm.id?.toString(),
-      content: fm.content?.trim() || '',
-      sender: {
-        id: fm.senderId || '',
-        label: senderLabel
-      },
-      createdAt: fm.createdAt || fm.timestamp,
-      senderId: fm.senderId || '',
-      timestamp: new Date(fm.createdAt || fm.timestamp || Date.now()).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }),
-      type: (fm.senderId === currentUserId ? 'sent' : 'received'),
-      reactions: transformedReactions,
-      parentId: fm.parentId,
-      mentions: fm.mentions,
-      deletable: false,
-      updatable: false,
-      status: fm.senderId === currentUserId ? 'sent' : 'delivered',
-      hasAttachments: fm.attachments && fm.attachments.length > 0,
-      attachments: fm.attachments || []
-    };
-  }, [currentUserId, chats, users]);
-    const unsubscribeFromConversation = useCallback((conversationId: string) => {
-    const unsubscriber = conversationUnsubscribers.current.get(conversationId);
-    if (unsubscriber) {
-      console.log(`[useChat] Unsubscribing from conversation: ${conversationId}`);
-      unsubscriber();
-      conversationUnsubscribers.current.delete(conversationId);
-    }
-  }, []);
- const subscribeToConversation = useCallback((conversationId: string) => {
-  // FIX: Check if already subscribed and return early
-  if (conversationUnsubscribers.current.has(conversationId)) {
-    console.log(`[useChat] Already subscribed to conversation: ${conversationId}`);
-    return conversationUnsubscribers.current.get(conversationId)!;
-  }
-  
-  console.log(`[useChat] Subscribing to Firebase messages for conversation: ${conversationId}`);
-  
- const unsubscribe = firebaseChatService.subscribeToConversationMessages(
-  conversationId, 
-  (firebaseMessages: FirebaseMessage[]) => {
-    console.log(`[useChat] Received ${firebaseMessages.length} Firebase messages for conversation ${conversationId}`);
-    
-    // FIX: Add early return if no valid messages to prevent unnecessary state updates
-    const validFirebaseMessages = firebaseMessages.filter(fm => {
-      return fm.id && fm.senderId && fm.content && fm.content.trim().length > 0 &&
-             !fm.id?.toString().startsWith('temp-') && (fm.createdAt || fm.timestamp);
-    });
-
-    if (validFirebaseMessages.length === 0) {
+  // Initialize user-level Firebase subscriptions
+  const initializeUserNotifications = useCallback(() => {
+    if (!currentUserId || userNotificationUnsubscriber.current) {
       return;
     }
 
-    // ⬇️⬇️⬇️ UPDATED CODE ⬇️⬇️⬇️
-    if (validFirebaseMessages.length > 0) {
-      const latestMessage = validFirebaseMessages[validFirebaseMessages.length - 1];
-      
-      // ADD THIS VALIDATION CHECK
-      const isValidLastMessage = latestMessage.content && latestMessage.content.trim().length > 0;
-      
-      setChats(prevChats => {
-        return prevChats.map(chat => {
-          if (chat.id.toString() === conversationId) {
-            const currentTime = chat.lastMessage?.timestamp 
-              ? new Date(chat.lastMessage.timestamp).getTime() 
-              : 0;
-            const newTime = latestMessage.createdAt 
-              ? new Date(latestMessage.createdAt).getTime() 
-              : new Date(latestMessage.timestamp || Date.now()).getTime();
-            
-            // ONLY UPDATE IF WE HAVE VALID CONTENT AND NEWER TIMESTAMP
-            if (isValidLastMessage && newTime > currentTime) {
-              const updatedChat = {
-                ...chat,
-                lastMessage: {
-                  content: latestMessage.content,
-                  timestamp: latestMessage.createdAt || latestMessage.timestamp || new Date().toISOString(),
-                  senderId: latestMessage.senderId
-                }
-              };
-              
-              if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
-                updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
-              }
-              
-              return updatedChat;
-            }
-          }
-          return chat;
-        }).sort((a, b) => {
-          const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-          const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-          return timeB - timeA;
-        });
-      });
-    }
-
-        const transformed: Message[] = validFirebaseMessages.map((fm) => 
-          transformFirebaseMessage(fm, conversationId)
-        );
-
-        setMessages(prev => {
-          const existingMessages = prev[conversationId] || [];
-          const existingIds = new Set(existingMessages.map(msg => msg.id));
-          
-          const newMessages = transformed.filter(newMsg => {
-            if (existingIds.has(newMsg.id)) return false;
-            if (!newMsg.content || newMsg.content.trim().length === 0) return false;
-            
-            if (newMsg.senderId === currentUserId) {
-              const duplicateExists = existingMessages.some(existingMsg => 
-                existingMsg.senderId === currentUserId &&
-                existingMsg.content === newMsg.content &&
-                Math.abs(new Date(existingMsg.createdAt).getTime() - new Date(newMsg.createdAt).getTime()) < 5000
-              );
-              if (duplicateExists) return false;
-            }
-            
-            return true;
-          });
-          
-          if (newMessages.length === 0) {
-            // Check for reaction updates on existing messages
-            const updatedMessages = existingMessages.map(existingMsg => {
-              const firebaseMsg = validFirebaseMessages.find(fm => fm.id?.toString() === existingMsg.id);
-              if (firebaseMsg && firebaseMsg.reactions) {
-                const updatedReactions = (firebaseMsg.reactions || []).map((r: any) => {
-                  const reactionSenderId = r.senderId || r.userId || '';
-                  let reactionSenderName = 'Unknown User';
-                  
-                  if (reactionSenderId === currentUserId) {
-                    reactionSenderName = 'You';
-                  } else {
-                    const currentChat = chats.find(chat => chat.id.toString() === conversationId);
-                    if (currentChat) {
-                      const reactionSender = currentChat.participants.find(p => p.id === reactionSenderId);
-                      if (reactionSender) {
-                        reactionSenderName = reactionSender.label;
-                      }
-                    }
-                  }
-                  
-                  return { 
-                    emoji: r.reaction || r.emoji, 
-                    count: 1, 
-                    users: [reactionSenderId],
-                    senderId: reactionSenderId,
-                    senderName: reactionSenderName,
-                    createdAt: r.timestamp || r.createdAt,
-                    reaction: r.reaction || r.emoji
-                  };
-                });
-                
-                return {
-                  ...existingMsg,
-                  reactions: updatedReactions
-                };
-              }
-              return existingMsg;
-            });
-            
-            const hasReactionUpdates = updatedMessages.some((msg, index) => {
-              const originalReactions = existingMessages[index]?.reactions || [];
-              const updatedReactions = msg.reactions || [];
-              return JSON.stringify(originalReactions) !== JSON.stringify(updatedReactions);
-            });
-            
-            if (hasReactionUpdates) {
-              return {
-                ...prev,
-                [conversationId]: updatedMessages
-              };
-            }
-            
-            return prev;
-          }
-          
-          const cleanedExistingMessages = existingMessages.filter(existingMsg => {
-            if (existingMsg.id.startsWith('temp-') && existingMsg.senderId === currentUserId) {
-              const matchingRealMessage = newMessages.find(newMsg => 
-                newMsg.senderId === currentUserId &&
-                newMsg.content === existingMsg.content &&
-                Math.abs(new Date(newMsg.createdAt).getTime() - new Date(existingMsg.createdAt).getTime()) < 10000
-              );
-              return !matchingRealMessage;
-            }
-            return true;
-          });
-          
-          const finalMessages = [...cleanedExistingMessages, ...newMessages];
-          finalMessages.sort((a, b) => 
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-          
-          return {
-            ...prev,
-            [conversationId]: finalMessages
-          };
-        });
-        
-        if (activeConversationId === conversationId) {
-          markConversationAsRead(conversationId);
-        }
-      }
-    );
-    
-    conversationUnsubscribers.current.set(conversationId, unsubscribe);
-    return unsubscribe;
-  }, [currentUserId, activeConversationId, markConversationAsRead, chats, users, transformFirebaseMessage]);
-
-const debouncedLoadMessages = useCallback(
-  useDebounce(async (chatId: string) => {
-    await loadMessages(chatId);
-  }, 300),
-  [loadMessages]
-);
-
- const setActiveConversation = useCallback((conversationId: string | null) => {
-  if (activeConversationId === conversationId) {
-    return; // Already active, no need to change
-  }
-  
-  console.log(`[useChat] Setting active conversation: ${conversationId}`);
-  
-  if (activeConversationId && activeConversationId !== conversationId) {
-    firebaseChatService.setUserActiveInConversation(activeConversationId, false);
-    unsubscribeFromConversation(activeConversationId);
-  }
-  
-  setActiveConversationId(conversationId);
-  
-  if (conversationId) {
-    // Delay message loading to ensure subscription is set up
-    setTimeout(() => {
-      firebaseChatService.setUserActiveInConversation(conversationId, true);
-      markConversationAsRead(conversationId);
-      
-      // Only load messages if we don't have them already
-      if (!messages[conversationId] || messages[conversationId].length === 0) {
-        debouncedLoadMessages(conversationId);
-      }
-      
-      subscribeToConversation(conversationId);
-    }, 100);
-  }
-}, [activeConversationId, markConversationAsRead, messages, debouncedLoadMessages, subscribeToConversation, unsubscribeFromConversation]);
-
-  useEffect(() => {
-    if (!currentUserId) return;
-    
-    console.log(`[useChat] Subscribing to notifications for user: ${currentUserId}`);
+    console.log('[useChat] Initializing user-level notifications...');
     
     const unsubscribe = firebaseChatService.subscribeToUserNotifications(
-      currentUserId, 
-      (updates) => {
-        console.log(`[useChat] [Listener] Notifications update received:`, updates);
+      currentUserId,
+      (notifications: ChatNotifications) => {
+        console.log('[useChat] User notifications update received:', notifications);
         
-        setNotifications(updates);
+        setNotifications(notifications);
         
-        setChats(prev => {
-          const updatedChats = prev.map(chat => {
+        // Calculate total unread count
+        const total = Object.values(notifications).reduce((sum, notification) => {
+          return sum + (notification.unreadCount || 0);
+        }, 0);
+        setTotalUnreadCount(total);
+        
+        // Update chat list with notification data
+        setChats(prevChats => {
+          return prevChats.map(chat => {
             const chatId = String(chat.id);
-            const notificationData = updates[chatId];
+            const notificationData = notifications[chatId];
             
             if (notificationData) {
-              const unreadCount = firebaseChatService.getConversationUnreadCount(updates, chatId);
-              
               const updatedChat = { ...chat };
               
+              // Don't show unread for active conversation
               if (activeConversationId === chatId) {
                 updatedChat.unReadMessageCount = 0;
               } else {
-                updatedChat.unReadMessageCount = Math.max(chat.unReadMessageCount || 0, unreadCount);
+                updatedChat.unReadMessageCount = Math.max(
+                  chat.unReadMessageCount || 0, 
+                  notificationData.unreadCount || 0
+                );
               }
               
-             // ADD VALIDATION CHECK FOR NOTIFICATION LAST MESSAGE
-const isValidNotificationLastMessage = notificationData.lastMessage && 
-                                      notificationData.lastMessage.content && 
-                                      notificationData.lastMessage.content.trim().length > 0;
-
-if (isValidNotificationLastMessage) {
-  const currentTime = chat.lastMessage?.timestamp 
-    ? new Date(chat.lastMessage.timestamp).getTime() 
-    : 0;
-  const newTime = new Date(notificationData.timestamp).getTime();
-  
-  if (newTime > currentTime) {
-    updatedChat.lastMessage = {
-      content: notificationData.lastMessage.content,
-      timestamp: notificationData.lastMessage.timestamp,
-      senderId: notificationData.lastMessage.senderId
-    };
-  }
-}
+              // Update last message if newer
+              if (notificationData.lastMessage && 
+                  notificationData.lastMessage.content && 
+                  notificationData.lastMessage.content.trim()) {
+                const currentTime = chat.lastMessage?.timestamp 
+                  ? new Date(chat.lastMessage.timestamp).getTime() 
+                  : 0;
+                const newTime = new Date(notificationData.timestamp).getTime();
+                
+                if (newTime > currentTime) {
+                  updatedChat.lastMessage = {
+                    content: notificationData.lastMessage.content,
+                    timestamp: notificationData.lastMessage.timestamp || notificationData.timestamp,
+                    senderId: notificationData.lastMessage.senderId || ''
+                  };
+                }
+              }
               
               return updatedChat;
             }
             
             return chat;
-          });
-          
-          return updatedChats.sort((a, b) => {
+          }).sort((a, b) => {
             const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
             const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
             return timeB - timeA;
@@ -729,168 +272,338 @@ if (isValidNotificationLastMessage) {
       }
     );
     
-    notificationUnsubscriber.current = unsubscribe;
-    
-    return () => {
-      console.log(`[useChat] Unsubscribing from notifications`);
-      unsubscribe?.();
-    };
+    userNotificationUnsubscriber.current = unsubscribe;
   }, [currentUserId, activeConversationId]);
+const loadedConversations = useRef<Set<string>>(new Set());
+  // Load conversation messages
+const loadConversationMessages = useCallback(async (conversationId: string, forceReload = false) => {
+  // Prevent multiple loads for the same conversation
+  if (loadedConversations.current.has(conversationId) && !forceReload) {
+    console.log(`[useChat] Messages already loaded for conversation: ${conversationId}`);
+    return;
+  }
+  
+  if (isLoadingMessages.has(conversationId)) {
+    console.log(`[useChat] Already loading messages for conversation: ${conversationId}`);
+    return;
+  }
+  
+  console.log(`[useChat] Loading messages for conversation: ${conversationId}`);
+  
+  loadedConversations.current.add(conversationId);
+  setIsLoadingMessages(prev => new Set(prev).add(conversationId));
+  
+  try {
+    const response = await filterMessages({ 
+      conversationId: parseInt(conversationId),
+      
+       // Adjust as needed
+    });
+    
+    if (response.isSuccess) {
+      console.log(`[useChat] Successfully loaded ${response.data.content.length} messages for conversation ${conversationId}`);
+      
+      const currentChat = chats.find(chat => chat.id.toString() === conversationId);
+      
+      const transformedMessages: Message[] = response.data.content.map((apiMsg: ApiMessage) => {
+        const senderParticipant = currentChat?.participants.find(p => p.id === apiMsg.sender.id);
+        const senderLabel = senderParticipant?.label || 
+                           (apiMsg.sender.id === currentUserId ? 'You' : apiMsg.sender.label);
 
- 
+        const transformedReactions = apiMsg.reactions?.map(apiReaction => ({
+          id: apiReaction.id?.toString(),
+          messageId: apiReaction.messageId?.toString(),
+          emoji: apiReaction.reaction || apiReaction.emoji,
+          count: 1,
+          users: [apiReaction.createdBy || ''],
+          reaction: apiReaction.reaction,
+          createdAt: apiReaction.createdAt,
+          senderId: apiReaction.createdBy,
+          senderName: apiReaction.createdBy === currentUserId ? 'You' : 
+                     (users.find(u => u.id === apiReaction.createdBy)?.label || 'Unknown')
+        })) || [];
 
+        return {
+          id: apiMsg.id.toString(),
+          content: apiMsg.content,
+          sender: {
+            id: apiMsg.sender.id,
+            label: senderLabel
+          },
+          senderId: apiMsg.sender.id,
+          createdAt: apiMsg.createdAt,
+          timestamp: new Date(apiMsg.createdAt).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          type: apiMsg.sender.id === currentUserId ? 'sent' : 'received',
+          reactions: transformedReactions,
+          parentId: apiMsg.parentId?.toString(),
+          mentions: apiMsg.mentions,
+          deletable: apiMsg.deletable,
+          updatable: apiMsg.updatable,
+          status: apiMsg.sender.id === currentUserId ? 'sent' : undefined,
+          hasAttachments: apiMsg.attachments && apiMsg.attachments.length > 0,
+          attachments: apiMsg.attachments || []
+        };
+      });
+      
+      // Always update the messages state, even if forceReload
+      setMessages(prev => ({ 
+        ...prev, 
+        [conversationId]: transformedMessages 
+      }));
+      
+      console.log(`[useChat] Updated messages state for conversation ${conversationId} with ${transformedMessages.length} messages`);
+      
+      // Mark messages as read
+      const receivedMessageIds = response.data.content
+        .filter((msg: ApiMessage) => msg.sender.id !== currentUserId)
+        .map((msg: ApiMessage) => msg.id);
+        
+      if (receivedMessageIds.length > 0) {
+        try {
+          await updateMessageReceipt({
+            messageIds: receivedMessageIds,
+            status: "READ"
+          });
+        } catch (receiptError) {
+          console.error('[useChat] Error updating message receipts:', receiptError);
+        }
+      }
+    } else {
+      console.error(`[useChat] Failed to load messages: ${response.message}`);
+      throw new Error(response.message || 'Failed to load messages');
+    }
+  } catch (err) {
+    console.error(`[useChat] Error loading messages for conversation ${conversationId}:`, err);
+    // Don't throw here to prevent UI crashes, just log the error
+  loadedConversations.current.delete(conversationId);
+  } finally {
+    setIsLoadingMessages(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(conversationId);
+      return newSet;
+    });
+  }
+}, [chats, currentUserId, users, isLoadingMessages]);
 
+  // Transform Firebase message to local message format
+// In your useChat hook, update the transformFirebaseMessage function:
+const transformFirebaseMessage = useCallback((fm: FirebaseMessage, conversationId: string): Message => {
+  let senderLabel = 'Unknown User';
+  
+  // First try to find the chat and participant
+  const currentChat = chats.find(chat => 
+    chat.id.toString() === conversationId || 
+    chat.id === Number(conversationId)
+  );
+  
+  if (currentChat) {
+    const senderParticipant = currentChat.participants.find(p => 
+      p.id === fm.senderId || 
+      p.id.toString() === fm.senderId
+    );
+    if (senderParticipant) {
+      senderLabel = senderParticipant.label || 'Unknown User';
+    }
+  }
+  
+  // If still unknown, check if it's the current user
+  if (senderLabel === 'Unknown User' && fm.senderId === currentUserId) {
+    senderLabel = 'You';
+  }
+  
+  // If still unknown, try to find in users list
+  if (senderLabel === 'Unknown User') {
+    const user = users.find(u => 
+      u.id === fm.senderId || 
+      u.id.toString() === fm.senderId
+    );
+    if (user) {
+      senderLabel = user.label || (user as any).name || 'Unknown User';
+    }
+  }
 
+  // NEW: If user not found in current state, but we have sender info in the message
+  if (senderLabel === 'Unknown User' && fm.senderName) {
+    senderLabel = fm.senderName;
+  }
 
+  // Final fallback - use senderId if label is still unknown
+  if (senderLabel === 'Unknown User' && fm.senderId) {
+    senderLabel = `User ${fm.senderId.substring(0, 8)}`; // More user-friendly than raw ID
+  }
 
-  const cleanupTempMessages = useCallback((conversationId: string) => {
+  const transformedReactions = (fm.reactions || []).map((r: any) => ({
+    emoji: r.reaction || r.emoji,
+    count: 1,
+    users: [r.senderId || ''],
+    senderId: r.senderId,
+    senderName: r.senderId === currentUserId ? 'You' : (r.senderName || ''),
+    createdAt: r.timestamp || r.createdAt,
+    reaction: r.reaction || r.emoji
+  }));
+
+  return {
+    id: fm.id?.toString(),
+    content: fm.content?.trim() || '',
+    sender: {
+      id: fm.senderId || '',
+      label: senderLabel
+    },
+    createdAt: fm.createdAt || fm.timestamp,
+    senderId: fm.senderId || '',
+    timestamp: new Date(fm.createdAt || fm.timestamp || Date.now()).toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    }),
+    type: (fm.senderId === currentUserId ? 'sent' : 'received'),
+    reactions: transformedReactions,
+    parentId: fm.parentId,
+    mentions: fm.mentions,
+    deletable: false,
+    updatable: false,
+    status: fm.senderId === currentUserId ? 'sent' : 'delivered',
+    hasAttachments: fm.attachments && fm.attachments.length > 0,
+    attachments: fm.attachments || []
+  };
+}, [currentUserId, chats, users]);
+
+  // Fetch full message from backend when hasAttachments or hasMentions is true
+  const fetchFullMessage = useCallback(async (messageId: string): Promise<Message | null> => {
+    try {
+      console.log(`[useChat] Fetching full message from backend: ${messageId}`);
+      const response = await getMessage(messageId);
+      
+      if (response.isSuccess && response.data) {
+        const apiMsg = response.data;
+        const currentChat = chats.find(chat => 
+          chat.participants.some(p => p.id === apiMsg.sender.id)
+        );
+        
+        const senderParticipant = currentChat?.participants.find(p => p.id === apiMsg.sender.id);
+        const senderLabel = senderParticipant?.label || 
+                           (apiMsg.sender.id === currentUserId ? 'You' : apiMsg.sender.label);
+
+        const transformedReactions = apiMsg.reactions?.map(apiReaction => ({
+          id: apiReaction.id?.toString(),
+          messageId: apiReaction.messageId?.toString(),
+          emoji: apiReaction.reaction || apiReaction.emoji,
+          count: 1,
+          users: [apiReaction.createdBy || ''],
+          reaction: apiReaction.reaction,
+          createdAt: apiReaction.createdAt,
+          senderId: apiReaction.createdBy,
+          senderName: apiReaction.createdBy === currentUserId ? 'You' : 
+                     (users.find(u => u.id === apiReaction.createdBy)?.label || 'Unknown')
+        })) || [];
+
+        return {
+          id: apiMsg.id.toString(),
+          content: apiMsg.content,
+          sender: {
+            id: apiMsg.sender.id,
+            label: senderLabel
+          },
+          senderId: apiMsg.sender.id,
+          createdAt: apiMsg.createdAt,
+          timestamp: new Date(apiMsg.createdAt).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          type: apiMsg.sender.id === currentUserId ? 'sent' : 'received',
+          reactions: transformedReactions,
+          parentId: apiMsg.parentId?.toString(),
+          mentions: apiMsg.mentions,
+          deletable: apiMsg.deletable,
+          updatable: apiMsg.updatable,
+          status: apiMsg.sender.id === currentUserId ? 'sent' : undefined,
+          hasAttachments: apiMsg.attachments && apiMsg.attachments.length > 0,
+          attachments: apiMsg.attachments || []
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error(`[useChat] Error fetching full message ${messageId}:`, error);
+      return null;
+    }
+  }, [chats, currentUserId, users]);
+
+  // Initialize conversation-level Firebase subscription
+const sendMessage = useCallback(async (
+  chatId: string, 
+  content: string, 
+  mentions?: string[], 
+  parentId?: string,
+  fileInfo?: MessageFileInfo[]
+) => {
+  const trimmedContent = content.trim();
+  
+  if (!trimmedContent && (!fileInfo || fileInfo.length === 0)) {
+    console.warn('[useChat] Cannot send message with empty content and no files');
+    return;
+  }
+
+  const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+  
+  const tempMessage: Message = {
+    id: tempId,
+    content: trimmedContent,
+    sender: {
+      id: currentUserId,  
+      label: currentUserName
+    },
+    createdAt: now,
+    senderId: currentUserId,
+    timestamp: new Date(now).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    type: 'sent',
+    mentions,
+    parentId,
+    status: 'sending',
+    hasAttachments: fileInfo && fileInfo.length > 0,
+    attachments: fileInfo ? fileInfo.map((file, index) => ({
+      attachmentId: index,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      fileSize: 0
+    })) : []
+  };
+
+  // Add optimistic message only for text messages or messages without attachments
+  if (!fileInfo || fileInfo.length === 0) {
     setMessages(prev => ({
       ...prev,
-      [conversationId]: (prev[conversationId] || []).filter(msg => 
-        !msg.id.startsWith('temp-')
-      )
+      [chatId]: [...(prev[chatId] || []), tempMessage]
     }));
-  }, []);
+  }
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      Object.keys(messages).forEach(chatId => {
-        cleanupTempMessages(chatId);
+  try {
+    let response;
+    
+    if (parentId) {
+      response = await replyToMessageService(parentId, {
+        conversationId: parseInt(chatId),
+        content: trimmedContent,
+        mentions,
+        fileInfo
       });
-    }, 30000);
-
-    return () => clearTimeout(timer);
-  }, [messages, cleanupTempMessages]);
-
-  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
-  
-  const sendMessage = useCallback(async (
-    chatId: string, 
-    content: string, 
-    mentions?: string[], 
-    parentId?: string,
-    fileInfo?: MessageFileInfo[]
-  ) => {
-    const trimmedContent = content.trim();
-    
-    if (!trimmedContent && (!fileInfo || fileInfo.length === 0)) {
-      console.warn('[useChat] Cannot send message with empty content and no files');
-      return;
+    } else {
+      response = await addMessage({
+        conversationId: parseInt(chatId),
+        content: trimmedContent,
+        mentions,
+        fileInfo
+      });
     }
 
-    if (isUploadingFiles) {
-      console.log('[useChat] Cannot send message while files are uploading');
-      return;
-    }
-
-    const messageKey = `${currentUserId}-${trimmedContent}-${chatId}-${parentId || 'no-parent'}`;
-    const sendingKey = `sending-${messageKey}`;
-    
-    if ((window as any)[sendingKey]) {
-      console.log('[useChat] Message already being sent, skipping duplicate...');
-      return;
-    }
-
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
-    
-    const tempMessage: Message = {
-      id: tempId,
-      content: trimmedContent,
-      sender: {
-        id: currentUserId,  
-        label: currentUserName
-      },
-      createdAt: now,
-      senderId: currentUserId,
-      timestamp: new Date(now).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      type: 'sent',
-      mentions,
-      parentId,
-      status: 'sending',
-      hasAttachments: fileInfo && fileInfo.length > 0,
-      attachments: fileInfo ? fileInfo.map((file, index) => ({
-        attachmentId: index,
-        fileName: file.fileName,
-        fileType: file.fileType,
-        fileSize: 0
-      })) : [],
-      tempMessageKey: messageKey
-    };
-
-    setMessages(prev => {
-      const existing = prev[chatId] || [];
-      const alreadyExists = existing.some(msg => 
-        msg.id === tempId || 
-        (msg.senderId === currentUserId && 
-         msg.content === trimmedContent && 
-         Math.abs(new Date(msg.createdAt).getTime() - new Date(now).getTime()) < 1000)
-      );
+    if (response.isSuccess) {
+      console.log(`[useChat] Message sent successfully:`, response.data);
       
-      if (alreadyExists) {
-        console.warn('[useChat] Temp message already exists, skipping optimistic add');
-        return prev;
-      }
-      
-      return {
-        ...prev,
-        [chatId]: [...existing, tempMessage]
-      };
-    });
-
-    const maxRetries = 3;
-    const baseDelay = 1000;
-
-    const executeWithRetry = async <T>(operation: () => Promise<T>): Promise<T> => {
-      let lastError: Error;
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          return await operation();
-        } catch (error) {
-          lastError = error as Error;
-          console.warn(`[useChat] Attempt ${attempt} failed:`, error);
-          
-          if (attempt === maxRetries) {
-            throw lastError;
-          }
-          
-          const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 500;
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-      
-      throw lastError!;
-    };
-
-    try {
-      (window as any)[sendingKey] = true;
-      
-      let response: AddMessageResponse | ReplyToMessageResponse;
-      
-      const sendOperation = async () => {
-        if (parentId) {
-          return await replyToMessageService(parentId, {
-            conversationId: parseInt(chatId),
-            content: trimmedContent,
-            mentions,
-            fileInfo
-          });
-        } else {
-          return await addMessage({
-            conversationId: parseInt(chatId),
-            content: trimmedContent,
-            mentions,
-            fileInfo
-          });
-        }
-      };
-
-      response = await executeWithRetry(sendOperation);
-
-      if (response.isSuccess) {
-        console.log(`[useChat] Message sent successfully:`, response.data);
-        
+      // For messages with attachments, we'll rely on the Firebase listener + backend fetch
+      // For text-only messages, replace the temp message
+      if (!fileInfo || fileInfo.length === 0) {
         const realMessage: Message = {
           id: response.data.id.toString(),
           content: response.data.content,
@@ -912,8 +625,7 @@ if (isValidNotificationLastMessage) {
           updatable: response.data.updatable,
           status: 'sent',
           hasAttachments: response.data.attachments && response.data.attachments.length > 0,
-          attachments: response.data.attachments || [],
-          tempMessageKey: messageKey
+          attachments: response.data.attachments || []
         };
 
         setMessages(prev => ({
@@ -922,73 +634,311 @@ if (isValidNotificationLastMessage) {
             msg.id === tempId ? realMessage : msg
           )
         }));
+      } else {
+        // Remove temp message for attachment messages since we'll get the real one via Firebase
+        setMessages(prev => ({
+          ...prev,
+          [chatId]: prev[chatId].filter(msg => msg.id !== tempId)
+        }));
+      }
 
-        setTimeout(() => {
-          setMessages(prev => ({
-            ...prev,
-            [chatId]: prev[chatId].map(msg => 
-              msg.id === response.data.id.toString() 
-                ? { ...msg, isProcessedLocally: true } 
-                : msg
-            )
-          }));
-        }, 100);
+      // Update chat list
+      setChats(prev => {
+        const updatedChats = prev.map(chat => 
+          chat.id.toString() === chatId 
+            ? { 
+                ...chat, 
+                lastMessage: { 
+                  content: trimmedContent || (fileInfo?.length ? `📎 ${fileInfo.length} file(s)` : ''), 
+                  timestamp: new Date().toISOString(), 
+                  senderId: currentUserId 
+                },
+                unReadMessageCount: 0
+              }
+            : chat
+        );
+        
+        return updatedChats.sort((a, b) => {
+          const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+          const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+          return timeB - timeA;
+        });
+      });
 
-        setChats(prev => {
-          const updatedChats = prev.map(chat => 
-            chat.id.toString() === chatId 
-              ? { 
-                  ...chat, 
-                  lastMessage: { 
-                    content: trimmedContent, 
-                    timestamp: new Date().toISOString(), 
-                    senderId: currentUserId 
-                  },
-                  unReadMessageCount: 0
-                }
-              : chat
+    } else {
+      throw new Error(response.message || 'Failed to send message');
+    }
+
+  } catch (err) {
+    console.error('[useChat] Error sending message:', err);
+    
+    // Mark message as failed only if we added a temp message
+    if (!fileInfo || fileInfo.length === 0) {
+      setMessages(prev => ({
+        ...prev,
+        [chatId]: prev[chatId].map(msg => 
+          msg.id === tempId 
+            ? { ...msg, status: 'failed' as const, error: err instanceof Error ? err.message : 'Unknown error' }
+            : msg
+        )
+      }));
+    }
+
+    throw err;
+  }
+}, [currentUserId, currentUserName]);
+
+// Enhanced Firebase message processing to ensure backend fetch for attachments
+const initializeConversationSubscription = useCallback((conversationId: string) => {
+  if (conversationUnsubscribers.current.has(conversationId)) {
+    console.log(`[useChat] Already subscribed to conversation: ${conversationId}`);
+    return;
+  }
+  
+  console.log(`[useChat] Initializing conversation subscription: ${conversationId}`);
+  
+  const unsubscribe = firebaseChatService.subscribeToConversationMessages(
+    conversationId,
+    async (firebaseMessages: FirebaseMessage[]) => {
+      console.log(`[useChat] Received ${firebaseMessages.length} Firebase messages for conversation ${conversationId}`);
+      
+      if (firebaseMessages.length === 0) return;
+      
+      const processedMessages: Message[] = [];
+      
+      for (const fm of firebaseMessages) {
+        // Validate message
+        if (!fm.id || !fm.senderId) {
+          console.warn(`[useChat] Invalid Firebase message:`, fm);
+          continue;
+        }
+        
+        let processedMessage: Message;
+        
+        // Enhanced sender lookup before transformation
+        const currentChat = chats.find(chat => 
+          chat.id.toString() === conversationId || 
+          chat.id === Number(conversationId)
+        );
+        
+        // Log for debugging
+        console.log(`[useChat] Processing message from sender: ${fm.senderId}`, {
+          conversationId,
+          currentChat: currentChat ? {
+            id: currentChat.id,
+            participants: currentChat.participants.map(p => ({ id: p.id, label: p.label }))
+          } : 'Not found',
+          usersCount: users.length
+        });
+        
+        // Always fetch from backend if message has mentions, attachments, or is missing content
+        if (fm.hasMentions || fm.hasAttachments || !fm.content?.trim()) {
+          console.log(`[useChat] Message ${fm.id} needs backend fetch`);
+          
+          try {
+            const fullMessage = await fetchFullMessage(fm.id);
+            if (fullMessage && fullMessage.content?.trim()) {
+              processedMessage = fullMessage;
+              console.log(`[useChat] Successfully fetched full message from backend:`, fullMessage.id);
+            } else {
+              console.warn(`[useChat] Backend fetch failed, using Firebase fallback`);
+              processedMessage = transformFirebaseMessage(fm, conversationId);
+            }
+          } catch (backendError) {
+            console.error(`[useChat] Error fetching full message from backend:`, backendError);
+            processedMessage = transformFirebaseMessage(fm, conversationId);
+          }
+        } else {
+          // Use Firebase message directly for simple text messages
+          processedMessage = transformFirebaseMessage(fm, conversationId);
+        }
+        
+        // Log the final sender label for debugging
+        console.log(`[useChat] Final sender label for message ${fm.id}:`, processedMessage.sender.label);
+        
+        // Only add valid messages
+        if (processedMessage?.id) {
+          processedMessages.push(processedMessage);
+        }
+      }
+      
+      if (processedMessages.length > 0) {
+        // Update messages in state
+        setMessages(prev => {
+          const existingMessages = prev[conversationId] || [];
+          const existingIds = new Set(existingMessages.map(msg => msg.id));
+          
+          // Filter out messages that already exist
+          const newMessages = processedMessages.filter(msg => !existingIds.has(msg.id));
+          
+          if (newMessages.length === 0) {
+            console.log(`[useChat] No new messages to add (all already exist)`);
+            return prev;
+          }
+          
+          console.log(`[useChat] Adding ${newMessages.length} new messages to conversation ${conversationId}`);
+          
+          // Remove temp messages that match real messages
+          const cleanedExistingMessages = existingMessages.filter(existingMsg => {
+            if (existingMsg.id.startsWith('temp-') && existingMsg.senderId === currentUserId) {
+              const matchingRealMessage = newMessages.find(newMsg => 
+                newMsg.senderId === currentUserId &&
+                Math.abs(new Date(newMsg.createdAt).getTime() - new Date(existingMsg.createdAt).getTime()) < 30000 // 30 second window
+              );
+              return !matchingRealMessage;
+            }
+            return true;
+          });
+          
+          const finalMessages = [...cleanedExistingMessages, ...newMessages];
+          finalMessages.sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           );
           
-          return updatedChats.sort((a, b) => {
+          return {
+            ...prev,
+            [conversationId]: finalMessages
+          };
+        });
+        
+        // Update chat list with latest message
+        const latestMessage = processedMessages[processedMessages.length - 1];
+        setChats(prevChats => {
+          return prevChats.map(chat => {
+            if (chat.id.toString() === conversationId) {
+              const currentTime = chat.lastMessage?.timestamp 
+                ? new Date(chat.lastMessage.timestamp).getTime() 
+                : 0;
+              const newTime = new Date(latestMessage.createdAt).getTime();
+              
+              if (newTime > currentTime) {
+                const updatedChat = {
+                  ...chat,
+                  lastMessage: {
+                    content: latestMessage.content || (latestMessage.hasAttachments ? '📎 Attachment' : ''),
+                    timestamp: latestMessage.createdAt,
+                    senderId: latestMessage.senderId
+                  }
+                };
+                
+                // Only increment unread if not from current user and not active conversation
+                if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
+                  updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
+                }
+                
+                return updatedChat;
+              }
+            }
+            return chat;
+          }).sort((a, b) => {
             const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
             const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
             return timeB - timeA;
           });
         });
-
-      } else {
-        throw new Error(response.message || 'Failed to send message');
       }
+    }
+  );
+  
+  conversationUnsubscribers.current.set(conversationId, unsubscribe);
+}, [activeConversationId, currentUserId, fetchFullMessage, transformFirebaseMessage]);
 
-    } catch (err) {
-      console.error('[useChat] Error sending message:', err);
-      
-      setMessages(prev => {
-        const currentChatMessages = prev[chatId] || [];
-        const messageIndex = currentChatMessages.findIndex(msg => msg.id === tempId);
-        
-        if (messageIndex === -1) return prev;
-        
-        const updatedMessages = [...currentChatMessages];
-        updatedMessages[messageIndex] = {
-          ...updatedMessages[messageIndex],
-          status: 'failed' as const,
-          error: err instanceof Error ? err.message : 'Unknown error'
-        };
-        
-        return {
-          ...prev,
-          [chatId]: updatedMessages
-        };
+// Add a fallback mechanism to ensure messages are loaded
+
+
+  // Set active conversation
+  const setActiveConversation = useCallback((conversationId: string | null) => {
+  if (activeConversationId === conversationId) {
+    return;
+  }
+  
+  console.log(`[useChat] Setting active conversation: ${conversationId}`);
+  setActiveConversationId(conversationId);
+  
+  if (conversationId) {
+    // Only load messages if not already loaded or empty
+    const shouldLoadMessages = !messages[conversationId] || messages[conversationId].length === 0;
+    
+    if (shouldLoadMessages) {
+      loadConversationMessages(conversationId);
+    }
+    
+    // Initialize conversation subscription
+    initializeConversationSubscription(conversationId);
+    
+    // Mark as read
+    firebaseChatService.markConversationAsRead(conversationId);
+    
+    // Update chat list unread count
+    setChats(prev => prev.map(chat => 
+      chat.id.toString() === conversationId 
+        ? { ...chat, unReadMessageCount: 0 }
+        : chat
+    ));
+  }
+}, [activeConversationId, messages, loadConversationMessages, initializeConversationSubscription]);
+
+  // Clean up conversation subscription
+  const cleanupConversationSubscription = useCallback((conversationId: string) => {
+    const unsubscriber = conversationUnsubscribers.current.get(conversationId);
+    if (unsubscriber) {
+      console.log(`[useChat] Cleaning up subscription for conversation: ${conversationId}`);
+      unsubscriber();
+      conversationUnsubscribers.current.delete(conversationId);
+    }
+  }, []);
+
+  // Send message
+
+
+  // Create chat
+  const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
+    console.log(`[useChat] Creating ${isGroup ? 'group' : 'private'} chat:`, { name, participants });
+    
+    try {
+      const response = await startConversation({
+        name,
+        description: isGroup ? `Group chat with ${participants.length + 1} members` : '',
+        conversationType: isGroup ? 'GROUP' : 'PRIVATE',
+        participants
       });
 
-      throw err;
-    } finally {
-      delete (window as any)[sendingKey];
-    }
-  }, [currentUserId, currentUserName, isUploadingFiles]);
+      if (response.isSuccess) {
+        console.log('[useChat] Chat created successfully:', response.data);
+        
+        const newChat: Chat = {
+          id: response.data.id,
+          name: (response.data.conversationType?.toString().toUpperCase() === 'GROUP')
+            ? response.data.name
+            : (response.data.participants.find((p: any) => p.id !== currentUserId)?.label || response.data.name),
+          description: response.data.description || '',
+          conversationType: isGroup ? 'group' : 'private',
+          participants: response.data.participants
+            .filter((p: any) => p.id !== currentUserId)
+            .map((p: any) => ({
+              id: p.id,
+              name: p.label,
+              label: p.label,
+              status: 'offline' as const,
+              conversationRole: p.conversationRole
+            })),
+          lastMessage: undefined,
+          unReadMessageCount: 0,
+          messageResponses: response.data.messageResponses || []
+        };
 
-  // Reaction handling with real-time updates
+        setChats(prev => [newChat, ...prev]);
+        return newChat;
+      } else {
+        throw new Error(response.message || 'Failed to create chat');
+      }
+    } catch (err) {
+      console.error('[useChat] Error creating chat:', err);
+      throw err;
+    }
+  }, [currentUserId]);
+
+  // Reaction management
   const addMessageReaction = useCallback(async (messageId: string, emoji: string) => {
     console.log(`[useChat] Adding reaction ${emoji} to message ${messageId}`);
     
@@ -1040,10 +990,7 @@ if (isValidNotificationLastMessage) {
       });
 
       const response = await addReaction(messageId, { reaction: emoji });
-      if (response.isSuccess) {
-        console.log(`[useChat] Successfully added reaction to message ${messageId}`);
-      } else {
-        console.error(`[useChat] Failed to add reaction: ${response.message}`);
+      if (!response.isSuccess) {
         // Revert optimistic update on failure
         setMessages(prev => {
           const newMessages = { ...prev };
@@ -1106,11 +1053,8 @@ if (isValidNotificationLastMessage) {
       });
 
       const response = await removeReaction(messageId);
-      if (response.isSuccess) {
-        console.log(`[useChat] Successfully removed reaction from message ${messageId}`);
-      } else {
-        console.error(`[useChat] Failed to remove reaction: ${response.message}`);
-        // Revert optimistic update on failure
+      if (!response.isSuccess) {
+        // Revert on failure
         setMessages(prev => {
           const newMessages = { ...prev };
           Object.keys(newMessages).forEach(chatId => {
@@ -1156,252 +1100,11 @@ if (isValidNotificationLastMessage) {
     }
   }, [currentUserId]);
 
-const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
-  if (isCreatingChat) {
-    console.log('[useChat] CreateChat already in progress, skipping...');
-    return;
-  }
-  
-  console.log(`[useChat] Creating ${isGroup ? 'group' : 'private'} chat:`, { name, participants });
-  
-  try {
-    setIsCreatingChat(true);
-    
-    const response = await startConversation({
-      name,
-      description: isGroup ? `Group chat with ${participants.length + 1} members` : '',
-      conversationType: isGroup ? 'GROUP' : 'PRIVATE',
-      participants
-    });
-
-    if (response.isSuccess) {
-      console.log('[useChat] Chat created successfully:', response.data);
-      
-      const newChat: Chat = {
-        id: response.data.id,
-        name: (response.data.conversationType?.toString().toUpperCase() === 'GROUP')
-          ? response.data.name
-          : (response.data.participants.find((p: any) => p.id !== currentUserId)?.label || response.data.name),
-        description: response.data.description || '',
-        conversationType: isGroup ? 'group' : 'private',
-        participants: response.data.participants
-          .filter((p: any) => p.id !== currentUserId)
-          .map((p: any) => ({
-            id: p.id,
-            name: p.label,
-            label: p.label,
-            status: 'offline' as const,
-            conversationRole: p.conversationRole
-          })),
-        lastMessage: undefined,
-        unReadMessageCount: 0,
-        messageResponses: response.data.messageResponses || []
-      };
-
-      const chatId = response.data.id.toString();
-      
-      setLocallyCreatedChats(prev => {
-        const newSet = new Set(prev);
-        newSet.add(chatId);
-        return newSet;
-      });
-
-      setChats(prev => {
-        const exists = prev.find(c => c.id.toString() === chatId);
-        if (exists) {
-          return prev;
-        }
-        return [newChat, ...prev];
-      });
-      
-      // FIX: Only subscribe if not already subscribed
-      if (!conversationUnsubscribers.current.has(chatId)) {
-        setTimeout(() => {
-          subscribeToConversation(chatId);
-        }, 100);
-      }
-      
-      setTimeout(() => {
-        setLocallyCreatedChats(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(chatId);
-          return newSet;
-        });
-      }, 10000);
-      
-      return newChat;
-    } else {
-      throw new Error(response.message || 'Failed to create chat');
-    }
-  } catch (err) {
-    console.error('[useChat] Error creating chat:', err);
-    throw err;
-  } finally {
-    setIsCreatingChat(false);
-  }
-}, [currentUserId, subscribeToConversation, isCreatingChat]);
-
-  const deleteChat = useCallback(async (chatId: string) => {
-    if (isDeletingChat.has(chatId)) {
-      console.log(`[useChat] DeleteChat already in progress for ${chatId}, skipping...`);
-      return;
-    }
-    
-    console.log(`[useChat] Deleting chat: ${chatId}`);
-    
-    try {
-      setIsDeletingChat(prev => {
-        const newSet = new Set(prev);
-        newSet.add(chatId);
-        return newSet;
-      });
-      
-      setLocallyDeletedChats(prev => {
-        const newSet = new Set(prev);
-        newSet.add(chatId);
-        return newSet;
-      });
-      
-      unsubscribeFromConversation(chatId);
-      
-      setChats(prev => prev.filter(chat => chat.id.toString() !== chatId));
-      setMessages(prev => {
-        const newMessages = { ...prev };
-        delete newMessages[chatId];
-        return newMessages;
-      });
-      
-      const response = await softDeleteConversation(chatId);
-      if (response.isSuccess) {
-        console.log(`[useChat] Chat ${chatId} deleted successfully`);
-        
-        setTimeout(() => {
-          setLocallyDeletedChats(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(chatId);
-            return newSet;
-          });
-        }, 5000);
-      } else {
-        console.error(`[useChat] Failed to delete chat ${chatId}, restoring...`);
-        setLocallyDeletedChats(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(chatId);
-          return newSet;
-        });
-        await loadChats();
-        throw new Error(response.message || 'Failed to delete chat');
-      }
-    } catch (err) {
-      console.error(`[useChat] Error deleting chat ${chatId}:`, err);
-      setLocallyDeletedChats(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(chatId);
-        return newSet;
-      });
-      await loadChats();
-      throw err;
-    } finally {
-      setIsDeletingChat(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(chatId);
-        return newSet;
-      });
-    }
-  }, [unsubscribeFromConversation, loadChats]);
-
-  const searchChats = useCallback((query: string) => {
-    console.log(`[useChat] Searching chats with query: "${query}"`);
-    
-    const activeChats = chats.filter(chat =>
-      chat.name.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    if (activeChats.length === 0 && query.trim()) {
-      const matchingUsers = users.filter(user =>
-        user.label.toLowerCase().includes(query.toLowerCase())
-      );
-      
-      console.log(`[useChat] Found ${matchingUsers.length} matching users for potential chats`);
-      
-      return matchingUsers.map(user => ({
-        id: `potential-${user.id}`,
-        name: user.label,
-        type: 'private' as const,
-        participants: [user],
-        lastMessage: {
-          content: 'No messages yet',
-          timestamp: new Date(),
-          senderId: ''
-        },
-        unreadCount: 0,
-        isPotential: true
-      }));
-    }
-    
-    console.log(`[useChat] Found ${activeChats.length} matching chats`);
-    return activeChats;
-  }, [chats, users]);
-
-  const addChatParticipants = useCallback(async (chatId: string, participantIds: string[]) => {
-    console.log(`[useChat] Adding participants to chat ${chatId}:`, participantIds);
-    
-    try {
-      const response = await addParticipants(chatId, { participants: participantIds });
-      if (response.isSuccess) {
-        console.log(`[useChat] Successfully added participants to chat ${chatId}`);
-        await loadChats();
-      } else {
-        throw new Error(response.message || 'Failed to add participants');
-      }
-    } catch (err) {
-      console.error(`[useChat] Error adding participants to chat ${chatId}:`, err);
-      throw err;
-    }
-  }, [loadChats]);
-
-  const removeChatParticipants = useCallback(async (chatId: string, participantIds: string[]) => {
-    console.log(`[useChat] Removing participants from chat ${chatId}:`, participantIds);
-    
-    try {
-      const response = await deleteParticipants(chatId, { participants: participantIds });
-      if (response.isSuccess) {
-        console.log(`[useChat] Successfully removed participants from chat ${chatId}`);
-        await loadChats();
-      } else {
-        throw new Error(response.message || 'Failed to remove participants');
-      }
-    } catch (err) {
-      console.error(`[useChat] Error removing participants from chat ${chatId}:`, err);
-      throw err;
-    }
-  }, [loadChats]);
-
-  const changeParticipantRoleInGroup = useCallback(async (chatId: string, participantId: string, role: "ADMIN" | "MEMBER") => {
-    console.log(`[useChat] Changing role for participant ${participantId} in chat ${chatId} to ${role}`);
-    
-    try {
-      const response = await changeParticipantRole(chatId, { role, participantId });
-      if (response.isSuccess) {
-        console.log(`[useChat] Successfully changed participant role in chat ${chatId}`);
-        await loadChats();
-      } else {
-        throw new Error(response.message || 'Failed to change participant role');
-      }
-    } catch (err) {
-      console.error(`[useChat] Error changing participant role in chat ${chatId}:`, err);
-      throw err;
-    }
-  }, [loadChats]);
-
+  // Additional functions (edit, delete, etc.)
   const editMessageContent = useCallback(async (messageId: string, newContent: string) => {
-    console.log(`[useChat] Editing message ${messageId}`);
-    
     try {
       const response = await editMessage(messageId, { content: newContent });
       if (response.isSuccess) {
-        console.log(`[useChat] Successfully edited message ${messageId}`);
-        
         setMessages(prev => {
           const newMessages = { ...prev };
           Object.keys(newMessages).forEach(chatId => {
@@ -1421,13 +1124,9 @@ const createChat = useCallback(async (name: string, participants: string[], isGr
   }, []);
 
   const deleteMessageById = useCallback(async (messageId: string) => {
-    console.log(`[useChat] Deleting message ${messageId}`);
-    
     try {
       const response = await deleteMessage(messageId);
       if (response.isSuccess) {
-        console.log(`[useChat] Successfully deleted message ${messageId}`);
-        
         setMessages(prev => {
           const newMessages = { ...prev };
           Object.keys(newMessages).forEach(chatId => {
@@ -1445,58 +1144,127 @@ const createChat = useCallback(async (name: string, participants: string[], isGr
   }, []);
 
   const getMessageReceiptsById = useCallback(async (messageId: string) => {
-    console.log(`[useChat] Getting receipts for message ${messageId}`);
-    
     try {
       const response = await getMessageReceipts(messageId);
-      const receipts = response.isSuccess ? response.data : [];
-      console.log(`[useChat] Found ${receipts.length} receipts for message ${messageId}`);
-      return receipts;
+      return response.isSuccess ? response.data : [];
     } catch (err) {
       console.error(`[useChat] Error getting receipts for message ${messageId}:`, err);
       return [];
     }
   }, []);
 
+  // Chat management functions
+  const deleteChat = useCallback(async (chatId: string) => {
+    try {
+      const response = await softDeleteConversation(chatId);
+      if (response.isSuccess) {
+        cleanupConversationSubscription(chatId);
+        setChats(prev => prev.filter(chat => chat.id.toString() !== chatId));
+        setMessages(prev => {
+          const newMessages = { ...prev };
+          delete newMessages[chatId];
+          return newMessages;
+        });
+      } else {
+        throw new Error(response.message || 'Failed to delete chat');
+      }
+    } catch (err) {
+      console.error(`[useChat] Error deleting chat ${chatId}:`, err);
+      throw err;
+    }
+  }, [cleanupConversationSubscription]);
+
+  const addChatParticipants = useCallback(async (chatId: string, participantIds: string[]) => {
+    try {
+      const response = await addParticipants(chatId, { participants: participantIds });
+      if (response.isSuccess) {
+        await loadMyConversations();
+      } else {
+        throw new Error(response.message || 'Failed to add participants');
+      }
+    } catch (err) {
+      console.error(`[useChat] Error adding participants to chat ${chatId}:`, err);
+      throw err;
+    }
+  }, [loadMyConversations]);
+
+  const removeChatParticipants = useCallback(async (chatId: string, participantIds: string[]) => {
+    try {
+      const response = await deleteParticipants(chatId, { participants: participantIds });
+      if (response.isSuccess) {
+        await loadMyConversations();
+      } else {
+        throw new Error(response.message || 'Failed to remove participants');
+      }
+    } catch (err) {
+      console.error(`[useChat] Error removing participants from chat ${chatId}:`, err);
+      throw err;
+    }
+  }, [loadMyConversations]);
+
+  const changeParticipantRoleInGroup = useCallback(async (chatId: string, participantId: string, role: "ADMIN" | "MEMBER") => {
+    try {
+      const response = await changeParticipantRole(chatId, { role, participantId });
+      if (response.isSuccess) {
+        await loadMyConversations();
+      } else {
+        throw new Error(response.message || 'Failed to change participant role');
+      }
+    } catch (err) {
+      console.error(`[useChat] Error changing participant role in chat ${chatId}:`, err);
+      throw err;
+    }
+  }, [loadMyConversations]);
+
+  // Search functionality
+  const searchChats = useCallback((query: string) => {
+    const activeChats = chats.filter(chat =>
+      chat.name.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    if (activeChats.length === 0 && query.trim()) {
+      const matchingUsers = users.filter(user =>
+        user.label.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      return matchingUsers.map(user => ({
+        id: `potential-${user.id}`,
+        name: user.label,
+        conversationType: 'private' as const,
+        participants: [user],
+        lastMessage: undefined,
+        unReadMessageCount: 0,
+        isPotential: true,
+        description: '',
+        messageResponses: []
+      }));
+    }
+    
+    return activeChats;
+  }, [chats, users]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('[useChat] Cleaning up all listeners');
+      console.log('[useChat] Cleaning up all subscriptions...');
       
-      conversationUnsubscribers.current.forEach((unsub, chatId) => {
-        console.log(`[useChat] Unsubscribing from conversation: ${chatId}`);
-        unsub();
+      // Clean up user notifications
+      if (userNotificationUnsubscriber.current) {
+        userNotificationUnsubscriber.current();
+        userNotificationUnsubscriber.current = null;
+      }
+      
+      // Clean up conversation subscriptions
+      conversationUnsubscribers.current.forEach((unsubscribe, conversationId) => {
+        console.log(`[useChat] Cleaning up conversation subscription: ${conversationId}`);
+        unsubscribe();
       });
       conversationUnsubscribers.current.clear();
       
-      if (notificationUnsubscriber.current) {
-        notificationUnsubscriber.current();
-        notificationUnsubscriber.current = null;
-      }
-      
+      // Clean up Firebase service
       firebaseChatService.cleanup();
     };
   }, []);
-
-  useEffect(() => {
-    loadChats();
-  }, [loadChats]);
-
-  const debugChatState = useCallback(() => {
-    console.log('[useChat] Current State Debug:', {
-      chatsCount: chats.length,
-      usersCount: users.length,
-      activeConversation: activeConversationId,
-      totalMessages: Object.keys(messages).reduce((total, chatId) => total + messages[chatId].length, 0),
-      totalUnreadCount: firebaseChatService.getTotalUnreadCount(notifications),
-      currentUserId,
-      loading,
-      error,
-      locallyCreatedChats: Array.from(locallyCreatedChats),
-      locallyDeletedChats: Array.from(locallyDeletedChats)
-    });
-    
-    firebaseChatService.debugState();
-  }, [chats, users, activeConversationId, messages, notifications, currentUserId, loading, error, locallyCreatedChats, locallyDeletedChats]);
 
   return {
     // Data
@@ -1509,40 +1277,38 @@ const createChat = useCallback(async (name: string, participants: string[], isGr
     currentUserName,
     notifications,
     activeConversationId,
+    totalUnreadCount,
+    isLoadingChats,
+    isLoadingUsers,
     
-    // Actions
-    loadChats,
-    loadMessages,
+    // Core functions
+    loadUsers,
+    loadMyConversations,
+    initializeUserNotifications,
+    loadConversationMessages,
+    initializeConversationSubscription,
+    cleanupConversationSubscription,
+    setActiveConversation,
+    
+    // Message functions
     sendMessage,
-    createChat,
-    deleteChat,
-    searchChats,
-    
-    // Participants
-    addChatParticipants,
-    removeChatParticipants,
-    changeParticipantRoleInGroup,
-    
-    // Messages
     addMessageReaction,
     removeMessageReaction,
     editMessageContent,
     deleteMessageById,
     getMessageReceiptsById,
     
-    // Firebase & Real-time
-    subscribeToConversation,
-    unsubscribeFromConversation,
-    setActiveConversation,
-    markConversationAsRead,
-    setChats,
-    
-    // Debug
-    debugChatState,
+    // Chat management
+    createChat,
+    deleteChat,
+    searchChats,
+    addChatParticipants,
+    removeChatParticipants,
+    changeParticipantRoleInGroup,
     
     // Utility
-    getTotalUnreadCount: () => firebaseChatService.getTotalUnreadCount(notifications),
+    getTotalUnreadCount: () => totalUnreadCount,
     getConversationUnreadCount: (conversationId: string) => 
       firebaseChatService.getConversationUnreadCount(notifications, conversationId)
-  };
 };
+  };

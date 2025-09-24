@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { MessageCircle, Lock } from "lucide-react";
 import { ChatArea } from "./ChatArea";
 import Sidebar from "./Sidebar";
@@ -83,148 +83,144 @@ export const ChatLayout = () => {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
-  
+   const initializingRef = useRef(false);
   // Use the useChat hook to get global chat state and functions
   const { 
-    chats, 
-    subscribeToConversation,
-    unsubscribeFromConversation,
-    setActiveConversation,
-    loadMessages,
+    chats,
+    users,
     messages,
     currentUserId,
     activeConversationId,
     loading,
     error,
-    loadChats
+    isLoadingChats,
+    isLoadingUsers,
+    totalUnreadCount,
+    
+    // Core initialization functions
+    loadUsers,
+    loadMyConversations,
+    initializeUserNotifications,
+    loadConversationMessages,
+    setActiveConversation,
   } = useChat();
 
-  // FIXED: Initialize chats only once on component mount
+  // Initialize the chat module when component mounts
   useEffect(() => {
-    if (!isInitialized && currentUserId) {
-      console.log('[ChatLayout] Initializing chat layout for user:', currentUserId);
-      loadChats().finally(() => {
-        setIsInitialized(true);
-      });
-    }
-  }, [loadChats, currentUserId, isInitialized]);
+    const initializeChatModule = async () => {
+      if (isInitialized || !currentUserId || initializingRef.current) {
+        return;
+      }
 
-  // FIXED: Subscribe to real-time updates for ALL chats with proper cleanup
-  useEffect(() => {
-    if (!isInitialized || chats.length === 0) {
-      return;
-    }
-    
-    console.log(`[ChatLayout] Setting up real-time subscriptions for ${chats.length} chats`);
-    
-    const activeSubscriptions = new Set<string>();
-    
-    const subscribeToAllChats = () => {
-      chats.forEach(chat => {
-        const chatId = String(chat.id);
-        
-        if (activeSubscriptions.has(chatId)) {
-          return;
-        }
-        
-        try {
-          console.log(`[ChatLayout] Subscribing to chat: ${chatId}`);
-          subscribeToConversation(chatId);
-          activeSubscriptions.add(chatId);
-        } catch (error) {
-          console.error(`[ChatLayout] Error subscribing to chat ${chatId}:`, error);
-        }
-      });
-    };
-    
-    subscribeToAllChats();
-    
-    return () => {
-      console.log('[ChatLayout] Cleaning up chat subscriptions');
-      activeSubscriptions.forEach(chatId => {
-        try {
-          unsubscribeFromConversation(chatId);
-        } catch (error) {
-          console.error(`[ChatLayout] Error unsubscribing from chat ${chatId}:`, error);
-        }
-      });
-      activeSubscriptions.clear();
-    };
-  }, [chats, subscribeToConversation, unsubscribeFromConversation, isInitialized]);
-
-  // FIXED: Handle active conversation management with proper cleanup
-  useEffect(() => {
-    const chatId = selectedChat ? String(selectedChat.id) : null;
-    
-    if (chatId && chatId !== activeConversationId) {
-      console.log(`[ChatLayout] Setting active conversation: ${chatId}`);
+      console.log('[ChatLayout] Initializing chat module for user:', currentUserId);
+      initializingRef.current = true;
       
       try {
-        setActiveConversation(chatId);
+        setIsInitialized(true);
         
-        // Load messages if not already loaded
-        const existingMessages = messages[chatId];
-        if (!existingMessages || existingMessages.length === 0) {
-          console.log(`[ChatLayout] Loading messages for conversation: ${chatId}`);
-          loadMessages(chatId);
-        }
+        // Step 1: Load users
+        console.log('[ChatLayout] Step 1: Loading users...');
+        await loadUsers();
+        
+        // Step 2: Load my conversations
+        console.log('[ChatLayout] Step 2: Loading conversations...');
+        await loadMyConversations();
+        
+        // Step 3: Initialize notifications
+        console.log('[ChatLayout] Step 3: Initializing user notifications...');
+        initializeUserNotifications();
+        
+        console.log('[ChatLayout] Chat module initialization complete');
+        
       } catch (error) {
-        console.error(`[ChatLayout] Error setting active conversation ${chatId}:`, error);
+        console.error('[ChatLayout] Error initializing chat module:', error);
+        setIsInitialized(false);
+        initializingRef.current = false;
+      } finally {
+        initializingRef.current = false;
       }
-    } else if (!chatId && activeConversationId) {
-      console.log('[ChatLayout] Clearing active conversation');
-      setActiveConversation(null);
-    }
-  }, [selectedChat, setActiveConversation, loadMessages, messages, activeConversationId]);
+    };
+
+    initializeChatModule();
+  }, [currentUserId, isInitialized, loadUsers, loadMyConversations, initializeUserNotifications]);
 
   // Handle chat selection from sidebar
-  const handleChatSelect = useCallback((chat: Chat | null) => {
+ const handleChatSelect = useCallback((chat: Chat | null) => {
     console.log('[ChatLayout] Chat selected:', chat?.id || 'none');
+    
+    if (!chat) {
+      setSelectedChat(null);
+      setActiveConversation(null);
+      return;
+    }
+
+    const chatId = String(chat.id);
+    
+    // Update local state first
     setSelectedChat(chat);
-  }, []);
+    
+    // Then set active conversation
+    setActiveConversation(chatId);
+    
+    console.log(`[ChatLayout] Active conversation set to: ${chatId}`);
+  }, [setActiveConversation]);
 
-  // FIXED: Remove the manual chat update handler - let useChat manage all state
-  const handleChatsUpdate = useCallback((updatedChats: Chat[]) => {
-    console.log('[ChatLayout] Chats update notification received (handled by useChat hook)');
-    // This is now a no-op since useChat handles all state management
-  }, []);
 
-  // FIXED: Handle search query changes with debouncing
+  // Handle search query changes
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
 
+  // Update selected chat when chats change (to keep it in sync)
+ useEffect(() => {
+    if (selectedChat) {
+      const updatedChat = chats.find(chat => chat.id.toString() === selectedChat.id.toString());
+      if (updatedChat && updatedChat.id !== selectedChat.id) {
+        console.log('[ChatLayout] Updating selected chat with fresh data');
+        setSelectedChat(updatedChat);
+      }
+    }
+  }, [chats, selectedChat]);
+useEffect(() => {
+    return () => {
+      console.log('[ChatLayout] Cleaning up...');
+      setSelectedChat(null);
+    };
+  }, []);
+
   // Show loading state while initializing
-  if (!isInitialized && loading) {
-    return (
-      <div className="flex h-screen bg-background items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Initializing chat...</p>
-        </div>
+ if (!isInitialized && (loading || isLoadingChats || isLoadingUsers)) {
+  return (
+    <div className="flex h-screen bg-background items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-gray-600">Initializing chat module...</p>
+        <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   // Show error state if initialization failed
-  if (error && !isInitialized) {
-    return (
-      <div className="flex h-screen bg-background items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <button 
-            onClick={() => {
-              setIsInitialized(false);
-              loadChats();
-            }}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            Retry
-          </button>
-        </div>
+ if (error && !isInitialized) {
+  return (
+    <div className="flex h-screen bg-background items-center justify-center">
+      <div className="text-center">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button 
+          onClick={() => {
+            setIsInitialized(false);
+            initializingRef.current = false;
+          }}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+        >
+          Retry Initialization
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="flex h-screen bg-background">
@@ -232,18 +228,25 @@ export const ChatLayout = () => {
       <div className="w-80 bg-chat-sidebar border-r border-chat-border flex flex-col">
         <Sidebar 
           chats={chats}
+          users={users}
           selectedChat={selectedChat}
           onChatSelect={handleChatSelect}
-          onChatsUpdate={handleChatsUpdate}
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
+          loading={isLoadingChats}
+          error={error}
+          totalUnreadCount={totalUnreadCount}
+          activeConversationId={activeConversationId}
         />
       </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {selectedChat ? (
-          <ChatArea chat={selectedChat} />
+          <ChatArea 
+            chat={selectedChat} 
+            chatId={selectedChat.id.toString()}
+          />
         ) : ( 
           <WelcomeScreen />
         )}
