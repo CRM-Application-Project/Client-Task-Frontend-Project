@@ -27,6 +27,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
+RUN ls -la .next/
+RUN ls -la .next/standalone/ || echo "No standalone directory found"
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -45,10 +47,10 @@ COPY --from=builder /app/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy the built application (fallback to regular build if standalone fails)
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 
 USER nextjs
 
@@ -58,6 +60,5 @@ ENV PORT=3000
 # set hostname to localhost
 ENV HOSTNAME="0.0.0.0"
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["node", "server.js"]
+# Start the Next.js application
+CMD ["npm", "start"]
