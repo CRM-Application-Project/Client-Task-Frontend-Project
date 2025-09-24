@@ -1,5 +1,5 @@
-# Use the official Node.js 18 Alpine image as base
-FROM node:18-alpine AS base
+# Use the official Node.js 20 Alpine image as base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -8,8 +8,8 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json* .npmrc ./
+RUN npm install --silent
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -42,8 +42,8 @@ RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
 # Install only production dependencies for the final image
-COPY package.json package-lock.json* ./
-RUN npm install --only=production && npm cache clean --force
+COPY package.json package-lock.json* .npmrc ./
+RUN npm install --only=production --silent && npm cache clean --force
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
