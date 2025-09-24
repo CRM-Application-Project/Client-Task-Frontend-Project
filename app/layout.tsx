@@ -13,7 +13,9 @@ async function verifyUser(
   subDomainName: string,
   deviceType: string = "web"
 ): Promise<any> {
-  const baseUrl = "https://devcrm.seabed2crest.com/api/v1/verify";
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? "https://crm.seabed2crest.com/api/v1/verify"
+    : "https://devcrm.seabed2crest.com/api/v1/verify";
 
   // Append query params
   const url = `${baseUrl}?deviceType=${encodeURIComponent(deviceType)}&subDomainName=${encodeURIComponent(subDomainName)}`;
@@ -167,10 +169,11 @@ const host = headersList.get("host") ?? "";
     // Call verifyUser endpoint
     const verifyResponse = await verifyUser(subDomainName, "web");
     
-    if (verifyResponse.isSuccess && verifyResponse.data && verifyResponse.data.whiteLabelData) {
+    if (verifyResponse && verifyResponse.isSuccess && verifyResponse.data && verifyResponse.data.whiteLabelData) {
       themeCSS = generateThemeCSS(verifyResponse.data.whiteLabelData);
     } else {
       // Fallback to default theme if API call fails
+      console.log('Using default theme - API response:', verifyResponse);
       themeCSS = generateThemeCSS(null);
     }
   } catch (error) {

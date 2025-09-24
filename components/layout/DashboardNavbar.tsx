@@ -488,7 +488,7 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                       </div>
                       <h4 className="text-gray-900 text-lg font-bold mb-2">All caught up!</h4>
                       <p className="text-gray-500 text-sm leading-relaxed max-w-xs mx-auto">
-                        No new notifications right now. We'll let you know when something important happens.
+                        No new notifications right now. We&apos;ll let you know when something important happens.
                       </p>
                     </div>
                   ) : (
