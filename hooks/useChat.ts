@@ -457,59 +457,64 @@ const [loadingMessagesForChat, setLoadingMessagesForChat] = useState<Set<string>
   
   console.log(`[useChat] Subscribing to Firebase messages for conversation: ${conversationId}`);
   
-  const unsubscribe = firebaseChatService.subscribeToConversationMessages(
-    conversationId, 
-    (firebaseMessages: FirebaseMessage[]) => {
-      console.log(`[useChat] Received ${firebaseMessages.length} Firebase messages for conversation ${conversationId}`);
+ const unsubscribe = firebaseChatService.subscribeToConversationMessages(
+  conversationId, 
+  (firebaseMessages: FirebaseMessage[]) => {
+    console.log(`[useChat] Received ${firebaseMessages.length} Firebase messages for conversation ${conversationId}`);
+    
+    // FIX: Add early return if no valid messages to prevent unnecessary state updates
+    const validFirebaseMessages = firebaseMessages.filter(fm => {
+      return fm.id && fm.senderId && fm.content && fm.content.trim().length > 0 &&
+             !fm.id?.toString().startsWith('temp-') && (fm.createdAt || fm.timestamp);
+    });
+
+    if (validFirebaseMessages.length === 0) {
+      return;
+    }
+
+    // ⬇️⬇️⬇️ UPDATED CODE ⬇️⬇️⬇️
+    if (validFirebaseMessages.length > 0) {
+      const latestMessage = validFirebaseMessages[validFirebaseMessages.length - 1];
       
-      // FIX: Add early return if no valid messages to prevent unnecessary state updates
-      const validFirebaseMessages = firebaseMessages.filter(fm => {
-        return fm.id && fm.senderId && fm.content && fm.content.trim().length > 0 &&
-               !fm.id?.toString().startsWith('temp-') && (fm.createdAt || fm.timestamp);
-      });
-
-      if (validFirebaseMessages.length === 0) {
-        return;
-      }
-
-        if (validFirebaseMessages.length > 0) {
-          const latestMessage = validFirebaseMessages[validFirebaseMessages.length - 1];
-          
-          setChats(prevChats => {
-            return prevChats.map(chat => {
-              if (chat.id.toString() === conversationId) {
-                const currentTime = chat.lastMessage?.timestamp 
-                  ? new Date(chat.lastMessage.timestamp).getTime() 
-                  : 0;
-                const newTime = latestMessage.createdAt 
-                  ? new Date(latestMessage.createdAt).getTime() 
-                  : new Date(latestMessage.timestamp || Date.now()).getTime();
-                
-                if (newTime > currentTime) {
-                  const updatedChat = {
-                    ...chat,
-                    lastMessage: {
-                      content: latestMessage.content,
-                      timestamp: latestMessage.createdAt || latestMessage.timestamp || new Date().toISOString(),
-                      senderId: latestMessage.senderId
-                    }
-                  };
-                  
-                  if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
-                    updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
-                  }
-                  
-                  return updatedChat;
+      // ADD THIS VALIDATION CHECK
+      const isValidLastMessage = latestMessage.content && latestMessage.content.trim().length > 0;
+      
+      setChats(prevChats => {
+        return prevChats.map(chat => {
+          if (chat.id.toString() === conversationId) {
+            const currentTime = chat.lastMessage?.timestamp 
+              ? new Date(chat.lastMessage.timestamp).getTime() 
+              : 0;
+            const newTime = latestMessage.createdAt 
+              ? new Date(latestMessage.createdAt).getTime() 
+              : new Date(latestMessage.timestamp || Date.now()).getTime();
+            
+            // ONLY UPDATE IF WE HAVE VALID CONTENT AND NEWER TIMESTAMP
+            if (isValidLastMessage && newTime > currentTime) {
+              const updatedChat = {
+                ...chat,
+                lastMessage: {
+                  content: latestMessage.content,
+                  timestamp: latestMessage.createdAt || latestMessage.timestamp || new Date().toISOString(),
+                  senderId: latestMessage.senderId
                 }
+              };
+              
+              if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
+                updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
               }
-              return chat;
-            }).sort((a, b) => {
-              const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-              const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-              return timeB - timeA;
-            });
-          });
-        }
+              
+              return updatedChat;
+            }
+          }
+          return chat;
+        }).sort((a, b) => {
+          const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+          const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+          return timeB - timeA;
+        });
+      });
+    }
 
         const transformed: Message[] = validFirebaseMessages.map((fm) => 
           transformFirebaseMessage(fm, conversationId)
@@ -689,20 +694,25 @@ const debouncedLoadMessages = useCallback(
                 updatedChat.unReadMessageCount = Math.max(chat.unReadMessageCount || 0, unreadCount);
               }
               
-              if (notificationData.lastMessage) {
-                const currentTime = chat.lastMessage?.timestamp 
-                  ? new Date(chat.lastMessage.timestamp).getTime() 
-                  : 0;
-                const newTime = new Date(notificationData.timestamp).getTime();
-                
-                if (newTime > currentTime) {
-                  updatedChat.lastMessage = {
-                    content: notificationData.lastMessage.content,
-                    timestamp: notificationData.lastMessage.timestamp,
-                    senderId: notificationData.lastMessage.senderId
-                  };
-                }
-              }
+             // ADD VALIDATION CHECK FOR NOTIFICATION LAST MESSAGE
+const isValidNotificationLastMessage = notificationData.lastMessage && 
+                                      notificationData.lastMessage.content && 
+                                      notificationData.lastMessage.content.trim().length > 0;
+
+if (isValidNotificationLastMessage) {
+  const currentTime = chat.lastMessage?.timestamp 
+    ? new Date(chat.lastMessage.timestamp).getTime() 
+    : 0;
+  const newTime = new Date(notificationData.timestamp).getTime();
+  
+  if (newTime > currentTime) {
+    updatedChat.lastMessage = {
+      content: notificationData.lastMessage.content,
+      timestamp: notificationData.lastMessage.timestamp,
+      senderId: notificationData.lastMessage.senderId
+    };
+  }
+}
               
               return updatedChat;
             }
