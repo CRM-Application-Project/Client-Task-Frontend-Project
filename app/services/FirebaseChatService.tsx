@@ -7,13 +7,21 @@ export interface FirebaseMessage {
   id: string;
   content: string;
   senderId: string;
+  senderName: string;
   timestamp: string;
   createdAt?: string;
   attachments?: MessageAttachment[];
   type?: string;
   parentId?: string;
+  parentMessageId?: string;
   mentions?: string[];
   reactions?: any[];
+  conversationType?: string;
+  conversationName?: string;
+  hasMentions?: boolean;
+  hasAttachments?: boolean;
+  eventType?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface FirebaseNotification {
@@ -21,6 +29,8 @@ export interface FirebaseNotification {
   lastMessage: any;
   lastMessageId?: string;
   timestamp: string;
+  eventType?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface ChatNotifications {
@@ -97,25 +107,14 @@ class FirebaseChatService {
       
       // Extract conversation ID and message info from FCM data
       const conversationId = data.conversationId;
-      const messageData = data.messageData ? JSON.parse(data.messageData) : null;
+      const messageData = data.messageData ? JSON.parse(data.messageData) : data;
       
       if (conversationId && messageData) {
         console.log(`[FirebaseChat] Updating conversation ${conversationId} with new message:`, messageData);
         
-        // Transform the message to your format
-        const firebaseMessage: FirebaseMessage = {
-          id: messageData.id?.toString() || Date.now().toString(),
-          content: messageData.content || '',
-          senderId: messageData.senderId || messageData.sender?.id || '',
-          timestamp: messageData.createdAt || messageData.timestamp || new Date().toISOString(),
-          createdAt: messageData.createdAt || messageData.timestamp,
-          type: messageData.type || 'received',
-          parentId: messageData.parentId?.toString(),
-          mentions: messageData.mentions || [],
-          reactions: messageData.reactions || [],
-          attachments: messageData.attachments || []
-        };
-
+        // Transform the message to match Java MessageEvent structure
+        const firebaseMessage: FirebaseMessage = this.transformMessageEventToFirebaseMessage(messageData);
+        
         // Update the conversation messages directly
         this.updateConversationWithNewMessage(conversationId, firebaseMessage);
         
@@ -128,17 +127,38 @@ class FirebaseChatService {
   }
 
   /**
+   * Transform Java MessageEvent structure to FirebaseMessage format
+   */
+  private transformMessageEventToFirebaseMessage(messageData: any): FirebaseMessage {
+    return {
+      id: messageData.messageId?.toString() || messageData.id?.toString() || Date.now().toString(),
+      content: messageData.content || '',
+      senderId: messageData.senderId || messageData.sender?.id || '',
+      senderName: messageData.senderName || messageData.sender?.name || '',
+      timestamp: messageData.timestamp || messageData.createdAt || new Date().toISOString(),
+      createdAt: messageData.timestamp || messageData.createdAt || new Date().toISOString(),
+      type: 'received',
+      parentId: messageData.parentMessageId?.toString() || messageData.parentId?.toString(),
+      parentMessageId: messageData.parentMessageId?.toString(),
+      mentions: messageData.mentions || [],
+      reactions: messageData.reactions || [],
+      attachments: messageData.attachments || [],
+      conversationType: messageData.conversationType,
+      conversationName: messageData.conversationName,
+      hasMentions: messageData.hasMentions || false,
+      hasAttachments: messageData.hasAttachments || false,
+      eventType: messageData.eventType,
+      metadata: messageData.metadata || {}
+    };
+  }
+
+  /**
    * Update conversation with new message (for real-time updates)
    */
   private updateConversationWithNewMessage(conversationId: string, message: FirebaseMessage): void {
     const callback = this.messageCallbacks.get(conversationId);
     if (callback) {
-      // Get current messages, add the new one, and call callback
-      // This is a simplified approach - you might want to maintain message state
       console.log(`[FirebaseChat] Triggering callback for conversation ${conversationId} with new message`);
-      
-      // For now, we'll trigger a refresh by calling the callback
-      // In a more sophisticated setup, you'd maintain the message array and append to it
       this.refreshConversationMessages(conversationId);
     }
   }
@@ -153,9 +173,7 @@ class FirebaseChatService {
       
       // Trigger notification callbacks with updated data
       this.notificationCallbacks.forEach(callback => {
-        // This is simplified - in practice, you'd update the actual notification data
         console.log(`[FirebaseChat] Triggering notification callback for new message`);
-        // You could maintain a local notifications state and update it here
       });
     }
   }
@@ -176,18 +194,7 @@ class FirebaseChatService {
       if (data) {
         Object.values(data).forEach((messageData: any) => {
           if (messageData && typeof messageData === 'object') {
-            messages.push({
-              id: messageData.id || '',
-              content: messageData.content || '',
-              senderId: messageData.senderId || '',
-              timestamp: messageData.timestamp || '',
-              createdAt: messageData.createdAt || messageData.timestamp,
-              type: messageData.type || 'received',
-              parentId: messageData.parentId,
-              mentions: messageData.mentions || [],
-              reactions: messageData.reactions || [],
-              attachments: messageData.attachments || []
-            });
+            messages.push(this.transformMessageEventToFirebaseMessage(messageData));
           }
         });
 
@@ -203,7 +210,7 @@ class FirebaseChatService {
       if (callback) {
         callback(messages);
       }
-    }, { onlyOnce: true }); // Only get once to avoid infinite loops
+    }, { onlyOnce: true });
   }
 
   /**
@@ -224,7 +231,7 @@ class FirebaseChatService {
     this.messageCallbacks.set(conversationId, onMessagesUpdate);
 
     // Create reference to conversation messages
-    const path = `conversations/${conversationId}/messages`;
+    const path = `conversations/${conversationId}/events`;
     const messagesRef = ref(this.database, path);
     console.log('[FirebaseChat] Messages ref path:', path);
 
@@ -240,18 +247,7 @@ class FirebaseChatService {
         // Convert Firebase object to array and sort by timestamp
         Object.values(data).forEach((messageData: any) => {
           if (messageData && typeof messageData === 'object') {
-            messages.push({
-              id: messageData.id || '',
-              content: messageData.content || '',
-              senderId: messageData.senderId || '',
-              timestamp: messageData.timestamp || '',
-              createdAt: messageData.createdAt || messageData.timestamp,
-              type: messageData.type || 'received',
-              parentId: messageData.parentId,
-              mentions: messageData.mentions || [],
-              reactions: messageData.reactions || [],
-              attachments: messageData.attachments || []
-            });
+            messages.push(this.transformMessageEventToFirebaseMessage(messageData));
           }
         });
 
@@ -294,18 +290,10 @@ class FirebaseChatService {
       const messagesRef = ref(this.database, `conversations/${conversationId}/messages`);
       const newMessageRef = push(messagesRef);
       
-      const firebaseMessage = {
-        id: messageData.id?.toString() || newMessageRef.key,
-        content: messageData.content || '',
-        senderId: messageData.senderId || messageData.sender?.id || '',
-        timestamp: messageData.createdAt || new Date().toISOString(),
-        createdAt: messageData.createdAt || new Date().toISOString(),
-        type: 'received',
-        parentId: messageData.parentId?.toString(),
-        mentions: messageData.mentions || [],
-        reactions: messageData.reactions || [],
-        attachments: messageData.attachments || []
-      };
+      const firebaseMessage = this.transformMessageEventToFirebaseMessage({
+        ...messageData,
+        id: messageData.id?.toString() || newMessageRef.key
+      });
 
       await set(newMessageRef, firebaseMessage);
       console.log(`[FirebaseChat] Message added to Firebase for conversation ${conversationId}:`, firebaseMessage);
@@ -315,21 +303,27 @@ class FirebaseChatService {
   }
 
   /**
-   * Unsubscribe from a specific conversation
+   * Process notification data from Firebase to match Java MessageEvent structure
    */
-  unsubscribeFromConversationMessages(conversationId: string): void {
-    if (!this.database) return;
+  private processNotificationData(data: any): ChatNotifications {
+    const notifications: ChatNotifications = {};
 
-    console.log(`[FirebaseChat] Unsubscribing from conversation ${conversationId}`);
-
-    const listener = this.conversationListeners.get(conversationId);
-    if (listener) {
-      const messagesRef = ref(this.database, `conversations/${conversationId}/messages`);
-      off(messagesRef, 'value', listener);
-      this.conversationListeners.delete(conversationId);
-      this.messageCallbacks.delete(conversationId);
-      console.log(`[FirebaseChat] Successfully unsubscribed from conversation ${conversationId}`);
+    if (data) {
+      Object.entries(data).forEach(([conversationId, notificationData]: [string, any]) => {
+        if (notificationData && typeof notificationData === 'object') {
+          notifications[conversationId] = {
+            unreadCount: notificationData.unreadCount || 0,
+            lastMessage: notificationData.lastMessage || {},
+            lastMessageId: notificationData.lastMessageId || '',
+            timestamp: notificationData.timestamp || '',
+            eventType: notificationData.eventType,
+            metadata: notificationData.metadata || {}
+          };
+        }
+      });
     }
+
+    return notifications;
   }
 
   /**
@@ -358,24 +352,10 @@ class FirebaseChatService {
     // Create listener
     this.notificationListener = onValue(notificationsRef, (snapshot: DataSnapshot) => {
       const data = snapshot.val();
-      const notifications: ChatNotifications = {};
+      const notifications = this.processNotificationData(data);
 
       console.log(`[FirebaseChat] onValue fired for notifications of ${userId}. exists=${snapshot.exists()}`,
         { key: snapshot.key, convCount: data ? Object.keys(data).length : 0 });
-
-      if (data) {
-        // Convert Firebase object to our notification format
-        Object.entries(data).forEach(([conversationId, notificationData]: [string, any]) => {
-          if (notificationData && typeof notificationData === 'object') {
-            notifications[conversationId] = {
-              unreadCount: notificationData.unreadCount || 0,
-              lastMessage: notificationData.lastMessage || {},
-              lastMessageId: notificationData.lastMessageId || '',
-              timestamp: notificationData.timestamp || ''
-            };
-          }
-        });
-      }
 
       // Calculate total unread count
       const totalUnread = this.getTotalUnreadCount(notifications);
@@ -394,8 +374,80 @@ class FirebaseChatService {
   }
 
   /**
-   * Unsubscribe from user notifications
+   * Enhanced method to handle message events with Java MessageEvent structure
    */
+  handleMessageEvent(messageEvent: any): void {
+    try {
+      console.log('[FirebaseChat] Handling message event:', messageEvent);
+      
+      const conversationId = messageEvent.conversationId;
+      if (!conversationId) {
+        console.warn('[FirebaseChat] No conversationId in message event');
+        return;
+      }
+
+      // Transform the message event to Firebase message format
+      const firebaseMessage = this.transformMessageEventToFirebaseMessage(messageEvent);
+      
+      // Update conversation
+      this.updateConversationWithNewMessage(conversationId, firebaseMessage);
+      
+      // Update notification
+      this.updateNotificationForNewMessage(conversationId, firebaseMessage);
+      
+    } catch (error) {
+      console.error('[FirebaseChat] Error handling message event:', error);
+    }
+  }
+
+  /**
+   * Get conversation metadata from message
+   */
+  getConversationMetadata(message: FirebaseMessage): {
+    type: string;
+    name: string;
+    hasMentions: boolean;
+    hasAttachments: boolean;
+  } {
+    return {
+      type: message.conversationType || 'DIRECT',
+      name: message.conversationName || '',
+      hasMentions: message.hasMentions || false,
+      hasAttachments: message.hasAttachments || false
+    };
+  }
+
+  /**
+   * Check if message is a reply
+   */
+  isMessageReply(message: FirebaseMessage): boolean {
+    return !!(message.parentId || message.parentMessageId);
+  }
+
+  /**
+   * Get message event type
+   */
+  getMessageEventType(message: FirebaseMessage): string {
+    return message.eventType || 'MESSAGE';
+  }
+
+  // ... (rest of the methods remain the same as previous version)
+
+  unsubscribeFromConversationMessages(conversationId: string): void {
+    if (!this.database) return;
+
+    console.log(`[FirebaseChat] Unsubscribing from conversation ${conversationId}`);
+
+    const listener = this.conversationListeners.get(conversationId);
+    if (listener) {
+      const messagesRef = ref(this.database, `conversations/${conversationId}/messages`);
+      off(messagesRef, 'value', listener);
+      this.conversationListeners.delete(conversationId);
+      this.messageCallbacks.delete(conversationId);
+      console.log(`[FirebaseChat] Successfully unsubscribed from conversation ${conversationId}`);
+    }
+  }
+
   unsubscribeFromUserNotifications(userId: string): void {
     if (!this.database || !this.notificationListener) return;
 
@@ -409,9 +461,6 @@ class FirebaseChatService {
     console.log(`[FirebaseChat] Successfully unsubscribed from notifications for user: ${userId}`);
   }
 
-  /**
-   * Mark conversation as read
-   */
   async markConversationAsRead(conversationId: string): Promise<void> {
     if (!this.database || !this.currentUserId) return;
 
@@ -421,9 +470,7 @@ class FirebaseChatService {
         `user-notifications/${this.currentUserId}/${conversationId}`
       );
 
-      // ONLY update unreadCount, preserve existing timestamp for sorting
       await set(child(notificationRef, 'unreadCount'), 0);
-      
       console.log(`[FirebaseChat] Successfully marked conversation ${conversationId} as read`);
       
     } catch (error) {
@@ -431,9 +478,6 @@ class FirebaseChatService {
     }
   }
 
-  /**
-   * Clear all notifications for a user (useful for logout)
-   */
   async clearAllNotifications(userId: string): Promise<void> {
     if (!this.database) {
       console.warn('[FirebaseChat] Cannot clear notifications - database not initialized');
@@ -452,9 +496,6 @@ class FirebaseChatService {
     }
   }
 
-  /**
-   * Get total unread count across all conversations
-   */
   getTotalUnreadCount(notifications: ChatNotifications): number {
     const total = Object.values(notifications).reduce((total, notification) => {
       return total + (notification.unreadCount || 0);
@@ -464,54 +505,36 @@ class FirebaseChatService {
     return total;
   }
 
-  /**
-   * Get unread count for a specific conversation
-   */
   getConversationUnreadCount(notifications: ChatNotifications, conversationId: string): number {
     const count = notifications[conversationId]?.unreadCount || 0;
     console.log(`[FirebaseChat] Unread count for conversation ${conversationId}: ${count}`);
     return count;
   }
 
-  /**
-   * Check if user is active in a conversation (for auto-read functionality)
-   */
   setUserActiveInConversation(conversationId: string, isActive: boolean): void {
     console.log(`[FirebaseChat] User ${isActive ? 'active' : 'inactive'} in conversation: ${conversationId}`);
     
     if (isActive) {
-      // Mark as read when user becomes active in conversation
       this.markConversationAsRead(conversationId);
     }
   }
 
-  /**
-   * Get conversation activity status
-   */
   getConversationActivity(conversationId: string): boolean {
     return this.conversationListeners.has(conversationId);
   }
 
-  /**
-   * Clear all listeners (cleanup function)
-   */
   cleanup(): void {
     console.log('[FirebaseChat] Starting cleanup...');
 
-    // Unsubscribe from all conversation listeners
     this.conversationListeners.forEach((listener, conversationId) => {
       this.unsubscribeFromConversationMessages(conversationId);
     });
 
-    // Unsubscribe from notifications
     if (this.notificationListener && this.currentUserId) {
       this.unsubscribeFromUserNotifications(this.currentUserId);
     }
 
-    // Clean up foreground message listener
     if (this.foregroundMessageListener) {
-      // Note: onMessage doesn't return an unsubscribe function, 
-      // so we just null the reference
       this.foregroundMessageListener = null;
     }
 
@@ -522,9 +545,6 @@ class FirebaseChatService {
     console.log('[FirebaseChat] Cleanup completed');
   }
 
-  /**
-   * Debug method to log current state
-   */
   debugState(): void {
     console.log('[FirebaseChat] Current State:', {
       currentUserId: this.currentUserId,

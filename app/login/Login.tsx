@@ -780,6 +780,7 @@ export default function LoginPage() {
   // -------------------- Login Submit (Optimized) --------------------
 // Fixed Login handleLogin function - only the relevant part
 // Fixed handleLogin function with proper FCM token handling
+// Fixed handleLogin function with better Edge compatibility
 const handleLogin = async (e: React.FormEvent) => {
   e.preventDefault();
 
@@ -864,65 +865,63 @@ const handleLogin = async (e: React.FormEvent) => {
         duration: 5000,
       });
 
-      // ========== FCM TOKEN HANDLING - FIXED PART ==========
+      // ========== FCM TOKEN HANDLING - EDGE COMPATIBLE ==========
       try {
-        // Check if notifications are supported and get permission status
+        // Check if browser supports notifications
+        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+          console.log('🔕 Notifications not supported in this browser');
+          // Proceed with login without notifications
+          redirectAfterLogin(profileResponse, userModules);
+          return;
+        }
+
         const permission = getNotificationPermission();
         
         if (permission === 'granted') {
-          console.log('🔔 Notifications already granted, generating FCM token...');
+          console.log('🔔 Notifications granted, generating FCM token...');
           
-          // Generate FCM token
-          const deviceType = getDetailedDeviceType();
-          const tokenResult = await generateFCMToken(deviceType);
-          
-          if (tokenResult.success && tokenResult.token) {
-            console.log('✅ FCM token generated successfully');
-            
-            // Save token to backend using the notification service
-            const saveResult = await notificationService.saveFCMToken(tokenResult.token, deviceType);
-            
-            if (saveResult.success) {
-              console.log('✅ FCM token saved to backend successfully');
-            } else {
-              console.warn('⚠️ Failed to save FCM token to backend:', saveResult.message);
+          // Add delay to ensure service worker is ready
+          setTimeout(async () => {
+            try {
+              const deviceType = getDetailedDeviceType();
+              const tokenResult = await generateFCMToken(deviceType);
+              
+              if (tokenResult.success && tokenResult.token) {
+                console.log('✅ FCM token generated:', tokenResult.token);
+                
+                // Save token to backend
+                const saveResult = await notificationService.saveFCMToken(tokenResult.token, deviceType);
+                
+                if (saveResult.success) {
+                  console.log('✅ FCM token saved to backend');
+                } else {
+                  console.warn('⚠️ Failed to save FCM token:', saveResult.message);
+                }
+              } else {
+                console.warn('⚠️ FCM token generation failed:', tokenResult.message);
+              }
+              
+              // Initialize token refresh handler
+              initTokenRefreshHandler(deviceType);
+              
+            } catch (fcmError) {
+              console.warn('⚠️ FCM setup failed:', fcmError);
             }
-          } else {
-            console.warn('⚠️ Failed to generate FCM token:', tokenResult.message);
-          }
-          
-          // Initialize the token refresh handler
-          initTokenRefreshHandler(deviceType);
+          }, 1000); // 1 second delay for service worker initialization
           
         } else if (permission === 'default') {
-          // Permission not yet requested - will be handled by notification component later
           console.log('📝 Notification permission not yet requested');
         } else {
-          // Permission denied
           console.log('❌ Notification permission denied');
         }
         
       } catch (fcmError) {
-        // Don't block login if FCM setup fails
         console.warn('⚠️ FCM setup failed (non-critical):', fcmError);
       }
       // ========== END FCM TOKEN HANDLING ==========
 
-      // Determine redirect path
-      let redirectPath = "/not-found";
-
-      if (profileResponse.userRole === "SUPER_ADMIN") {
-        redirectPath = "/dashboard";
-      } else if (!profileResponse.isPasswordUpdated) {
-        redirectPath = "/reset-password";
-      } else {
-        redirectPath = getFirstAccessibleModule(userModules);
-      }
-
-      // Navigate after a brief delay to ensure everything is set up
-      setTimeout(() => {
-        router.push(redirectPath);
-      }, 500);
+      // Redirect immediately without waiting for FCM
+      redirectAfterLogin(profileResponse, userModules);
       
     } else {
       toast({
@@ -946,6 +945,23 @@ const handleLogin = async (e: React.FormEvent) => {
   } finally {
     setIsLoading(false);
   }
+};
+
+// Helper function for redirect
+const redirectAfterLogin = (profileResponse: ProfileResponse, userModules: UserModuleAccess[]) => {
+  let redirectPath = "/not-found";
+
+  if (profileResponse.userRole === "SUPER_ADMIN") {
+    redirectPath = "/dashboard";
+  } else if (!profileResponse.isPasswordUpdated) {
+    redirectPath = "/reset-password";
+  } else {
+    redirectPath = getFirstAccessibleModule(userModules);
+  }
+
+  setTimeout(() => {
+    router.push(redirectPath);
+  }, 500);
 };
 
   // -------------------- UI (keeping the same structure) --------------------
