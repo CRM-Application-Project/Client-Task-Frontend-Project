@@ -44,9 +44,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     activeConversationId
   } = useChat();
 
-  // REMOVED: The problematic useEffect that was causing chats to update from sidebar
-  // This was causing interference with the main chat state management
-  
   // Use searchChats function for filtering
   const filteredChats = searchQuery 
     ? searchChatsFromHook(searchQuery) 
@@ -84,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleDeleteChat = async (chatId: string) => {
     try {
       await deleteChat(chatId);
-      // FIXED: Don't manually update chats here - let useChat handle it
+      // Chat will be automatically removed from UI via useChat hook
       if (String(selectedChat?.id) === String(chatId)) {
         // Find next chat to select after deletion
         const remainingChats = chats.filter(c => String(c.id) !== String(chatId));
@@ -109,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       try {
         const newChat = await createChat(user.label, [user.id], false);
         if (newChat) {
-          // FIXED: Chat will appear automatically via useChat's real-time updates
+          // Chat will appear automatically via useChat's real-time updates
           onChatSelect(newChat);
         }
       } catch (err) {
@@ -124,7 +121,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     if ('isPotential' in chat && chat.isPotential) {
       handleNewChat(chat.participants[0]);
     } else {
-      // REMOVED: Manual unread count update - let useChat handle this
       onChatSelect(chat);
     }
   };
@@ -135,11 +131,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         const participantIds = groupData.participants.map(p => p.id);
         const newGroup = await createChat(groupData.name, participantIds, true);
         if (newGroup) {
-          // FIXED: Group will appear automatically via useChat's real-time updates
+          // Group will appear automatically via useChat's real-time updates
           onChatSelect(newGroup);
         }
       } else if (selectedChatForEdit) {
-        // FIXED: Don't reload all chats, let real-time updates handle it
+        // Let real-time updates handle the changes
         await loadChats();
       }
       setShowGroupModal(false);
@@ -204,9 +200,19 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               filteredChats.map((chat: any) => {
-                // FIXED: Don't show unread count for active conversation or current user's messages
-              const shouldShowUnread = chat.unReadMessageCount > 0 && 
-  selectedChat?.id !== chat.id;
+                // FIXED: Show unread count correctly based on active conversation
+                // Only show unread badge if:
+                // 1. There are unread messages (> 0)
+                // 2. This chat is NOT the currently active/selected conversation
+                // 3. The unread messages are from other users (not current user)
+                const chatId = String(chat.id);
+                const isActiveConversation = activeConversationId === chatId;
+                const isSelectedChat = selectedChat?.id?.toString() === chatId;
+                
+                const shouldShowUnread = 
+                  chat.unReadMessageCount > 0 && 
+                  !isActiveConversation && 
+                  !isSelectedChat;
 
                 return (
                   <div
@@ -260,9 +266,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <p className="text-sm text-gray-600 truncate mt-1 flex-1">
                             {chat.isPotential ? 'Tap to start chatting' : (chat.lastMessage?.content || 'No messages yet')}
                           </p>
-                          {/* FIXED: Only show unread badge when appropriate */}
+                          {/* FIXED: Show notification badge correctly */}
                           {shouldShowUnread && (
-                            <div className="bg-green-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+                            <div className="bg-green-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 flex-shrink-0">
                               {chat.unReadMessageCount > 99 ? '99+' : chat.unReadMessageCount}
                             </div>
                           )}
