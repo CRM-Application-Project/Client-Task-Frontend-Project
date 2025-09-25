@@ -9,28 +9,30 @@ import { Chat, ChatParticipant } from '@/app/services/chatService';
 
 interface SidebarProps {
   chats: Chat[];
-  users: ChatParticipant[];
+  users?: ChatParticipant[];
   selectedChat: Chat | null;
   onChatSelect: (chat: Chat) => void;
+  onChatsUpdate?: (updatedChats: Chat[]) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  loading: boolean;
-  error: string | null;
-  totalUnreadCount: number;
-  activeConversationId: string | null;
+  loading?: boolean;
+  error?: string | null;
+  totalUnreadCount?: number;
+  activeConversationId?: string | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   chats,
-  users,
+  users = [],
   selectedChat, 
   onChatSelect,
+  onChatsUpdate,
   searchQuery,
   onSearchChange,
-  loading,
-  error,
-  totalUnreadCount,
-  activeConversationId
+  loading = false,
+  error = null,
+  totalUnreadCount = 0,
+  activeConversationId = null
 }) => {
 
   const [showUserSearch, setShowUserSearch] = useState(false);

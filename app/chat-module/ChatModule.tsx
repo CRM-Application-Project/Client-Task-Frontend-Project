@@ -116,7 +116,7 @@ const ChatModule: React.FC = () => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {selectedChat ? (
-          <ChatArea chat={selectedChat} />
+          <ChatArea chat={selectedChat} chatId={selectedChat.id.toString()} />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
