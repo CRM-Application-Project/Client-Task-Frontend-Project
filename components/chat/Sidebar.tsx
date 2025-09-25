@@ -4,7 +4,6 @@ import { Search, MessageCircle, Users, MoreVertical, Edit3, Trash2 } from 'lucid
 import GroupModal from './GroupModal';
 import UserSearch from './UserSearch';
 import UserAvatar from './UserAvatar';
-import { useChat } from '@/hooks/useChat';
 import { Chat, ChatParticipant } from '@/app/services/chatService';
 
 interface SidebarProps {
@@ -15,10 +14,18 @@ interface SidebarProps {
   onChatsUpdate?: (updatedChats: Chat[]) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  loading?: boolean;
-  error?: string | null;
-  totalUnreadCount?: number;
-  activeConversationId?: string | null;
+  loading: boolean;
+  error: string | null;
+  totalUnreadCount: number;
+  activeConversationId: string | null;
+  onCreateChat: (user: ChatParticipant) => Promise<Chat | null>;
+  onDeleteChat: (chatId: string) => Promise<void>;
+  onGroupSave: (
+    groupData: { name: string; participants: ChatParticipant[] },
+    mode: 'create' | 'edit',
+    selectedChatForEdit?: Chat | null
+  ) => Promise<void>;
+  searchChats: (query: string) => any[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -29,10 +36,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   onChatsUpdate,
   searchQuery,
   onSearchChange,
-  loading = false,
-  error = null,
-  totalUnreadCount = 0,
-  activeConversationId = null
+  loading,
+  error,
+  totalUnreadCount,
+  activeConversationId,
+  onCreateChat,
+  onDeleteChat,
+  onGroupSave,
+  searchChats
 }) => {
 
   const [showUserSearch, setShowUserSearch] = useState(false);
@@ -40,14 +51,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit'>('create');
   const [selectedChatForEdit, setSelectedChatForEdit] = useState<Chat | null>(null);
   const [showChatOptions, setShowChatOptions] = useState<string | null>(null);
-  
-  const {
-    createChat,
-    deleteChat,
-    searchChats,
-    currentUserId,
-    loadMyConversations
-  } = useChat();
 
   // Use searchChats function for filtering
   const filteredChats = searchQuery 
@@ -85,78 +88,37 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleDeleteChat = async (chatId: string) => {
     try {
-      await deleteChat(chatId);
-      
-      // If the deleted chat was selected, clear selection
-      if (String(selectedChat?.id) === String(chatId)) {
-        const remainingChats = chats.filter(c => String(c.id) !== String(chatId));
-        if (remainingChats.length > 0) {
-          onChatSelect(remainingChats[0]);
-        } else {
-          onChatSelect(null as any);
-        }
-      }
+      await onDeleteChat(chatId);
     } catch (err) {
       console.error('Failed to delete chat:', err);
     }
     setShowChatOptions(null);
   };
 
-const handleNewChat = useCallback(async (user: ChatParticipant) => {
-  // Check for existing private chat more reliably
-  const existingChat = chats.find((chat: Chat) => 
-    chat.conversationType === 'private' && 
-    chat.participants.some((p: ChatParticipant) => p.id === user.id)
-  );
-
-  if (existingChat) {
-    console.log('[Sidebar] Existing chat found:', existingChat.id);
-    onChatSelect(existingChat);
-  } else {
+  const handleNewChat = useCallback(async (user: ChatParticipant) => {
     try {
-      console.log('[Sidebar] Creating new chat with user:', user.id);
-      const newChat = await createChat(user.label, [user.id], false);
-      if (newChat) {
-        console.log('[Sidebar] New chat created:', newChat.id);
-        // Select the newly created chat after a brief delay to ensure state updates
-        setTimeout(() => {
-          onChatSelect(newChat);
-        }, 100);
-      }
+      await onCreateChat(user);
     } catch (err) {
       console.error('Failed to create chat:', err);
     }
-  }
-  setShowUserSearch(false);
-}, [chats, createChat, onChatSelect]);
+    setShowUserSearch(false);
+  }, [onCreateChat]);
 
   const handleChatSelect = useCallback((chat: Chat) => {
-  console.log('[Sidebar] Chat selection triggered:', chat.id);
-  
-  // If it's a potential chat (search result), create it first
-  if ('isPotential' in chat && chat.isPotential) {
-    handleNewChat(chat.participants[0]);
-  } else {
-    // Pass the chat to parent component
-    onChatSelect(chat);
-  }
-}, [onChatSelect, handleNewChat]);
-
-// Modified handleNewChat function
-
+    console.log('[Sidebar] Chat selection triggered:', chat.id);
+    
+    // If it's a potential chat (search result), create it first
+    if ('isPotential' in chat && chat.isPotential) {
+      handleNewChat(chat.participants[0]);
+    } else {
+      // Pass the chat to parent component
+      onChatSelect(chat);
+    }
+  }, [onChatSelect, handleNewChat]);
 
   const handleGroupSave = async (groupData: { name: string; participants: ChatParticipant[] }) => {
     try {
-      if (groupModalMode === 'create') {
-        const participantIds = groupData.participants.map(p => p.id);
-        const newGroup = await createChat(groupData.name, participantIds, true);
-        if (newGroup) {
-          onChatSelect(newGroup);
-        }
-      } else if (selectedChatForEdit) {
-        // Refresh conversations after edit
-        await loadMyConversations();
-      }
+      await onGroupSave(groupData, groupModalMode, selectedChatForEdit);
       setShowGroupModal(false);
     } catch (err) {
       console.error('Failed to save group:', err);
@@ -205,7 +167,7 @@ const handleNewChat = useCallback(async (user: ChatParticipant) => {
             <div className="text-red-600 text-center">
               <p>{error}</p>
               <button 
-                onClick={() => loadMyConversations()}
+                onClick={() => window.location.reload()}
                 className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
                 Retry
