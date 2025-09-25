@@ -87,22 +87,16 @@ const debugMessageLoading = useCallback(() => {
   }, [chats, currentChat.id]);
 
   // Initialize conversation when chatId changes
-  useEffect(() => {
-    if (chatId && chatId !== activeConversationId) {
-      console.log(`[ChatArea] Initializing conversation for chatId: ${chatId}`);
-      
-      // Set active conversation (this triggers subscription and message loading in useChat)
-      setActiveConversation(chatId);
-    }
-    
-    return () => {
-      // Cleanup when chatId changes or component unmounts
-      if (chatId && chatId === activeConversationId) {
-        console.log(`[ChatArea] Cleaning up conversation: ${chatId}`);
-        cleanupConversationSubscription(chatId);
-      }
-    };
-  }, [chatId, activeConversationId, setActiveConversation, cleanupConversationSubscription]);
+useEffect(() => {
+  if (chatId) {
+    console.log(`[ChatArea] Setting active conversation to: ${chatId}`);
+    setActiveConversation(chatId);
+  }
+  
+  return () => {
+    // No cleanup needed here as it's handled in useChat
+  };
+}, [chatId, setActiveConversation]); 
 
   // Additional message loading if not already loaded
   useEffect(() => {

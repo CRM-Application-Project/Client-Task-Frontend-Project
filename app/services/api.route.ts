@@ -123,6 +123,8 @@ DELETE_DISCUSSION: (discussionId: number | string) =>
 
     CHANGE_ROLE: (conversationId: string | number) =>
       `/conversation/${conversationId}`,
+     GET_CONVERSATION: (conversationId: string | number) =>
+    `/conversation/${conversationId}`,
 
      MESSAGE: {
     ADD: "/message/",

@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { MessageCircle, Lock } from "lucide-react";
 import { ChatArea } from "./ChatArea";
 import Sidebar from "./Sidebar";
-import { Chat } from "@/app/services/chatService";
+import { Chat, ChatParticipant } from "@/app/services/chatService";
 import { useChat } from "@/hooks/useChat";
 
 // Default welcome screen component
@@ -83,7 +83,9 @@ export const ChatLayout = () => {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
-   const initializingRef = useRef(false);
+  const [initTimeout, setInitTimeout] = useState(false);
+  const initializingRef = useRef(false);
+  
   // Use the useChat hook to get global chat state and functions
   const { 
     chats,
@@ -103,12 +105,26 @@ export const ChatLayout = () => {
     initializeUserNotifications,
     loadConversationMessages,
     setActiveConversation,
+    createChat,
+    deleteChat,
+    searchChats,
   } = useChat();
 
   // Initialize the chat module when component mounts
   useEffect(() => {
     const initializeChatModule = async () => {
-      if (isInitialized || !currentUserId || initializingRef.current) {
+      if (initializingRef.current) {
+        console.log('[ChatLayout] Already initializing, skipping...');
+        return;
+      }
+
+      if (isInitialized) {
+        console.log('[ChatLayout] Already initialized, skipping...');
+        return;
+      }
+
+      if (!currentUserId) {
+        console.log('[ChatLayout] No currentUserId, skipping initialization');
         return;
       }
 
@@ -116,8 +132,6 @@ export const ChatLayout = () => {
       initializingRef.current = true;
       
       try {
-        setIsInitialized(true);
-        
         // Step 1: Load users
         console.log('[ChatLayout] Step 1: Loading users...');
         await loadUsers();
@@ -130,22 +144,35 @@ export const ChatLayout = () => {
         console.log('[ChatLayout] Step 3: Initializing user notifications...');
         initializeUserNotifications();
         
+        // Mark as initialized only after all steps complete
+        setIsInitialized(true);
         console.log('[ChatLayout] Chat module initialization complete');
         
       } catch (error) {
         console.error('[ChatLayout] Error initializing chat module:', error);
         setIsInitialized(false);
-        initializingRef.current = false;
       } finally {
         initializingRef.current = false;
       }
     };
 
     initializeChatModule();
-  }, [currentUserId, isInitialized, loadUsers, loadMyConversations, initializeUserNotifications]);
+  }, [currentUserId, loadUsers, loadMyConversations, initializeUserNotifications]);
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isInitialized) {
+        console.log('[ChatLayout] Initialization timeout reached, forcing display');
+        setInitTimeout(true);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timer);
+  }, [isInitialized]);
 
   // Handle chat selection from sidebar
- const handleChatSelect = useCallback((chat: Chat | null) => {
+  const handleChatSelect = useCallback((chat: Chat | null) => {
     console.log('[ChatLayout] Chat selected:', chat?.id || 'none');
     
     if (!chat) {
@@ -165,6 +192,101 @@ export const ChatLayout = () => {
     console.log(`[ChatLayout] Active conversation set to: ${chatId}`);
   }, [setActiveConversation]);
 
+  // Handle creating a new chat
+  const handleCreateChat = useCallback(async (user: ChatParticipant) => {
+    // Check for existing private chat more reliably
+    const existingChat = chats.find((chat: Chat) => 
+      chat.conversationType === 'private' && 
+      chat.participants.some((p: ChatParticipant) => p.id === user.id)
+    );
+
+    if (existingChat) {
+      console.log('[ChatLayout] Existing chat found:', existingChat.id);
+      handleChatSelect(existingChat);
+      return existingChat;
+    } else {
+      try {
+        console.log('[ChatLayout] Creating new chat with user:', user.id);
+        const newChat = await createChat(user.label, [user.id], false);
+        if (newChat) {
+          console.log('[ChatLayout] New chat created:', newChat.id);
+          // Refresh conversations to get the updated list
+          await loadMyConversations();
+          // Select the newly created chat after a brief delay to ensure state updates
+          setTimeout(() => {
+            handleChatSelect(newChat);
+          }, 100);
+        }
+        return newChat;
+      } catch (err) {
+        console.error('[ChatLayout] Failed to create chat:', err);
+        return null;
+      }
+    }
+  }, [chats, createChat, handleChatSelect, loadMyConversations]);
+
+  // Handle deleting a chat
+  const handleDeleteChat = useCallback(async (chatId: string) => {
+    try {
+      console.log('[ChatLayout] Deleting chat:', chatId);
+      await deleteChat(chatId);
+      
+      // Refresh conversations to get the updated list
+      await loadMyConversations();
+      
+      // If the deleted chat was selected, clear selection
+      if (String(selectedChat?.id) === String(chatId)) {
+        const remainingChats = chats.filter(c => String(c.id) !== String(chatId));
+        if (remainingChats.length > 0) {
+          handleChatSelect(remainingChats[0]);
+        } else {
+          handleChatSelect(null);
+        }
+      }
+      
+      console.log('[ChatLayout] Chat deleted successfully');
+    } catch (err) {
+      console.error('[ChatLayout] Failed to delete chat:', err);
+      throw err; // Re-throw to allow the sidebar to handle the error
+    }
+  }, [deleteChat, selectedChat, chats, handleChatSelect, loadMyConversations]);
+
+  // Handle group save (create or edit)
+  const handleGroupSave = useCallback(async (
+    groupData: { name: string; participants: ChatParticipant[] },
+    mode: 'create' | 'edit',
+    selectedChatForEdit?: Chat | null
+  ) => {
+    try {
+      console.log(`[ChatLayout] ${mode === 'create' ? 'Creating' : 'Editing'} group:`, groupData.name);
+      
+      if (mode === 'create') {
+        const participantIds = groupData.participants.map(p => p.id);
+        const newGroup = await createChat(groupData.name, participantIds, true);
+        if (newGroup) {
+          // Refresh conversations to get the updated list
+          await loadMyConversations();
+          // Select the newly created group
+          setTimeout(() => {
+            handleChatSelect(newGroup);
+          }, 100);
+        }
+      } else if (selectedChatForEdit) {
+        // For editing, refresh conversations after edit
+        await loadMyConversations();
+        // Keep the same chat selected but with updated data
+        const updatedChat = chats.find(c => c.id === selectedChatForEdit.id);
+        if (updatedChat) {
+          handleChatSelect(updatedChat);
+        }
+      }
+      
+      console.log('[ChatLayout] Group operation completed successfully');
+    } catch (err) {
+      console.error('[ChatLayout] Failed to save group:', err);
+      throw err; // Re-throw to allow the sidebar to handle the error
+    }
+  }, [createChat, chats, handleChatSelect, loadMyConversations]);
 
   // Handle search query changes
   const handleSearchChange = useCallback((query: string) => {
@@ -172,55 +294,81 @@ export const ChatLayout = () => {
   }, []);
 
   // Update selected chat when chats change (to keep it in sync)
- useEffect(() => {
+  useEffect(() => {
     if (selectedChat) {
       const updatedChat = chats.find(chat => chat.id.toString() === selectedChat.id.toString());
-      if (updatedChat && updatedChat.id !== selectedChat.id) {
+      if (updatedChat && updatedChat !== selectedChat) {
         console.log('[ChatLayout] Updating selected chat with fresh data');
         setSelectedChat(updatedChat);
       }
     }
   }, [chats, selectedChat]);
-useEffect(() => {
+
+  useEffect(() => {
     return () => {
       console.log('[ChatLayout] Cleaning up...');
       setSelectedChat(null);
     };
   }, []);
 
-  // Show loading state while initializing
- if (!isInitialized && (loading || isLoadingChats || isLoadingUsers)) {
-  return (
-    <div className="flex h-screen bg-background items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-gray-600">Initializing chat module...</p>
-        <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+  // Show loading state while initializing (with timeout fallback)
+  if (!isInitialized && !initTimeout && (loading || isLoadingChats || isLoadingUsers || initializingRef.current)) {
+    console.log('[ChatLayout] Showing loading state:', {
+      isInitialized,
+      loading,
+      isLoadingChats,
+      isLoadingUsers,
+      initializing: initializingRef.current
+    });
+    
+    return (
+      <div className="flex h-screen bg-background items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Initializing chat module...</p>
+          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+          {/* Debug info - remove in production */}
+          <div className="text-xs text-gray-400 mt-4 space-y-1">
+            <div>Initialized: {isInitialized ? 'Yes' : 'No'}</div>
+            <div>Loading: {loading ? 'Yes' : 'No'}</div>
+            <div>Loading Chats: {isLoadingChats ? 'Yes' : 'No'}</div>
+            <div>Loading Users: {isLoadingUsers ? 'Yes' : 'No'}</div>
+            <div>Current User: {currentUserId || 'None'}</div>
+            <button
+              onClick={() => {
+                console.log('[ChatLayout] Force proceeding...');
+                setIsInitialized(true);
+                setInitTimeout(true);
+              }}
+              className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+            >
+              Force Proceed
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
-
+    );
+  }
 
   // Show error state if initialization failed
- if (error && !isInitialized) {
-  return (
-    <div className="flex h-screen bg-background items-center justify-center">
-      <div className="text-center">
-        <p className="text-red-600 mb-4">{error}</p>
-        <button 
-          onClick={() => {
-            setIsInitialized(false);
-            initializingRef.current = false;
-          }}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-        >
-          Retry Initialization
-        </button>
+  if (error && !isInitialized) {
+    return (
+      <div className="flex h-screen bg-background items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => {
+              setIsInitialized(false);
+              initializingRef.current = false;
+            }}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Retry Initialization
+          </button>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -237,6 +385,10 @@ useEffect(() => {
           error={error}
           totalUnreadCount={totalUnreadCount}
           activeConversationId={activeConversationId}
+          onCreateChat={handleCreateChat}
+          onDeleteChat={handleDeleteChat}
+          onGroupSave={handleGroupSave}
+          searchChats={searchChats}
         />
       </div>
 

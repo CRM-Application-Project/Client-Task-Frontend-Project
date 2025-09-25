@@ -4,7 +4,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/hooks/Providers";
-import { headers } from "next/headers"
+import { headers } from "next/headers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,11 +23,9 @@ async function verifyUser(
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        // You may also need to pass cookies or tokens here if required
-        // 'Cookie': 'refresh-token=...; tenant-token=...'
       },
+      cache: 'no-store' // Add this to ensure fresh data
     });
-
 
     if (!res.ok) {
       throw new Error("Failed to verify user");
@@ -43,7 +41,6 @@ async function verifyUser(
     };
   }
 }
-
 
 // Function to extract subdomain from host
 function getSubdomain(host: string): string {
@@ -152,23 +149,21 @@ export default async function RootLayout({
   let themeCSS = '';
   
   try {
-    // Get headers for host information
-const headersList: Headers = headers() as unknown as Headers;
-const host = headersList.get("host") ?? "";
-
-
-
+    // CORRECTED: Await the headers function first
+     const headersList = await headers();
+    const host = headersList.get("host") || "localhost:3000";
     
     // Extract subdomain from host
     const subDomainName = getSubdomain(host);
 
-    console.log(subDomainName);
+    console.log("Detected subdomain:", subDomainName);
     
     // Call verifyUser endpoint
     const verifyResponse = await verifyUser(subDomainName, "web");
     
     if (verifyResponse && verifyResponse.isSuccess && verifyResponse.data && verifyResponse.data.whiteLabelData) {
       themeCSS = generateThemeCSS(verifyResponse.data.whiteLabelData);
+      console.log('Theme applied successfully');
     } else {
       // Fallback to default theme if API call fails
       console.log('Using default theme - API response:', verifyResponse);
