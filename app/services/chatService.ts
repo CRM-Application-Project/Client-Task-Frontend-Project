@@ -476,3 +476,17 @@ export const getDownloadFiles = async (
   return res;
 };
 
+export interface GetConversationResponse {
+  isSuccess: boolean;
+  message: string;
+  data: Chat; // Single conversation object
+}
+
+// Service function for getting a single conversation
+export const getConversation = async (
+  conversationId: string | number
+): Promise<GetConversationResponse> => {
+  const url = API_CONSTANTS.CHAT_MODULE.GET_CONVERSATION(conversationId);
+  const res = await getRequest<GetConversationResponse>(url);
+  return res;
+};

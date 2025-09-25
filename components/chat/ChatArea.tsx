@@ -15,6 +15,7 @@ import { Chat, uploadMessageUrls, getDownloadFiles, MessageFileInfo } from "@/ap
 
 interface ChatAreaProps {
   chat: Chat;
+  chatId: string; // Added explicit chatId prop from sidebar
 }
 
 interface FileUploadInfo {
@@ -27,10 +28,9 @@ interface FileUploadInfo {
   error?: string;
 }
 
-export const ChatArea = ({ chat }: ChatAreaProps) => {
+export const ChatArea = ({ chat, chatId }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [currentChat, setCurrentChat] = useState<Chat>(chat);
-  const [isTyping, setIsTyping] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMessageInfo, setShowMessageInfo] = useState(false);
@@ -43,9 +43,10 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
   
   const { 
     messages, 
-    sendMessage, 
-    loadMessages,
-    subscribeToConversation,
+    sendMessage,
+    loadConversationMessages,
+    initializeConversationSubscription,
+    cleanupConversationSubscription,
     setActiveConversation,
     addMessageReaction,
     removeMessageReaction,
@@ -61,18 +62,23 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     activeConversationId,
   } = useChat();
 
-  const chatMessages = messages[currentChat.id] || [];
+  console.log('[ChatArea] Rendered with chat:', chat.id, 'chatId:', chatId, 'activeConversationId:', activeConversationId);
 
-  useEffect(() => {
-    console.log("[ChatArea] Mounted for chat:", chat.id);
-  }, []);
+  // Get messages for current chat
+  const chatMessages = messages[chatId] || [];
+const debugMessageLoading = useCallback(() => {
+  console.log('[DEBUG] Current chat messages:', chatMessages.length);
+  console.log('[DEBUG] All messages state:', messages);
+  console.log('[DEBUG] Active conversation ID:', activeConversationId);
+  console.log('[DEBUG] Current chat ID:', chatId);
+}, [chatMessages, messages, activeConversationId, chatId]);
 
   // Keep local currentChat in sync with prop
   useEffect(() => {
     setCurrentChat(chat);
   }, [chat]);
 
-  // Also sync with global chats if they update (ensures latest server state)
+  // Sync with global chats if they update
   useEffect(() => {
     const updated = chats.find(c => String(c.id) === String(currentChat.id));
     if (updated) {
@@ -80,240 +86,246 @@ export const ChatArea = ({ chat }: ChatAreaProps) => {
     }
   }, [chats, currentChat.id]);
 
-  // Load messages when chat changes
-  useEffect(() => {
-    if (currentChat.id) {
-      loadMessages(String(currentChat.id));
-    }
-  }, [currentChat.id, loadMessages]);
-
-  // Realtime subscription via Firebase for this conversation
-// Add this useEffect in ChatArea component after the existing useEffects
-
+  // Initialize conversation when chatId changes
 useEffect(() => {
-  if (currentChat.id && subscribeToConversation) {
-    console.log(`[ChatArea] Subscribing to real-time updates for chat: ${currentChat.id}`);
-    
-    const unsubscribe = subscribeToConversation(String(currentChat.id));
-    
-    return () => {
-      console.log(`[ChatArea] Unsubscribing from chat: ${currentChat.id}`);
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+  if (chatId) {
+    console.log(`[ChatArea] Setting active conversation to: ${chatId}`);
+    setActiveConversation(chatId);
   }
-}, [currentChat.id, subscribeToConversation]);
-// Add this debugging function in your ChatArea component
-
-const debugFirebaseConnection = useCallback(() => {
-  console.log('[ChatArea] Debug Info:', {
-    currentChatId: currentChat.id,
-    hasMessages: chatMessages.length,
-    activeConversationId: activeConversationId,
-    currentUserId: currentUserId,
-    chatMessagesCount: chatMessages.length,
-    lastMessage: chatMessages[chatMessages.length - 1],
-    subscribeToConversation: !!subscribeToConversation
-  });
-}, [currentChat, chatMessages, activeConversationId, currentUserId, subscribeToConversation]);
-
-// Add a button in your ChatArea component to trigger debugging (temporary)
-// You can remove this after debugging
-useEffect(() => {
-  // Debug every 10 seconds
-  const interval = setInterval(debugFirebaseConnection, 10000);
-  return () => clearInterval(interval);
-}, [debugFirebaseConnection]);
   
-  // Upload files to get upload URLs
-  const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
-    if (!files.length) return [];
+  return () => {
+    // No cleanup needed here as it's handled in useChat
+  };
+}, [chatId, setActiveConversation]); 
 
-    setIsUploadingFiles(true);
-    const uploadedFiles: MessageFileInfo[] = [];
+  // Additional message loading if not already loaded
+  useEffect(() => {
+    if (chatId && (!chatMessages || chatMessages.length === 0)) {
+      console.log(`[ChatArea] Loading messages for conversation: ${chatId}`);
+      loadConversationMessages(chatId);
+    }
+  }, [chatId, chatMessages, loadConversationMessages]);
 
-    try {
-      // Step 1: Get upload URLs from API
-      const uploadPayload = {
-        conversationId: Number(currentChat.id),
-        files: files.map(f => ({
-          fileName: f.file.name,
-          fileType: f.file.type || 'application/octet-stream',
-          identifier: f.identifier
-        }))
-      };
+  // Upload files to server
+ const uploadFilesToServer = async (files: FileUploadInfo[]): Promise<MessageFileInfo[]> => {
+  if (!files.length) return [];
 
-      console.log('[ChatArea] Requesting upload URLs for files:', uploadPayload);
-      const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
+  console.log('[ChatArea] Starting file upload process for', files.length, 'files');
+  const uploadedFiles: MessageFileInfo[] = [];
 
-      if (!uploadUrlResponse.isSuccess) {
-        throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
-      }
+  try {
+    const uploadPayload = {
+      conversationId: Number(currentChat.id),
+      files: files.map(f => ({
+        fileName: f.file.name,
+        fileType: f.file.type || 'application/octet-stream',
+        identifier: f.identifier
+      }))
+    };
 
-      console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
+    console.log('[ChatArea] Requesting upload URLs:', uploadPayload);
+    const uploadUrlResponse = await uploadMessageUrls(uploadPayload);
 
-      // Step 2: Upload each file to its respective upload URL
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
-        
-        if (!uploadData) {
-          console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
-          continue;
-        }
+    if (!uploadUrlResponse.isSuccess) {
+      console.error('[ChatArea] Failed to get upload URLs:', uploadUrlResponse.message);
+      throw new Error(uploadUrlResponse.message || 'Failed to get upload URLs');
+    }
 
-        // Update file status - use 'url' instead of 'uploadUrl'
+    console.log('[ChatArea] Received upload URLs:', uploadUrlResponse.data);
+
+    // Upload each file
+    for (const file of files) {
+      const uploadData = uploadUrlResponse.data.find(d => d.identifier === file.identifier);
+      
+      if (!uploadData) {
+        console.error(`[ChatArea] No upload data found for file: ${file.identifier}`);
         setSelectedFiles(prev => prev.map(f => 
           f.identifier === file.identifier 
-            ? { ...f, isUploading: true, uploadProgress: 10, uploadUrl: uploadData.url, downloadUrl: uploadData.url }
+            ? { ...f, error: 'No upload URL provided' }
+            : f
+        ));
+        continue;
+      }
+
+      try {
+        console.log(`[ChatArea] Uploading file: ${file.file.name}`);
+        
+        // Update progress
+        setSelectedFiles(prev => prev.map(f => 
+          f.identifier === file.identifier 
+            ? { ...f, isUploading: true, uploadProgress: 10, uploadUrl: uploadData.url }
             : f
         ));
 
-        try {
-          console.log(`[ChatArea] Uploading file ${file.file.name} to ${uploadData.url}`);
-          
-          // Simulate progress updates
-          const progressInterval = setInterval(() => {
-            setSelectedFiles(prev => prev.map(f => 
-              f.identifier === file.identifier 
-                ? { ...f, uploadProgress: Math.min(f.uploadProgress + 20, 90) }
-                : f
-            ));
-          }, 200);
-          
-          // Upload file using PUT request to the signed URL
-          const uploadResponse = await fetch(uploadData.url, {
-            method: 'PUT',
-            body: file.file,
-            headers: {
-              'Content-Type': file.file.type || 'application/octet-stream'
-            }
-          });
-
-          clearInterval(progressInterval);
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
-          }
-
-          console.log(`[ChatArea] Successfully uploaded file: ${file.file.name}`);
-
-          // Add to uploaded files list
-          uploadedFiles.push({
-            fileName: uploadData.fileName,
-            fileType: file.file.type || 'application/octet-stream',
-          });
-
-          // Update file status to completed
+        // Simulate progress updates
+        const progressInterval = setInterval(() => {
           setSelectedFiles(prev => prev.map(f => 
             f.identifier === file.identifier 
-              ? { ...f, isUploading: false, uploadProgress: 100 }
+              ? { ...f, uploadProgress: Math.min(f.uploadProgress + 15, 90) }
               : f
           ));
-
-        } catch (uploadError) {
-          console.error(`[ChatArea] Error uploading file ${file.file.name}:`, uploadError);
-          
-          const errorMessage = uploadError instanceof Error 
-            ? uploadError.message 
-            : 'Unknown upload error';
-          
-          setSelectedFiles(prev => prev.map(f => 
-            f.identifier === file.identifier 
-              ? { ...f, isUploading: false, uploadProgress: 0, error: errorMessage }
-              : f
-          ));
-        }
-      }
-
-    } catch (error) {
-      console.error('[ChatArea] Error in file upload process:', error);
-      
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Upload process failed';
-      
-      // Mark all files as failed
-      setSelectedFiles(prev => prev.map(f => ({ 
-        ...f, 
-        isUploading: false, 
-        uploadProgress: 0,
-        error: errorMessage 
-      })));
-    } finally {
-      setIsUploadingFiles(false);
-    }
-
-    return uploadedFiles;
-  };
-
-  const handleSendMessage = async () => {
-    // Prevent sending if files are still uploading
-    if (isUploadingFiles) {
-      console.log('[ChatArea] Cannot send message while files are uploading');
-      return;
-    }
-
-    if (message.trim() || selectedFiles.length > 0) {
-      const content = message.trim();
-      const mentions = extractMentions(content);
-      
-      try {
-        let fileInfo: MessageFileInfo[] = [];
+        }, 300);
         
-        // Upload files if any
-        if (selectedFiles.length > 0) {
-          console.log('[ChatArea] Uploading files before sending message...');
-          fileInfo = await uploadFilesToServer(selectedFiles);
-          
-          // Check if any uploads failed
-          const failedUploads = selectedFiles.filter(f => f.error);
-          if (failedUploads.length > 0) {
-            console.error('[ChatArea] Some files failed to upload:', failedUploads);
-            alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
-            return;
+        // Upload file
+        const uploadResponse = await fetch(uploadData.url, {
+          method: 'PUT',
+          body: file.file,
+          headers: {
+            'Content-Type': file.file.type || 'application/octet-stream'
           }
-          
-          console.log('[ChatArea] File info to pass to sendMessage:', fileInfo);
-        }
-        
-        // Send message with file info if files were uploaded
-        console.log('[ChatArea] Calling sendMessage with:', {
-          chatId: String(chat.id),
-          content,
-          mentions,
-          replyToId: replyTo?.id,
-          fileInfo
         });
-        
-        await sendMessage(String(chat.id), content, mentions, replyTo?.id, fileInfo);
-        
-        setMessage("");
-        setReplyTo(null);
-        setSelectedFiles([]);
-        
-        // Auto-resize textarea
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
+
+        clearInterval(progressInterval);
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
         }
-      } catch (err) {
-        console.error('[ChatArea] Error sending message:', err);
+
+        console.log(`[ChatArea] Successfully uploaded: ${file.file.name}`);
+
+        // Add to successful uploads
+        uploadedFiles.push({
+          fileName: uploadData.fileName,
+          fileType: file.file.type || 'application/octet-stream',
+        });
+
+        // Mark as complete
+        setSelectedFiles(prev => prev.map(f => 
+          f.identifier === file.identifier 
+            ? { ...f, isUploading: false, uploadProgress: 100 }
+            : f
+        ));
+
+      } catch (uploadError) {
+        console.error(`[ChatArea] Error uploading ${file.file.name}:`, uploadError);
+        
+        setSelectedFiles(prev => prev.map(f => 
+          f.identifier === file.identifier 
+            ? { 
+                ...f, 
+                isUploading: false, 
+                uploadProgress: 0, 
+                error: uploadError instanceof Error ? uploadError.message : 'Upload failed' 
+              }
+            : f
+        ));
       }
     }
-  };
 
+    console.log('[ChatArea] File upload process completed. Successful uploads:', uploadedFiles.length);
+    return uploadedFiles;
+
+  } catch (error) {
+    console.error('[ChatArea] Error in upload process:', error);
+    
+    // Mark all files as failed
+    setSelectedFiles(prev => prev.map(f => ({ 
+      ...f, 
+      isUploading: false, 
+      uploadProgress: 0,
+      error: error instanceof Error ? error.message : 'Upload process failed'
+    })));
+    
+    throw error;
+  }
+};
+
+const handleSendMessage = async () => {
+  if (isUploadingFiles) {
+    console.log('[ChatArea] Cannot send message while files are uploading');
+    return;
+  }
+
+  const content = message.trim();
+  const hasFiles = selectedFiles.length > 0;
+  
+  if (!content && !hasFiles) {
+    console.log('[ChatArea] No content or files to send');
+    return;
+  }
+
+  const mentions = extractMentions(content);
+  
+  try {
+    let fileInfo: MessageFileInfo[] = [];
+    
+    if (hasFiles) {
+      console.log('[ChatArea] Uploading files before sending message...');
+      setIsUploadingFiles(true);
+      
+      fileInfo = await uploadFilesToServer(selectedFiles);
+      
+      const failedUploads = selectedFiles.filter(f => f.error);
+      if (failedUploads.length > 0) {
+        console.error('[ChatArea] Some files failed to upload:', failedUploads);
+        alert(`Failed to upload ${failedUploads.length} file(s). Please try again.`);
+        return;
+      }
+      
+      console.log('[ChatArea] All files uploaded successfully:', fileInfo);
+    }
+    
+    console.log('[ChatArea] Sending message with data:', {
+      chatId,
+      content,
+      mentions,
+      replyToId: replyTo?.id,
+      fileInfo,
+      hasAttachments: fileInfo.length > 0
+    });
+    
+    await sendMessage(chatId, content, mentions, replyTo?.id, fileInfo);
+    
+    // For messages with attachments, force reload after a delay
+    if (hasFiles) {
+      console.log('[ChatArea] Message with attachments sent, scheduling message reload...');
+      setTimeout(async () => {
+        console.log('[ChatArea] Reloading messages after file upload...');
+        await loadConversationMessages(chatId, true); // Force reload
+        debugMessageLoading(); // Debug current state
+      }, 2000); // Increased delay to ensure backend processing
+    }
+    
+    // Clear form
+    setMessage("");
+    setReplyTo(null);
+    setSelectedFiles([]);
+    setIsUploadingFiles(false);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+    
+    console.log('[ChatArea] Message sent successfully, form cleared');
+    
+  } catch (err) {
+    console.error('[ChatArea] Error sending message:', err);
+    setIsUploadingFiles(false);
+    
+    // Show error to user
+    alert(`Failed to send message: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  }
+};
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
-
+useEffect(() => {
+  console.log('[ChatArea] Messages updated for chatId:', chatId, 'count:', chatMessages.length);
+  if (chatMessages.length === 0 && chatId) {
+    console.log('[ChatArea] No messages found, current state:', {
+      chatId,
+      activeConversationId,
+      allMessages: Object.keys(messages),
+      
+    });
+  }
+}, [chatMessages, chatId, activeConversationId, messages]);
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
     
-    // Auto-resize textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
@@ -337,7 +349,6 @@ useEffect(() => {
       console.log('[ChatArea] Selected files:', newFileInfos);
     }
     
-    // Reset the input value so the same file can be selected again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -371,7 +382,6 @@ useEffect(() => {
     return mentions;
   };
 
-  // Download files for a message - FIXED VERSION
   const handleDownloadFiles = async (messageId: string) => {
     try {
       console.log(`[ChatArea] Downloading files for message: ${messageId}`);
@@ -380,18 +390,14 @@ useEffect(() => {
       if (response.isSuccess && response.data.length > 0) {
         console.log(`[ChatArea] Found ${response.data.length} files to download`);
         
-        // Download each file using the downloadBlob function
         for (const file of response.data) {
           try {
-            // Fetch the file as a blob
             const fileResponse = await fetch(file.url);
             if (!fileResponse.ok) {
               throw new Error(`Failed to fetch file: ${fileResponse.statusText}`);
             }
             
             const blob = await fileResponse.blob();
-            
-            // Create a download link and trigger the download
             const link = document.createElement('a');
             const blobUrl = window.URL.createObjectURL(blob);
             
@@ -402,15 +408,12 @@ useEffect(() => {
             document.body.appendChild(link);
             link.click();
             
-            // Clean up
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
             
             console.log(`[ChatArea] Downloaded file: ${file.fileName}`);
           } catch (downloadError) {
             console.error(`[ChatArea] Error downloading file ${file.fileName}:`, downloadError);
-            
-            // Fallback: Open in new tab if download fails
             window.open(file.url, '_blank');
           }
         }
@@ -422,48 +425,24 @@ useEffect(() => {
     }
   };
 
-  // Alternative download function for direct download
-  const downloadFileDirectly = async (url: string, fileName: string) => {
-    try {
-      // Create a temporary anchor element
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.target = '_blank';
-      
-      // Some browsers need the link to be in the DOM to trigger download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error downloading file directly:', error);
-      // Fallback: open in new tab
-      window.open(url, '_blank');
-    }
-  };
-
   const handleReaction = async (messageId: string, emoji: string) => {
     try {
       const message = chatMessages.find(m => m.id === messageId);
       if (!message) return;
       
-      // Check if the current user already has any reaction on this message
       const userReaction = message.reactions?.find(reaction => 
         reaction.users && reaction.users.includes(currentUserId)
       );
       
       if (userReaction) {
-        // If user is clicking the same emoji they already reacted with, remove it (toggle off)
         if (userReaction.emoji === emoji) {
           await removeMessageReaction(messageId, userReaction.emoji);
           return;
         } else {
-          // If user is clicking a different emoji, remove the old one first
           await removeMessageReaction(messageId, userReaction.emoji);
         }
       }
       
-      // Add the new reaction
       await addMessageReaction(messageId, emoji);
       
     } catch (err) {
@@ -537,7 +516,6 @@ useEffect(() => {
   };
 
   const handleInfoClick = () => {
-    console.log(chat.conversationType.toLowerCase());
     if (chat.conversationType.toLowerCase() === 'group') {
       setShowGroupInfo(true);
     }
@@ -571,7 +549,6 @@ useEffect(() => {
     return `${currentChat.participants.length} participants`;
   };
 
-  // Helper function to get overall upload progress
   const getOverallProgress = () => {
     if (selectedFiles.length === 0) return 0;
     const totalProgress = selectedFiles.reduce((sum, file) => sum + file.uploadProgress, 0);
@@ -590,7 +567,7 @@ useEffect(() => {
         accept="*/*"
       />
 
-      {/* Chat Header - Fixed */}
+      {/* Chat Header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-3">
           {currentChat.conversationType.toLowerCase() === 'private' ? (
@@ -628,14 +605,12 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Messages Area - Scrollable */}
+      {/* Messages Area */}
       <div className="flex-1 overflow-hidden">
         <MessageList 
           messages={chatMessages}
           currentUserId={currentUserId}
-          onReaction={(messageId: string, emoji: string) => {
-            handleReaction(messageId, emoji);
-          }}
+          onReaction={handleReaction}
           onReply={handleReply}
           onEdit={handleEditMessage}
           onDelete={handleDeleteMessage}
@@ -645,11 +620,10 @@ useEffect(() => {
         />
       </div>
 
-      {/* Selected Files Preview with Progress */}
+      {/* Selected Files Preview */}
       {selectedFiles.length > 0 && (
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
           <div className="flex flex-col gap-3">
-            {/* Header with overall progress */}
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-600 font-medium">
                 Selected Files ({selectedFiles.length})
@@ -669,14 +643,12 @@ useEffect(() => {
               )}
             </div>
 
-            {/* File list */}
             <div className="flex flex-col gap-2">
               {selectedFiles.map((fileInfo) => (
                 <div
                   key={fileInfo.identifier}
                   className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5 text-sm border border-gray-200"
                 >
-                  {/* File icon and info */}
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <File size={16} className="text-gray-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -687,7 +659,6 @@ useEffect(() => {
                         </span>
                       </div>
                       
-                      {/* Progress bar for individual file */}
                       {fileInfo.isUploading && (
                         <div className="mt-1.5">
                           <div className="flex items-center gap-2">
@@ -704,7 +675,6 @@ useEffect(() => {
                         </div>
                       )}
                       
-                      {/* Success state */}
                       {!fileInfo.isUploading && fileInfo.uploadProgress === 100 && !fileInfo.error && (
                         <div className="mt-1 flex items-center gap-1">
                           <CheckCircle size={12} className="text-green-600" />
@@ -712,7 +682,6 @@ useEffect(() => {
                         </div>
                       )}
                       
-                      {/* Error state */}
                       {fileInfo.error && (
                         <div className="mt-1 flex items-center gap-1">
                           <AlertCircle size={12} className="text-red-600" />
@@ -722,7 +691,6 @@ useEffect(() => {
                     </div>
                   </div>
                   
-                  {/* Remove button */}
                   <button
                     onClick={() => removeFile(fileInfo.identifier)}
                     className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors flex-shrink-0"
@@ -737,7 +705,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Reply Preview - Fixed above input */}
+      {/* Reply Preview */}
       {replyTo && (
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3">
           <div className="flex items-center justify-between">
@@ -760,9 +728,8 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Message Input - Fixed at bottom */}
+      {/* Message Input */}
       <div className="w-full max-w-[80vw] mx-auto bg-gray-50">
-        {/* Message Input - Exact replica */}
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-sm rounded-b-lg">
           <div className="flex items-center gap-3">
             {/* Attachment Button */}
@@ -803,9 +770,7 @@ useEffect(() => {
                     onChange={handleTextareaChange}
                     onKeyPress={handleKeyPress}
                     className="min-h-[44px] max-h-[80px] resize-none bg-gray-50 border border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 text-gray-900 placeholder-gray-400 rounded-2xl px-4 py-3 pr-12 w-full outline-none transition-all duration-200 text-sm leading-5"
-                    style={{ 
-                      paddingRight: '48px'
-                    }}
+                    style={{ paddingRight: '48px' }}
                     rows={1}
                   />
                   {/* Emoji Button */}
@@ -835,7 +800,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Emoji Picker - Absolute positioning */}
+      {/* Emoji Picker */}
       {showEmojiPicker && (
         <div className="absolute bottom-20 right-4 z-50">
           <EmojiPicker
@@ -857,7 +822,7 @@ useEffect(() => {
         />
       )}
 
-      {/* Group Info Modal - Now includes all participant management functions */}
+      {/* Group Info Modal */}
       {showGroupInfo && (currentChat.conversationType?.toString().toLowerCase() === 'group') && (
         <GroupInfoModal
           chat={currentChat}
