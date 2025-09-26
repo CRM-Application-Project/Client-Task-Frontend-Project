@@ -83,19 +83,28 @@ class FirebaseChatService {
   private activeConversations: Set<string> = new Set();
   private pendingReceiptUpdates: Map<string, { messageIds: string[], conversationId: string }> = new Map();
   
-  // FIXED: Enhanced deduplication with proper event tracking
+  // ENHANCED: Event deduplication with comprehensive timestamp-based filtering
   private processedFCMMessages: Set<string> = new Set();
-  private processedConversationEvents: Map<string, Set<string>> = new Map(); // conversationId -> Set of eventKeys
+  private processedConversationEvents: Map<string, Set<string>> = new Map(); 
   private lastNotificationProcessTime: Map<string, number> = new Map();
-  private userInitializationTime: number = 0; // Track when user was initialized
+  private userInitializationTime: number = 0;
+  
+  // NEW: Sync state management
+  private syncThresholdTimestamp: number = 0;
+  private eventFilteringEnabled: boolean = true;
 
   /**
    * Initialize service with current user ID
    */
   initialize(userId: string): void {
     this.currentUserId = userId;
-    this.userInitializationTime = Date.now(); // Track initialization time
-    console.log(`[FirebaseChat] Service initialized for user: ${userId} at ${this.userInitializationTime}`);
+    this.userInitializationTime = Date.now();
+    this.syncThresholdTimestamp = Date.now(); // Set sync threshold to current time
+    
+    console.log(`[FirebaseChat] 🚀 Service initialized for user: ${userId}`, {
+      initTime: new Date(this.userInitializationTime).toISOString(),
+      syncThreshold: new Date(this.syncThresholdTimestamp).toISOString()
+    });
     
     this.setupForegroundMessageListener();
     
@@ -114,81 +123,25 @@ class FirebaseChatService {
       console.error('[FirebaseChat] Error checking database instance:', e);
     }
   }
-// Complete fix for FirebaseChatService.handleReactionEvent method
 
-private handleReactionEvent(reactionData: any): void {
-  console.log('[FirebaseChat] Handling reaction event:', reactionData);
-  
-  const conversationId = reactionData.conversationId?.toString();
-  if (!conversationId) {
-    console.warn('[FirebaseChat] No conversationId in reaction event');
-    return;
-  }
-
-  // CRITICAL: Validate required fields
-  if (!reactionData.messageId || !reactionData.reaction || !reactionData.senderId) {
-    console.warn('[FirebaseChat] Invalid reaction event - missing required fields:', {
-      messageId: reactionData.messageId,
-      reaction: reactionData.reaction,
-      senderId: reactionData.senderId
+  /**
+   * NEW: Update sync threshold to filter out old events
+   */
+  updateSyncThreshold(timestamp?: number): void {
+    this.syncThresholdTimestamp = timestamp || Date.now();
+    console.log(`[FirebaseChat] 📅 Updated sync threshold:`, {
+      timestamp: new Date(this.syncThresholdTimestamp).toISOString()
     });
-    return;
   }
 
-  const reactionEvent: FirebaseReactionEvent = {
-    eventType: reactionData.eventType,
-    messageId: reactionData.messageId?.toString(),
-    content: reactionData.content || '',
-    senderId: reactionData.senderId,
-    senderName: reactionData.senderName || 'Unknown User',
-    reaction: reactionData.reaction,
-    conversationId: conversationId,
-    conversationType: reactionData.conversationType || 'DIRECT',
-    conversationName: reactionData.conversationName || '',
-    timestamp: reactionData.timestamp || new Date().toISOString(),
-    metadata: reactionData.metadata || {}
-  };
-
-  console.log(`[FirebaseChat] Dispatching reaction event to conversation ${conversationId}:`, reactionEvent);
-  
-  // Get the reaction callback for this conversation
-  const reactionCallback = this.reactionCallbacks.get(conversationId);
-  if (reactionCallback) {
-    console.log(`[FirebaseChat] Found reaction callback for conversation ${conversationId}, calling it...`);
-    try {
-      reactionCallback(reactionEvent);
-      console.log(`[FirebaseChat] Successfully called reaction callback`);
-    } catch (error) {
-      console.error(`[FirebaseChat] Error in reaction callback:`, error);
-    }
-  } else {
-    console.warn(`[FirebaseChat] No reaction callback found for conversation ${conversationId}`);
-    console.log(`[FirebaseChat] Available reaction callbacks:`, Array.from(this.reactionCallbacks.keys()));
+  /**
+   * NEW: Enable/disable event filtering for debugging
+   */
+  setEventFilteringEnabled(enabled: boolean): void {
+    this.eventFilteringEnabled = enabled;
+    console.log(`[FirebaseChat] 🔧 Event filtering ${enabled ? 'enabled' : 'disabled'}`);
   }
-}
 
-// Also make sure your subscribeToReactionEvents method properly sets up the callback
-subscribeToReactionEvents(
-  conversationId: string,
-  onReactionUpdate: (reactionEvent: FirebaseReactionEvent) => void
-): () => void {
-  console.log(`[FirebaseChat] Setting up reaction callback for conversation: ${conversationId}`);
-  
-  // Store the callback
-  this.reactionCallbacks.set(conversationId, onReactionUpdate);
-  
-  console.log(`[FirebaseChat] Reaction callback registered for conversation ${conversationId}`);
-  console.log(`[FirebaseChat] Total reaction callbacks:`, this.reactionCallbacks.size);
-
-  return () => this.unsubscribeFromReactionEvents(conversationId);
-}
-
-unsubscribeFromReactionEvents(conversationId: string): void {
-  console.log(`[FirebaseChat] Unsubscribing from reaction events for conversation ${conversationId}`);
-  const hadCallback = this.reactionCallbacks.has(conversationId);
-  this.reactionCallbacks.delete(conversationId);
-  console.log(`[FirebaseChat] Reaction callback removed: ${hadCallback}, remaining callbacks: ${this.reactionCallbacks.size}`);
-}
   /**
    * Mark conversation as active (chat is open)
    */
@@ -302,125 +255,131 @@ unsubscribeFromReactionEvents(conversationId: string): void {
   }
 
   /**
-   * Check if conversation event should be processed (filter old events)
+   * ENHANCED: Check if conversation event should be processed with comprehensive filtering
    */
-/**
- * Check if conversation event should be processed (filter old events)
- */
-/**
- * Check if conversation event should be processed (filter old events)
- */
-/**
- * Enhanced conversation event filtering with duplicate prevention
- */
-private shouldProcessConversationEvent(eventData: any, eventKey: string, conversationId: string): boolean {
+  private shouldProcessConversationEvent(eventData: any, eventKey: string, conversationId: string): boolean {
+    if (!this.eventFilteringEnabled) {
+      console.log(`[EventFilter] Event filtering disabled, processing: ${eventKey}`);
+      return true;
+    }
+
     if (!eventData || !eventData.timestamp) {
-        console.log(`[FirebaseChat] Event has no timestamp, skipping:`, eventKey);
-        return false;
+      console.log(`[EventFilter] ❌ Event has no timestamp, skipping: ${eventKey}`);
+      return false;
     }
 
-    // FILTER 1: Only process events that happened after user initialization
+    // ENHANCED FILTER 1: Timestamp-based filtering with sync threshold
     const eventTimestamp = new Date(eventData.timestamp).getTime();
-    const timeSinceInit = eventTimestamp - this.userInitializationTime;
     
-    if (timeSinceInit < -5000) {
-        console.log(`[FirebaseChat] Event is too old, skipping:`, eventKey);
-        return false;
+    if (eventTimestamp < this.syncThresholdTimestamp) {
+      console.log(`[EventFilter] ❌ Event before sync threshold:`, {
+        eventKey,
+        eventTime: new Date(eventTimestamp).toISOString(),
+        syncThreshold: new Date(this.syncThresholdTimestamp).toISOString(),
+        age: this.syncThresholdTimestamp - eventTimestamp
+      });
+      return false;
     }
 
-    // FILTER 2: Check if we've already processed this specific event
+    // ENHANCED FILTER 2: Duplicate event prevention
     const processedEvents = this.processedConversationEvents.get(conversationId) || new Set();
     if (processedEvents.has(eventKey)) {
-        console.log(`[FirebaseChat] Event ${eventKey} already processed`);
-        return false;
+      console.log(`[EventFilter] ❌ Event ${eventKey} already processed`);
+      return false;
     }
 
-    // FILTER 3: CRITICAL FIX - Skip CONVERSATION_CREATED for creator entirely
+    // ENHANCED FILTER 3: Enhanced creator filtering for CONVERSATION_CREATED
     if (eventData.eventType === 'CONVERSATION_CREATED') {
-        const currentUserId = this.currentUserId || localStorage.getItem('userId') || '';
-        const currentUserName = localStorage.getItem('userName') || '';
-        
-        // Enhanced creator check with multiple field comparisons
-        const isCreator = 
-            eventData.triggeredByUserId === currentUserId || 
-            eventData.triggeredByUserId === currentUserName ||
-            eventData.triggeredByUserName === currentUserId ||
-            eventData.triggeredByUserName === currentUserName ||
-            eventData.triggeredBy === currentUserId ||
-            eventData.triggeredBy === currentUserName;
-        
-        if (isCreator) {
-            console.log(`[FirebaseChat] 🚫 BLOCKED: CONVERSATION_CREATED for creator`, {
-                eventKey,
-                triggeredByUserId: eventData.triggeredByUserId,
-                triggeredByUserName: eventData.triggeredByUserName,
-                currentUserId: currentUserId,
-                currentUserName: currentUserName,
-                conversationId
-            });
-            
-            // Mark as processed to prevent any further handling
-            this.markConversationEventAsProcessed(conversationId, eventKey);
-            return false;
-        }
-        
-        console.log(`[FirebaseChat] ✅ Processing CONVERSATION_CREATED for participant:`, {
-            eventKey,
-            triggeredByUserId: eventData.triggeredByUserId,
-            triggeredByUserName: eventData.triggeredByUserName,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName
+      const currentUserId = this.currentUserId || localStorage.getItem('userId') || '';
+      const currentUserName = localStorage.getItem('userName') || '';
+      
+      const isCreator = 
+        eventData.triggeredByUserId === currentUserId || 
+        eventData.triggeredByUserId === currentUserName ||
+        eventData.triggeredByUserName === currentUserId ||
+        eventData.triggeredByUserName === currentUserName ||
+        eventData.triggeredBy === currentUserId ||
+        eventData.triggeredBy === currentUserName;
+      
+      if (isCreator) {
+        console.log(`[EventFilter] 🚫 BLOCKED: CONVERSATION_CREATED for creator`, {
+          eventKey,
+          triggeredByUserId: eventData.triggeredByUserId,
+          triggeredByUserName: eventData.triggeredByUserName,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          conversationId
         });
-        return true;
+        
+        this.markConversationEventAsProcessed(conversationId, eventKey);
+        return false;
+      }
+      
+      console.log(`[EventFilter] ✅ Processing CONVERSATION_CREATED for participant:`, {
+        eventKey,
+        triggeredByUserId: eventData.triggeredByUserId,
+        triggeredByUserName: eventData.triggeredByUserName,
+        currentUserId: currentUserId,
+        currentUserName: currentUserName
+      });
+      return true;
     }
 
-    // FILTER 4: For PARTICIPANT_ADDED, only process if current user is the target
+    // ENHANCED FILTER 4: Enhanced participant filtering for PARTICIPANT_ADDED
     if (eventData.eventType === 'PARTICIPANT_ADDED') {
-        const currentUserId = this.currentUserId || localStorage.getItem('userId') || '';
-        const currentUserName = localStorage.getItem('userName') || '';
-        
-        const isForCurrentUser = 
-            eventData.targetUserId === currentUserId || 
-            eventData.targetUserId === currentUserName ||
-            eventData.targetUserName === currentUserId ||
-            eventData.targetUserName === currentUserName ||
-            eventData.targetUser === currentUserId ||
-            eventData.targetUser === currentUserName;
-        
-        if (!isForCurrentUser) {
-            console.log(`[FirebaseChat] PARTICIPANT_ADDED not for current user, skipping:`, {
-                eventKey,
-                targetUserId: eventData.targetUserId,
-                targetUserName: eventData.targetUserName,
-                currentUserId: currentUserId,
-                currentUserName: currentUserName
-            });
-            return false;
-        }
-        
-        console.log(`[FirebaseChat] ✅ Processing PARTICIPANT_ADDED for current user:`, {
-            eventKey,
-            targetUserId: eventData.targetUserId,
-            targetUserName: eventData.targetUserName
+      const currentUserId = this.currentUserId || localStorage.getItem('userId') || '';
+      const currentUserName = localStorage.getItem('userName') || '';
+      
+      const isForCurrentUser = 
+        eventData.targetUserId === currentUserId || 
+        eventData.targetUserId === currentUserName ||
+        eventData.targetUserName === currentUserId ||
+        eventData.targetUserName === currentUserName ||
+        eventData.targetUser === currentUserId ||
+        eventData.targetUser === currentUserName;
+      
+      if (!isForCurrentUser) {
+        console.log(`[EventFilter] ❌ PARTICIPANT_ADDED not for current user, skipping:`, {
+          eventKey,
+          targetUserId: eventData.targetUserId,
+          targetUserName: eventData.targetUserName,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName
         });
-        return true;
+        return false;
+      }
+      
+      console.log(`[EventFilter] ✅ Processing PARTICIPANT_ADDED for current user:`, {
+        eventKey,
+        targetUserId: eventData.targetUserId,
+        targetUserName: eventData.targetUserName
+      });
+      return true;
     }
 
-    // For other event types, process normally
-    return true;
-}
+    // NEW FILTER 5: Rate limiting for rapid successive events
+    const now = Date.now();
+    const lastProcessed = this.lastNotificationProcessTime.get(`${conversationId}-${eventData.eventType}`) || 0;
+    if ((now - lastProcessed) < 1000) { // 1 second rate limit
+      console.log(`[EventFilter] ❌ Rate limited - too many events:`, {
+        eventKey,
+        timeSinceLastEvent: now - lastProcessed
+      });
+      return false;
+    }
 
-/**
- * Check if current user is a participant in the conversation
- * This method should be implemented based on your application's data structure
- */
-private isUserParticipantInConversation(conversationId: string): boolean {
-    // Since we don't have immediate access to participant list here,
-    // we'll rely on the backend to only send events to actual participants
-    // For now, return true and add proper implementation later
-    console.log(`[FirebaseChat] Assuming user is participant in ${conversationId} - implement proper check`);
+    this.lastNotificationProcessTime.set(`${conversationId}-${eventData.eventType}`, now);
+    
+    console.log(`[EventFilter] ✅ Event passes all filters:`, {
+      eventKey,
+      eventType: eventData.eventType,
+      conversationId,
+      eventTimestamp: new Date(eventTimestamp).toISOString(),
+      syncThreshold: new Date(this.syncThresholdTimestamp).toISOString()
+    });
+
     return true;
-}
+  }
 
   /**
    * Mark conversation event as processed
@@ -444,7 +403,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
   }
 
   /**
-   * FCM foreground message handler with minimal deduplication
+   * ENHANCED: FCM foreground message handler with timestamp filtering
    */
   private async handleForegroundMessage(data: any): Promise<void> {
     try {
@@ -454,6 +413,18 @@ private isUserParticipantInConversation(conversationId: string): boolean {
       if (!conversationId) {
         console.warn('[FirebaseChat] No conversationId in foreground message');
         return;
+      }
+
+      // NEW: Apply timestamp-based filtering to FCM messages
+      if (data.timestamp) {
+        const messageTimestamp = new Date(data.timestamp).getTime();
+        if (messageTimestamp < this.syncThresholdTimestamp) {
+          console.log(`[FirebaseChat] FCM message before sync threshold, skipping:`, {
+            messageTime: new Date(messageTimestamp).toISOString(),
+            syncThreshold: new Date(this.syncThresholdTimestamp).toISOString()
+          });
+          return;
+        }
       }
 
       const fcmEventId = `fcm-${conversationId}-${data.messageId || data.timestamp || Date.now()}`;
@@ -490,7 +461,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
   }
 
   /**
-   * Conversation subscription with proper real-time updates
+   * ENHANCED: Conversation subscription with comprehensive event filtering
    */
   subscribeToConversationMessages(
     conversationId: string, 
@@ -512,27 +483,33 @@ private isUserParticipantInConversation(conversationId: string): boolean {
       const data = snapshot.val();
       const messages: FirebaseMessage[] = [];
 
-      console.log(`[Firebase] Raw Firebase events data for ${conversationId}:`, JSON.stringify(data, null, 2));
+      console.log(`[Firebase] Raw Firebase events data for ${conversationId}:`, Object.keys(data || {}).length, 'events');
 
       if (data) {
         const incomingMessageIds: string[] = [];
         
         Object.entries(data).forEach(([eventKey, eventData]: [string, any]) => {
-  if (eventData && typeof eventData === 'object') {
-    console.log(`[Firebase] Event ${eventKey}:`, {
-      type: eventData.eventType,
-      messageId: eventData.messageId,
-      parentId: eventData.parentId,
-      content: eventData.content?.substring(0, 50) + '...'
-    });
-    
-    // Handle reaction events separately
-    if (eventData.eventType === 'REACTION_ADDED' || eventData.eventType === 'REACTION_REMOVED') {
-      console.log(`[Firebase] Processing reaction event:`, eventData);
-      this.handleReactionEvent(eventData);
-      return; // Skip message processing for reaction events
-    }
-    
+          if (eventData && typeof eventData === 'object') {
+            
+            // NEW: Apply comprehensive event filtering
+            if (!this.shouldProcessFirebaseEvent(eventData, eventKey, conversationId)) {
+              console.log(`[Firebase] Event filtered out: ${eventKey}`);
+              return;
+            }
+            
+            console.log(`[Firebase] Event ${eventKey}:`, {
+              type: eventData.eventType,
+              messageId: eventData.messageId,
+              parentId: eventData.parentId,
+              content: eventData.content?.substring(0, 50) + '...'
+            });
+            
+            // Handle reaction events separately
+            if (eventData.eventType === 'REACTION_ADDED' || eventData.eventType === 'REACTION_REMOVED') {
+              console.log(`[Firebase] Processing reaction event:`, eventData);
+              this.handleReactionEvent(eventData);
+              return;
+            }
             
             if (eventData.eventType === 'MESSAGE_SENT' || 
                 eventData.eventType === 'MESSAGE_REPLIED' ||
@@ -631,13 +608,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
         console.log(`[Firebase] Final processed messages for callback:`, {
           totalMessages: messages.length,
           replyMessages: messages.filter(m => !!(m.parentId || m.parentMessageId)).length,
-          regularMessages: messages.filter(m => !(m.parentId || m.parentMessageId)).length,
-          messageDetails: messages.map(m => ({
-            id: m.id,
-            isReply: !!(m.parentId || m.parentMessageId),
-            parentId: m.parentId,
-            content: m.content?.substring(0, 20) + '...'
-          }))
+          regularMessages: messages.filter(m => !(m.parentId || m.parentMessageId)).length
         });
 
         if (incomingMessageIds.length > 0) {
@@ -664,6 +635,28 @@ private isUserParticipantInConversation(conversationId: string): boolean {
   }
 
   /**
+   * NEW: Enhanced event filtering for Firebase data processing
+   */
+  private shouldProcessFirebaseEvent(eventData: any, eventKey: string, conversationId: string): boolean {
+    if (!this.eventFilteringEnabled) {
+      return true;
+    }
+
+    if (!eventData || !eventData.timestamp) {
+      return false;
+    }
+
+    const eventTimestamp = new Date(eventData.timestamp).getTime();
+    
+    // Filter events that occurred before sync threshold
+    if (eventTimestamp < this.syncThresholdTimestamp) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Enhanced unsubscribe with proper cleanup
    */
   unsubscribeFromConversationMessages(conversationId: string): void {
@@ -687,7 +680,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
   }
 
   /**
-   * FIXED: User notifications with enhanced conversation event filtering
+   * ENHANCED: User notifications with comprehensive event filtering
    */
   subscribeToUserNotifications(
     userId: string,
@@ -717,7 +710,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
       console.log(`[FirebaseChat] User notifications onValue fired for ${userId}. exists=${snapshot.exists()}`,
         { key: snapshot.key, convCount: data ? Object.keys(data).length : 0 });
 
-      // ENHANCED: Process conversation events with proper filtering
+      // ENHANCED: Process conversation events with comprehensive filtering
       if (data && onConversationEvent) {
         Object.entries(data).forEach(([conversationId, conversationData]: [string, any]) => {
           if (conversationData?.events) {
@@ -769,8 +762,11 @@ private isUserParticipantInConversation(conversationId: string): boolean {
                 
                 // Handle other event types for reactions etc.
                 if (eventData.eventType === 'REACTION_ADDED' || eventData.eventType === 'REACTION_REMOVED') {
-                  console.log(`[FirebaseChat] Processing reaction event from user notifications:`, eventData);
-                  this.handleReactionEvent(eventData);
+                  // Apply basic timestamp filtering to reactions too
+                  if (this.shouldProcessFirebaseEvent(eventData, eventKey, conversationId)) {
+                    console.log(`[FirebaseChat] Processing reaction event from user notifications:`, eventData);
+                    this.handleReactionEvent(eventData);
+                  }
                 }
               }
             });
@@ -778,7 +774,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
         });
       }
 
-      // Process regular notifications (unchanged)
+      // Process regular notifications with enhanced filtering
       if (data) {
         const currentTime = Date.now();
         
@@ -786,17 +782,27 @@ private isUserParticipantInConversation(conversationId: string): boolean {
           const lastProcessed = this.lastNotificationProcessTime.get(conversationId) || 0;
           const notificationTime = conversationData.timestamp ? new Date(conversationData.timestamp).getTime() : currentTime;
           
-          if (notificationTime > lastProcessed) {
+          // Only process notifications that are newer than our sync threshold
+          if (notificationTime > this.syncThresholdTimestamp && notificationTime > lastProcessed) {
             this.lastNotificationProcessTime.set(conversationId, notificationTime);
             
             if (conversationData?.events) {
               Object.entries(conversationData.events).forEach(([eventKey, eventData]: [string, any]) => {
                 if (eventData && (eventData.eventType === 'REACTION_ADDED' || eventData.eventType === 'REACTION_REMOVED')) {
-                  console.log(`[FirebaseChat] Processing reaction event from user notifications:`, eventData);
-                  this.handleReactionEvent(eventData);
+                  if (this.shouldProcessFirebaseEvent(eventData, eventKey, conversationId)) {
+                    console.log(`[FirebaseChat] Processing filtered reaction event from user notifications:`, eventData);
+                    this.handleReactionEvent(eventData);
+                  }
                 }
               });
             }
+          } else {
+            console.log(`[FirebaseChat] Skipping old notification:`, {
+              conversationId,
+              notificationTime: new Date(notificationTime).toISOString(),
+              syncThreshold: new Date(this.syncThresholdTimestamp).toISOString(),
+              lastProcessed: new Date(lastProcessed).toISOString()
+            });
           }
         });
       }
@@ -813,6 +819,81 @@ private isUserParticipantInConversation(conversationId: string): boolean {
     });
 
     return () => this.unsubscribeFromUserNotifications(userId);
+  }
+
+  // Complete fix for FirebaseChatService.handleReactionEvent method
+  private handleReactionEvent(reactionData: any): void {
+    console.log('[FirebaseChat] Handling reaction event:', reactionData);
+    
+    const conversationId = reactionData.conversationId?.toString();
+    if (!conversationId) {
+      console.warn('[FirebaseChat] No conversationId in reaction event');
+      return;
+    }
+
+    // CRITICAL: Validate required fields
+    if (!reactionData.messageId || !reactionData.reaction || !reactionData.senderId) {
+      console.warn('[FirebaseChat] Invalid reaction event - missing required fields:', {
+        messageId: reactionData.messageId,
+        reaction: reactionData.reaction,
+        senderId: reactionData.senderId
+      });
+      return;
+    }
+
+    const reactionEvent: FirebaseReactionEvent = {
+      eventType: reactionData.eventType,
+      messageId: reactionData.messageId?.toString(),
+      content: reactionData.content || '',
+      senderId: reactionData.senderId,
+      senderName: reactionData.senderName || 'Unknown User',
+      reaction: reactionData.reaction,
+      conversationId: conversationId,
+      conversationType: reactionData.conversationType || 'DIRECT',
+      conversationName: reactionData.conversationName || '',
+      timestamp: reactionData.timestamp || new Date().toISOString(),
+      metadata: reactionData.metadata || {}
+    };
+
+    console.log(`[FirebaseChat] Dispatching reaction event to conversation ${conversationId}:`, reactionEvent);
+    
+    // Get the reaction callback for this conversation
+    const reactionCallback = this.reactionCallbacks.get(conversationId);
+    if (reactionCallback) {
+      console.log(`[FirebaseChat] Found reaction callback for conversation ${conversationId}, calling it...`);
+      try {
+        reactionCallback(reactionEvent);
+        console.log(`[FirebaseChat] Successfully called reaction callback`);
+      } catch (error) {
+        console.error(`[FirebaseChat] Error in reaction callback:`, error);
+      }
+    } else {
+      console.warn(`[FirebaseChat] No reaction callback found for conversation ${conversationId}`);
+      console.log(`[FirebaseChat] Available reaction callbacks:`, Array.from(this.reactionCallbacks.keys()));
+    }
+  }
+
+  // Also make sure your subscribeToReactionEvents method properly sets up the callback
+  subscribeToReactionEvents(
+    conversationId: string,
+    onReactionUpdate: (reactionEvent: FirebaseReactionEvent) => void
+  ): () => void {
+    console.log(`[FirebaseChat] Setting up reaction callback for conversation: ${conversationId}`);
+    
+    // Store the callback
+    this.reactionCallbacks.set(conversationId, onReactionUpdate);
+    
+    console.log(`[FirebaseChat] Reaction callback registered for conversation ${conversationId}`);
+    console.log(`[FirebaseChat] Total reaction callbacks:`, this.reactionCallbacks.size);
+
+    return () => this.unsubscribeFromReactionEvents(conversationId);
+  }
+
+  unsubscribeFromReactionEvents(conversationId: string): void {
+    console.log(`[FirebaseChat] Unsubscribing from reaction events for conversation ${conversationId}`);
+    const hadCallback = this.reactionCallbacks.has(conversationId);
+    this.reactionCallbacks.delete(conversationId);
+    console.log(`[FirebaseChat] Reaction callback removed: ${hadCallback}, remaining callbacks: ${this.reactionCallbacks.size}`);
   }
 
   /**
@@ -845,13 +926,13 @@ private isUserParticipantInConversation(conversationId: string): boolean {
     this.lastNotificationProcessTime.clear();
     this.currentUserId = null;
     this.userInitializationTime = 0;
+    this.syncThresholdTimestamp = 0;
 
     console.log('[FirebaseChat] Cleanup completed');
   }
 
-  // [Rest of the methods remain unchanged - including all the existing methods]
-  // setupForegroundMessageListener, handleReactionEvent, transformMessageEventToFirebaseMessage,
-  // subscribeToReactionEvents, unsubscribeFromReactionEvents, addMessageToFirebase, etc.
+  // [All existing methods remain unchanged - including transformMessageEventToFirebaseMessage, 
+  // setupForegroundMessageListener, addMessageToFirebase, etc.]
 
   private setupForegroundMessageListener(): void {
     if (typeof window === 'undefined') return;
@@ -878,8 +959,6 @@ private isUserParticipantInConversation(conversationId: string): boolean {
       console.error('[FirebaseChat] Error setting up foreground message listener:', error);
     });
   }
-
-
 
   /**
    * Transform Java MessageEvent structure to FirebaseMessage format
@@ -982,10 +1061,6 @@ private isUserParticipantInConversation(conversationId: string): boolean {
 
     return firebaseMessage;
   }
-
-
-
-
 
   async addMessageToFirebase(conversationId: string, messageData: any): Promise<void> {
     if (!this.database) {
@@ -1189,7 +1264,9 @@ private isUserParticipantInConversation(conversationId: string): boolean {
       processedFCMMessages: this.processedFCMMessages.size,
       processedConversationEvents: this.processedConversationEvents.size,
       lastNotificationProcessTime: this.lastNotificationProcessTime.size,
-      userInitializationTime: new Date(this.userInitializationTime).toISOString()
+      userInitializationTime: new Date(this.userInitializationTime).toISOString(),
+      syncThresholdTimestamp: new Date(this.syncThresholdTimestamp).toISOString(),
+      eventFilteringEnabled: this.eventFilteringEnabled
     });
   }
 }
