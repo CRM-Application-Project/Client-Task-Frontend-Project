@@ -23,6 +23,13 @@ export interface Chat {
     senderId: string;
   };
 }
+export interface LastMessage {
+  content: string;
+  timestamp: string | Date;
+  senderId: string;
+  id?: string; // Make id optional since it might not always be present
+  createdAt?: string; // Make createdAt optional
+}
 
 export interface GetChatListResponse {
   isSuccess: boolean;
