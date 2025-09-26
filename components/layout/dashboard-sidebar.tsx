@@ -16,6 +16,7 @@ import {
   KeyRound,
   BarChart3,
   MessageCircle,
+  Monitor,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
@@ -49,9 +50,11 @@ const NAVIGATION: NavItem[] = [
   },
 ];
 
+// Updated SETTINGS to include Change Mode for SUPER_ADMIN
 const SETTINGS = [
   { name: "Profile", icon: User, href: "/profile" },
   { name: "Change Password", icon: KeyRound, href: "/profile?tab=change-password" },
+  { name: "Change Mode", icon: Monitor, href: "/profile/change-mode" }, // Added Change Mode
 ];
 
 interface UserModuleAccess {
@@ -171,6 +174,17 @@ export function DashboardSidebar({
     });
   }, [can, userRole]);
 
+  // Filter settings based on user role
+  const filteredSettings = useMemo(() => {
+    const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+    
+    if (isSuperAdmin) {
+      return SETTINGS; // Show all settings including Change Mode
+    } else {
+      return SETTINGS.filter(setting => setting.name !== "Change Mode"); // Hide Change Mode for non-super admins
+    }
+  }, [userRole]);
+
   const getChildren = useCallback(
     (item: NavItem) => item.children?.filter((c) => can(c.moduleName, "view")) || [],
     [can]
@@ -197,10 +211,11 @@ export function DashboardSidebar({
         }
       });
 
-      // Check if we're on the profile page or change password
+      // Check if we're on the profile page or change password or change mode
       const isProfilePage = cleanPath === "/profile";
       const isChangePasswordTab = searchParams?.get("tab") === "change-password";
-      const isSettingsActive = isProfilePage || isChangePasswordTab;
+      const isChangeModePage = cleanPath === "/profile/change-mode";
+      const isSettingsActive = isProfilePage || isChangePasswordTab || isChangeModePage;
       
       if (isSettingsActive && !manuallyCollapsed.has("Settings")) {
         openIfNeeded("Settings");
@@ -283,7 +298,8 @@ export function DashboardSidebar({
   const SidebarContent = useCallback(() => {
     const isProfilePage = cleanPath === "/profile";
     const isChangePasswordTab = searchParams?.get("tab") === "change-password";
-    const isSettingsActive = isProfilePage || isChangePasswordTab;
+    const isChangeModePage = cleanPath === "/profile/change-mode";
+    const isSettingsActive = isProfilePage || isChangePasswordTab || isChangeModePage;
 
     return (
       <div className="flex h-full flex-col bg-[#3b3b3b] relative">
@@ -435,14 +451,16 @@ export function DashboardSidebar({
 
               {isExpandedView && expanded.includes("Settings") && (
                 <div className="space-y-1 pl-6 pt-1 w-full">
-                  {SETTINGS.map((it) => {
+                  {filteredSettings.map((it) => {
                     // Determine if this setting item is active
                     const isProfileItem = it.name === "Profile";
                     const isPasswordItem = it.name === "Change Password";
+                    const isChangeModeItem = it.name === "Change Mode";
                     
                     const isChildActive = 
-                      (isProfileItem && isProfilePage && !isChangePasswordTab) ||
-                      (isPasswordItem && isChangePasswordTab);
+                      (isProfileItem && isProfilePage && !isChangePasswordTab && !isChangeModePage) ||
+                      (isPasswordItem && isChangePasswordTab) ||
+                      (isChangeModeItem && isChangeModePage);
                     
                     return (
                       <Button
@@ -502,6 +520,7 @@ export function DashboardSidebar({
     logoUrl,
     searchParams,
     cleanPath,
+    filteredSettings, // Added filteredSettings to dependencies
   ]);
 
   return (

@@ -33,6 +33,10 @@ export const API_CONSTANTS = {
   MODULE: {
     MODULE_DROPDOWN: "/tenant/modules/dropdown",
   },
+   TENANT: {
+    UPDATE_TIMESHEET_MODE: (value: string) =>
+      `/tenant/settings/TIMESHEET_MODE?value=${value}`,
+  },
     BRAND: {
     GENERATE: "/generate", 
   },

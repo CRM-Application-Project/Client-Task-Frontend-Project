@@ -1581,3 +1581,25 @@ export const getChatList = async (): Promise<GetChatListResponse> => {
   return res as GetChatListResponse;
 };
 
+
+export interface TenantSetting {
+  type: string;
+  value: string;
+}
+
+export interface UpdateTenantSettingResponse {
+  isSuccess: boolean;
+  message: string;
+  data: TenantSetting;
+}
+
+// PUT Function
+export const updateTimesheetMode = async (
+  value: string
+): Promise<UpdateTenantSettingResponse> => {
+  const res = await putRequest(
+    API_CONSTANTS.TENANT.UPDATE_TIMESHEET_MODE(value),
+    {}
+  );
+  return res as UpdateTenantSettingResponse;
+};
