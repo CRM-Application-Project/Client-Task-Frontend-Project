@@ -139,6 +139,8 @@ interface RecurrenceRule {
   byWeekDay?: number[];
   byMonthDay?: number[];
   byMonth?: number[];
+    bySetPos?: number[]; // Add this for monthly week positions (1=first, 2=second, -1=last)
+
   excludeWeekends?: boolean;
   rruleString?: string; // Add this field to store the RRule string
 }
@@ -446,39 +448,42 @@ export const AddTaskModal = ({
     }
     return "";
   };
-  const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string => {
-    const options: Partial<RRuleOptions> = {
-      freq: getFrequencyConstant(rule.frequency),
-      interval: rule.interval,
-    };
-
-    // Set byweekday if provided (for WEEKLY frequency)
-    if (rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
-      options.byweekday = rule.byWeekDay.map(day => weekDays[day].rrule);
-    }
-
-    // Set bymonthday if provided (for MONTHLY frequency)
-    if (rule.frequency === "MONTHLY" && rule.byMonthDay && rule.byMonthDay.length > 0) {
-      options.bymonthday = rule.byMonthDay;
-    }
-
-    // Handle exclude weekends - we need to modify the byweekday instead of using exrule
-    if (rule.excludeWeekends && rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
-      // Filter out weekends (Saturday = 6, Sunday = 0)
-      const weekdaysOnly = rule.byWeekDay.filter(day => day !== 0 && day !== 6);
-      options.byweekday = weekdaysOnly.map(day => weekDays[day].rrule);
-    }
-
-    const rrule = new RRule(options);
-
-    // Get the string and remove the RRULE: prefix if it exists
-    let rruleString = rrule.toString();
-    if (rruleString.startsWith('RRULE:')) {
-      rruleString = rruleString.substring(6); // Remove "RRULE:" prefix
-    }
-
-    return rruleString;
+ const convertToRRuleString = (rule: RecurrenceRule, startDate: string): string => {
+  const options: Partial<RRuleOptions> = {
+    freq: getFrequencyConstant(rule.frequency),
+    interval: rule.interval,
   };
+
+  if (rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
+    options.byweekday = rule.byWeekDay.map(day => weekDays[day].rrule);
+  }
+  
+  // Handle monthly patterns
+  else if (rule.frequency === "MONTHLY") {
+    if (rule.byMonthDay && rule.byMonthDay.length > 0) {
+      // Specific day of month (e.g., 15th)
+      options.bymonthday = rule.byMonthDay;
+    } 
+    else if (rule.byWeekDay && rule.byWeekDay.length > 0 && rule.bySetPos && rule.bySetPos.length > 0) {
+      // Specific week day (e.g., 2nd Monday)
+      options.byweekday = rule.byWeekDay.map(day => weekDays[day].rrule);
+      options.bysetpos = rule.bySetPos;
+    }
+  }
+
+  // Handle exclude weekends for weekly frequency
+  if (rule.excludeWeekends && rule.frequency === "WEEKLY" && rule.byWeekDay && rule.byWeekDay.length > 0) {
+    const weekdaysOnly = rule.byWeekDay.filter(day => day !== 0 && day !== 6);
+    options.byweekday = weekdaysOnly.map(day => weekDays[day].rrule);
+  }
+
+  const rrule = new RRule(options);
+  let rruleString = rrule.toString();
+  if (rruleString.startsWith('RRULE:')) {
+    rruleString = rruleString.substring(6);
+  }
+  return rruleString;
+};
 
   const getReviewerDisplayName = (reviewerId: string, users: User[]): string => {
     if (!reviewerId || !users || users.length === 0) {
@@ -1062,7 +1067,28 @@ export const AddTaskModal = ({
       }));
     }
   };
+// Helper function for ordinal suffixes (1st, 2nd, 3rd, etc.)
+const getOrdinalSuffix = (n: number): string => {
+  if (n > 3 && n < 21) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+};
 
+// Helper function for week labels
+const getWeekLabel = (week: number): string => {
+  switch (week) {
+    case 1: return 'first';
+    case 2: return 'second';
+    case 3: return 'third';
+    case 4: return 'fourth';
+    case -1: return 'last';
+    default: return '';
+  }
+};
   if (!isOpen) return null;
 
   return (
@@ -1228,118 +1254,249 @@ export const AddTaskModal = ({
               )}
             </div>
           </div>
+{/* Recurrence Section */}
+<div className="space-y-4 border rounded-md p-4">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <Repeat size={18} />
+      <Label className="text-sm font-medium text-foreground">
+        Recurrence
+      </Label>
+    </div>
+    <Switch
+      checked={showRecurrence}
+      onCheckedChange={toggleRecurrence}
+      className="data-[state=checked]:bg-brand-primary"
+    />
+  </div>
 
-          {/* Recurrence Section */}
-          <div className="space-y-4 border rounded-md p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Repeat size={18} />
-                <Label className="text-sm font-medium text-foreground">
-                  Recurrence
-                </Label>
-              </div>
-              <Switch
-                checked={showRecurrence}
-                onCheckedChange={toggleRecurrence}
-                className="data-[state=checked]:bg-brand-primary"
-              />
-            </div>
+  {showRecurrence && (
+    <div className="space-y-4 mt-4 pl-6">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-foreground">
+          Repeat every
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min="1"
+            value={recurrenceRule.interval}
+            onChange={(e) => handleRecurrenceChange("interval", parseInt(e.target.value) || 1)}
+            className="w-20"
+          />
+          <Select
+            value={recurrenceRule.frequency}
+            onValueChange={(value) => handleRecurrenceChange("frequency", value as any)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {frequencies.map((freq) => (
+                <SelectItem key={freq.value} value={freq.value}>
+                  {freq.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-            {showRecurrence && (
-              <div className="space-y-4 mt-4 pl-6">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">
-                    Repeat every
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={recurrenceRule.interval}
-                      onChange={(e) => handleRecurrenceChange("interval", parseInt(e.target.value) || 1)}
-                      className="w-20"
-                    />
-                    <Select
-                      value={recurrenceRule.frequency}
-                      onValueChange={(value) => handleRecurrenceChange("frequency", value as any)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {frequencies.map((freq) => (
-                          <SelectItem key={freq.value} value={freq.value}>
-                            {freq.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {recurrenceRule.frequency === "WEEKLY" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">
-                      Repeat on
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {weekDays.map((day) => {
-                        const isSelected = recurrenceRule.byWeekDay?.includes(day.value) || false;
-                        return (
-                          <Button
-                            key={day.value}
-                            type="button"
-                            variant={isSelected ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => toggleWeekDay(day.value)}
-                            className={`h-10 px-3 relative flex items-center gap-1 transition-all duration-200 ${isSelected
-                                ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-primary/90"
-                                : "hover:bg-gray-50 border-gray-200 text-gray-700"
-                              }`}
-                          >
-                            {isSelected && (
-                              <Check size={14} className="text-white" />
-                            )}
-                            <span className="text-sm font-medium">{day.short}</span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Click days to select/deselect. Weekends will be automatically handled based on your selection.
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="exclude-weekends"
-                      checked={recurrenceRule.excludeWeekends}
-                      onCheckedChange={(checked) => handleRecurrenceChange("excludeWeekends", checked)}
-                      className="data-[state=checked]:bg-brand-primary"
-                    />
-                    <Label htmlFor="exclude-weekends" className="text-sm flex items-center gap-2">
-                      Exclude weekends
-                      {recurrenceRule.excludeWeekends && (
-                        <Check size={14} className="text-green-600" />
-                      )}
-                    </Label>
-                  </div>
-                  <p className="text-xs text-gray-500 ml-6">
-                    {recurrenceRule.excludeWeekends
-                      ? "Only weekdays (Mon-Fri) will be selected automatically"
-                      : "All days including weekends can be selected"
-                    }
-                  </p>
-                </div>
-
-                {validationErrors.recurrence && (
-                  <p className="text-red-500 text-xs mt-1">{validationErrors.recurrence}</p>
-                )}
-              </div>
-            )}
+      {/* WEEKLY Pattern */}
+      {recurrenceRule.frequency === "WEEKLY" && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground">
+            Repeat on
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {weekDays.map((day) => {
+              const isSelected = recurrenceRule.byWeekDay?.includes(day.value) || false;
+              return (
+                <Button
+                  key={day.value}
+                  type="button"
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleWeekDay(day.value)}
+                  className={`h-10 px-3 relative flex items-center gap-1 transition-all duration-200 ${
+                    isSelected
+                      ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-primary/90"
+                      : "hover:bg-gray-50 border-gray-200 text-gray-700"
+                  }`}
+                >
+                  {isSelected && (
+                    <Check size={14} className="text-white" />
+                  )}
+                  <span className="text-sm font-medium">{day.short}</span>
+                </Button>
+              );
+            })}
           </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Click days to select/deselect. Weekends will be automatically handled based on your selection.
+          </p>
+        </div>
+      )}
+
+      {/* MONTHLY Pattern */}
+      {recurrenceRule.frequency === "MONTHLY" && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">
+              Monthly Pattern
+            </Label>
+            <RadioGroup 
+              value={recurrenceRule.byMonthDay ? "monthday" : "weekday"} 
+              onValueChange={(value) => {
+                if (value === "monthday") {
+                  // Reset to day of month pattern (e.g., 15th of every month)
+                  setRecurrenceRule(prev => ({
+                    ...prev,
+                    byMonthDay: [1], // Default to 1st of month
+                    byWeekDay: undefined
+                  }));
+                } else {
+                  // Reset to week day pattern (e.g., 2nd Monday)
+                  setRecurrenceRule(prev => ({
+                    ...prev,
+                    byMonthDay: undefined,
+                    byWeekDay: [1] // Default to Monday
+                  }));
+                }
+              }}
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="monthday" id="monthday" />
+                <Label htmlFor="monthday" className="text-sm">Specific day of month (e.g., 15th)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="weekday" id="weekday" />
+                <Label htmlFor="weekday" className="text-sm">Specific week day (e.g., 2nd Monday)</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Day of Month Pattern */}
+          {recurrenceRule.byMonthDay && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Day of Month
+              </Label>
+              <Select
+                value={recurrenceRule.byMonthDay[0]?.toString() || "1"}
+                onValueChange={(value) => 
+                  handleRecurrenceChange("byMonthDay", [parseInt(value)])
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <SelectItem key={day} value={day.toString()}>
+                      {day}{getOrdinalSuffix(day)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Week Day Pattern */}
+          {recurrenceRule.byWeekDay && recurrenceRule.frequency === "MONTHLY" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">
+                  Week of Month
+                </Label>
+                <Select
+                  value={recurrenceRule.bySetPos?.[0]?.toString() || "2"}
+                  onValueChange={(value) => 
+                    handleRecurrenceChange("bySetPos", [parseInt(value)])
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">First</SelectItem>
+                    <SelectItem value="2">Second</SelectItem>
+                    <SelectItem value="3">Third</SelectItem>
+                    <SelectItem value="4">Fourth</SelectItem>
+                    <SelectItem value="-1">Last</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">
+                  Day of Week
+                </Label>
+                <Select
+                  value={recurrenceRule.byWeekDay[0]?.toString() || "1"}
+                  onValueChange={(value) => 
+                    handleRecurrenceChange("byWeekDay", [parseInt(value)])
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekDays.map(day => (
+                      <SelectItem key={day.value} value={day.value.toString()}>
+                        {day.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Display current selection */}
+          <div className="bg-gray-50 p-3 rounded-md">
+            <p className="text-sm text-gray-700 font-medium">
+              {recurrenceRule.byMonthDay 
+                ? `Every ${recurrenceRule.byMonthDay[0]}${getOrdinalSuffix(recurrenceRule.byMonthDay[0])} of the month`
+                : recurrenceRule.byWeekDay && recurrenceRule.bySetPos
+                ? `Every ${getWeekLabel(recurrenceRule.bySetPos[0])} ${weekDays.find(d => d.value === recurrenceRule.byWeekDay?.[0])?.label} of the month`
+                : "Select a monthly pattern"
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="exclude-weekends"
+            checked={recurrenceRule.excludeWeekends}
+            onCheckedChange={(checked) => handleRecurrenceChange("excludeWeekends", checked)}
+            className="data-[state=checked]:bg-brand-primary"
+          />
+          <Label htmlFor="exclude-weekends" className="text-sm flex items-center gap-2">
+            Exclude weekends
+            {recurrenceRule.excludeWeekends && (
+              <Check size={14} className="text-green-600" />
+            )}
+          </Label>
+        </div>
+        <p className="text-xs text-gray-500 ml-6">
+          {recurrenceRule.excludeWeekends
+            ? "Only weekdays (Mon-Fri) will be selected automatically"
+            : "All days including weekends can be selected"
+          }
+        </p>
+      </div>
+
+      {validationErrors.recurrence && (
+        <p className="text-red-500 text-xs mt-1">{validationErrors.recurrence}</p>
+      )}
+    </div>
+  )}
+</div>
 
           {/* Comment field */}
           {editingTask && stageChanged && (
