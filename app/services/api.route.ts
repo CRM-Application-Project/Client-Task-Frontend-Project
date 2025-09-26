@@ -1,3 +1,4 @@
+import { ST } from "next/dist/shared/lib/utils";
 import { putRequest } from "./httpServices";
 
 export const API_CONSTANTS = {
@@ -151,6 +152,10 @@ DELETE_DISCUSSION: (discussionId: number | string) =>
     `/message/${messageId}/download-files`,
 
   },
+USERSTATUS: {
+     UPDATE: (conversationId: string | number, isTyping = false) =>
+      `/chat/user/${conversationId}?isTyping=${isTyping}`,
+}
   },
 };
 

@@ -27,6 +27,15 @@ interface FileUploadInfo {
   uploadProgress: number;
   error?: string;
 }
+interface TypingUser {
+  userId: string;
+  userName: string;
+  timestamp: number;
+}
+
+interface TypingUsersState {
+  [conversationId: string]: TypingUser[];
+}
 
 export const ChatArea = ({ chat, chatId }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
@@ -45,6 +54,8 @@ export const ChatArea = ({ chat, chatId }: ChatAreaProps) => {
     messages, 
     sendMessage,
     loadConversationMessages,
+     handleUserTyping, 
+    getTypingUsers,
     initializeConversationSubscription,
     cleanupConversationSubscription,
     setActiveConversation,
@@ -60,6 +71,8 @@ export const ChatArea = ({ chat, chatId }: ChatAreaProps) => {
     removeChatParticipants,
     changeParticipantRoleInGroup,
     activeConversationId,
+    typingUsers,
+    currentUserName,
   } = useChat();
 
   console.log('[ChatArea] Rendered with chat:', chat.id, 'chatId:', chatId, 'activeConversationId:', activeConversationId);
@@ -77,7 +90,20 @@ const debugMessageLoading = useCallback(() => {
   useEffect(() => {
     setCurrentChat(chat);
   }, [chat]);
-
+// Add this debug useEffect to your ChatArea component
+useEffect(() => {
+  if (chatId && typingUsers[chatId]) {
+    console.log('🔍 [ChatArea] TYPING DEBUG:', {
+      chatId,
+      allTypingUsers: typingUsers[chatId],
+      currentUserId,
+      currentUserName,
+      filteredUsers: typingUsers[chatId].filter(user => 
+        String(user.userId) !== String(currentUserId)
+      )
+    });
+  }
+}, [typingUsers, chatId, currentUserId, currentUserName]);
   // Sync with global chats if they update
   useEffect(() => {
     const updated = chats.find(c => String(c.id) === String(currentChat.id));
@@ -165,7 +191,15 @@ useEffect(() => {
               : f
           ));
         }, 300);
-        
+ 
+
+  // Handle typing events
+
+
+  // Format typing indicator text
+
+
+ 
         // Upload file
         const uploadResponse = await fetch(uploadData.url, {
           method: 'PUT',
@@ -555,6 +589,99 @@ useEffect(() => {
     return Math.round(totalProgress / selectedFiles.length);
   };
 
+
+  // Handle input blur (when user stops focusing on input)
+
+        
+const getTypingText = useCallback((): string | null => {
+  if (!chatId) return null;
+  
+  const currentTypingUsers: TypingUser[] = typingUsers[chatId] || [];
+  
+  if (currentTypingUsers.length === 0) return null;
+  
+  // Get current user info from multiple sources for comparison
+  const currentUserIdFromStorage = localStorage.getItem('userId');
+  const currentUserNameFromStorage = localStorage.getItem('userName');
+  
+  // COMPREHENSIVE filtering - exclude current user by any identifier
+  const otherUsersTyping = currentTypingUsers.filter((user: TypingUser) => {
+    const isCurrentUser = user.userId === currentUserId ||
+                         user.userId === currentUserIdFromStorage ||
+                         user.userName === currentUserName ||
+                         user.userName === currentUserNameFromStorage ||
+                         user.userName === 'You';
+    
+    console.log('[TypingDebug] User filter check:', {
+      userId: user.userId,
+      userName: user.userName,
+      currentUserId,
+      currentUserIdFromStorage,
+      currentUserName,
+      currentUserNameFromStorage,
+      isCurrentUser,
+      willShow: !isCurrentUser
+    });
+    
+    return !isCurrentUser;
+  });
+  
+  console.log('[TypingDebug] Final typing users to display:', otherUsersTyping);
+  
+  if (otherUsersTyping.length === 0) return null;
+  
+  // Filter stale indicators
+  const now = Date.now();
+  const validTypingUsers = otherUsersTyping.filter(user => 
+    (now - user.timestamp) < 5000
+  );
+  
+  if (validTypingUsers.length === 0) return null;
+  
+  if (validTypingUsers.length === 1) {
+    return `${validTypingUsers[0].userName} is typing...`;
+  } else if (validTypingUsers.length === 2) {
+    return `${validTypingUsers[0].userName} and ${validTypingUsers[1].userName} are typing...`;
+  } else {
+    return `${validTypingUsers.length} people are typing...`;
+  }
+}, [chatId, typingUsers, currentUserId, currentUserName]);
+
+
+  // FIX: Enhanced input change handler with proper debouncing
+// In your input change handler
+const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const value = e.target.value;
+  setMessage(value);
+  
+  // Handle textarea auto-resize
+  const textarea = e.target;
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  
+  console.log('[TypingDebug] Input changed, calling handleUserTyping for chat:', chatId);
+  
+  // Notify other users about typing status
+  if (value.trim().length > 0) {
+    handleUserTyping(chatId, true);
+  } else {
+    handleUserTyping(chatId, false);
+  }
+}, [chatId, handleUserTyping]);
+
+  // FIX: Handle input blur properly
+  const handleInputBlur = useCallback(() => {
+    handleUserTyping(chatId, false);
+  }, [chatId, handleUserTyping]);
+
+  // FIX: Add cleanup for typing when component unmounts or chat changes
+  useEffect(() => {
+    return () => {
+      // Clear typing status when leaving chat
+      handleUserTyping(chatId, false);
+    };
+  }, [chatId, handleUserTyping]);
+  const typingText = getTypingText();
   return (
     <div className="flex flex-col h-screen bg-gray-50 relative">
       {/* Hidden file input */}
@@ -583,11 +710,26 @@ useEffect(() => {
               <Users size={18} className="text-white" />
             </div>
           )}
-          <div>
-            <h2 className="font-semibold text-gray-800">{currentChat.name}</h2>
-            <p className="text-sm text-gray-600">{getLastSeenText()}</p>
-          </div>
-        </div>
+          <div className="flex flex-col">
+      <h2 className="font-semibold text-gray-800">{currentChat.name}</h2>
+      <div className="flex items-center gap-2">
+        {/* Last seen text or typing indicator */}
+        {typingText ? (
+                <div className="flex items-center gap-1.5 text-green-600">
+                  <div className="flex space-x-0.5">
+                    <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-xs font-medium">{typingText}</span>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">{getLastSeenText()}</p>
+              )}
+      </div>
+    </div>
+  </div>
+
 
         <div className="flex items-center gap-2">
           <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
@@ -618,6 +760,20 @@ useEffect(() => {
           onDownloadFiles={handleDownloadFiles}
           isGroupChat={currentChat.conversationType?.toLowerCase() === 'group'}
         />
+        {typingText && (
+          <div className="px-4 py-2">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              </div>
+              <span>{typingText}</span>
+            </div>
+          </div>
+        )}
+      
+        
       </div>
 
       {/* Selected Files Preview */}
@@ -750,8 +906,17 @@ useEffect(() => {
               {currentChat.conversationType.toLowerCase() === 'group' ? (
                 <MentionInput
                   value={message}
-                  onChange={setMessage}
+                  onChange={(value) => {
+                    setMessage(value);
+                    // Handle typing for group chats
+                    if (value.trim().length > 0) {
+                      handleUserTyping(chatId, true);
+                    } else {
+                      handleUserTyping(chatId, false);
+                    }
+                  }}
                   onKeyPress={handleKeyPress}
+                  onBlur={handleInputBlur}
                   users={currentChat.participants.map(p => ({
                     id: p.id,
                     name: p.label,
@@ -767,8 +932,9 @@ useEffect(() => {
                     ref={textareaRef}
                     placeholder="Type a message..."
                     value={message}
-                    onChange={handleTextareaChange}
+                    onChange={handleInputChange}
                     onKeyPress={handleKeyPress}
+                    onBlur={handleInputBlur}
                     className="min-h-[44px] max-h-[80px] resize-none bg-gray-50 border border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 text-gray-900 placeholder-gray-400 rounded-2xl px-4 py-3 pr-12 w-full outline-none transition-all duration-200 text-sm leading-5"
                     style={{ paddingRight: '48px' }}
                     rows={1}

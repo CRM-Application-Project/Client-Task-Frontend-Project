@@ -9,6 +9,7 @@ interface MentionInputProps {
   onChange: (value: string) => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
   users: User[];
+  onBlur?: () => void;
   placeholder: string;
   onEmojiClick?: () => void;
 }
@@ -19,6 +20,7 @@ const MentionInput: React.FC<MentionInputProps> = ({
   onKeyPress,
   users,
   placeholder,
+  onBlur,
   onEmojiClick,
 }) => {
   const [showMentions, setShowMentions] = useState(false);
