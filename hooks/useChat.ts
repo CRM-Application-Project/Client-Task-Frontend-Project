@@ -525,45 +525,75 @@ const getLastMessageSenderId = (lastMessage: any): string => {
     }
   }, [currentUserId, isLoadingChats]);
   // NEW: Handle conversation events (CONVERSATION_CREATED, PARTICIPANT_ADDED) with enhanced validation
-  const handleConversationEvent = useCallback(async (event: ConversationEvent) => {
-    console.log('[ChatLayout] Processing conversation event:', event);
-    
-    // Apply enhanced event filtering
-    if (!shouldProcessFirebaseEvent(event, event.eventKey, event.conversationId)) {
-      console.log('[ChatLayout] Event filtered out, skipping processing');
+  // ENHANCED: Handle conversation events with proper delays and validation
+const handleConversationEvent = useCallback(async (event: ConversationEvent) => {
+  console.log('[ChatLayout] Processing conversation event:', event);
+  
+  // Apply enhanced event filtering
+  if (!shouldProcessFirebaseEvent(event, event.eventKey, event.conversationId)) {
+    console.log('[ChatLayout] Event filtered out, skipping processing');
+    return;
+  }
+  
+  // CRITICAL: Check if conversation already exists before creating
+  const existingChat = chats.find(chat => 
+      chat.id.toString() === event.conversationId.toString()
+  );
+  
+  if (existingChat) {
+      console.log('[ChatLayout] Conversation already exists, triggering sync instead of creation:', event.conversationId);
+      
+      // Wait a bit longer for Firebase to stabilize, then sync
+      setTimeout(async () => {
+          await synchronizeWithBackend(event.conversationId, true);
+      }, 1500);
       return;
-    }
-    
-    // CRITICAL: Check if conversation already exists before creating
-    const existingChat = chats.find(chat => 
-        chat.id.toString() === event.conversationId.toString()
-    );
-    
-    if (existingChat) {
-        console.log('[ChatLayout] Conversation already exists, triggering sync instead of creation:', event.conversationId);
-        
-        // Sync with backend to get latest state
-        await synchronizeWithBackend(event.conversationId, true);
-        return;
-    }
-    
-    // Only create new conversation if it doesn't exist
-    if (event.eventType === 'CONVERSATION_CREATED' || event.eventType === 'PARTICIPANT_ADDED') {
-        try {
-            console.log('[ChatLayout] Creating new conversation from event:', event.conversationId);
-            
-            // Refresh conversations to get the newly created conversation from backend
-            await loadMyConversations();
-            
-            // Sync specific conversation data
-            setTimeout(() => synchronizeWithBackend(event.conversationId), 500);
-            
-            console.log('[ChatLayout] Conversation creation handling completed');
-        } catch (error) {
-            console.error('[ChatLayout] Error handling conversation event:', error);
-        }
-    }
-  }, [chats, loadMyConversations, shouldProcessFirebaseEvent, synchronizeWithBackend]);
+  }
+  
+  // Only create new conversation if it doesn't exist
+  if (event.eventType === 'CONVERSATION_CREATED' || event.eventType === 'PARTICIPANT_ADDED') {
+      try {
+          console.log('[ChatLayout] Creating new conversation from event:', event.conversationId);
+          
+          // ENHANCED: Add progressive delays for better synchronization
+          
+          // Step 1: Wait for Firebase to fully propagate the event
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
+          // Step 2: Refresh conversations to get the newly created conversation from backend
+          await loadMyConversations();
+          
+          // Step 3: Wait a bit more for the conversation to be fully established
+          await new Promise(resolve => setTimeout(resolve, 700));
+          
+          // Step 4: Sync specific conversation data with longer delay
+          setTimeout(async () => {
+              try {
+                  console.log('[ChatLayout] Starting final sync for new conversation:', event.conversationId);
+                  await synchronizeWithBackend(event.conversationId, true);
+                  console.log('[ChatLayout] Final sync completed for conversation:', event.conversationId);
+              } catch (syncError) {
+                  console.error('[ChatLayout] Error in final sync:', syncError);
+                  // Retry once after another delay
+                  setTimeout(async () => {
+                      await synchronizeWithBackend(event.conversationId, true);
+                  }, 1000);
+              }
+          }, 1000);
+          
+          console.log('[ChatLayout] Conversation creation handling completed');
+      } catch (error) {
+          console.error('[ChatLayout] Error handling conversation event:', error);
+          
+          // Retry mechanism for failed event processing
+          setTimeout(async () => {
+              console.log('[ChatLayout] Retrying conversation event processing:', event.conversationId);
+              await loadMyConversations();
+              setTimeout(() => synchronizeWithBackend(event.conversationId, true), 1000);
+          }, 2000);
+      }
+  }
+}, [chats, loadMyConversations, shouldProcessFirebaseEvent, synchronizeWithBackend]);
 
   // Load users from API
   const loadUsers = useCallback(async () => {
