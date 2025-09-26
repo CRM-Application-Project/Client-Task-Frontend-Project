@@ -252,41 +252,56 @@ export const ChatLayout = () => {
   }, [deleteChat, selectedChat, chats, handleChatSelect, loadMyConversations]);
 
   // Handle group save (create or edit)
-  const handleGroupSave = useCallback(async (
+  // In your ChatLayout component
+const handleGroupSave = useCallback(async (
     groupData: { name: string; participants: ChatParticipant[] },
     mode: 'create' | 'edit',
     selectedChatForEdit?: Chat | null
-  ) => {
+) => {
     try {
-      console.log(`[ChatLayout] ${mode === 'create' ? 'Creating' : 'Editing'} group:`, groupData.name);
-      
-      if (mode === 'create') {
-        const participantIds = groupData.participants.map(p => p.id);
-        const newGroup = await createChat(groupData.name, participantIds, true);
-        if (newGroup) {
-          // Refresh conversations to get the updated list
-          await loadMyConversations();
-          // Select the newly created group
-          setTimeout(() => {
-            handleChatSelect(newGroup);
-          }, 100);
+        console.log(`[ChatLayout] ${mode === 'create' ? 'Creating' : 'Editing'} group:`, groupData.name);
+        
+        if (mode === 'create') {
+            // Enhanced duplicate check before creating
+            const participantIds = groupData.participants.map(p => p.id);
+            const existingGroup = chats.find(chat => 
+                chat.conversationType === 'group' &&
+                chat.name === groupData.name &&
+                chat.participants.length === participantIds.length &&
+                chat.participants.every(p => participantIds.includes(p.id))
+            );
+            
+            if (existingGroup) {
+                console.log('[ChatLayout] Group already exists, selecting existing:', existingGroup.id);
+                handleChatSelect(existingGroup);
+                return;
+            }
+            
+            const newGroup = await createChat(groupData.name, participantIds, true);
+            if (newGroup) {
+                // Small delay to ensure backend processing
+                await new Promise(resolve => setTimeout(resolve, 200));
+                // Refresh conversations to get the updated list
+                await loadMyConversations();
+                // Select the newly created group
+                handleChatSelect(newGroup);
+            }
+        } else if (selectedChatForEdit) {
+            // For editing, refresh conversations after edit
+            await loadMyConversations();
+            // Keep the same chat selected but with updated data
+            const updatedChat = chats.find(c => c.id === selectedChatForEdit.id);
+            if (updatedChat) {
+                handleChatSelect(updatedChat);
+            }
         }
-      } else if (selectedChatForEdit) {
-        // For editing, refresh conversations after edit
-        await loadMyConversations();
-        // Keep the same chat selected but with updated data
-        const updatedChat = chats.find(c => c.id === selectedChatForEdit.id);
-        if (updatedChat) {
-          handleChatSelect(updatedChat);
-        }
-      }
-      
-      console.log('[ChatLayout] Group operation completed successfully');
+        
+        console.log('[ChatLayout] Group operation completed successfully');
     } catch (err) {
-      console.error('[ChatLayout] Failed to save group:', err);
-      throw err; // Re-throw to allow the sidebar to handle the error
+        console.error('[ChatLayout] Failed to save group:', err);
+        throw err;
     }
-  }, [createChat, chats, handleChatSelect, loadMyConversations]);
+}, [createChat, chats, handleChatSelect, loadMyConversations]);
 
   // Handle search query changes
   const handleSearchChange = useCallback((query: string) => {
