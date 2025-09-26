@@ -343,23 +343,7 @@ const handleGroupSave = useCallback(async (
           <p className="text-gray-600">Initializing chat module...</p>
           <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
           {/* Debug info - remove in production */}
-          <div className="text-xs text-gray-400 mt-4 space-y-1">
-            <div>Initialized: {isInitialized ? 'Yes' : 'No'}</div>
-            <div>Loading: {loading ? 'Yes' : 'No'}</div>
-            <div>Loading Chats: {isLoadingChats ? 'Yes' : 'No'}</div>
-            <div>Loading Users: {isLoadingUsers ? 'Yes' : 'No'}</div>
-            <div>Current User: {currentUserId || 'None'}</div>
-            <button
-              onClick={() => {
-                console.log('[ChatLayout] Force proceeding...');
-                setIsInitialized(true);
-                setInitTimeout(true);
-              }}
-              className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-            >
-              Force Proceed
-            </button>
-          </div>
+         
         </div>
       </div>
     );
