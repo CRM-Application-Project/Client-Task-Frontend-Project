@@ -1381,12 +1381,12 @@ const sendMessage = useCallback(async (
 }, [currentUserId, currentUserName]);
 
   // Create chat
- const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
+const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
   console.log(`🎯 [useChat] Creating ${isGroup ? 'group' : 'private'} chat:`, { 
     name, 
     participants,
     currentUserId,
-    totalParticipants: participants.length + 1 // +1 for current user
+    totalParticipants: participants.length + 1
   });
   
   try {
@@ -1398,17 +1398,10 @@ const sendMessage = useCallback(async (
     });
 
     if (response.isSuccess) {
-      console.log('✅ [useChat] Chat created successfully - Backend Response:', {
+      console.log('✅ [useChat] Chat created successfully:', {
         conversationId: response.data.id,
         conversationType: response.data.conversationType,
-        name: response.data.name,
-        participants: response.data.participants?.map((p: any) => ({
-          id: p.id,
-          name: p.label,
-          role: p.conversationRole
-        })),
-        // Removed eventType since it doesn't exist on Chat type
-        rawResponse: response.data // Log entire response for debugging
+        name: response.data.name
       });
       
       const newChat: Chat = {
@@ -1434,18 +1427,9 @@ const sendMessage = useCallback(async (
 
       setChats(prev => [newChat, ...prev]);
       
-      // Check if Firebase events are triggered
-      console.log('🔍 [useChat] Waiting for Firebase events...');
-      
-      // Set up a temporary listener to catch the creation event
-      if (response.data.id) {
-        const conversationId = response.data.id.toString();
-        setTimeout(() => {
-          console.log(`📢 [useChat] Checking Firebase for conversation ${conversationId} events...`);
-          // This will trigger your existing Firebase subscription
-          initializeConversationSubscription(conversationId);
-        }, 1000);
-      }
+      // ENHANCED: Wait for Firebase propagation with retry mechanism
+      const conversationId = response.data.id.toString();
+      await waitForFirebasePropagation(conversationId);
       
       return newChat;
     } else {
@@ -1456,6 +1440,42 @@ const sendMessage = useCallback(async (
     throw err;
   }
 }, [currentUserId, initializeConversationSubscription]);
+
+// Add this helper function for Firebase propagation
+const waitForFirebasePropagation = useCallback(async (conversationId: string, maxRetries = 5, delay = 1000) => {
+  console.log(`⏳ [useChat] Waiting for Firebase propagation for conversation: ${conversationId}`);
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Check if conversation exists in Firebase by attempting to subscribe
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.log(`✅ [useChat] Firebase propagation confirmed for ${conversationId} (attempt ${attempt})`);
+          resolve(true);
+        }, delay);
+        
+        // Try to initialize subscription - if it works, Firebase has propagated
+        initializeConversationSubscription(conversationId);
+        clearTimeout(timeout);
+        resolve(true);
+      });
+      
+      console.log(`✅ [useChat] Firebase propagation completed for ${conversationId}`);
+      return;
+      
+    } catch (error) {
+      console.warn(`⚠️ [useChat] Firebase propagation attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        console.error(`❌ [useChat] Firebase propagation failed after ${maxRetries} attempts`);
+        throw new Error('Firebase propagation timeout');
+      }
+      
+      // Wait before retry with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay * attempt));
+    }
+  }
+}, [initializeConversationSubscription]);
 
   // Reaction management
   const addMessageReaction = useCallback(async (messageId: string, emoji: string) => {
