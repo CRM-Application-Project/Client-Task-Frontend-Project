@@ -8,6 +8,7 @@ import { getConversation } from '@/app/services/chatService';
 export interface FirebaseMessage {
   id: string;
   content: string;
+  status: 'SENT' | 'DELIVERED' | 'READ';
   senderId: string;
   senderName: string;
   timestamp: string;
@@ -133,14 +134,9 @@ class FirebaseChatService {
 
   // Handle typing events from Firebase
  // In FirebaseChatService - fix the handleTypingEvent method
+// In FirebaseChatService - fix the handleTypingEvent method
 private handleTypingEvent(typingData: any): void {
-  console.log('[FirebaseChat] Raw typing event received:', {
-    eventType: typingData.eventType,
-    triggeredUserId: typingData.triggeredUserId,
-    triggeredUserName: typingData.triggeredUserName,
-    currentUserId: this.currentUserId,
-    conversationId: typingData.conversationId
-  });
+  console.log('🔔 [FirebaseChat] RAW TYPING DATA:', typingData);
   
   const conversationId = typingData.conversationId?.toString();
   if (!conversationId) {
@@ -148,48 +144,83 @@ private handleTypingEvent(typingData: any): void {
     return;
   }
 
-  // CRITICAL: Multiple ways to identify the triggering user
+  // CRITICAL: Only process if isTyping is true
+  // This prevents stale "stopped typing" events from being stored
+  if (!typingData.isTyping) {
+    console.log('[FirebaseChat] User stopped typing, will be handled by timeout');
+    // Still dispatch to remove from UI
+    const typingEvent: FirebaseTypingEvent = {
+      eventType: 'USER_STOPPED_TYPING',
+      conversationId: conversationId,
+      conversationType: typingData.conversationType || 'PRIVATE',
+      isTyping: false,
+      triggeredByUserId: typingData.triggeredUserId || typingData.triggeredByUserId || typingData.senderId,
+      triggeredUserName: typingData.triggeredUserName || typingData.senderName || 'Unknown User',
+      timestamp: typingData.timestamp || new Date().toISOString(),
+      metadata: typingData.metadata || {}
+    };
+    
+    const typingCallback = this.typingCallbacks.get(conversationId);
+    if (typingCallback) {
+      typingCallback(typingEvent);
+    }
+    return;
+  }
+
+  // Get the triggering user ID from multiple possible fields
   const triggeredUserId = typingData.triggeredUserId || 
                          typingData.triggeredByUserId || 
                          typingData.senderId;
   
+  const triggeredUserName = typingData.triggeredUserName || 
+                           typingData.senderName || 
+                           'Unknown User';
+
+  // Get current user info for comparison
+  const currentUserId = this.currentUserId || localStorage.getItem('userId') || '';
+  const currentUserName = localStorage.getItem('userName') || '';
+
   // STRICT FILTERING: Block ALL variations of own user ID
-  if (triggeredUserId === this.currentUserId || 
-      triggeredUserId === localStorage.getItem('userId') ||
-      typingData.triggeredUserName === localStorage.getItem('userName')) {
-    
+  const isOwnEvent = 
+    triggeredUserId === currentUserId ||
+    triggeredUserId === currentUserName ||
+    triggeredUserName === currentUserId ||
+    triggeredUserName === currentUserName;
+  
+  if (isOwnEvent) {
     console.log(`[FirebaseChat] 🚫 BLOCKED OWN TYPING EVENT:`, {
       triggeredUserId,
-      currentUserId: this.currentUserId,
-      storageUserId: localStorage.getItem('userId'),
-      triggeredUserName: typingData.triggeredUserName,
-      storageUserName: localStorage.getItem('userName')
+      triggeredUserName,
+      currentUserId,
+      currentUserName,
+      eventType: typingData.eventType
     });
-    return; // EXIT EARLY - Don't process own typing events
+    return;
   }
 
-  // Only process events from OTHER users
-  console.log(`[FirebaseChat] ✅ PROCESSING typing from OTHER user:`, {
+  console.log(`[FirebaseChat] ✅ PROCESSING TYPING FROM OTHER USER:`, {
+    conversationId,
     triggeredUserId,
-    triggeredUserName: typingData.triggeredUserName,
-    currentUserId: this.currentUserId,
-    isTyping: typingData.isTyping
+    triggeredUserName,
+    isTyping: typingData.isTyping,
+    eventType: typingData.eventType
   });
 
   const typingEvent: FirebaseTypingEvent = {
     eventType: typingData.isTyping ? 'USER_TYPING' : 'USER_STOPPED_TYPING',
     conversationId: conversationId,
     conversationType: typingData.conversationType || 'PRIVATE',
-    isTyping: typingData.isTyping,
+    isTyping: Boolean(typingData.isTyping),
     triggeredByUserId: triggeredUserId,
-    triggeredUserName: typingData.triggeredUserName || 'Unknown User',
+    triggeredUserName: triggeredUserName,
     timestamp: typingData.timestamp || new Date().toISOString(),
     metadata: typingData.metadata || {}
   };
   
+  // Dispatch to the UI
   const typingCallback = this.typingCallbacks.get(conversationId);
   if (typingCallback) {
-    console.log(`[FirebaseChat] Dispatching typing event to UI...`);
+    console.log(`[FirebaseChat] 📢 Dispatching typing event to UI callback`);
     try {
       typingCallback(typingEvent);
     } catch (error) {
@@ -197,6 +228,7 @@ private handleTypingEvent(typingData: any): void {
     }
   } else {
     console.warn(`[FirebaseChat] No typing callback for conversation ${conversationId}`);
+    console.log(`[FirebaseChat] Available typing callbacks:`, Array.from(this.typingCallbacks.keys()));
   }
 }
   initialize(userId: string): void {
@@ -623,7 +655,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
   /**
    * Conversation subscription with proper real-time updates
    */
- subscribeToConversationMessages(
+subscribeToConversationMessages(
   conversationId: string, 
   onMessagesUpdate: (messages: FirebaseMessage[]) => void
 ): () => void {
@@ -637,6 +669,9 @@ private isUserParticipantInConversation(conversationId: string): boolean {
   this.messageCallbacks.set(conversationId, onMessagesUpdate);
 
   const eventsRef = ref(this.database, `conversations/${conversationId}/events`);
+  
+  // Track subscription start time
+  const subscriptionStartTime = Date.now();
 
   const listener = onValue(eventsRef, async (snapshot: DataSnapshot) => {
     const data = snapshot.val();
@@ -650,37 +685,45 @@ private isUserParticipantInConversation(conversationId: string): boolean {
           
           // ENHANCED TYPING EVENT FILTERING
           if (eventData.eventType === 'USER_TYPING' || eventData.eventType === 'USER_STOPPED_TYPING') {
+            const eventTimestamp = eventData.timestamp ? new Date(eventData.timestamp).getTime() : 0;
+            const eventAge = Date.now() - eventTimestamp;
+            
+            // CRITICAL FIX: Ignore typing events older than 10 seconds OR from before subscription
+            if (eventAge > 10000 || eventTimestamp < subscriptionStartTime) {
+              console.log(`[Firebase] 🚫 IGNORING STALE typing event:`, {
+                eventKey,
+                eventAge: `${Math.round(eventAge / 1000)}s old`,
+                beforeSubscription: eventTimestamp < subscriptionStartTime,
+                triggeredBy: eventData.triggeredUserId
+              });
+              return; // Skip this stale event
+            }
+            
             const triggeredUserId = eventData.triggeredUserId || 
                                    eventData.triggeredByUserId || 
                                    eventData.senderId;
             
-            // MULTIPLE CHECKS to ensure we don't process own events
             const isOwnEvent = triggeredUserId === this.currentUserId ||
                               triggeredUserId === localStorage.getItem('userId') ||
                               eventData.triggeredUserName === localStorage.getItem('userName');
             
             if (isOwnEvent) {
-              console.log(`[Firebase] 🚫 FILTERING OUT own typing event:`, {
-                eventKey,
-                triggeredUserId,
-                currentUserId: this.currentUserId,
-                eventType: eventData.eventType
-              });
-              return; // Skip processing
+              console.log(`[Firebase] 🚫 FILTERING OUT own typing event`);
+              return;
             }
             
-            console.log(`[Firebase] ✅ Processing typing from OTHER user:`, {
+            console.log(`[Firebase] ✅ Processing FRESH typing event:`, {
               eventKey,
               triggeredUserId,
-              currentUserId: this.currentUserId,
-              isTyping: eventData.isTyping
+              isTyping: eventData.isTyping,
+              eventAge: `${Math.round(eventAge / 1000)}s old`
             });
             
             this.handleTypingEvent(eventData);
             return;
           }
 
-          // Handle other event types (messages, reactions, etc.)
+          // Rest of your existing event handling...
           if (eventData.eventType === 'REACTION_ADDED' || eventData.eventType === 'REACTION_REMOVED') {
             this.handleReactionEvent(eventData);
             return;
@@ -1031,6 +1074,7 @@ private isUserParticipantInConversation(conversationId: string): boolean {
       hasMentions: messageData.hasMentions || false,
       hasAttachments: messageData.hasAttachments || false,
       eventType: messageData.eventType,
+      status: messageData.status || 'SENT',
       metadata: {
         ...messageData.metadata,
         parentId: parentId || messageData.metadata?.parentId

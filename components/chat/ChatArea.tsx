@@ -67,6 +67,7 @@ export const ChatArea = ({ chat, chatId }: ChatAreaProps) => {
     getMessageReceiptsById,
     users,
     chats,
+    setTypingUsers,
     addChatParticipants,
     removeChatParticipants,
     changeParticipantRoleInGroup,
@@ -76,7 +77,7 @@ export const ChatArea = ({ chat, chatId }: ChatAreaProps) => {
   } = useChat();
 
   console.log('[ChatArea] Rendered with chat:', chat.id, 'chatId:', chatId, 'activeConversationId:', activeConversationId);
-
+const currentTypingUsers = getTypingUsers(chatId);
   // Get messages for current chat
   const chatMessages = messages[chatId] || [];
 const debugMessageLoading = useCallback(() => {
@@ -90,6 +91,18 @@ const debugMessageLoading = useCallback(() => {
   useEffect(() => {
     setCurrentChat(chat);
   }, [chat]);
+  // Clear typing indicators when chat opens
+useEffect(() => {
+  if (chatId) {
+    console.log(`[ChatArea] Clearing typing indicators for new chat: ${chatId}`);
+    // Force clear any stale typing state
+    setTypingUsers(prev => {
+      const updated = { ...prev };
+      delete updated[chatId];
+      return updated;
+    });
+  }
+}, [chatId]); // Only run when chatId changes
 // Add this debug useEffect to your ChatArea component
 useEffect(() => {
   if (chatId && typingUsers[chatId]) {
@@ -591,7 +604,20 @@ useEffect(() => {
 
 
   // Handle input blur (when user stops focusing on input)
-
+// Clear typing indicators when component unmounts or chat changes
+useEffect(() => {
+  // Clear typing indicators for this chat when opening
+  console.log(`[ChatArea] Clearing typing indicators on mount for chat: ${chatId}`);
+  
+  // Use the actual state setter function from useChat if available
+  // Otherwise this is just for logging
+  
+  return () => {
+    console.log(`[ChatArea] Component unmounting, stopping typing for chat: ${chatId}`);
+    // Notify that we stopped typing
+    handleUserTyping(chatId, false);
+  };
+}, [chatId, handleUserTyping]);
         
 const getTypingText = useCallback((): string | null => {
   if (!chatId) return null;
@@ -600,50 +626,48 @@ const getTypingText = useCallback((): string | null => {
   
   if (currentTypingUsers.length === 0) return null;
   
-  // Get current user info from multiple sources for comparison
+  // Get current user info
   const currentUserIdFromStorage = localStorage.getItem('userId');
   const currentUserNameFromStorage = localStorage.getItem('userName');
   
-  // COMPREHENSIVE filtering - exclude current user by any identifier
+  // Filter out current user AND stale indicators (older than 5 seconds)
+  const now = Date.now();
   const otherUsersTyping = currentTypingUsers.filter((user: TypingUser) => {
+    // Check if it's current user
     const isCurrentUser = user.userId === currentUserId ||
                          user.userId === currentUserIdFromStorage ||
                          user.userName === currentUserName ||
                          user.userName === currentUserNameFromStorage ||
                          user.userName === 'You';
     
-    console.log('[TypingDebug] User filter check:', {
+    // Check if indicator is stale (older than 5 seconds)
+    const isStale = (now - user.timestamp) > 5000;
+    
+    const shouldShow = !isCurrentUser && !isStale;
+    
+    console.log('[TypingDebug] Filter check:', {
       userId: user.userId,
       userName: user.userName,
-      currentUserId,
-      currentUserIdFromStorage,
-      currentUserName,
-      currentUserNameFromStorage,
+      timestamp: user.timestamp,
+      age: now - user.timestamp,
       isCurrentUser,
-      willShow: !isCurrentUser
+      isStale,
+      shouldShow
     });
     
-    return !isCurrentUser;
+    return shouldShow;
   });
   
-  console.log('[TypingDebug] Final typing users to display:', otherUsersTyping);
+  console.log('[TypingDebug] Valid typing users:', otherUsersTyping);
   
   if (otherUsersTyping.length === 0) return null;
   
-  // Filter stale indicators
-  const now = Date.now();
-  const validTypingUsers = otherUsersTyping.filter(user => 
-    (now - user.timestamp) < 5000
-  );
-  
-  if (validTypingUsers.length === 0) return null;
-  
-  if (validTypingUsers.length === 1) {
-    return `${validTypingUsers[0].userName} is typing...`;
-  } else if (validTypingUsers.length === 2) {
-    return `${validTypingUsers[0].userName} and ${validTypingUsers[1].userName} are typing...`;
+  if (otherUsersTyping.length === 1) {
+    return `${otherUsersTyping[0].userName} is typing...`;
+  } else if (otherUsersTyping.length === 2) {
+    return `${otherUsersTyping[0].userName} and ${otherUsersTyping[1].userName} are typing...`;
   } else {
-    return `${validTypingUsers.length} people are typing...`;
+    return `${otherUsersTyping.length} people are typing...`;
   }
 }, [chatId, typingUsers, currentUserId, currentUserName]);
 
@@ -683,7 +707,7 @@ const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>
   }, [chatId, handleUserTyping]);
   const typingText = getTypingText();
   return (
-    <div className="flex flex-col h-screen bg-gray-50 relative">
+    <div className="flex flex-col h-full bg-gray-50 relative">
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -721,7 +745,11 @@ const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>
                     <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                     <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
-                  <span className="text-xs font-medium">{typingText}</span>
+                  {currentChat.conversationType.toLowerCase() === 'group' ? (
+            <span className="text-xs">{typingText}</span>
+          ) : (
+            <span className="text-xs">typing...</span>
+          )}
                 </div>
               ) : (
                 <p className="text-sm text-gray-600">{getLastSeenText()}</p>
@@ -760,18 +788,24 @@ const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>
           onDownloadFiles={handleDownloadFiles}
           isGroupChat={currentChat.conversationType?.toLowerCase() === 'group'}
         />
-        {typingText && (
-          <div className="px-4 py-2">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              </div>
-              <span>{typingText}</span>
-            </div>
-          </div>
-        )}
+       {typingText ? (
+      <div className="flex items-center gap-1.5 text-green-600">
+        <div className="flex space-x-0.5">
+          <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce"></div>
+          <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+        </div>
+        <span className="text-xs font-medium">
+          {currentChat.conversationType.toLowerCase() === 'group' ? (
+            <span>{typingText}</span>
+          ) : (
+            <span>typing...</span>
+          )}
+        </span>
+      </div>
+    ) : (
+     ''
+    )}
       
         
       </div>

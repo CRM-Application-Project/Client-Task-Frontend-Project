@@ -7,7 +7,6 @@ import { Chat, ChatParticipant } from "@/app/services/chatService";
 import { useChat } from "@/hooks/useChat";
 import { DashboardLayout } from "../layout/dashboard-layout";
 
-// Default welcome screen component
 const WelcomeScreen = () => {
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 px-8">
@@ -372,8 +371,8 @@ const handleGroupSave = useCallback(async (
 
 
   return (
-    <DashboardLayout>
-    <div className="flex h-screen bg-background">
+    <DashboardLayout noPadding={true}>
+    <div className="flex h-full bg-background">
       {/* Sidebar */}
       <div className="w-80 bg-chat-sidebar border-r border-chat-border flex flex-col">
         <Sidebar 
