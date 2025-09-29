@@ -43,8 +43,8 @@ interface LeadColumnProps {
   onStageReorder?: (reorderedStages: LeadStage[]) => void;
 }
 
-// Dynamic color assignment based on stage position
-const getStageColors = (stageIndex?: number) => {
+// Consistent color assignment based on stage ID
+const getStageColors = (stageId?: string) => {
   const stageColorsByPosition = [
     { color: "bg-slate-600", textColor: "text-white" },
     { color: "bg-blue-600", textColor: "text-white" },
@@ -58,8 +58,17 @@ const getStageColors = (stageIndex?: number) => {
     { color: "bg-orange-600", textColor: "text-white" },
   ];
 
-  // Use stageIndex if provided, otherwise default to 0
-  const colorIndex = (stageIndex || 0) % stageColorsByPosition.length;
+  // Simple hash function for string to number
+  function hashString(str: string = "") {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  }
+
+  const colorIndex = stageId ? hashString(stageId) % stageColorsByPosition.length : 0;
   return stageColorsByPosition[colorIndex];
 };
 
@@ -273,7 +282,7 @@ export const LeadColumn = ({
   const columnRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
-  const stageColors = getStageColors(stageIndex);
+  const stageColors = getStageColors(currentStage.leadStageId);
   const { permissions, loading: permissionsLoading } =
     usePermissions("lead_stage");
 

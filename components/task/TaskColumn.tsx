@@ -211,9 +211,9 @@ const EditStageModal = ({
   );
 };
 
-// Dynamic color assignment based on stage position in the array
-const getStageColors = (stageIndex: number, stageName: string) => {
-  const stageColorsByPosition = [
+// Assign color based on stage id so color remains the same after swapping columns
+const getStageColors = (stageId: number, stageName: string) => {
+  const stageColorsById = [
     { color: "bg-slate-600", textColor: "text-white" },
     { color: "bg-blue-600", textColor: "text-white" },
     { color: "bg-amber-600", textColor: "text-white" },
@@ -225,9 +225,9 @@ const getStageColors = (stageIndex: number, stageName: string) => {
     { color: "bg-teal-600", textColor: "text-white" },
     { color: "bg-orange-600", textColor: "text-white" },
   ];
-
-  const colorIndex = stageIndex % stageColorsByPosition.length;
-  return stageColorsByPosition[colorIndex];
+  // Use stageId to assign color, fallback to index if needed
+  const colorIndex = stageId % stageColorsById.length;
+  return stageColorsById[colorIndex];
 };
 
 export const TaskColumn = ({
@@ -267,7 +267,7 @@ export const TaskColumn = ({
   const [isColumnDraggedOver, setIsColumnDraggedOver] = useState(false);
 
   const { toast } = useToast();
-  const stageColors = getStageColors(stageIndex, stage.name);
+  const stageColors = getStageColors(stage.id, stage.name);
   const dragCounterRef = useRef(0);
   const { permissions: stagePermissions, loading: stagePermissionsLoading } =
     usePermissions("task_stage");

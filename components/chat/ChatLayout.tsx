@@ -5,6 +5,7 @@ import { ChatArea } from "./ChatArea";
 import Sidebar from "./Sidebar";
 import { Chat, ChatParticipant } from "@/app/services/chatService";
 import { useChat } from "@/hooks/useChat";
+import { DashboardLayout } from "../layout/dashboard-layout";
 
 // Default welcome screen component
 const WelcomeScreen = () => {
@@ -369,7 +370,9 @@ const handleGroupSave = useCallback(async (
     );
   }
 
+
   return (
+    <DashboardLayout>
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <div className="w-80 bg-chat-sidebar border-r border-chat-border flex flex-col">
@@ -403,5 +406,6 @@ const handleGroupSave = useCallback(async (
         )}
       </div>
     </div>
+    </DashboardLayout>
   );
 };

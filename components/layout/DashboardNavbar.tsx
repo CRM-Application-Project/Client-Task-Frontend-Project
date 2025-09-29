@@ -1,11 +1,11 @@
 "use client";
-import { Bell, Menu, X, RefreshCw, Trash2, Archive, AlertCircle, CheckCircle, Info, Star } from "lucide-react";
+import { Bell, Menu, X, RefreshCw, Trash2, Archive, AlertCircle, CheckCircle, Info, Star, MessageCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react"; // Added useRef
 import { useRouter, usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 import { logoutUser } from "@/app/services/data.service";
-import { useNotifications } from "@/hooks/useNotificationsGlobal"; // Use the FIXED hook
+import { useNotifications } from "@/hooks/useNotificationsGlobal";
 
 interface UserData {
   firstName: string;
@@ -30,6 +30,7 @@ const getPageTitle = (pathname: string): string => {
     department: "Departments",
     profile: "Profile",
     settings: "Settings",
+    chat: "Chat", // Added chat
   };
 
   return (
@@ -104,6 +105,14 @@ const getModuleStyle = (module: string) => {
       gradientFrom: 'from-indigo-500',
       gradientTo: 'to-indigo-600'
     },
+    'CHAT': { 
+      color: 'text-teal-700', 
+      bgColor: 'bg-gradient-to-br from-teal-50 to-teal-100', 
+      icon: <MessageCircle className="h-4 w-4" />,
+      borderColor: 'border-teal-200',
+      gradientFrom: 'from-teal-500',
+      gradientTo: 'to-teal-600'
+    },
     'DEFAULT': { 
       color: 'text-gray-700', 
       bgColor: 'bg-gradient-to-br from-gray-50 to-gray-100', 
@@ -124,9 +133,12 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFetchingNotifications, setIsFetchingNotifications] = useState(false); // New state for fetch
+  const [persistedNotifications, setPersistedNotifications] = useState<any[]>([]); // For localStorage notifications
   
   const router = useRouter();
   const pathname = usePathname();
+  const notificationDropdownRef = useRef<HTMLDivElement>(null); // Added ref for dropdown
 
   // CRITICAL: Use only ONE instance of the hook - removed markAsRead, markAllAsRead
   const {
@@ -140,6 +152,29 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     fetchNotifications
   } = useNotifications();
 
+  // Load notifications from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('notifications');
+    if (stored) {
+      try {
+        setPersistedNotifications(JSON.parse(stored));
+      } catch (e) {
+        setPersistedNotifications([]);
+      }
+    }
+  }, []);
+
+  // Save notifications to localStorage whenever they change
+  useEffect(() => {
+    if (notifications && notifications.length > 0) {
+      localStorage.setItem('notifications', JSON.stringify(notifications));
+      setPersistedNotifications(notifications);
+    } else if (notifications && notifications.length === 0) {
+      localStorage.removeItem('notifications');
+      setPersistedNotifications([]);
+    }
+  }, [notifications]);
+
   useEffect(()=>{
     console.log("Notifications updated:", notifications);
   })
@@ -147,8 +182,8 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   // Get the current page title
   const pageTitle = getPageTitle(pathname);
 
-  // Display only first 8 notifications in dropdown, rest will be scrollable
-  const displayedNotifications = notifications;
+  // Display notifications from state or localStorage
+  const displayedNotifications = notifications && notifications.length > 0 ? notifications : persistedNotifications;
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -167,12 +202,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
    
   const handleEnableNotifications = async () => {
     if (!userId) {
-      await Swal.fire({
-        title: "Error",
-        text: "User information not available. Please refresh and try again.",
-        icon: "error",
-        customClass: { popup: "rounded-lg shadow-xl" },
-      });
       return;
     }
 
@@ -198,30 +227,9 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       
       if (result.success) {
         localStorage.setItem('lastNotificationEnabled', Date.now().toString());
-        await Swal.fire({
-          title: "Notifications Enabled!",
-          text: "You will now receive push notifications for important updates.",
-          icon: "success",
-          timer: 2000,
-          showConfirmButton: false,
-          customClass: { popup: "rounded-lg shadow-xl" },
-        });
-      } else {
-        await Swal.fire({
-          title: "Notification Setup Failed",
-          text: result.message,
-          icon: "error",
-          customClass: { popup: "rounded-lg shadow-xl" },
-        });
       }
     } catch (error) {
-      console.error("Error enabling notifications:", error);
-      await Swal.fire({
-        title: "Error",
-        text: "An unexpected error occurred while enabling notifications.",
-        icon: "error",
-        customClass: { popup: "rounded-lg shadow-xl" },
-      });
+      // Handle error silently
     } finally {
       setIsEnablingNotifications(false);
     }
@@ -238,14 +246,17 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     }
 
     setIsRefreshing(true);
+    setIsFetchingNotifications(true);
     try {
       localStorage.setItem('lastNotificationRefresh', Date.now().toString());
       await fetchNotifications();
-      // Optional: Show success feedback
-      setTimeout(() => setIsRefreshing(false), 500); // Minimum feedback time
     } catch (error) {
       console.error('Error refreshing notifications:', error);
-      setIsRefreshing(false);
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setIsFetchingNotifications(false);
+      }, 500);
     }
   };
 
@@ -268,6 +279,10 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
         case 'department':
         case 'departments':
           router.push('/department');
+          break;
+        case 'chat': // ADDED CHAT CASE
+        case 'chats':
+          router.push('/chat-module'); // Navigate to chat module
           break;
         default:
           console.log("Unknown notification module:", notification.module);
@@ -292,12 +307,24 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
             router.push(`/leads/${notification.data.leadId}`);
           }
           break;
+        case 'open_chat': // ADDED CHAT ACTION
+          if (notification.data.chatId) {
+            router.push(`/chat-module/${notification.data.chatId}`);
+          } else {
+            router.push('/chat-module');
+          }
+          break;
         default:
           console.log("Unknown notification action:", notification.data.action);
       }
     }
 
     setIsNotificationDropdownOpen(false);
+  };
+
+  // FIX: Prevent scroll propagation
+  const handleDropdownScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.stopPropagation();
   };
 
   const handleCloseNotificationDropdown = () => {
@@ -338,7 +365,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
           localStorage.removeItem(k)
         );
         
-        // Dispatch logout event to cleanup notifications
         window.dispatchEvent(new CustomEvent('user-logout'));
         
         router.push("/");
@@ -348,7 +374,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
           localStorage.removeItem(k)
         );
         
-        // Dispatch logout event
         window.dispatchEvent(new CustomEvent('user-logout'));
         
         router.push("/");
@@ -359,7 +384,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
         localStorage.removeItem(k)
       );
       
-      // Dispatch logout event
       window.dispatchEvent(new CustomEvent('user-logout'));
       
       router.push("/");
@@ -395,32 +419,34 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
       <div className="flex items-center gap-4">
         {/* Notification Bell */}
         <div className="relative">
-    
-<button 
-  onClick={() => {
-    if (permission === 'granted') {
-      setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
-    } else {
-      handleEnableNotifications();
-    }
-  }}
-  className="relative rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none transition-all duration-200 hover:scale-105"
-  // REMOVE the disabled attribute entirely or fix the condition
-  style={{ cursor: (isEnablingNotifications || isNotificationsLoading) ? 'not-allowed' : 'pointer' }}
->
-  <Bell className="h-5 w-5" />
-  {unreadCount > 0 && (
-    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-xs text-white flex items-center justify-center font-bold shadow-lg animate-pulse">
-      {unreadCount > 9 ? '9+' : unreadCount}
-    </span>
-  )}
-</button>
+          <button 
+            onClick={() => {
+              if (permission === 'granted') {
+                setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
+              } else {
+                handleEnableNotifications();
+              }
+            }}
+            className="relative rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none transition-all duration-200 hover:scale-105"
+            style={{ cursor: (isEnablingNotifications || isNotificationsLoading) ? 'not-allowed' : 'pointer' }}
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-xs text-white flex items-center justify-center font-bold shadow-lg animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
 
           {/* Enhanced Notification Dropdown */}
           {isNotificationDropdownOpen && permission === 'granted' && (
-            <div className="absolute right-0 mt-3 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 max-h-[600px] overflow-hidden backdrop-blur-sm">
+            <div 
+              ref={notificationDropdownRef} // Added ref
+              className="absolute right-0 mt-3 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 max-h-[600px] overflow-hidden backdrop-blur-sm"
+              onWheel={handleDropdownScroll} // FIX: Prevent scroll propagation
+            >
               {/* Enhanced Header with Gradient */}
-              <div className="sticky top-0 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-100 px-6 py-4">
+              <div className="sticky top-0 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-100 px-6 py-4 z-10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
@@ -462,20 +488,23 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 </div>
               </div>
               
-              {/* Loading State */}
-              {isNotificationsLoading && (
+              {/* Loading State (show if loading or refreshing) */}
+              {(isNotificationsLoading || isFetchingNotifications) && (
                 <div className="p-8 text-center">
                   <div className="relative">
                     <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500 mx-auto"></div>
                     <div className="absolute inset-0 rounded-full h-12 w-12 border-4 border-transparent border-t-purple-500 mx-auto animate-spin" style={{animationDelay: '-0.15s'}}></div>
                   </div>
-                  <p className="text-gray-600 text-sm mt-4 font-medium">Loading your notifications...</p>
+                  <p className="text-gray-600 text-sm mt-4 font-medium">Refreshing notifications...</p>
                 </div>
               )}
               
-              {/* Enhanced Notifications List */} 
-              {!isNotificationsLoading && (
-                <div className="max-h-[300px] overflow-y-auto">
+              {/* Enhanced Notifications List */}
+              {!isNotificationsLoading && !isFetchingNotifications && (
+                <div 
+                  className="max-h-[300px] overflow-y-auto"
+                  onWheel={handleDropdownScroll}
+                >
                   {notifications.length === 0 ? (
                     <div className="p-8 text-center">
                       <div className="relative mb-6">
@@ -495,7 +524,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                     <div className="divide-y divide-gray-50">
                       {displayedNotifications.map((notification, index) => {
                         const moduleStyle = getModuleStyle(notification.module || 'DEFAULT');
-                        
                         return (
                           <div
                             key={notification.id}
@@ -508,7 +536,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                               <div className={`flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${moduleStyle.gradientFrom} ${moduleStyle.gradientTo} flex items-center justify-center text-white shadow-md`}>
                                 {moduleStyle.icon}
                               </div>
-                              
                               {/* Content */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-3 mb-1">
@@ -521,11 +548,9 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                                     </span>
                                   )}
                                 </div>
-                                
                                 <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-2">
                                   {notification.body}
                                 </p>
-                                
                                 <div className="flex items-center justify-between">
                                   <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 font-medium">
                                     <svg className="w-1 h-1 fill-current" viewBox="0 0 4 4">
@@ -533,7 +558,6 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                                     </svg>
                                     {formatNotificationTime(notification.timestamp)}
                                   </span>
-                                  
                                   {/* Remove button */}
                                   <button
                                     onClick={(e) => {
@@ -560,7 +584,10 @@ export function DashboardNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
           {/* Enhanced Permission Request */}
           {isNotificationDropdownOpen && permission !== 'granted' && (
-            <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+            <div 
+              className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+              onWheel={handleDropdownScroll} // FIX: Also prevent scroll on permission dropdown
+            >
               <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8 text-center">
                 <div className="relative mb-6">
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">

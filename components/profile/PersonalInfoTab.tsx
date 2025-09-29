@@ -20,11 +20,31 @@ export interface StoredUserData {
   phoneNumber: string | null;
 }
 
+// Enhanced phone number validation
+const phoneNumberValidation = z.string()
+  .min(1, 'Phone number is required')
+  .refine((val) => /^\d+$/.test(val), 'Phone number must contain only digits')
+  .refine((val) => val.length === 10, 'Phone number must be exactly 10 digits')
+  .nullable();
+
+// Name validation: only letters and spaces
+const nameValidation = z.string()
+  .min(2, 'Name must be at least 2 characters')
+  .refine((val) => /^[A-Za-z ]+$/.test(val), 'Name must contain only letters and spaces');
+
+// Email validation: stricter regex for common TLDs
+const emailValidation = z.string()
+  .min(1, 'Email is required')
+  .refine((val) => {
+    // Accept only .com, .net, .org, .in, .co, .edu, .gov, .io, .me, .info, .biz, .us, .uk, .ca, .au, .co.in, .co.uk
+    return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(com|net|org|in|co|edu|gov|io|me|info|biz|us|uk|ca|au|co\.in|co\.uk)$/.test(val);
+  }, 'Please enter a valid email address with a common TLD');
+
 const personalInfoSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  emailAddress: z.string().email('Please enter a valid email address'),
-  phoneNumber: z.string().min(1, 'Phone number is required').nullable(),
+  firstName: nameValidation,
+  lastName: nameValidation,
+  emailAddress: emailValidation,
+  phoneNumber: phoneNumberValidation,
   birthday: z.date().optional(),
 });
 
@@ -58,6 +78,7 @@ export function PersonalInfoTab() {
       phoneNumber: storedUser?.phoneNumber || '',
       birthday: undefined,
     },
+    mode: 'onChange', // Validate on change for real-time feedback
   });
 
   // Store initial form values on mount
@@ -110,6 +131,29 @@ export function PersonalInfoTab() {
     
     return () => subscription.unsubscribe();
   }, [form, imagePreview]);
+
+  // Phone number input handler - allows only digits and limits to 10 characters
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
+    const input = e.target.value;
+    
+    // Remove any non-digit characters
+    const digitsOnly = input.replace(/\D/g, '');
+    
+    // Limit to 10 digits
+    const truncated = digitsOnly.slice(0, 10);
+    
+    // Update the form field
+    field.onChange(truncated || null);
+  };
+
+  // Phone number input props to prevent non-digit input
+  const phoneNumberInputProps = {
+    type: 'tel',
+    pattern: '[0-9]*',
+    inputMode: 'numeric' as const,
+    placeholder: 'Enter 10-digit phone number',
+    className: 'h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg',
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -309,44 +353,48 @@ export function PersonalInfoTab() {
                     <FormLabel className="text-gray-700 font-medium">Phone</FormLabel>
                     <FormControl>
                       <Input 
-                        {...field} 
+                        {...phoneNumberInputProps}
                         value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        placeholder="Enter phone number"
-                        className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+                        onChange={(e) => handlePhoneNumberChange(e, field)}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
                       />
                     </FormControl>
                     <FormMessage />
+                    {/* Real-time digit counter */}
+                    {field.value && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {field.value.length}/10 digits
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />
             </div>
 
             {/* Submit Button */}
-<div className="flex justify-end pt-4">
-  <Button
-    type="submit"
-    disabled={isSubmitting || !hasChanges}
-    className={`
-      bg-brand-primary 
-      text-text-white 
-      rounded-lg 
-      px-6 
-      py-3 
-      h-11 
-      text-base 
-      font-medium
-      ${(isSubmitting || !hasChanges) 
-        ? "btn-disabled opacity-60 hover:bg-brand-primary" 
-        : "hover:bg-brand-primary/90 cursor-pointer"
-      }
-    `}
-  >
-    {isSubmitting ? "Saving..." : "Save Changes"}
-  </Button>
-</div>
-
-
+            <div className="flex justify-end pt-4">
+              <Button
+                type="submit"
+                disabled={isSubmitting || !hasChanges || !form.formState.isValid}
+                className={`
+                  bg-brand-primary 
+                  text-text-white 
+                  rounded-lg 
+                  px-6 
+                  py-3 
+                  h-11 
+                  text-base 
+                  font-medium
+                  ${(isSubmitting || !hasChanges || !form.formState.isValid) 
+                    ? "btn-disabled opacity-60 hover:bg-brand-primary" 
+                    : "hover:bg-brand-primary/90 cursor-pointer"
+                  }
+                `}
+              >
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </form>
         </Form>
       </div>
