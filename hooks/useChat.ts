@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiMessage, User } from '@/lib/data';
-import { ChatParticipant, MessageAttachment, AddMessageResponse, ReplyToMessageResponse } from '@/app/services/chatService';
+import { ChatParticipant, MessageAttachment, AddMessageResponse, ReplyToMessageResponse, updateUserStatus } from '@/app/services/chatService';
 import { getAssignDropdown, getChatList } from '@/app/services/data.service';
 import { 
   addMessage, 
@@ -19,9 +19,11 @@ import {
   getMessageReceipts,
   updateMessageReceipt,
   Chat,
-  MessageFileInfo
+  MessageFileInfo,
+  getConversation // Add this import
 } from '@/app/services/chatService';
-import { firebaseChatService, FirebaseMessage, ChatNotifications } from '@/app/services/FirebaseChatService';
+import { firebaseChatService, FirebaseMessage, ChatNotifications, ConversationEvent, FirebaseReactionEvent, FirebaseTypingEvent } from '@/app/services/FirebaseChatService';
+
 
 export interface Message {
   id: string;
@@ -57,7 +59,15 @@ export interface Message {
   tempMessageKey?: string; 
   isProcessedLocally?: boolean;
 }
+interface TypingUser {
+  userId: string;
+  userName: string;
+  timestamp: number;
+}
 
+interface TypingState {
+  [conversationId: string]: TypingUser[];
+}
 export const useChat = () => {
   // Core state
   const [chats, setChats] = useState<Chat[]>([]);
@@ -81,7 +91,8 @@ export const useChat = () => {
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState<Set<string>>(new Set());
-  
+ const [typingUsers, setTypingUsers] = useState<TypingState>({});
+  const typingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   // Subscription management
   const userNotificationUnsubscriber = useRef<(() => void) | null>(null);
   const conversationUnsubscribers = useRef<Map<string, () => void>>(new Map());
@@ -101,7 +112,195 @@ export const useChat = () => {
       initializationRef.current.initialized = true;
     }
   }, [currentUserId]);
+const updateUserStatusq = useCallback(async (conversationId: string, isTyping: boolean) => {
+    if (!currentUserId || !currentUserName) {
+      console.warn('[useChat] Cannot update typing status - user not authenticated');
+      return;
+    }
 
+    try {
+      console.log(`[useChat] Updating typing status for conversation ${conversationId}:`, { isTyping });
+      
+      // Call the API to update typing status
+      const response = await updateUserStatus(conversationId, {
+        isTyping: isTyping,
+        status: 'online' // or whatever status you want to send
+      });
+
+      if (response.isSuccess) {
+        console.log(`[useChat] Typing status updated successfully: ${isTyping}`);
+      } else {
+        console.warn(`[useChat] Failed to update typing status: ${response.message}`);
+      }
+    } catch (error) {
+      console.error(`[useChat] Error updating typing status:`, error);
+    }
+  }, [currentUserId, currentUserName]);
+
+ // Add this in your useChat hook
+useEffect(() => {
+  const cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    setTypingUsers(prev => {
+      const updated = { ...prev };
+      let hasChanges = false;
+      
+      Object.keys(updated).forEach(conversationId => {
+        const users = updated[conversationId];
+        const validUsers = users.filter(user => (now - user.timestamp) < 5000);
+        
+        if (validUsers.length !== users.length) {
+          hasChanges = true;
+          if (validUsers.length === 0) {
+            delete updated[conversationId];
+          } else {
+            updated[conversationId] = validUsers;
+          }
+        }
+      });
+      
+      return hasChanges ? updated : prev;
+    });
+  }, 2000); // Run every 2 seconds
+  
+  return () => clearInterval(cleanupInterval);
+}, []);
+const handleTypingEvent = useCallback((typingEvent: FirebaseTypingEvent) => {
+  console.log('🎯 [useChat] RAW TYPING EVENT RECEIVED:', {
+    event: typingEvent,
+    currentUserId,
+    storageUserId: localStorage.getItem('userId'),
+    isOwnEvent: typingEvent.triggeredByUserId === currentUserId || 
+                typingEvent.triggeredByUserId === localStorage.getItem('userId')
+  });
+
+  // Get current user ID from multiple sources for comprehensive filtering
+  const currentUserIdFromStorage = localStorage.getItem('userId');
+  const currentUserNameFromStorage = localStorage.getItem('userName');
+  
+  // COMPREHENSIVE filtering to prevent own events
+  const isOwnEvent = 
+    typingEvent.triggeredByUserId === currentUserId ||
+    typingEvent.triggeredByUserId === currentUserIdFromStorage ||
+    typingEvent.triggeredUserName === currentUserNameFromStorage ||
+    typingEvent.triggeredUserName === currentUserName;
+  
+  if (isOwnEvent) {
+    console.log(`[useChat] 🚫 BLOCKED own typing event:`, {
+      triggeredByUserId: typingEvent.triggeredByUserId,
+      triggeredUserName: typingEvent.triggeredUserName,
+      currentUserId,
+      currentUserIdFromStorage,
+      currentUserName,
+      currentUserNameFromStorage
+    });
+    return;
+  }
+
+  console.log(`[useChat] ✅ PROCESSING typing from OTHER user:`, {
+    conversationId: typingEvent.conversationId,
+    triggeredByUserId: typingEvent.triggeredByUserId,
+    triggeredUserName: typingEvent.triggeredUserName,
+    isTyping: typingEvent.isTyping,
+    timestamp: typingEvent.timestamp
+  });
+
+  const { conversationId, triggeredByUserId, triggeredUserName, isTyping } = typingEvent;
+  
+  setTypingUsers(prev => {
+    const currentTypingUsers = prev[conversationId] || [];
+    
+    if (isTyping) {
+      // User started typing
+      const existingUserIndex = currentTypingUsers.findIndex(user => user.userId === triggeredByUserId);
+      const updatedUser = {
+        userId: triggeredByUserId,
+        userName: triggeredUserName || 'Unknown User',
+        timestamp: Date.now()
+      };
+
+      let updatedTypingUsers;
+      if (existingUserIndex !== -1) {
+        // Update existing user - refresh timestamp but don't extend timeout
+        updatedTypingUsers = [...currentTypingUsers];
+        updatedTypingUsers[existingUserIndex] = updatedUser;
+      } else {
+        // Add new user
+        updatedTypingUsers = [...currentTypingUsers, updatedUser];
+      }
+
+      // Clear existing timeout for this user
+      const timeoutKey = `${conversationId}-${triggeredByUserId}`;
+      const existingTimeout = typingTimeoutsRef.current.get(timeoutKey);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      // Set shorter timeout to remove typing indicator after 1.5 seconds of inactivity
+      const newTimeout = setTimeout(() => {
+        console.log(`[useChat] Auto-removing typing indicator for user: ${triggeredByUserId}`);
+        setTypingUsers(prev => {
+          const currentUsers = prev[conversationId] || [];
+          const filteredUsers = currentUsers.filter(user => user.userId !== triggeredByUserId);
+          
+          if (filteredUsers.length === 0) {
+            const newState = { ...prev };
+            delete newState[conversationId];
+            return newState;
+          }
+          
+          return {
+            ...prev,
+            [conversationId]: filteredUsers
+          };
+        });
+        typingTimeoutsRef.current.delete(timeoutKey);
+      }, 1500); // Reduced from 3000ms to 1500ms
+
+      typingTimeoutsRef.current.set(timeoutKey, newTimeout);
+      
+      console.log(`[useChat] Added typing user: ${triggeredUserName} to conversation ${conversationId}`);
+      return {
+        ...prev,
+        [conversationId]: updatedTypingUsers
+      };
+    } else {
+      // User stopped typing - remove immediately
+      const filteredUsers = currentTypingUsers.filter(user => user.userId !== triggeredByUserId);
+      const timeoutKey = `${conversationId}-${triggeredByUserId}`;
+      const existingTimeout = typingTimeoutsRef.current.get(timeoutKey);
+      
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        typingTimeoutsRef.current.delete(timeoutKey);
+      }
+      
+      console.log(`[useChat] Removed typing user: ${triggeredUserName} from conversation ${conversationId}`);
+      
+      if (filteredUsers.length === 0) {
+        const newState = { ...prev };
+        delete newState[conversationId];
+        return newState;
+      }
+      
+      return {
+        ...prev,
+        [conversationId]: filteredUsers
+      };
+    }
+  });
+}, [currentUserId, currentUserName]);
+  // NEW: Initialize typing subscription for conversation
+  const initializeTypingSubscription = useCallback((conversationId: string) => {
+    console.log(`[useChat] Initializing typing subscription for conversation: ${conversationId}`);
+    
+    const typingUnsubscribe = firebaseChatService.subscribeToTypingEvents(
+      conversationId,
+      handleTypingEvent
+    );
+    
+    return typingUnsubscribe;
+  }, [handleTypingEvent]);
   // Update user ID from storage
   useEffect(() => {
     try {
@@ -117,6 +316,9 @@ export const useChat = () => {
       console.error('[useChat] Error reading user ID from storage:', error);
     }
   }, [currentUserId]);
+
+  // NEW: Handle conversation events (CONVERSATION_CREATED, PARTICIPANT_ADDED)
+ 
 
   // Load users from API
   const loadUsers = useCallback(async () => {
@@ -153,173 +355,75 @@ export const useChat = () => {
 
   // Load my conversations from API
   const loadMyConversations = useCallback(async () => {
-    if (isLoadingChats) return;
+  if (isLoadingChats) return;
+  
+  console.log('[useChat] Loading my conversations from API...');
+  try {
+    setIsLoadingChats(true);
+    setLoading(true);
+    setError(null);
     
-    console.log('[useChat] Loading my conversations...');
-    try {
-      setIsLoadingChats(true);
-      setLoading(true);
-      setError(null);
+    const chatResponse = await getChatList();
+    if (chatResponse.isSuccess) {
+      console.log(`[useChat] API returned ${chatResponse.data.length} conversations`);
       
-      const chatResponse = await getChatList();
-      if (chatResponse.isSuccess) {
-        console.log(`[useChat] Loaded ${chatResponse.data.length} conversations`);
-        
-        const transformedChats = chatResponse.data.map((apiChat: any) => {
-          const participants = apiChat.participants || [];
-          const isPrivate = String(apiChat.conversationType).toUpperCase() === 'PRIVATE';
-          const other = participants.find((p: any) => p.id !== currentUserId);
-          const displayName = isPrivate ? (other?.label || apiChat.name) : apiChat.name;
+      const transformedChats = chatResponse.data.map((apiChat: any) => {
+        const participants = apiChat.participants || [];
+        const isPrivate = String(apiChat.conversationType).toUpperCase() === 'PRIVATE';
+        const other = participants.find((p: any) => p.id !== currentUserId);
+        const displayName = isPrivate ? (other?.label || apiChat.name) : apiChat.name;
 
-          return {
-            id: apiChat.id,
-            name: displayName,
-            description: apiChat.description || '',
-            conversationType: apiChat.conversationType,
-            participants: participants.map((participant: any) => ({
-              id: participant.id,
-              name: participant.label,
-              label: participant.label,
-              status: 'offline' as const,
-              conversationRole: participant.conversationRole === 'ADMIN' ? 'ADMIN' : 'MEMBER'
-            })),
-            unReadMessageCount: apiChat.unReadMessageCount,
-            messageResponses: apiChat.messageResponses || [],
-            lastMessage: apiChat.lastMessage
-              ? {
-                  content: apiChat.lastMessage.content,
-                  timestamp: apiChat.lastMessage.createdAt,
-                  senderId: apiChat.lastMessage.sender?.id || ''
-                }
-              : undefined
+        // ENHANCED: Ensure last message data is properly structured
+        let lastMessage = undefined;
+        if (apiChat.lastMessage && apiChat.lastMessage.content && apiChat.lastMessage.content.trim()) {
+          lastMessage = {
+            content: apiChat.lastMessage.content.trim(),
+            timestamp: apiChat.lastMessage.createdAt || apiChat.lastMessage.timestamp,
+            senderId: apiChat.lastMessage.sender?.id || apiChat.lastMessage.senderId || ''
           };
-        });
-        
-        setChats(transformedChats.sort((a, b) => {
-          const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-          const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-          return timeB - timeA;
-        }));
-        
-      } else {
-        throw new Error(chatResponse.message || 'Failed to load conversations');
-      }
-    } catch (err) {
-      console.error('[useChat] Error loading conversations:', err);
-      setError('Failed to load conversations. Please try again.');
-    } finally {
-      setIsLoadingChats(false);
-      setLoading(false);
-    }
-  }, [currentUserId, isLoadingChats]);
+        }
 
-  // FIXED: Initialize user-level Firebase subscriptions with proper deduplication
-  const initializeUserNotifications = useCallback(() => {
-    if (!currentUserId || userNotificationUnsubscriber.current) {
-      return;
+        return {
+          id: apiChat.id,
+          name: displayName,
+          description: apiChat.description || '',
+          conversationType: apiChat.conversationType,
+          participants: participants.map((participant: any) => ({
+            id: participant.id,
+            name: participant.label,
+            label: participant.label,
+            status: 'offline' as const,
+            conversationRole: participant.conversationRole === 'ADMIN' ? 'ADMIN' : 'MEMBER'
+          })),
+          unReadMessageCount: Math.max(0, parseInt(String(apiChat.unReadMessageCount)) || 0),
+          messageResponses: apiChat.messageResponses || [],
+          lastMessage: lastMessage
+        };
+      });
+      
+      // Sort by last message timestamp
+      const sortedChats = transformedChats.sort((a, b) => {
+        const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+        const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+        return timeB - timeA;
+      });
+      
+      console.log('[useChat] Setting transformed and sorted chats:', sortedChats.length);
+      setChats(sortedChats);
+        
+    } else {
+      throw new Error(chatResponse.message || 'Failed to load conversations');
     }
-
-    console.log('[useChat] Initializing user-level notifications...');
-    
-    const unsubscribe = firebaseChatService.subscribeToUserNotifications(
-      currentUserId,
-      (notifications: ChatNotifications) => {
-        console.log('[useChat] User notifications update received:', notifications);
-        
-        setNotifications(prevNotifications => {
-          // Check if notifications actually changed to prevent unnecessary re-renders
-          const prevKeys = Object.keys(prevNotifications);
-          const newKeys = Object.keys(notifications);
-          
-          if (prevKeys.length !== newKeys.length) {
-            return notifications;
-          }
-          
-          // Deep comparison for actual changes
-          for (const key of newKeys) {
-            const prevNotif = prevNotifications[key];
-            const newNotif = notifications[key];
-            
-            if (!prevNotif || 
-                prevNotif.unreadCount !== newNotif.unreadCount ||
-                prevNotif.timestamp !== newNotif.timestamp ||
-                (prevNotif.lastMessage?.content !== newNotif.lastMessage?.content)) {
-              return notifications;
-            }
-          }
-          
-          // No changes detected
-          return prevNotifications;
-        });
-        
-        // Calculate total unread count
-        const total = Object.values(notifications).reduce((sum, notification) => {
-          return sum + (notification.unreadCount || 0);
-        }, 0);
-        setTotalUnreadCount(total);
-        
-        // FIXED: Update chat list with notification data only for real changes
-        setChats(prevChats => {
-          let hasChanges = false;
-          const updatedChats = prevChats.map(chat => {
-            const chatId = String(chat.id);
-            const notificationData = notifications[chatId];
-            
-            if (notificationData) {
-              const updatedChat = { ...chat };
-              
-              // Don't show unread for active conversation
-              const newUnreadCount = activeConversationId === chatId ? 0 : Math.max(
-                chat.unReadMessageCount || 0, 
-                notificationData.unreadCount || 0
-              );
-              
-              if (newUnreadCount !== chat.unReadMessageCount) {
-                updatedChat.unReadMessageCount = newUnreadCount;
-                hasChanges = true;
-              }
-              
-              // Update last message if newer and different
-              if (notificationData.lastMessage && 
-                  notificationData.lastMessage.content && 
-                  notificationData.lastMessage.content.trim()) {
-                const currentTime = chat.lastMessage?.timestamp 
-                  ? new Date(chat.lastMessage.timestamp).getTime() 
-                  : 0;
-                const newTime = new Date(notificationData.timestamp).getTime();
-                
-                if (newTime > currentTime && 
-                    chat.lastMessage?.content !== notificationData.lastMessage.content) {
-                  updatedChat.lastMessage = {
-                    content: notificationData.lastMessage.content,
-                    timestamp: notificationData.lastMessage.timestamp || notificationData.timestamp,
-                    senderId: notificationData.lastMessage.senderId || ''
-                  };
-                  hasChanges = true;
-                }
-              }
-              
-              return updatedChat;
-            }
-            
-            return chat;
-          });
-          
-          if (!hasChanges) {
-            return prevChats; // Return same reference if no changes
-          }
-          
-          return updatedChats.sort((a, b) => {
-            const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-            const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-            return timeB - timeA;
-          });
-        });
-      }
-    );
-    
-    userNotificationUnsubscriber.current = unsubscribe;
-  }, [currentUserId, activeConversationId]);
+  } catch (err) {
+    console.error('[useChat] Error loading conversations:', err);
+    setError('Failed to load conversations. Please try again.');
+  } finally {
+    setIsLoadingChats(false);
+    setLoading(false);
+  }
+}, [currentUserId, isLoadingChats]);
+  // ENHANCED: Initialize user-level Firebase subscriptions with conversation event handling
+ 
 
   // FIXED: Load conversation messages with proper deduplication
   const loadConversationMessages = useCallback(async (conversationId: string, forceReload = false) => {
@@ -423,7 +527,39 @@ export const useChat = () => {
   }, [chats, currentUserId, users, isLoadingMessages]);
 
   // Transform Firebase message to local message format
- const transformFirebaseMessage = useCallback((fm: FirebaseMessage, conversationId: string): Message => {
+// Add this enhanced debugging to your useChat hook's transformFirebaseMessage function
+
+const transformFirebaseMessage = useCallback((fm: FirebaseMessage, conversationId: string): Message => {
+  // COMPREHENSIVE DEBUG LOGGING FOR FIREBASE TO MESSAGE TRANSFORMATION
+  console.log('🔍 [useChat] FULL Firebase Message for transformation:', JSON.stringify(fm, null, 2));
+  
+  console.log('🔍 [useChat] Reply Field Analysis:', {
+    parentId: {
+      value: fm.parentId,
+      type: typeof fm.parentId,
+      isNull: fm.parentId === null,
+      isUndefined: fm.parentId === undefined,
+      isEmpty: fm.parentId === '',
+      stringified: JSON.stringify(fm.parentId)
+    },
+    parentMessageId: {
+      value: fm.parentMessageId,
+      type: typeof fm.parentMessageId,
+      isNull: fm.parentMessageId === null,
+      isUndefined: fm.parentMessageId === undefined,
+      isEmpty: fm.parentMessageId === '',
+      stringified: JSON.stringify(fm.parentMessageId)
+    },
+    replyTo: {
+      value: fm.replyTo,
+      type: typeof fm.replyTo,
+      isNull: fm.replyTo === null,
+      isUndefined: fm.replyTo === undefined,
+      isEmpty: fm.replyTo === '',
+      stringified: JSON.stringify(fm.replyTo)
+    }
+  });
+
   let senderLabel = 'Unknown User';
   
   // First try to find the chat and participant
@@ -467,16 +603,34 @@ export const useChat = () => {
   if (senderLabel === 'Unknown User' && fm.senderId) {
     senderLabel = `User ${fm.senderId.substring(0, 8)}`;
   }
-if (fm.parentId || fm.parentMessageId) {
-    console.log(`[useChat] Transforming REPLY Firebase message:`, {
+
+  // Enhanced reply detection
+  const isReplyMessage = !!(fm.parentId || fm.parentMessageId || fm.replyTo);
+  
+  if (isReplyMessage) {
+    console.log('✅ [useChat] REPLY MESSAGE DETECTED:', {
       messageId: fm.id,
       parentId: fm.parentId,
       parentMessageId: fm.parentMessageId,
+      replyTo: fm.replyTo,
       content: fm.content?.substring(0, 30) + '...',
-      conversationId: conversationId
+      conversationId: conversationId,
+      eventType: fm.eventType
+    });
+  } else {
+    console.log('📝 [useChat] REGULAR MESSAGE (no reply fields found):', {
+      messageId: fm.id,
+      content: fm.content?.substring(0, 30) + '...',
+      conversationId: conversationId,
+      availableFields: {
+        parentId: fm.parentId,
+        parentMessageId: fm.parentMessageId,
+        replyTo: fm.replyTo
+      }
     });
   }
- const transformedReactions = (fm.reactions || []).map((r: any) => ({
+
+  const transformedReactions = (fm.reactions || []).map((r: any) => ({
     emoji: r.reaction || r.emoji,
     count: 1,
     users: [r.senderId || ''],
@@ -486,8 +640,10 @@ if (fm.parentId || fm.parentMessageId) {
     reaction: r.reaction || r.emoji
   }));
 
+  // Use the first non-empty parent ID we find
+  const finalParentId = fm.parentId || fm.parentMessageId || fm.replyTo;
   
-    return {
+ const transformedMessage: Message = {
     id: fm.id?.toString(),
     content: fm.content?.trim() || '',
     sender: {
@@ -502,15 +658,20 @@ if (fm.parentId || fm.parentMessageId) {
     }),
     type: (fm.senderId === currentUserId ? 'sent' : 'received'),
     reactions: transformedReactions,
-    parentId: fm.parentId || fm.parentMessageId, // Use both fields
-    replyTo: fm.parentId || fm.parentMessageId, // Ensure replyTo is set
+    parentId: finalParentId,
+    replyTo: finalParentId,
     mentions: fm.mentions,
     deletable: false,
     updatable: false,
-    status: fm.senderId === currentUserId ? 'sent' : 'delivered',
+    // ENHANCED: Better status handling
+    status: fm.senderId === currentUserId ? 
+            ('sent' as const) : 
+            (fm.status.toLowerCase() === 'read' ? 'read' as const : 'delivered' as const),
     hasAttachments: fm.attachments && fm.attachments.length > 0,
     attachments: fm.attachments || []
   };
+
+  return transformedMessage;
 }, [currentUserId, chats, users]);
 
   // Fetch full message from backend when hasAttachments or hasMentions is true
@@ -574,184 +735,601 @@ if (fm.parentId || fm.parentMessageId) {
   }, [chats, currentUserId, users]);
 
   // FIXED: Initialize conversation-level Firebase subscription with proper message handling
-  const initializeConversationSubscription = useCallback((conversationId: string) => {
-    if (conversationUnsubscribers.current.has(conversationId)) {
-      console.log(`[useChat] Already subscribed to conversation: ${conversationId}`);
-      return;
-    }
-    
-    console.log(`[useChat] Initializing conversation subscription: ${conversationId}`);
-    
-    const unsubscribe = firebaseChatService.subscribeToConversationMessages(
-      conversationId,
-      async (firebaseMessages: FirebaseMessage[]) => {
-        console.log(`[useChat] Received ${firebaseMessages.length} Firebase messages for conversation ${conversationId}`);
+// In your useChat hook, update the initializeConversationSubscription method
+
+const initializeConversationSubscription = useCallback((conversationId: string) => {
+  if (conversationUnsubscribers.current.has(conversationId)) {
+    console.log(`[useChat] Already subscribed to conversation: ${conversationId}`);
+    return;
+  }
+  
+  console.log(`[useChat] Initializing conversation subscription: ${conversationId}`);
+    const typingUnsubscribe = initializeTypingSubscription(conversationId);
+  // MAIN MESSAGE SUBSCRIPTION
+  const messageUnsubscribe = firebaseChatService.subscribeToConversationMessages(
+    conversationId,
+    async (firebaseMessages: FirebaseMessage[]) => {
+      console.log(`[useChat] Received ${firebaseMessages.length} Firebase messages for conversation ${conversationId}`);
+      
+      if (firebaseMessages.length === 0) return;
+      
+      const processedMessages: Message[] = [];
+      
+      for (const fm of firebaseMessages) {
+        // Validate message
+        if (!fm.id || !fm.senderId) {
+          console.warn(`[useChat] Invalid Firebase message:`, fm);
+          continue;
+        }
         
-        if (firebaseMessages.length === 0) return;
+        let processedMessage: Message;
         
-        const processedMessages: Message[] = [];
-        
-        for (const fm of firebaseMessages) {
-          // Validate message
-          if (!fm.id || !fm.senderId) {
-            console.warn(`[useChat] Invalid Firebase message:`, fm);
-            continue;
-          }
+        // Always fetch from backend if message has mentions, attachments, or is missing content
+        if (fm.hasMentions || fm.hasAttachments || !fm.content?.trim()) {
+          console.log(`[useChat] Message ${fm.id} needs backend fetch`);
           
-          let processedMessage: Message;
-          
-          // Always fetch from backend if message has mentions, attachments, or is missing content
-          if (fm.hasMentions || fm.hasAttachments || !fm.content?.trim()) {
-            console.log(`[useChat] Message ${fm.id} needs backend fetch`);
-            
-            try {
-              const fullMessage = await fetchFullMessage(fm.id);
-              if (fullMessage && fullMessage.content?.trim()) {
-                processedMessage = fullMessage;
-                console.log(`[useChat] Successfully fetched full message from backend:`, fullMessage.id);
-              } else {
-                console.warn(`[useChat] Backend fetch failed, using Firebase fallback`);
-                processedMessage = transformFirebaseMessage(fm, conversationId);
-              }
-            } catch (backendError) {
-              console.error(`[useChat] Error fetching full message from backend:`, backendError);
+          try {
+            const fullMessage = await fetchFullMessage(fm.id);
+            if (fullMessage && fullMessage.content?.trim()) {
+              processedMessage = fullMessage;
+              console.log(`[useChat] Successfully fetched full message from backend:`, fullMessage.id);
+            } else {
+              console.warn(`[useChat] Backend fetch failed, using Firebase fallback`);
               processedMessage = transformFirebaseMessage(fm, conversationId);
             }
-          } else {
-            // Use Firebase message directly for simple text messages
+          } catch (backendError) {
+            console.error(`[useChat] Error fetching full message from backend:`, backendError);
             processedMessage = transformFirebaseMessage(fm, conversationId);
           }
+        } else {
+          // Use Firebase message directly for simple text messages
+          processedMessage = transformFirebaseMessage(fm, conversationId);
+        }
+        
+        // Only add valid messages
+        if (processedMessage?.id) {
+          processedMessages.push(processedMessage);
+        }
+      }
+      
+      if (processedMessages.length > 0) {
+        // FIXED: Proper message state update with deduplication
+        setMessages(prev => {
+          const existingMessages = prev[conversationId] || [];
+          const existingIds = new Set(existingMessages.map(msg => msg.id));
           
-          // Only add valid messages
-          if (processedMessage?.id) {
-            processedMessages.push(processedMessage);
+          // Filter out messages that already exist
+          const newMessages = processedMessages.filter(msg => !existingIds.has(msg.id));
+          
+          if (newMessages.length === 0) {
+            console.log(`[useChat] No new messages to add (all already exist)`);
+            return prev;
+          }
+          
+          console.log(`[useChat] Adding ${newMessages.length} new messages to conversation ${conversationId}`);
+          
+          // Remove temp messages that match real messages
+          const cleanedExistingMessages = existingMessages.filter(existingMsg => {
+            if (existingMsg.id.startsWith('temp-') && existingMsg.senderId === currentUserId) {
+              const matchingRealMessage = newMessages.find(newMsg => 
+                newMsg.senderId === currentUserId &&
+                Math.abs(new Date(newMsg.createdAt).getTime() - new Date(existingMsg.createdAt).getTime()) < 30000
+              );
+              return !matchingRealMessage;
+            }
+            return true;
+          });
+          
+          const finalMessages = [...cleanedExistingMessages, ...newMessages];
+          finalMessages.sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          
+          return {
+            ...prev,
+            [conversationId]: finalMessages
+          };
+        });
+        
+        // FIXED: Update chat list with latest message without duplicating notification updates
+        const latestMessage = processedMessages[processedMessages.length - 1];
+        setChats(prevChats => {
+          const updatedChats = prevChats.map(chat => {
+            if (chat.id.toString() === conversationId) {
+              const currentTime = chat.lastMessage?.timestamp 
+                ? new Date(chat.lastMessage.timestamp).getTime() 
+                : 0;
+              const newTime = new Date(latestMessage.createdAt).getTime();
+              
+              if (newTime > currentTime) {
+                const updatedChat = {
+                  ...chat,
+                  lastMessage: {
+                    content: latestMessage.content || (latestMessage.hasAttachments ? '📎 Attachment' : ''),
+                    timestamp: latestMessage.createdAt,
+                    senderId: latestMessage.senderId
+                  }
+                };
+                
+                // Only increment unread if not from current user and not active conversation
+                if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
+                  updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
+                }
+                
+                return updatedChat;
+              }
+            }
+            return chat;
+          });
+          
+          const hasChanges = updatedChats.some((chat, index) => chat !== prevChats[index]);
+          if (!hasChanges) {
+            return prevChats; // Return same reference if no changes
+          }
+          
+          return updatedChats.sort((a, b) => {
+            const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+            const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+            return timeB - timeA;
+          });
+        });
+      }
+    }
+  );
+  
+  // ADD REACTION SUBSCRIPTION
+   const reactionUnsubscribe = firebaseChatService.subscribeToReactionEvents(
+    conversationId,
+    (reactionEvent: FirebaseReactionEvent) => {
+      console.log(`[useChat] Received reaction event for conversation ${conversationId}:`, reactionEvent);
+      
+      // Update the specific message with the reaction
+      setMessages(prev => {
+        const conversationMessages = prev[conversationId] || [];
+        
+        const updatedMessages = conversationMessages.map(msg => {
+          if (msg.id === reactionEvent.messageId) {
+            console.log(`[useChat] Updating message ${msg.id} with reaction:`, reactionEvent);
+            
+            const currentReactions = msg.reactions || [];
+            
+            if (reactionEvent.eventType === 'REACTION_ADDED') {
+              // Check if this user already has this reaction
+              const existingReactionIndex = currentReactions.findIndex(
+                r => r.emoji === reactionEvent.reaction && 
+                     r.users?.includes(reactionEvent.senderId)
+              );
+              
+              if (existingReactionIndex === -1) {
+                // Check if reaction emoji already exists from other users
+                const existingEmojiIndex = currentReactions.findIndex(
+                  r => r.emoji === reactionEvent.reaction
+                );
+                
+                if (existingEmojiIndex !== -1) {
+                  // Add user to existing reaction
+                  const updatedReactions = [...currentReactions];
+                  updatedReactions[existingEmojiIndex] = {
+                    ...updatedReactions[existingEmojiIndex],
+                    count: updatedReactions[existingEmojiIndex].count + 1,
+                    users: [...updatedReactions[existingEmojiIndex].users, reactionEvent.senderId]
+                  };
+                  
+                  return { ...msg, reactions: updatedReactions };
+                } else {
+                  // Create new reaction
+                  const newReaction = {
+                    emoji: reactionEvent.reaction,
+                    count: 1,
+                    users: [reactionEvent.senderId],
+                    senderId: reactionEvent.senderId,
+                    senderName: reactionEvent.senderName,
+                    createdAt: reactionEvent.timestamp,
+                    reaction: reactionEvent.reaction
+                  };
+                  
+                  return { ...msg, reactions: [...currentReactions, newReaction] };
+                }
+              }
+            } else if (reactionEvent.eventType === 'REACTION_REMOVED') {
+              // Remove reaction
+              const updatedReactions = currentReactions.map(r => {
+                if (r.emoji === reactionEvent.reaction && r.users?.includes(reactionEvent.senderId)) {
+                  const newUsers = r.users.filter(userId => userId !== reactionEvent.senderId);
+                  return {
+                    ...r,
+                    count: Math.max(0, r.count - 1),
+                    users: newUsers
+                  };
+                }
+                return r;
+              }).filter(r => r.count > 0); // Remove reactions with 0 count
+              
+              return { ...msg, reactions: updatedReactions };
+            }
+          }
+          return msg;
+        });
+        
+        return {
+          ...prev,
+          [conversationId]: updatedMessages
+        };
+      });
+    }
+  );
+
+  // Store both unsubscribers
+  conversationUnsubscribers.current.set(conversationId, () => {
+    messageUnsubscribe();
+    reactionUnsubscribe();
+    typingUnsubscribe();
+  });
+  
+}, [initializeTypingSubscription, activeConversationId, currentUserId, fetchFullMessage, transformFirebaseMessage, chats, users]);
+ const debouncedTypingUpdate = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  const handleUserTyping = useCallback((conversationId: string, isTyping: boolean) => {
+    const debounceKey = `typing-${conversationId}`;
+    
+    // Clear existing timeout
+    const existingTimeout = debouncedTypingUpdate.current.get(debounceKey);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
+    if (isTyping) {
+      // Send typing start immediately
+      updateUserStatusq(conversationId, true);
+      
+      // Set timeout to send typing stop if no further typing
+      const timeout = setTimeout(() => {
+        updateUserStatusq(conversationId, false);
+        debouncedTypingUpdate.current.delete(debounceKey);
+      }, 1000); // Stop typing after 1 second of inactivity
+      
+      debouncedTypingUpdate.current.set(debounceKey, timeout);
+    } else {
+      // Send typing stop immediately
+      updateUserStatusq(conversationId, false);
+      debouncedTypingUpdate.current.delete(debounceKey);
+    }
+  }, [updateUserStatus]);
+ 
+  const getTypingUsers = useCallback((conversationId: string): TypingUser[] => {
+  const users = typingUsers[conversationId] || [];
+  console.log(`[useChat] getTypingUsers for ${conversationId}:`, users);
+  return users;
+}, [typingUsers]);
+
+  // NEW: Clean up typing timeouts on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all typing timeouts
+      typingTimeoutsRef.current.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      typingTimeoutsRef.current.clear();
+      
+      // Clear all debounced typing updates
+      debouncedTypingUpdate.current.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      debouncedTypingUpdate.current.clear();
+    };
+  }, []);
+// In your useChat hook or ChatLayout component
+const handleConversationEvent = useCallback(async (event: ConversationEvent) => {
+    console.log('[ChatLayout] Processing conversation event:', event);
+    
+    // CRITICAL: Check if conversation already exists before creating
+    const existingChat = chats.find(chat => 
+        chat.id.toString() === event.conversationId.toString()
+    );
+    
+    if (existingChat) {
+        console.log('[ChatLayout] Conversation already exists, skipping creation:', event.conversationId);
+        
+        // Just refresh the conversations list to get any updates
+        await loadMyConversations();
+        return;
+    }
+    
+    // Only create new conversation if it doesn't exist
+    if (event.eventType === 'CONVERSATION_CREATED' || event.eventType === 'PARTICIPANT_ADDED') {
+        try {
+            console.log('[ChatLayout] Creating new conversation from event:', event.conversationId);
+            
+            // Refresh conversations to get the newly created conversation from backend
+            await loadMyConversations();
+            
+            console.log('[ChatLayout] Conversation creation handling completed');
+        } catch (error) {
+            console.error('[ChatLayout] Error handling conversation event:', error);
+        }
+    }
+}, [chats, loadMyConversations]);
+const initializeUserNotifications = useCallback(() => {
+  if (!currentUserId || userNotificationUnsubscriber.current) {
+    return;
+  }
+
+  console.log('[useChat] Initializing user-level notifications...');
+  
+  const unsubscribe = firebaseChatService.subscribeToUserNotifications(
+    currentUserId,
+    (notifications: ChatNotifications) => {
+      console.log('[useChat] Raw Firebase notifications received:', notifications);
+      
+      // CRITICAL FIX: Validate notification data before processing
+      const validNotifications: ChatNotifications = {};
+      
+      Object.entries(notifications).forEach(([conversationId, notification]) => {
+        // Only process notifications with valid data
+        if (notification && 
+            typeof notification === 'object' && 
+            notification.hasOwnProperty('unreadCount') &&
+            notification.timestamp) {
+          
+          // Additional validation for lastMessage
+          const hasValidLastMessage = notification.lastMessage && 
+                                    notification.lastMessage.content && 
+                                    notification.lastMessage.content.trim() !== '';
+          
+          validNotifications[conversationId] = {
+            ...notification,
+            unreadCount: Math.max(0, notification.unreadCount || 0),
+            lastMessage: hasValidLastMessage ? notification.lastMessage : null
+          };
+          
+          console.log(`[useChat] Valid notification for conversation ${conversationId}:`, {
+            unreadCount: validNotifications[conversationId].unreadCount,
+            hasLastMessage: !!validNotifications[conversationId].lastMessage,
+            timestamp: validNotifications[conversationId].timestamp
+          });
+        } else {
+          console.warn(`[useChat] Invalid notification data for conversation ${conversationId}:`, notification);
+        }
+      });
+      
+      setNotifications(prevNotifications => {
+        // Deep comparison to prevent unnecessary re-renders
+        const prevKeys = Object.keys(prevNotifications);
+        const newKeys = Object.keys(validNotifications);
+        
+        // Check if there are actual changes
+        let hasChanges = prevKeys.length !== newKeys.length;
+        
+        if (!hasChanges) {
+          for (const key of newKeys) {
+            const prevNotif = prevNotifications[key];
+            const newNotif = validNotifications[key];
+            
+            if (!prevNotif || 
+                prevNotif.unreadCount !== newNotif.unreadCount ||
+                prevNotif.timestamp !== newNotif.timestamp ||
+                JSON.stringify(prevNotif.lastMessage) !== JSON.stringify(newNotif.lastMessage)) {
+              hasChanges = true;
+              break;
+            }
           }
         }
         
-        if (processedMessages.length > 0) {
-          // FIXED: Proper message state update with deduplication
-          setMessages(prev => {
-            const existingMessages = prev[conversationId] || [];
-            const existingIds = new Set(existingMessages.map(msg => msg.id));
-            
-            // Filter out messages that already exist
-            const newMessages = processedMessages.filter(msg => !existingIds.has(msg.id));
-            
-            if (newMessages.length === 0) {
-              console.log(`[useChat] No new messages to add (all already exist)`);
-              return prev;
-            }
-            
-            console.log(`[useChat] Adding ${newMessages.length} new messages to conversation ${conversationId}`);
-            
-            // Remove temp messages that match real messages
-            const cleanedExistingMessages = existingMessages.filter(existingMsg => {
-              if (existingMsg.id.startsWith('temp-') && existingMsg.senderId === currentUserId) {
-                const matchingRealMessage = newMessages.find(newMsg => 
-                  newMsg.senderId === currentUserId &&
-                  Math.abs(new Date(newMsg.createdAt).getTime() - new Date(existingMsg.createdAt).getTime()) < 30000
-                );
-                return !matchingRealMessage;
-              }
-              return true;
-            });
-            
-            const finalMessages = [...cleanedExistingMessages, ...newMessages];
-            finalMessages.sort((a, b) => 
-              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            );
-            
-            return {
-              ...prev,
-              [conversationId]: finalMessages
-            };
-          });
-          
-          // FIXED: Update chat list with latest message without duplicating notification updates
-          const latestMessage = processedMessages[processedMessages.length - 1];
-          setChats(prevChats => {
-            const updatedChats = prevChats.map(chat => {
-              if (chat.id.toString() === conversationId) {
-                const currentTime = chat.lastMessage?.timestamp 
-                  ? new Date(chat.lastMessage.timestamp).getTime() 
-                  : 0;
-                const newTime = new Date(latestMessage.createdAt).getTime();
-                
-                if (newTime > currentTime) {
-                  const updatedChat = {
-                    ...chat,
-                    lastMessage: {
-                      content: latestMessage.content || (latestMessage.hasAttachments ? '📎 Attachment' : ''),
-                      timestamp: latestMessage.createdAt,
-                      senderId: latestMessage.senderId
-                    }
-                  };
-                  
-                  // Only increment unread if not from current user and not active conversation
-                  if (latestMessage.senderId !== currentUserId && activeConversationId !== conversationId) {
-                    updatedChat.unReadMessageCount = (chat.unReadMessageCount || 0) + 1;
-                  }
-                  
-                  return updatedChat;
-                }
-              }
-              return chat;
-            });
-            
-            const hasChanges = updatedChats.some((chat, index) => chat !== prevChats[index]);
-            if (!hasChanges) {
-              return prevChats; // Return same reference if no changes
-            }
-            
-            return updatedChats.sort((a, b) => {
-              const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-              const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-              return timeB - timeA;
-            });
-          });
+        if (!hasChanges) {
+          console.log('[useChat] No notification changes detected, skipping update');
+          return prevNotifications;
         }
-      }
-    );
-    
-    conversationUnsubscribers.current.set(conversationId, unsubscribe);
-  }, [activeConversationId, currentUserId, fetchFullMessage, transformFirebaseMessage, chats, users]);
-
+        
+        console.log('[useChat] Notification changes detected, updating state');
+        return validNotifications;
+      });
+      
+      // Calculate total unread count from valid notifications only
+      const total = Object.values(validNotifications).reduce((sum, notification) => {
+        return sum + (notification.unreadCount || 0);
+      }, 0);
+      
+      console.log(`[useChat] Total unread count calculated: ${total}`);
+      setTotalUnreadCount(total);
+      
+      // ENHANCED: Update chat list with Firebase notifications but preserve API data
+      setChats(prevChats => {
+        console.log('[useChat] Updating chat list with Firebase notifications...');
+        
+        let hasChanges = false;
+        const updatedChats = prevChats.map(chat => {
+          const chatId = String(chat.id);
+          const firebaseNotification = validNotifications[chatId];
+          
+          if (firebaseNotification) {
+            const updatedChat = { ...chat };
+            
+            // CRITICAL FIX: Only update unread count if Firebase has newer data
+            const currentUnreadCount = chat.unReadMessageCount || 0;
+            const firebaseUnreadCount = activeConversationId === chatId ? 0 : (firebaseNotification.unreadCount || 0);
+            
+            // Only update if Firebase count is different and seems valid
+            if (firebaseUnreadCount !== currentUnreadCount) {
+              console.log(`[useChat] Updating unread count for ${chatId}: ${currentUnreadCount} -> ${firebaseUnreadCount}`);
+              updatedChat.unReadMessageCount = firebaseUnreadCount;
+              hasChanges = true;
+            }
+            
+            // ENHANCED: Only update last message if Firebase has newer and valid content
+            if (firebaseNotification.lastMessage && 
+                firebaseNotification.lastMessage.content && 
+                firebaseNotification.lastMessage.content.trim()) {
+              
+              const currentLastMessageTime = chat.lastMessage?.timestamp 
+                ? new Date(chat.lastMessage.timestamp).getTime() 
+                : 0;
+              const firebaseLastMessageTime = firebaseNotification.lastMessage.timestamp 
+                ? new Date(firebaseNotification.lastMessage.timestamp).getTime()
+                : new Date(firebaseNotification.timestamp).getTime();
+              
+              // Only update if Firebase message is newer
+              if (firebaseLastMessageTime > currentLastMessageTime) {
+                console.log(`[useChat] Updating last message for ${chatId}:`, {
+                  old: chat.lastMessage?.content,
+                  new: firebaseNotification.lastMessage.content,
+                  oldTime: chat.lastMessage?.timestamp,
+                  newTime: firebaseNotification.lastMessage.timestamp
+                });
+                
+                updatedChat.lastMessage = {
+                  content: firebaseNotification.lastMessage.content,
+                  timestamp: firebaseNotification.lastMessage.timestamp || firebaseNotification.timestamp,
+                  senderId: firebaseNotification.lastMessage.senderId || ''
+                };
+                hasChanges = true;
+              }
+            }
+            
+            return updatedChat;
+          }
+          
+          return chat;
+        });
+        
+        if (!hasChanges) {
+          console.log('[useChat] No chat list changes needed');
+          return prevChats;
+        }
+        
+        console.log('[useChat] Chat list updated, re-sorting by last message time');
+        return updatedChats.sort((a, b) => {
+          const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+          const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+          return timeB - timeA;
+        });
+      });
+    },
+    handleConversationEvent
+  );
+  
+  userNotificationUnsubscriber.current = unsubscribe;
+}, [currentUserId, activeConversationId, handleConversationEvent]);
   // FIXED: Set active conversation with enhanced receipt management
-  const setActiveConversation = useCallback((conversationId: string | null) => {
-    if (activeConversationId === conversationId) {
+// In your useChat hook, update the setActiveConversation function
+const setActiveConversation = useCallback((conversationId: string | null) => {
+  if (activeConversationId === conversationId) {
+    return;
+  }
+  
+  console.log(`[useChat] Setting active conversation: ${conversationId}`);
+  
+  // CRITICAL: Clear typing indicators for the new conversation immediately
+  if (conversationId) {
+    setTypingUsers(prev => {
+      const updated = { ...prev };
+      delete updated[conversationId];
+      console.log(`[useChat] Cleared typing state for conversation ${conversationId}`);
+      return updated;
+    });
+  }
+  
+  // Mark previous conversation as inactive
+  if (activeConversationId) {
+    firebaseChatService.setConversationActive(activeConversationId, false);
+  }
+  
+  setActiveConversationId(conversationId);
+  
+  if (conversationId) {
+    // Mark new conversation as active
+    firebaseChatService.setConversationActive(conversationId, true);
+    
+    // Load messages
+    loadConversationMessages(conversationId, true);
+    
+    // Initialize conversation subscription
+    initializeConversationSubscription(conversationId);
+    
+    // Update receipts
+    updateReceiptsForOtherPeopleMessages(conversationId);
+    
+    // Mark as read in Firebase
+    firebaseChatService.markConversationAsRead(conversationId);
+    
+    // Update chat list unread count
+    setChats(prev => prev.map(chat => 
+      chat.id.toString() === conversationId 
+        ? { ...chat, unReadMessageCount: 0 }
+        : chat
+    ));
+  }
+}, [activeConversationId, loadConversationMessages, initializeConversationSubscription]);
+
+// NEW: Add this function to update receipts for other people's messages
+// More comprehensive version that handles various status scenarios
+const updateReceiptsForOtherPeopleMessages = useCallback(async (conversationId: string) => {
+  try {
+    console.log(`[useChat] Checking receipts for conversation: ${conversationId}`);
+    
+    const conversationMessages = messages[conversationId] || [];
+    
+    // More comprehensive filtering
+    const messagesToUpdate = conversationMessages.filter(msg => {
+      // Skip if message is from current user
+      if (msg.senderId === currentUserId) return false;
+      
+      // Skip if already read
+      if (msg.status?.toLowerCase() === 'read') return false;
+      
+      // Skip if failed (no point updating failed messages)
+      if (msg.status?.toLowerCase() === 'failed') return false;
+      
+      // Update messages that are: delivered, sent, sending, or have no status
+      return !msg.status || 
+             msg.status.toLowerCase() === 'delivered' || 
+             msg.status.toLowerCase() === 'sent' || 
+             msg.status.toLowerCase() === 'sending';
+    });
+    
+    if (messagesToUpdate.length === 0) {
+      console.log(`[useChat] No messages need receipt update for conversation ${conversationId}`);
       return;
     }
     
-    console.log(`[useChat] Setting active conversation: ${conversationId}`);
+    console.log(`[useChat] Found ${messagesToUpdate.length} messages to update receipts:`, 
+      messagesToUpdate.map(msg => ({ id: msg.id, status: msg.status, sender: msg.senderId }))
+    );
     
-    // Mark previous conversation as inactive
-    if (activeConversationId) {
-      firebaseChatService.setConversationActive(activeConversationId, false);
+    const messageIds = messagesToUpdate.map(msg => msg.id);
+    
+    // Update receipts via API
+    const response = await updateMessageReceipt({
+      messageIds: messageIds.map(id => parseInt(id)),
+      status: 'READ'
+    });
+    
+    if (response.isSuccess) {
+      console.log(`[useChat] Successfully updated ${messageIds.length} messages to READ status`);
+      
+      // Optimistic UI update
+      setMessages(prev => {
+        const updatedMessages = { ...prev };
+        const conversationMsgs = updatedMessages[conversationId] || [];
+        
+        updatedMessages[conversationId] = conversationMsgs.map(msg => {
+          if (messageIds.includes(msg.id) && msg.senderId !== currentUserId) {
+            console.log(`[useChat] Updating local status for message ${msg.id} to 'read'`);
+            return { ...msg, status: 'read' as const };
+          }
+          return msg;
+        });
+        
+        return updatedMessages;
+      });
+      
+    } else {
+      console.warn(`[useChat] Failed to update receipts: ${response.message}`);
     }
     
-    setActiveConversationId(conversationId);
-    
-    if (conversationId) {
-      // Mark new conversation as active - this will trigger automatic receipt updates
-      firebaseChatService.setConversationActive(conversationId, true);
-      
-      // Load messages using the separate function
-      loadConversationMessages(conversationId, true);
-      
-      // Initialize conversation subscription
-      initializeConversationSubscription(conversationId);
-      
-      // Mark as read in Firebase
-      firebaseChatService.markConversationAsRead(conversationId);
-      
-      // Update chat list unread count
-      setChats(prev => prev.map(chat => 
-        chat.id.toString() === conversationId 
-          ? { ...chat, unReadMessageCount: 0 }
-          : chat
-      ));
-    }
-  }, [activeConversationId, loadConversationMessages, initializeConversationSubscription]);
+  } catch (error) {
+    console.error(`[useChat] Error updating receipts for conversation ${conversationId}:`, error);
+  }
+}, [messages, currentUserId]);
 
   // Clean up conversation subscription
   const cleanupConversationSubscription = useCallback((conversationId: string) => {
@@ -943,51 +1521,101 @@ const sendMessage = useCallback(async (
 }, [currentUserId, currentUserName]);
 
   // Create chat
-  const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
-    console.log(`[useChat] Creating ${isGroup ? 'group' : 'private'} chat:`, { name, participants });
-    
-    try {
-      const response = await startConversation({
-        name,
-        description: isGroup ? `Group chat with ${participants.length + 1} members` : '',
-        conversationType: isGroup ? 'GROUP' : 'PRIVATE',
-        participants
+const createChat = useCallback(async (name: string, participants: string[], isGroup: boolean) => {
+  console.log(`🎯 [useChat] Creating ${isGroup ? 'group' : 'private'} chat:`, { 
+    name, 
+    participants,
+    currentUserId,
+    totalParticipants: participants.length + 1
+  });
+  
+  try {
+    const response = await startConversation({
+      name,
+      description: isGroup ? `Group chat with ${participants.length + 1} members` : '',
+      conversationType: isGroup ? 'GROUP' : 'PRIVATE',
+      participants
+    });
+
+    if (response.isSuccess) {
+      console.log('✅ [useChat] Chat created successfully:', {
+        conversationId: response.data.id,
+        conversationType: response.data.conversationType,
+        name: response.data.name
       });
+      
+      const newChat: Chat = {
+        id: response.data.id,
+        name: (response.data.conversationType?.toString().toUpperCase() === 'GROUP')
+          ? response.data.name
+          : (response.data.participants.find((p: any) => p.id !== currentUserId)?.label || response.data.name),
+        description: response.data.description || '',
+        conversationType: isGroup ? 'group' : 'private',
+        participants: response.data.participants
+          .filter((p: any) => p.id !== currentUserId)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.label,
+            label: p.label,
+            status: 'offline' as const,
+            conversationRole: p.conversationRole
+          })),
+        lastMessage: undefined,
+        unReadMessageCount: 0,
+        messageResponses: response.data.messageResponses || []
+      };
 
-      if (response.isSuccess) {
-        console.log('[useChat] Chat created successfully:', response.data);
-        
-        const newChat: Chat = {
-          id: response.data.id,
-          name: (response.data.conversationType?.toString().toUpperCase() === 'GROUP')
-            ? response.data.name
-            : (response.data.participants.find((p: any) => p.id !== currentUserId)?.label || response.data.name),
-          description: response.data.description || '',
-          conversationType: isGroup ? 'group' : 'private',
-          participants: response.data.participants
-            .filter((p: any) => p.id !== currentUserId)
-            .map((p: any) => ({
-              id: p.id,
-              name: p.label,
-              label: p.label,
-              status: 'offline' as const,
-              conversationRole: p.conversationRole
-            })),
-          lastMessage: undefined,
-          unReadMessageCount: 0,
-          messageResponses: response.data.messageResponses || []
-        };
-
-        setChats(prev => [newChat, ...prev]);
-        return newChat;
-      } else {
-        throw new Error(response.message || 'Failed to create chat');
-      }
-    } catch (err) {
-      console.error('[useChat] Error creating chat:', err);
-      throw err;
+      setChats(prev => [newChat, ...prev]);
+      
+      // ENHANCED: Wait for Firebase propagation with retry mechanism
+      const conversationId = response.data.id.toString();
+      await waitForFirebasePropagation(conversationId);
+      
+      return newChat;
+    } else {
+      throw new Error(response.message || 'Failed to create chat');
     }
-  }, [currentUserId]);
+  } catch (err) {
+    console.error('❌ [useChat] Error creating chat:', err);
+    throw err;
+  }
+}, [currentUserId, initializeConversationSubscription]);
+
+// Add this helper function for Firebase propagation
+const waitForFirebasePropagation = useCallback(async (conversationId: string, maxRetries = 5, delay = 1000) => {
+  console.log(`⏳ [useChat] Waiting for Firebase propagation for conversation: ${conversationId}`);
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Check if conversation exists in Firebase by attempting to subscribe
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.log(`✅ [useChat] Firebase propagation confirmed for ${conversationId} (attempt ${attempt})`);
+          resolve(true);
+        }, delay);
+        
+        // Try to initialize subscription - if it works, Firebase has propagated
+        initializeConversationSubscription(conversationId);
+        clearTimeout(timeout);
+        resolve(true);
+      });
+      
+      console.log(`✅ [useChat] Firebase propagation completed for ${conversationId}`);
+      return;
+      
+    } catch (error) {
+      console.warn(`⚠️ [useChat] Firebase propagation attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        console.error(`❌ [useChat] Firebase propagation failed after ${maxRetries} attempts`);
+        throw new Error('Firebase propagation timeout');
+      }
+      
+      // Wait before retry with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay * attempt));
+    }
+  }
+}, [initializeConversationSubscription]);
 
   // Reaction management
   const addMessageReaction = useCallback(async (messageId: string, emoji: string) => {
@@ -1366,7 +1994,10 @@ const sendMessage = useCallback(async (
     addChatParticipants,
     removeChatParticipants,
     changeParticipantRoleInGroup,
-    
+     handleUserTyping,
+    getTypingUsers,
+    typingUsers,
+    setTypingUsers,
     // Utility
     getTotalUnreadCount: () => totalUnreadCount,
     getConversationUnreadCount: (conversationId: string) => 

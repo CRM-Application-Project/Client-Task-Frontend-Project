@@ -23,6 +23,13 @@ export interface Chat {
     senderId: string;
   };
 }
+export interface LastMessage {
+  content: string;
+  timestamp: string | Date;
+  senderId: string;
+  id?: string; // Make id optional since it might not always be present
+  createdAt?: string; // Make createdAt optional
+}
 
 export interface GetChatListResponse {
   isSuccess: boolean;
@@ -488,5 +495,33 @@ export const getConversation = async (
 ): Promise<GetConversationResponse> => {
   const url = API_CONSTANTS.CHAT_MODULE.GET_CONVERSATION(conversationId);
   const res = await getRequest<GetConversationResponse>(url);
+  return res;
+};
+export interface UpdateUserStatusPayload {
+  /** Optional additional status like 'online' | 'offline' | 'away' */
+  status?: "online" | "offline" | "away";
+  /** true if the user is typing */
+  isTyping?: boolean;
+}
+
+export interface UpdateUserStatusResponse {
+  isSuccess: boolean;
+  message: string;
+  data?: any; // Add a more specific type if your API returns details
+}
+// Service function for updating user status
+export const updateUserStatus = async (
+  conversationId: string | number,
+  payload: UpdateUserStatusPayload
+): Promise<UpdateUserStatusResponse> => {
+  // Build the query param for isTyping if provided
+  const isTyping = payload.isTyping ?? false;
+  const url = API_CONSTANTS.CHAT_MODULE.USERSTATUS.UPDATE(conversationId, isTyping);
+
+  // POST body can include other status info (like online/offline)
+  const res = await postRequest<UpdateUserStatusResponse>(url, {
+    status: payload.status,
+  });
+
   return res;
 };

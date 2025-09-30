@@ -108,14 +108,14 @@ class GlobalNotificationState {
     try {
       // Ensure global notification manager is initialized
       await notificationManager.ensureInitialized();
-      
+
       // Set device type
       const detectedDeviceType = getDetailedDeviceType();
       this.setState({ deviceType: detectedDeviceType });
-      
+
       // Handle app startup (pre-register SW, check existing tokens)
       await handleAppStartup();
-      
+
       // Check current permission status
       const currentPermission = getNotificationPermission();
       this.setState({ permission: currentPermission });
@@ -127,8 +127,22 @@ class GlobalNotificationState {
         this.tokenSetupComplete = true;
       }
 
+      // Always load notifications from localStorage first
+      const savedNotifications = localStorage.getItem('notifications');
+      if (savedNotifications) {
+        try {
+          const parsed = JSON.parse(savedNotifications);
+          this.setState({
+            notifications: parsed,
+            unreadCount: parsed.filter((n: NotificationData) => !n.read).length
+          });
+        } catch (error) {
+          console.error('Error parsing saved notifications:', error);
+        }
+      }
+
       const userId = localStorage.getItem('userId');
-      
+
       // Fetch notifications only once during initialization
       if (userId) {
         await this.fetchNotifications();
@@ -161,66 +175,70 @@ class GlobalNotificationState {
     }
 
     const userId = localStorage.getItem('userId');
-    
-    if (!userId) {
-      const savedNotifications = localStorage.getItem('notifications');
-      if (savedNotifications) {
-        try {
-          const parsed = JSON.parse(savedNotifications);
-          this.setState({ 
-            notifications: parsed,
-            unreadCount: parsed.filter((n: NotificationData) => !n.read).length
-          });
-        } catch (error) {
-          console.error('Error parsing saved notifications:', error);
-        }
+    const savedNotifications = localStorage.getItem('notifications');
+
+    // If no local notifications, always call API
+    let loadedFromLocal = false;
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        this.setState({
+          notifications: parsed,
+          unreadCount: parsed.filter((n: NotificationData) => !n.read).length
+        });
+        loadedFromLocal = true;
+      } catch (error) {
+        console.error('Error parsing saved notifications:', error);
       }
+    }
+
+    if (!userId) {
       this.setState({ isLoading: false });
       return;
     }
 
-    // Check if notifications were fetched recently
-    const lastFetchTime = localStorage.getItem('lastNotificationFetch');
-    if (lastFetchTime) {
-      const timeSinceLastFetch = Date.now() - parseInt(lastFetchTime);
-      if (timeSinceLastFetch < 60000) { // 1 minute cooldown
-        console.log('📝 Notifications fetched recently globally, skipping...');
-        this.setState({ isLoading: false });
-        return;
-      }
+    // Always call API if localStorage is empty
+    if (!loadedFromLocal) {
+      this.setState({ isLoading: true });
     }
 
     this.fetchInProgress = true;
-    this.setState({ isLoading: true });
 
     try {
       console.log('🔄 Fetching notifications globally...');
       const response = await notificationService.fetchAllNotifications();
-      
+
       if (response.isSuccess && response.data) {
         const mappedNotifications = response.data.map(mapBackendNotificationToFrontend);
-        
-        // Sort by timestamp (newest first)
         mappedNotifications.sort((a, b) => b.timestamp - a.timestamp);
-        
         const unread = mappedNotifications.filter(n => !n.read).length;
-        
-        this.setState({
-          notifications: mappedNotifications,
-          unreadCount: unread
-        });
-        
-        // Store in localStorage for offline access
-        localStorage.setItem('notifications', JSON.stringify(mappedNotifications));
-        localStorage.setItem('lastNotificationFetch', Date.now().toString());
-        
-        console.log('✅ Notifications fetched successfully globally');
+
+        // Always display API notifications if present
+        if (mappedNotifications.length > 0) {
+          this.setState({
+            notifications: mappedNotifications,
+            unreadCount: unread
+          });
+          localStorage.setItem('notifications', JSON.stringify(mappedNotifications));
+          localStorage.setItem('lastNotificationFetch', Date.now().toString());
+          console.log('✅ Notifications fetched successfully globally');
+        } else if (savedNotifications) {
+          // If backend returns empty, fallback to localStorage
+          try {
+            const parsed = JSON.parse(savedNotifications);
+            this.setState({
+              notifications: parsed,
+              unreadCount: parsed.filter((n: NotificationData) => !n.read).length
+            });
+          } catch (error) {
+            console.error('Error parsing saved notifications:', error);
+          }
+        } else {
+          this.setState({ notifications: [], unreadCount: 0 });
+        }
       }
     } catch (error) {
       console.error('❌ Error fetching notifications globally:', error);
-      
-      // Fallback to local storage if API fails
-      const savedNotifications = localStorage.getItem('notifications');
       if (savedNotifications) {
         try {
           const parsed = JSON.parse(savedNotifications);

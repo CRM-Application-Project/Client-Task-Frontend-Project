@@ -1,3 +1,4 @@
+import { ST } from "next/dist/shared/lib/utils";
 import { putRequest } from "./httpServices";
 
 export const API_CONSTANTS = {
@@ -32,6 +33,10 @@ export const API_CONSTANTS = {
   },
   MODULE: {
     MODULE_DROPDOWN: "/tenant/modules/dropdown",
+  },
+   TENANT: {
+    UPDATE_TIMESHEET_MODE: (value: string) =>
+      `/tenant/settings/TIMESHEET_MODE?value=${value}`,
   },
     BRAND: {
     GENERATE: "/generate", 
@@ -147,6 +152,10 @@ DELETE_DISCUSSION: (discussionId: number | string) =>
     `/message/${messageId}/download-files`,
 
   },
+USERSTATUS: {
+     UPDATE: (conversationId: string | number, isTyping = false) =>
+      `/chat/user/${conversationId}?isTyping=${isTyping}`,
+}
   },
 };
 

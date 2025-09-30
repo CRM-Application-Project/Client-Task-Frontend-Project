@@ -4,7 +4,13 @@ import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { DashboardNavbar } from "./DashboardNavbar";
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export function DashboardLayout({ 
+  children, 
+  noPadding = false 
+}: { 
+  children: React.ReactNode;
+  noPadding?: boolean;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sheet
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed by default
   const [sidebarHovered, setSidebarHovered] = useState(false);
@@ -51,9 +57,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <DashboardNavbar onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Page Content */}
-        <main className="py-4 sm:py-4 lg:py-6">
-          <div className="px-4 sm:px-4 lg:px-6">{children}</div>
-        </main>
+        {noPadding ? (
+          <main className="h-[calc(100vh-4rem)]"> {/* Adjust based on your navbar height */}
+            {children}
+          </main>
+        ) : (
+          <main className="py-4 sm:py-4 lg:py-6">
+            <div className="px-4 sm:px-4 lg:px-6">{children}</div>
+          </main>
+        )}
       </div>
     </div>
   );
